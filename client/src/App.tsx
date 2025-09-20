@@ -14,12 +14,13 @@ import WaitScreen from "@/pages/wait";
 import SuccessScreen from "@/pages/success";
 import SellScreen from "@/pages/sell";
 import SupportScreen from "@/pages/support";
+import CardsScreen from "@/pages/cards";
 import BottomNavigation from "@/components/bottom-navigation";
 import { useLocation } from "wouter";
 
 function Router() {
   const [location] = useLocation();
-  const showBottomNav = ["/home", "/exchange", "/transfer", "/top-up", "/support", "/select-country"].includes(location);
+  const showBottomNav = ["/home", "/exchange", "/transfer", "/top-up", "/support", "/select-country", "/cards"].includes(location);
 
   return (
     <div className="min-h-screen gradient-bg">
@@ -35,6 +36,7 @@ function Router() {
         <Route path="/success" component={SuccessScreen} />
         <Route path="/transfer" component={SellScreen} />
         <Route path="/support" component={SupportScreen} />
+        <Route path="/cards" component={CardsScreen} />
       </Switch>
       
       {showBottomNav && <BottomNavigation />}

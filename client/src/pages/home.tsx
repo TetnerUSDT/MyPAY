@@ -110,6 +110,15 @@ export default function HomeScreen() {
                         <Icon className="w-6 h-6 text-white" />
                       </button>
                     </Link>
+                  ) : action.label === "Карты" ? (
+                    <Link href="/cards">
+                      <button 
+                        className="w-14 h-14 rounded-full bg-black/20 flex items-center justify-center mb-2"
+                        data-testid={action.testId}
+                      >
+                        <Icon className="w-6 h-6 text-white" />
+                      </button>
+                    </Link>
                   ) : (
                     <button 
                       className="w-14 h-14 rounded-full bg-black/20 flex items-center justify-center mb-2"
