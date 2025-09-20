@@ -1,4 +1,5 @@
 import { Settings, ArrowDownLeft, ArrowUpRight, RotateCcw, CreditCard, Plus } from "lucide-react";
+import catImage from "@assets/Image_1758366163369.png";
 
 export default function HomeScreen() {
   const wallets = [
@@ -36,25 +37,26 @@ export default function HomeScreen() {
     <div className="mobile-screen gradient-bg text-white">
       <div className="flex flex-col h-full">
         {/* Header with Profile */}
-        <div className="flex items-center justify-between p-6">
+        <div className="flex items-center justify-center p-6">
           <div className="flex items-center">
             {/* Profile Avatar */}
-            <div className="w-16 h-16 rounded-full bg-gray-400 flex items-center justify-center mr-4 overflow-hidden">
-              <div className="w-12 h-12 rounded-full bg-gray-600 flex items-center justify-center">
-                <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
-                  <div className="w-6 h-6 bg-purple-600 rounded-sm transform rotate-45"></div>
-                </div>
-              </div>
+            <div className="w-16 h-16 rounded-full overflow-hidden">
+              <img 
+                src={catImage} 
+                alt="Profile Avatar" 
+                className="w-full h-full object-cover"
+                data-testid="profile-avatar"
+              />
             </div>
           </div>
           
-          {/* Settings Icon */}
-          <button 
-            className="w-10 h-10 rounded-full bg-black/20 flex items-center justify-center"
-            data-testid="button-settings"
-          >
-            <Settings className="w-5 h-5 text-white" />
-          </button>
+            {/* Settings Icon */}
+            <button 
+              className="w-10 h-10 rounded-full bg-black/20 flex items-center justify-center ml-4"
+              data-testid="button-settings"
+            >
+              <Settings className="w-5 h-5 text-white" />
+            </button>
         </div>
 
         {/* Action Buttons */}
