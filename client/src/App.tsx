@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import SplashScreen from "@/pages/splash";
 import AgreementScreen from "@/pages/agreement";
 import HomeScreen from "@/pages/home";
+import SelectCountryScreen from "@/pages/select-country";
 import CountrySelectionScreen from "@/pages/country-selection";
 import ExchangeScreen from "@/pages/exchange";
 import TopUpScreen from "@/pages/top-up";
@@ -26,6 +27,7 @@ function Router() {
         <Route path="/" component={SplashScreen} />
         <Route path="/agreement" component={AgreementScreen} />
         <Route path="/home" component={HomeScreen} />
+        <Route path="/select-country" component={SelectCountryScreen} />
         <Route path="/country" component={CountrySelectionScreen} />
         <Route path="/exchange" component={ExchangeScreen} />
         <Route path="/top-up" component={TopUpScreen} />

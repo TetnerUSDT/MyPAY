@@ -1,4 +1,5 @@
 import { Settings, ArrowDownLeft, ArrowUpRight, RotateCcw, CreditCard, Plus } from "lucide-react";
+import { Link } from "wouter";
 import catImage from "@assets/Image_1758366163369.png";
 
 // Custom SVG icon component
@@ -74,12 +75,23 @@ export default function HomeScreen() {
               const Icon = action.icon;
               return (
                 <div key={index} className="flex flex-col items-center">
-                  <button 
-                    className="w-14 h-14 rounded-full bg-black/20 flex items-center justify-center mb-2"
-                    data-testid={action.testId}
-                  >
-                    <Icon className="w-6 h-6 text-white" />
-                  </button>
+                  {action.label === "Обмен" ? (
+                    <Link href="/select-country">
+                      <button 
+                        className="w-14 h-14 rounded-full bg-black/20 flex items-center justify-center mb-2"
+                        data-testid={action.testId}
+                      >
+                        <Icon className="w-6 h-6 text-white" />
+                      </button>
+                    </Link>
+                  ) : (
+                    <button 
+                      className="w-14 h-14 rounded-full bg-black/20 flex items-center justify-center mb-2"
+                      data-testid={action.testId}
+                    >
+                      <Icon className="w-6 h-6 text-white" />
+                    </button>
+                  )}
                   <span className="text-xs text-white">{action.label}</span>
                 </div>
               );
