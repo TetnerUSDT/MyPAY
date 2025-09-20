@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { Bitcoin } from "lucide-react";
-import swiftxCard from "@assets/group (1)_1758368041733.png";
+import swiftxCard from "@assets/group (2)_1758368274951.png";
 
 export default function SplashScreen() {
   return (
