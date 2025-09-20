@@ -1,17 +1,88 @@
-import { useState } from "react";
-import { Link } from "wouter";
+import { useState, useMemo } from "react";
+import { Link, useLocation } from "wouter";
 import { X, ArrowDown, ArrowRight, ChevronDown } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function SellScreen() {
   const [sendAmount, setSendAmount] = useState("0");
   const [walletAddress] = useState("TW6LqMKykCfsgkMkLxd92HGbp...");
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Get user balance (mock data for demo)
   const { data: balance } = useQuery({
     queryKey: ["/api/wallets/user/demo"],
-    queryFn: () => Promise.resolve({ balance: "0.000000" }),
+    queryFn: () => Promise.resolve({ balance: "100.000000" }),
   });
+
+  // Calculate commission dynamically (1% of send amount)
+  const commission = useMemo(() => {
+    const amount = parseFloat(sendAmount) || 0;
+    const commissionRate = 0.01; // 1%
+    return (amount * commissionRate).toFixed(6);
+  }, [sendAmount]);
+
+  // Validation
+  const isValidTransaction = useMemo(() => {
+    const amount = parseFloat(sendAmount) || 0;
+    const availableBalance = parseFloat(balance?.balance || "0");
+    return amount > 0 && amount <= availableBalance;
+  }, [sendAmount, balance?.balance]);
+
+  // Create sell transaction mutation
+  const sellMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", "/api/transactions", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+      toast({
+        title: "Success",
+        description: "Transaction completed successfully",
+      });
+      setLocation("/success");
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to complete transaction",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSell = async () => {
+    if (!isValidTransaction) {
+      toast({
+        title: "Invalid Amount",
+        description: "Please enter a valid amount within your balance",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const commissionAmount = parseFloat(commission);
+    const receiveAmount = parseFloat(sendAmount) - commissionAmount;
+
+    try {
+      await sellMutation.mutateAsync({
+        fromCurrency: "USDT",
+        toCurrency: "USDT",
+        fromAmount: sendAmount,
+        toAmount: receiveAmount.toFixed(6),
+        fromAddress: walletAddress,
+        toAddress: walletAddress,
+        cardNumber: null,
+        status: "completed",
+      });
+    } catch (error) {
+      // Error handling done in onError
+    }
+  };
 
   return (
     <div className="mobile-screen text-white">
@@ -41,7 +112,7 @@ export default function SellScreen() {
             className="text-2xl font-bold text-yellow-400"
             data-testid="text-balance"
           >
-            {balance?.balance || "0.000000"} USDT
+            {balance?.balance || "100.000000"} USDT
           </div>
         </div>
         
@@ -92,20 +163,20 @@ export default function SellScreen() {
             className="text-lg font-semibold text-yellow-400"
             data-testid="text-commission"
           >
-            1.000000 USDT
+            {commission} USDT
           </div>
         </div>
         
         {/* Send Button */}
-        <Link href="/success">
-          <button 
-            className="action-button"
-            data-testid="button-send"
-          >
-            Отправить
-            <ArrowRight className="w-5 h-5 ml-2" />
-          </button>
-        </Link>
+        <button 
+          className={`action-button ${!isValidTransaction ? 'opacity-50 cursor-not-allowed' : ''}`}
+          onClick={handleSell}
+          disabled={!isValidTransaction || sellMutation.isPending}
+          data-testid="button-send"
+        >
+          {sellMutation.isPending ? "Обработка..." : "Отправить"}
+          <ArrowRight className="w-5 h-5 ml-2" />
+        </button>
       </div>
     </div>
   );
