@@ -19,7 +19,7 @@ import { useLocation } from "wouter";
 
 function Router() {
   const [location] = useLocation();
-  const showBottomNav = ["/home", "/exchange", "/sell", "/top-up", "/support", "/select-country"].includes(location);
+  const showBottomNav = ["/home", "/exchange", "/transfer", "/top-up", "/support", "/select-country"].includes(location);
 
   return (
     <div className="min-h-screen gradient-bg">
@@ -33,7 +33,7 @@ function Router() {
         <Route path="/top-up" component={TopUpScreen} />
         <Route path="/wait" component={WaitScreen} />
         <Route path="/success" component={SuccessScreen} />
-        <Route path="/sell" component={SellScreen} />
+        <Route path="/transfer" component={SellScreen} />
         <Route path="/support" component={SupportScreen} />
       </Switch>
       
