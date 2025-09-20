@@ -1,6 +1,19 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
+import { useEffect } from "react";
 
 export default function TransferProcessingScreen() {
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    // After 3 seconds, navigate to final success state
+    const timeout = setTimeout(() => {
+      setLocation("/transfer-success");
+    }, 3000);
+
+    // Clean up the timeout if component unmounts
+    return () => clearTimeout(timeout);
+  }, [setLocation]);
+
   return (
     <div className="mobile-screen text-white">
       <div className="flex flex-col items-center justify-center min-h-screen text-center px-6">
