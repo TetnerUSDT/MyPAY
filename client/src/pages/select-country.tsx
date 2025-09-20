@@ -48,7 +48,7 @@ export default function SelectCountryScreen() {
         
         {/* Country Cards */}
         <div className="px-6">
-            {countries.map((country) => (
+          {countries.map((country) => (
               <Link key={country.id} href="/exchange">
                 <div 
                   className="crypto-card cursor-pointer hover:opacity-90 transition-all mb-[15px]"
