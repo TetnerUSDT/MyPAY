@@ -5,10 +5,30 @@ import { copyToClipboard } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import QRCodeComponent from "@/components/qr-code";
 
+type NetworkType = "TRC20" | "BEP20" | "TON";
+
 export default function TopUpScreen() {
-  const [walletAddress] = useState("TW6LqMKykCfsgkMkLxd92HGbp...");
+  const [activeNetwork, setActiveNetwork] = useState<NetworkType>("TRC20");
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
+
+  const networkData: Record<NetworkType, { address: string; qrData: string }> = {
+    TRC20: {
+      address: "TW6LqMKykCfsgkMkLxd92HGbp...",
+      qrData: "TW6LqMKykCfsgkMkLxd92HGbp..."
+    },
+    BEP20: {
+      address: "0x1234567890abcdef1234567890abcdef...",
+      qrData: "0x1234567890abcdef1234567890abcdef..."
+    },
+    TON: {
+      address: "EQD1234567890abcdef1234567890abcdef...",
+      qrData: "EQD1234567890abcdef1234567890abcdef..."
+    }
+  };
+
+  const walletAddress = networkData[activeNetwork].address;
+  const qrData = networkData[activeNetwork].qrData;
 
   const handleCopyAddress = async () => {
     try {
@@ -30,24 +50,31 @@ export default function TopUpScreen() {
 
   return (
     <div className="mobile-screen text-white">
-      {/* Header */}
-      <div className="mobile-header">
-        <div className="w-8 h-1 bg-white rounded-full"></div>
-        <Link href="/exchange">
-          <button 
-            className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center"
-            data-testid="button-close"
-          >
-            <X className="w-4 h-4 text-white" />
-          </button>
-        </Link>
-      </div>
-      
       {/* Content */}
       <div className="mobile-content">
-        <h1 className="text-2xl font-bold text-center mb-12" data-testid="text-title">
-          Пополнить
+        <h1 className="text-2xl font-bold text-center mb-8" data-testid="text-title">
+          Пополнить USDT
         </h1>
+        
+        {/* Network Selection */}
+        <div className="flex justify-center mb-12">
+          <div className="flex bg-secondary rounded-lg p-1">
+            {(["TRC20", "BEP20", "TON"] as NetworkType[]).map((network) => (
+              <button
+                key={network}
+                onClick={() => setActiveNetwork(network)}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                  activeNetwork === network
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                data-testid={`button-network-${network.toLowerCase()}`}
+              >
+                {network}
+              </button>
+            ))}
+          </div>
+        </div>
         
         {/* QR Code Section */}
         <div className="crypto-card text-center mb-8">
@@ -59,7 +86,7 @@ export default function TopUpScreen() {
           
           {/* QR Code */}
           <div className="qr-code-container mx-auto mb-6 w-48 h-48" data-testid="qr-code-container">
-            <QRCodeComponent value={walletAddress} size={192} />
+            <QRCodeComponent value={qrData} size={192} />
           </div>
           
           <div className="text-sm text-muted-foreground mb-2">На адрес кошелька</div>
