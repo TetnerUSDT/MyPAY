@@ -19,7 +19,7 @@ import { useLocation } from "wouter";
 
 function Router() {
   const [location] = useLocation();
-  const showBottomNav = ["/home", "/exchange", "/sell", "/top-up", "/support"].includes(location);
+  const showBottomNav = ["/home", "/exchange", "/sell", "/top-up", "/support", "/select-country"].includes(location);
 
   return (
     <div className="min-h-screen gradient-bg">
