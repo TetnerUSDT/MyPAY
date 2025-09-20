@@ -5,8 +5,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
+type NetworkType = "TRC20" | "BEP20" | "TON";
+
 export default function SellScreen() {
   const [sendAmount, setSendAmount] = useState("0");
+  const [activeNetwork, setActiveNetwork] = useState<NetworkType>("TRC20");
   const [walletAddress] = useState("TW6LqMKykCfsgkMkLxd92HGbp...");
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -89,8 +92,28 @@ export default function SellScreen() {
       {/* Content */}
       <div className="px-6 py-8">
         <h1 className="text-2xl font-bold text-center mb-8" data-testid="text-title">
-          Отправить Tether TRC20
+          Отправить
         </h1>
+        
+        {/* Network Selection */}
+        <div className="flex justify-center mb-8">
+          <div className="flex bg-secondary rounded-lg p-1">
+            {(["TRC20", "BEP20", "TON"] as NetworkType[]).map((network) => (
+              <button
+                key={network}
+                onClick={() => setActiveNetwork(network)}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                  activeNetwork === network
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                data-testid={`button-network-${network.toLowerCase()}`}
+              >
+                {network}
+              </button>
+            ))}
+          </div>
+        </div>
         
         {/* Balance Display */}
         <div className="text-center mb-8">
@@ -131,7 +154,7 @@ export default function SellScreen() {
         
         {/* Recipient Wallet */}
         <div className="crypto-card mb-6">
-          <div className="text-sm text-muted-foreground mb-2">Введите кошелек в сети TRC20</div>
+          <div className="text-sm text-muted-foreground mb-2">Введите кошелек в сети {activeNetwork}</div>
           <div className="bg-secondary rounded-lg px-4 py-3 flex items-center">
             <span 
               className="font-mono text-sm flex-1"
