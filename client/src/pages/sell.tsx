@@ -86,19 +86,6 @@ export default function SellScreen() {
 
   return (
     <div className="mobile-screen text-white">
-      {/* Header */}
-      <div className="mobile-header">
-        <div className="w-8 h-1 bg-white rounded-full"></div>
-        <Link href="/exchange">
-          <button 
-            className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center"
-            data-testid="button-close"
-          >
-            <X className="w-4 h-4 text-white" />
-          </button>
-        </Link>
-      </div>
-      
       {/* Content */}
       <div className="px-6 py-8">
         <h1 className="text-2xl font-bold text-center mb-8" data-testid="text-title">
