@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Zap, Percent, CreditCard } from "lucide-react";
+import { Zap, Percent, CreditCard, X } from "lucide-react";
 
 export default function SelectCountryScreen() {
   const countries = [
@@ -27,7 +27,20 @@ export default function SelectCountryScreen() {
     <div className="mobile-screen gradient-bg text-white">
       <div className="flex flex-col h-full">
         {/* Header */}
-        <div className="text-center pt-12 pb-8">
+        <div className="mobile-header">
+          <div className="w-8 h-1 bg-white rounded-full"></div>
+          <Link href="/">
+            <button 
+              className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center"
+              data-testid="button-close"
+            >
+              <X className="w-4 h-4 text-white" />
+            </button>
+          </Link>
+        </div>
+        
+        {/* Title */}
+        <div className="text-center pt-8 pb-8">
           <h1 className="text-xl font-semibold" data-testid="text-select-country-title">
             Выберите страну
           </h1>
@@ -35,7 +48,7 @@ export default function SelectCountryScreen() {
         
         {/* Country Cards */}
         <div className="flex-1 px-6">
-          <div className="space-y-4">
+          <div className="space-y-[15px]">
             {countries.map((country) => (
               <Link key={country.id} href="/exchange">
                 <div 
