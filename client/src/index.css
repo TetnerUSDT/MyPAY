@@ -1,0 +1,171 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: hsl(155, 52%, 19%);
+  --foreground: hsl(120, 100%, 98%);
+  --card: hsl(155, 33%, 27%);
+  --card-foreground: hsl(120, 100%, 98%);
+  --popover: hsl(155, 52%, 19%);
+  --popover-foreground: hsl(120, 100%, 98%);
+  --primary: hsl(84, 76%, 50%);
+  --primary-foreground: hsl(155, 30%, 10%);
+  --secondary: hsl(155, 20%, 25%);
+  --secondary-foreground: hsl(120, 100%, 98%);
+  --muted: hsl(155, 20%, 30%);
+  --muted-foreground: hsl(120, 20%, 70%);
+  --accent: hsl(84, 76%, 50%);
+  --accent-foreground: hsl(155, 30%, 10%);
+  --destructive: hsl(0, 70%, 60%);
+  --destructive-foreground: hsl(0, 0%, 98%);
+  --border: hsl(155, 20%, 30%);
+  --input: hsl(155, 20%, 25%);
+  --ring: hsl(84, 76%, 50%);
+  --chart-1: hsl(84, 76%, 50%);
+  --chart-2: hsl(155, 39%, 41%);
+  --chart-3: hsl(42, 93%, 56%);
+  --chart-4: hsl(147, 78%, 42%);
+  --chart-5: hsl(341, 75%, 51%);
+  --sidebar: hsl(155, 33%, 27%);
+  --sidebar-foreground: hsl(120, 100%, 98%);
+  --sidebar-primary: hsl(84, 76%, 50%);
+  --sidebar-primary-foreground: hsl(155, 30%, 10%);
+  --sidebar-accent: hsl(155, 20%, 30%);
+  --sidebar-accent-foreground: hsl(84, 76%, 50%);
+  --sidebar-border: hsl(155, 20%, 30%);
+  --sidebar-ring: hsl(84, 76%, 50%);
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  --radius: 1.2rem;
+  --gradient-primary: linear-gradient(135deg, hsl(155, 52%, 19%) 0%, hsl(155, 33%, 27%) 50%, hsl(155, 39%, 41%) 100%);
+  --gradient-card: linear-gradient(135deg, hsla(155, 33%, 27%, 0.8) 0%, hsla(155, 39%, 41%, 0.6) 100%);
+  --gradient-accent: linear-gradient(135deg, hsl(84, 76%, 50%) 0%, hsl(155, 39%, 41%) 100%);
+}
+
+.dark {
+  --background: hsl(155, 52%, 19%);
+  --foreground: hsl(120, 100%, 98%);
+  --card: hsl(155, 33%, 27%);
+  --card-foreground: hsl(120, 100%, 98%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased text-foreground;
+    background: var(--gradient-primary);
+    min-height: 100vh;
+    font-family: var(--font-sans);
+  }
+
+  .gradient-bg {
+    background: var(--gradient-primary);
+  }
+
+  .gradient-card {
+    background: var(--gradient-card);
+    backdrop-filter: blur(10px);
+    border: 1px solid hsla(84, 76%, 50%, 0.2);
+  }
+
+  .gradient-accent {
+    background: var(--gradient-accent);
+  }
+
+  .glass-effect {
+    background: hsla(155, 33%, 27%, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid hsla(84, 76%, 50%, 0.2);
+  }
+
+  .countdown-timer {
+    background: hsla(0, 0%, 0%, 0.3);
+    border: 1px solid hsla(84, 76%, 50%, 0.3);
+  }
+
+  .status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 8px;
+  }
+
+  .status-processing { 
+    background: hsl(45, 93%, 47%); 
+  }
+  
+  .status-completed { 
+    background: hsl(142, 76%, 36%); 
+  }
+  
+  .status-failed { 
+    background: hsl(0, 70%, 60%); 
+  }
+
+  .chat-bubble {
+    background: white;
+    color: #333;
+    border-radius: 18px 18px 18px 4px;
+    padding: 16px;
+    margin: 8px 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+
+  .avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--gradient-accent);
+  }
+
+  .qr-code-container {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+@layer components {
+  .mobile-screen {
+    @apply min-h-screen flex flex-col;
+  }
+
+  .mobile-header {
+    @apply flex items-center justify-between p-4;
+  }
+
+  .mobile-content {
+    @apply flex-1 px-6 py-8;
+  }
+
+  .crypto-card {
+    @apply rounded-2xl p-6 text-white;
+    background: var(--gradient-card);
+    backdrop-filter: blur(10px);
+  }
+
+  .action-button {
+    @apply w-full font-semibold py-4 px-6 rounded-xl transition-all duration-200 flex items-center justify-center;
+    background: var(--gradient-accent);
+    color: var(--accent-foreground);
+  }
+
+  .action-button:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+  }
+
+  .input-field {
+    @apply w-full bg-secondary text-foreground px-4 py-3 rounded-lg outline-none border border-transparent focus:border-accent;
+  }
+}
