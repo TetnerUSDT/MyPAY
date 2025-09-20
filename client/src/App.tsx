@@ -4,6 +4,8 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import SplashScreen from "@/pages/splash";
+import AgreementScreen from "@/pages/agreement";
+import HomeScreen from "@/pages/home";
 import CountrySelectionScreen from "@/pages/country-selection";
 import ExchangeScreen from "@/pages/exchange";
 import TopUpScreen from "@/pages/top-up";
@@ -16,12 +18,14 @@ import { useLocation } from "wouter";
 
 function Router() {
   const [location] = useLocation();
-  const showBottomNav = ["/exchange", "/sell", "/top-up", "/support"].includes(location);
+  const showBottomNav = ["/home", "/exchange", "/sell", "/top-up", "/support"].includes(location);
 
   return (
     <div className="min-h-screen gradient-bg">
       <Switch>
         <Route path="/" component={SplashScreen} />
+        <Route path="/agreement" component={AgreementScreen} />
+        <Route path="/home" component={HomeScreen} />
         <Route path="/country" component={CountrySelectionScreen} />
         <Route path="/exchange" component={ExchangeScreen} />
         <Route path="/top-up" component={TopUpScreen} />

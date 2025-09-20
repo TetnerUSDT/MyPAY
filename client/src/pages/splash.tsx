@@ -25,7 +25,7 @@ export default function SplashScreen() {
         <h2 className="text-2xl font-bold mb-4">Быстрый и надежный</h2>
         <h3 className="text-xl font-semibold mb-12">обмен криптовалют</h3>
         
-        <Link href="/country" className="w-full max-w-sm">
+        <Link href="/agreement" className="w-full max-w-sm">
           <button 
             className="action-button"
             data-testid="button-start-agreement"
