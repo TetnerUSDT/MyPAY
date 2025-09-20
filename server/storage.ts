@@ -47,6 +47,9 @@ export class MemStorage implements IStorage {
 
     // Initialize with some exchange rates
     this.initializeExchangeRates();
+    
+    // Initialize demo support chat
+    this.initializeDemoChat();
   }
 
   private initializeExchangeRates() {
@@ -66,6 +69,25 @@ export class MemStorage implements IStorage {
       };
       this.exchangeRates.set(`${rate.fromCurrency}_${rate.toCurrency}`, exchangeRate);
     });
+  }
+
+  private initializeDemoChat() {
+    const demoChat: SupportChat = {
+      id: "demo-chat-1",
+      userId: null,
+      transactionId: null,
+      messages: [
+        {
+          sender: "Elena from support",
+          message: "Hi there! How can I help?",
+          timestamp: new Date()
+        }
+      ],
+      status: "open",
+      createdAt: new Date(),
+    };
+    
+    this.supportChats.set("demo-chat-1", demoChat);
   }
 
   async getUser(id: string): Promise<User | undefined> {

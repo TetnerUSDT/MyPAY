@@ -42,6 +42,13 @@ export default function SupportScreen() {
     }
   };
 
+  const handleOpenDispute = () => {
+    toast({
+      title: "Dispute Opened",
+      description: "Your dispute has been submitted to our support team. You will be contacted within 24 hours.",
+    });
+  };
+
   return (
     <div className="mobile-screen text-white">
       {/* Header */}
@@ -114,9 +121,10 @@ export default function SupportScreen() {
       </div>
       
       {/* Actions */}
-      <div className="px-6 pb-8">
+      <div className="px-6 pb-20">
         <button 
           className="action-button mb-4"
+          onClick={handleOpenDispute}
           data-testid="button-open-dispute"
         >
           Открыть спор
