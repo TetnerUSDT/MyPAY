@@ -1,8 +1,19 @@
 import { Link } from "wouter";
 import { Zap, Percent, CreditCard, X } from "lucide-react";
+import { RussiaFlag, TurkeyFlag } from "@/components/flags";
+
+type Country = {
+  id: string;
+  name: string;
+  description: string;
+  time: string;
+  fee: string;
+  method: string;
+  FlagComponent: React.FC<React.SVGProps<SVGSVGElement>>;
+};
 
 export default function SelectCountryScreen() {
-  const countries = [
+  const countries: Country[] = [
     {
       id: "russia",
       name: "Россия (RU)",
@@ -10,7 +21,7 @@ export default function SelectCountryScreen() {
       time: "15 минут",
       fee: "1-2%",
       method: "Card",
-      flag: "🇷🇺"
+      FlagComponent: RussiaFlag
     },
     {
       id: "turkey", 
@@ -19,7 +30,7 @@ export default function SelectCountryScreen() {
       time: "15 минут",
       fee: "3-6%", 
       method: "Card",
-      flag: "🇹🇷"
+      FlagComponent: TurkeyFlag
     }
   ];
 
@@ -46,7 +57,6 @@ export default function SelectCountryScreen() {
           </h1>
         </div>
         
-        {/* Country Cards */}
         {countries.map((country) => (
           <Link key={country.id} href="/exchange">
             <div 
@@ -56,15 +66,15 @@ export default function SelectCountryScreen() {
                   {/* Country Header */}
                   <div className="flex items-center mb-6">
                     {/* Country Flag */}
-                    <div className="w-12 h-12 rounded-full flex items-center justify-center mr-4 bg-white/10 border border-white/20">
-                      <span 
-                        className="text-3xl leading-none" 
-                        role="img" 
-                        aria-label={`${country.id}-flag`} 
+                    <div 
+                      className="w-12 h-12 rounded-full flex items-center justify-center mr-4 bg-white/5 border border-white/10 overflow-hidden"
+                      data-testid={`flag-wrapper-${country.id}`}
+                    >
+                      <country.FlagComponent 
+                        className="w-10 h-10" 
                         data-testid={`flag-${country.id}`}
-                      >
-                        {country.flag}
-                      </span>
+                        aria-label={`${country.name} flag`}
+                      />
                     </div>
                     
                     {/* Country Info */}
