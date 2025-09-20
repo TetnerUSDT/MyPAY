@@ -47,20 +47,24 @@ export default function SelectCountryScreen() {
         </div>
         
         {/* Country Cards */}
-        <div className="px-6">
-          {countries.map((country) => (
-              <Link key={country.id} href="/exchange">
-                <div 
-                  className="crypto-card cursor-pointer hover:opacity-90 transition-all mb-[15px]"
+        {countries.map((country) => (
+          <Link key={country.id} href="/exchange">
+            <div 
+              className="crypto-card mx-6 cursor-pointer hover:opacity-90 transition-all mb-[15px]"
                   data-testid={`country-card-${country.id}`}
                 >
                   {/* Country Header */}
                   <div className="flex items-center mb-6">
-                    {/* Bank Icon */}
-                    <div className="w-12 h-12 bg-yellow-400 rounded-full flex items-center justify-center mr-4">
-                      <svg className="w-6 h-6 text-yellow-800" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm3 2h6v4H7V6zm8 8v2a1 1 0 01-1 1H4a1 1 0 01-1-1v-2h10z" clipRule="evenodd" />
-                      </svg>
+                    {/* Country Flag */}
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center mr-4 bg-white/10 border border-white/20">
+                      <span 
+                        className="text-3xl leading-none" 
+                        role="img" 
+                        aria-label={`${country.id}-flag`} 
+                        data-testid={`flag-${country.id}`}
+                      >
+                        {country.flag}
+                      </span>
                     </div>
                     
                     {/* Country Info */}
@@ -111,8 +115,7 @@ export default function SelectCountryScreen() {
                   </div>
                 </div>
               </Link>
-            ))}
-        </div>
+          ))}
       </div>
     </div>
   );
