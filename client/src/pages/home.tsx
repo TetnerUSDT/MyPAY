@@ -1,10 +1,10 @@
-import { Settings, ArrowDownLeft, ArrowUpRight, RotateCcw, CreditCard, Plus } from "lucide-react";
+import { Settings, ArrowDownLeft, ArrowUpRight, RotateCcw, CreditCard, Plus, ArrowRightLeft } from "lucide-react";
 import { Link } from "wouter";
 import catImage from "@assets/Image_1758366163369.png";
 
 // Custom SVG icon component
-const RefreshIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+const RefreshIcon = ({ className = "w-6 h-6", ...props }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className={className} {...props}>
     <path fill="none" d="M0 0h24v24H0z"/>
     <path d="m22.69 18.37 1.14-1-1-1.73-1.45.49q-.48-.405-1.08-.63L20 14h-2l-.3 1.49q-.6.225-1.08.63l-1.45-.49-1 1.73 1.14 1c-.08.5-.08.76 0 1.26l-1.14 1 1 1.73 1.45-.49q.48.405 1.08.63L18 24h2l.3-1.49q.6-.225 1.08-.63l1.45.49 1-1.73-1.14-1c.08-.51.08-.77 0-1.27M19 21c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2M11 7v5.41l2.36 2.36 1.04-1.79-1.4-1.39V7zm10 5a9 9 0 0 0-9-9C9.17 3 6.65 4.32 5 6.36V4H3v6h6V8H6.26A7.01 7.01 0 0 1 12 5c3.86 0 7 3.14 7 7zm-10.14 6.91c-2.99-.49-5.35-2.9-5.78-5.91H3.06c.5 4.5 4.31 8 8.94 8h.07z"/>
   </svg>
@@ -38,7 +38,7 @@ export default function HomeScreen() {
   const actions = [
     { icon: ArrowDownLeft, label: "Пополнить", testId: "action-deposit" },
     { icon: ArrowUpRight, label: "Отправить", testId: "action-send" },
-    { icon: RefreshIcon, label: "Обмен", testId: "action-exchange" },
+    { icon: ArrowRightLeft, label: "Обмен", testId: "action-exchange" },
     { icon: CreditCard, label: "Карты", testId: "action-cards" }
   ];
 
@@ -48,6 +48,14 @@ export default function HomeScreen() {
         {/* Header with Profile */}
         <div className="flex items-center justify-center p-6">
           <div className="flex items-center">
+            {/* Exchange Icon */}
+            <button 
+              className="w-10 h-10 rounded-full bg-black/20 flex items-center justify-center mr-4"
+              data-testid="button-exchange-left"
+            >
+              <RefreshIcon className="w-5 h-5 text-white" />
+            </button>
+            
             {/* Profile Avatar */}
             <div className="w-16 h-16 rounded-full overflow-hidden">
               <img 
