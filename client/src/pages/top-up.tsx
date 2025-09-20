@@ -112,7 +112,7 @@ export default function TopUpScreen() {
         </div>
         
         {/* Continue Button */}
-        <Link href="/wait">
+        <Link href="/top-up-success">
           <button 
             className="action-button"
             data-testid="button-continue"
