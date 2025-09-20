@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { Bitcoin } from "lucide-react";
+import swiftxCard from "@assets/group (1)_1758368041733.png";
 
 export default function SplashScreen() {
   return (
@@ -12,14 +13,12 @@ export default function SplashScreen() {
         
         {/* Main card with branding */}
         <div className="relative z-10 w-full max-w-sm mb-12">
-          <div className="gradient-accent rounded-2xl p-8 shadow-2xl">
-            <div className="flex items-center justify-center mb-4">
-              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mr-3">
-                <Bitcoin className="w-8 h-8 text-orange-500" />
-              </div>
-              <h1 className="text-3xl font-bold text-accent-foreground">SwiftX</h1>
-            </div>
-          </div>
+          <img 
+            src={swiftxCard} 
+            alt="SwiftX Card" 
+            className="w-full h-auto rounded-2xl shadow-2xl"
+            data-testid="swiftx-card"
+          />
         </div>
         
         <h2 className="text-2xl font-bold mb-4">Быстрый и надежный</h2>
