@@ -14,16 +14,16 @@ export default function TopUpScreen() {
 
   const networkData: Record<NetworkType, { address: string; qrData: string }> = {
     TRC20: {
-      address: "TW6LqMKykCfsgkMkLxd92HGbp...",
-      qrData: "TW6LqMKykCfsgkMkLxd92HGbp..."
+      address: "TW6LqMKykCfsgkMkLxd92HGbp1234567...",
+      qrData: "TW6LqMKykCfsgkMkLxd92HGbp1234567..."
     },
     BEP20: {
-      address: "0x1234567890abcdef1234567890abcdef...",
-      qrData: "0x1234567890abcdef1234567890abcdef..."
+      address: "0x1234567890abcdef1234567890abcd...",
+      qrData: "0x1234567890abcdef1234567890abcd..."
     },
     TON: {
-      address: "EQD1234567890abcdef1234567890abcdef...",
-      qrData: "EQD1234567890abcdef1234567890abcdef..."
+      address: "EQD1234567890abcdef1234567890abc...",
+      qrData: "EQD1234567890abcdef1234567890abc..."
     }
   };
 
