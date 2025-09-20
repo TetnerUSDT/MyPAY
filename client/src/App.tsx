@@ -13,6 +13,8 @@ import TopUpScreen from "@/pages/top-up";
 import WaitScreen from "@/pages/wait";
 import SuccessScreen from "@/pages/success";
 import TopUpSuccessScreen from "@/pages/top-up-success";
+import TransferProcessingScreen from "@/pages/transfer-processing";
+import TransferSuccessScreen from "@/pages/transfer-success";
 import SellScreen from "@/pages/sell";
 import SupportScreen from "@/pages/support";
 import CardsScreen from "@/pages/cards";
@@ -36,6 +38,8 @@ function Router() {
         <Route path="/wait" component={WaitScreen} />
         <Route path="/success" component={SuccessScreen} />
         <Route path="/top-up-success" component={TopUpSuccessScreen} />
+        <Route path="/transfer-processing" component={TransferProcessingScreen} />
+        <Route path="/transfer-success" component={TransferSuccessScreen} />
         <Route path="/transfer" component={SellScreen} />
         <Route path="/support" component={SupportScreen} />
         <Route path="/cards" component={CardsScreen} />

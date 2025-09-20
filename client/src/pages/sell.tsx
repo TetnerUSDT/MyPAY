@@ -43,11 +43,13 @@ export default function SellScreen() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
-      toast({
-        title: "Success",
-        description: "Transaction completed successfully",
-      });
-      setLocation("/success");
+      // Navigate to processing state first
+      setLocation("/transfer-processing");
+      
+      // After 3 seconds, navigate to final success state
+      setTimeout(() => {
+        setLocation("/transfer-success");
+      }, 3000);
     },
     onError: () => {
       toast({
