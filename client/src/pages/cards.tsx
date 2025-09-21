@@ -15,18 +15,6 @@ export default function CardsScreen() {
   return (
     <div className="mobile-screen gradient-bg text-white">
       <div className="flex flex-col h-full">
-        {/* Header */}
-        <div className="mobile-header">
-          <div className="w-8 h-1 bg-white rounded-full"></div>
-          <Link href="/home">
-            <button 
-              className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center"
-              data-testid="button-close"
-            >
-              <X className="w-4 h-4 text-white" />
-            </button>
-          </Link>
-        </div>
         
         {/* Title */}
         <div className="text-center pt-8 pb-16">
