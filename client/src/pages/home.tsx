@@ -1,6 +1,9 @@
 import { Settings, ArrowDownLeft, ArrowUpRight, RotateCcw, CreditCard, Plus, ArrowRightLeft } from "lucide-react";
 import { Link } from "wouter";
 import catImage from "@assets/Image_1758366163369.png";
+import tronImage from "@assets/tron_1758481649917.png";
+import bnbImage from "@assets/bnb_1758481660380.png";
+import tonImage from "@assets/ton_1758481672408.png";
 
 // Custom SVG icon component
 const RefreshIcon = ({ className = "w-6 h-6", ...props }) => (
@@ -17,21 +20,21 @@ export default function HomeScreen() {
       name: "Tether TRC20",
       amount: "0.000000",
       currency: "USDT",
-      icon: "$"
+      icon: tronImage
     },
     {
       id: 2,
       name: "Tether BEP20",
       amount: "0.000000", 
       currency: "USDT",
-      icon: "$"
+      icon: bnbImage
     },
     {
       id: 3,
       name: "Tether TON",
       amount: "0.000000",
       currency: "USDT", 
-      icon: "$"
+      icon: tonImage
     }
   ];
 
@@ -147,10 +150,12 @@ export default function HomeScreen() {
               >
                 <div className="flex items-center">
                   {/* Wallet Icon */}
-                  <div className="w-12 h-12 bg-accent rounded-full flex items-center justify-center mr-4">
-                    <span className="text-accent-foreground font-bold text-lg">
-                      {wallet.icon}
-                    </span>
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center mr-4 overflow-hidden">
+                    <img 
+                      src={wallet.icon} 
+                      alt={wallet.name}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                   
                   {/* Wallet Info */}
