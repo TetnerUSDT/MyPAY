@@ -1,6 +1,6 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { X, ArrowDown, Copy, ArrowRight, Check } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { copyToClipboard } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import QRCodeComponent from "@/components/qr-code";
@@ -11,6 +11,16 @@ export default function TopUpScreen() {
   const [activeNetwork, setActiveNetwork] = useState<NetworkType>("TRC20");
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
+  const [location] = useLocation();
+
+  // Read network from URL parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const networkParam = urlParams.get('network') as NetworkType;
+    if (networkParam && ['TRC20', 'BEP20', 'TON'].includes(networkParam)) {
+      setActiveNetwork(networkParam);
+    }
+  }, [location]);
 
   const networkData: Record<NetworkType, { address: string; qrData: string }> = {
     TRC20: {

@@ -177,18 +177,22 @@ export default function HomeScreen() {
                 
                 {/* Action Buttons */}
                 <div className="flex space-x-2">
-                  <button 
-                    className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center"
-                    data-testid={`button-deposit-${wallet.id}`}
-                  >
-                    <span className="text-accent-foreground font-bold">T</span>
-                  </button>
-                  <button 
-                    className="w-10 h-10 bg-yellow-400 rounded-lg flex items-center justify-center"
-                    data-testid={`button-send-${wallet.id}`}
-                  >
-                    <ArrowUpRight className="w-4 h-4 text-black" />
-                  </button>
+                  <Link href={`/top-up?network=${wallet.name.includes('TRC20') ? 'TRC20' : wallet.name.includes('BEP20') ? 'BEP20' : 'TON'}`}>
+                    <button 
+                      className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center"
+                      data-testid={`button-deposit-${wallet.id}`}
+                    >
+                      <ArrowDownLeft className="w-4 h-4 text-accent-foreground" />
+                    </button>
+                  </Link>
+                  <Link href={`/transfer?network=${wallet.name.includes('TRC20') ? 'TRC20' : wallet.name.includes('BEP20') ? 'BEP20' : 'TON'}`}>
+                    <button 
+                      className="w-10 h-10 bg-yellow-400 rounded-lg flex items-center justify-center"
+                      data-testid={`button-send-${wallet.id}`}
+                    >
+                      <ArrowUpRight className="w-4 h-4 text-black" />
+                    </button>
+                  </Link>
                 </div>
               </div>
             ))}

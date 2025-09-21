@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { X, ArrowDown, ArrowRight, ChevronDown } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -11,9 +11,18 @@ export default function SellScreen() {
   const [sendAmount, setSendAmount] = useState("0");
   const [activeNetwork, setActiveNetwork] = useState<NetworkType>("TRC20");
   const [walletAddress] = useState("TW6LqMKykCfsgkMkLxd92HGbp...");
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Read network from URL parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const networkParam = urlParams.get('network') as NetworkType;
+    if (networkParam && ['TRC20', 'BEP20', 'TON'].includes(networkParam)) {
+      setActiveNetwork(networkParam);
+    }
+  }, [location]);
 
   // Get user balance (mock data for demo)
   const { data: balance } = useQuery({
