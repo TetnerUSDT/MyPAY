@@ -1,9 +1,13 @@
-import { Settings, ArrowDownLeft, ArrowUpRight, RotateCcw, CreditCard, Plus, ArrowRightLeft } from "lucide-react";
+import { useState } from "react";
+import { Settings, ArrowDownLeft, ArrowUpRight, RotateCcw, CreditCard, Plus, ArrowRightLeft, X } from "lucide-react";
 import { Link } from "wouter";
+import { useToast } from "@/hooks/use-toast";
 import catImage from "@assets/Image_1758366163369.png";
 import tronImage from "@assets/tron_1758481649917.png";
 import bnbImage from "@assets/bnb_1758481660380.png";
 import tonImage from "@assets/ton_1758481672408.png";
+import ethereumImage from "@assets/ethereum_1758481901648.png";
+import solanaImage from "@assets/solana_1758481901649.png";
 
 // Custom SVG icon component
 const RefreshIcon = ({ className = "w-6 h-6", ...props }) => (
@@ -14,6 +18,8 @@ const RefreshIcon = ({ className = "w-6 h-6", ...props }) => (
 );
 
 export default function HomeScreen() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { toast } = useToast();
   const wallets = [
     {
       id: 1,
@@ -193,13 +199,105 @@ export default function HomeScreen() {
         <div className="p-6">
           <button 
             className="action-button"
-            data-testid="button-add-wallet"
+            onClick={() => setIsModalOpen(true)}
+            data-testid="button-add-network"
           >
             <Plus className="w-5 h-5 mr-2" />
-            Добавить кошелек
+            Добавить сеть
           </button>
         </div>
       </div>
+
+      {/* Add Network Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => setIsModalOpen(false)}
+          />
+          
+          {/* Modal Content */}
+          <div className="relative bg-gradient-to-b from-gray-900 to-gray-800 rounded-2xl border border-gray-700 shadow-2xl max-w-sm w-full mx-4 overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-700">
+              <h2 className="text-xl font-semibold text-white">Добавить сеть</h2>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-gray-700/50 flex items-center justify-center hover:bg-gray-600/50 transition-colors"
+                data-testid="button-close-modal"
+              >
+                <X className="w-4 h-4 text-gray-300" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6">
+              <p className="text-gray-300 text-sm mb-6 text-center">
+                Выберите сеть для добавления
+              </p>
+              
+              <div className="space-y-4">
+                {/* Ethereum Option */}
+                <button
+                  onClick={() => {
+                    toast({
+                      title: "Ethereum",
+                      description: "Данная сеть временно недоступна",
+                      variant: "destructive",
+                    });
+                    setIsModalOpen(false);
+                  }}
+                  className="w-full crypto-card p-4 hover:bg-gray-700/30 transition-all border border-gray-600 hover:border-gray-500"
+                  data-testid="button-add-ethereum"
+                >
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 rounded-full overflow-hidden mr-4">
+                      <img 
+                        src={ethereumImage} 
+                        alt="Ethereum"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="font-semibold text-white">Ethereum</h3>
+                      <p className="text-sm text-gray-400">ETH сеть</p>
+                    </div>
+                  </div>
+                </button>
+
+                {/* Solana Option */}
+                <button
+                  onClick={() => {
+                    toast({
+                      title: "Solana",
+                      description: "Данная сеть временно недоступна",
+                      variant: "destructive",
+                    });
+                    setIsModalOpen(false);
+                  }}
+                  className="w-full crypto-card p-4 hover:bg-gray-700/30 transition-all border border-gray-600 hover:border-gray-500"
+                  data-testid="button-add-solana"
+                >
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 rounded-full overflow-hidden mr-4">
+                      <img 
+                        src={solanaImage} 
+                        alt="Solana"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="font-semibold text-white">Solana</h3>
+                      <p className="text-sm text-gray-400">SOL сеть</p>
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
