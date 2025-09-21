@@ -162,7 +162,7 @@ export default function WaitScreen() {
           </div>
 
           {/* Hourglass Icon */}
-          <div className="w-full max-w-md bg-green-800/60 rounded-2xl p-16 flex items-center justify-center border border-green-700/40">
+          <div className="w-full max-w-md bg-black/20 rounded-2xl p-16 flex items-center justify-center">
             <svg 
               width="80" 
               height="80" 
