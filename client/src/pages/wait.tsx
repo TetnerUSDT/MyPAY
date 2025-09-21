@@ -143,19 +143,6 @@ export default function WaitScreen() {
   if (currentState === "checking") {
     return (
       <div className="mobile-screen text-white relative overflow-hidden">
-        {/* Decorative blocks */}
-        <div className="absolute top-16 left-1/2 transform -translate-x-1/2 bg-purple-600 text-white px-3 py-1 rounded text-sm font-bold z-10">
-          196
-        </div>
-        <div className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-purple-600 text-white px-3 py-1 rounded text-sm font-bold z-10">
-          17
-        </div>
-        <div className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-purple-600 text-white px-3 py-1 rounded text-sm font-bold z-10">
-          23
-        </div>
-        <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 bg-purple-600 text-white px-3 py-1 rounded text-sm font-bold z-10">
-          321
-        </div>
         
         <div className="flex flex-col items-center justify-center min-h-screen text-center px-6">
           <h1 className="text-2xl font-bold mb-4" data-testid="text-title">
@@ -175,7 +162,7 @@ export default function WaitScreen() {
           </div>
 
           {/* Hourglass Icon */}
-          <div className="w-full max-w-md bg-secondary/50 rounded-2xl p-16 flex items-center justify-center">
+          <div className="w-full max-w-md bg-green-800/60 rounded-2xl p-16 flex items-center justify-center border border-green-700/40">
             <svg 
               width="80" 
               height="80" 
