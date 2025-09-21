@@ -60,6 +60,23 @@ export default function CardsScreen() {
     return number.replace(/(\d{4})(?=\d)/g, '$1 ');
   };
 
+  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Remove all non-digit characters
+    const numericValue = e.target.value.replace(/\D/g, '');
+    
+    // Limit to 16 digits
+    const limitedValue = numericValue.slice(0, 16);
+    
+    // Add spaces every 4 digits for display
+    const formattedValue = limitedValue.replace(/(\d{4})(?=\d)/g, '$1 ');
+    
+    // Update form state with raw numeric value
+    setFormData({ ...formData, number: limitedValue });
+    
+    // Update input display value
+    e.target.value = formattedValue;
+  };
+
   return (
     <div className="mobile-screen gradient-bg text-white">
       <div className="flex flex-col h-full">
@@ -203,8 +220,8 @@ export default function CardsScreen() {
                 <Input
                   id="cardNumber"
                   placeholder="4373 8349 9348 7328"
-                  value={formData.number}
-                  onChange={(e) => setFormData({ ...formData, number: e.target.value.replace(/\s/g, '') })}
+                  value={formatCardNumber(formData.number)}
+                  onChange={handleCardNumberChange}
                   className="input-field"
                   data-testid="input-card-number"
                 />
