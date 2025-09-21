@@ -48,13 +48,15 @@ export default function HomeScreen() {
         {/* Header with Profile */}
         <div className="flex items-center justify-center p-6">
           <div className="flex items-center">
-            {/* Exchange Icon */}
-            <button 
-              className="w-10 h-10 rounded-full bg-black/20 flex items-center justify-center mr-4"
-              data-testid="button-exchange-left"
-            >
-              <RefreshIcon className="w-5 h-5 text-white" />
-            </button>
+            {/* History Icon */}
+            <Link href="/history">
+              <button 
+                className="w-10 h-10 rounded-full bg-black/20 flex items-center justify-center mr-4"
+                data-testid="button-history"
+              >
+                <RefreshIcon className="w-5 h-5 text-white" />
+              </button>
+            </Link>
             
             {/* Profile Avatar */}
             <div className="w-16 h-16 rounded-full overflow-hidden">

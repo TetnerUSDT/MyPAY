@@ -19,6 +19,7 @@ import PaymentScreen from "@/pages/payment";
 import SellScreen from "@/pages/sell";
 import SupportScreen from "@/pages/support";
 import CardsScreen from "@/pages/cards";
+import HistoryScreen from "@/pages/history";
 import BottomNavigation from "@/components/bottom-navigation";
 import { useLocation } from "wouter";
 
@@ -45,6 +46,7 @@ function Router() {
         <Route path="/transfer" component={SellScreen} />
         <Route path="/support" component={SupportScreen} />
         <Route path="/cards" component={CardsScreen} />
+        <Route path="/history" component={HistoryScreen} />
       </Switch>
       
       {showBottomNav && <BottomNavigation />}
