@@ -155,7 +155,7 @@ export default function WaitScreen() {
           
           {/* Timer */}
           <div className="inline-flex items-center bg-secondary border border-yellow-400 rounded-lg px-4 py-2 mb-16">
-            <Clock className="w-4 h-4 mr-2 text-yellow-400" />
+            <Clock className="w-6 h-6 mr-2 text-yellow-400" />
             <span className="font-mono text-lg text-yellow-400" data-testid="text-countdown">
               {formatCountdown(countdown)}
             </span>
@@ -195,7 +195,7 @@ export default function WaitScreen() {
           
           {/* Timer */}
           <div className="inline-flex items-center bg-secondary border border-yellow-400 rounded-lg px-4 py-2 mb-8">
-            <Clock className="w-4 h-4 mr-2 text-yellow-400" />
+            <Clock className="w-6 h-6 mr-2 text-yellow-400" />
             <span className="font-mono text-lg text-yellow-400" data-testid="text-countdown">
               {formatCountdown(countdown)}
             </span>
@@ -219,17 +219,17 @@ export default function WaitScreen() {
                 data-testid="button-copy-hash"
               >
                 {copied ? (
-                  <Check className="w-4 h-4 text-green-400" />
+                  <Check className="w-6 h-6 text-green-400" />
                 ) : (
-                  <Copy className="w-4 h-4 text-accent" />
+                  <Copy className="w-6 h-6 text-accent" />
                 )}
               </button>
             </div>
           </div>
 
           {/* Arrow Down */}
-          <div className="w-10 h-10 bg-accent rounded-full flex items-center justify-center mb-4 border-[6px]" style={{borderColor: '#2a4c3b'}}>
-            <ArrowDown className="w-5 h-5 text-accent-foreground" />
+          <div className="w-12 h-12 bg-accent rounded-full flex items-center justify-center mb-4 border-[6px]" style={{borderColor: '#2a4c3b'}}>
+            <ArrowDown className="w-6 h-6 text-accent-foreground" />
           </div>
 
           {/* Ready to Send */}
