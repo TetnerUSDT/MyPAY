@@ -83,7 +83,7 @@ export default function ExchangeScreen() {
                   <span className="text-white font-medium mr-2" data-testid="text-pay-currency">
                     {payCurrency}
                   </span>
-                  <ChevronDown className="w-4 h-4 text-white" />
+                  <ChevronDown className="w-6 h-6 text-white" />
                 </div>
               </div>
             </div>
@@ -110,7 +110,7 @@ export default function ExchangeScreen() {
                   <span className="text-white font-medium mr-2" data-testid="text-receive-currency">
                     {receiveCurrency}
                   </span>
-                  <ChevronDown className="w-4 h-4 text-white" />
+                  <ChevronDown className="w-6 h-6 text-white" />
                 </div>
               </div>
             </div>
