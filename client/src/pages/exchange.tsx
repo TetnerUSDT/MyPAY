@@ -13,7 +13,7 @@ export default function ExchangeScreen() {
 
   const handleExchange = () => {
     // Navigation to payment flow using router
-    setLocation("/top-up");
+    setLocation("/payment");
   };
 
   return (
