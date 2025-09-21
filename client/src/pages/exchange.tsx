@@ -90,8 +90,8 @@ export default function ExchangeScreen() {
 
             {/* Arrow Down */}
             <div className="flex justify-center">
-              <div className="w-10 h-10 bg-accent rounded-full flex items-center justify-center border-[6px]" style={{borderColor: '#2a4c3b'}}>
-                <ArrowDown className="w-5 h-5 text-accent-foreground" />
+              <div className="w-12 h-12 bg-accent rounded-full flex items-center justify-center border-[6px]" style={{borderColor: '#2a4c3b'}}>
+                <ArrowDown className="w-6 h-6 text-accent-foreground" />
               </div>
             </div>
 
@@ -117,8 +117,8 @@ export default function ExchangeScreen() {
 
             {/* Arrow Down */}
             <div className="flex justify-center">
-              <div className="w-10 h-10 bg-accent rounded-full flex items-center justify-center border-[6px]" style={{borderColor: '#2a4c3b'}}>
-                <ArrowDown className="w-5 h-5 text-accent-foreground" />
+              <div className="w-12 h-12 bg-accent rounded-full flex items-center justify-center border-[6px]" style={{borderColor: '#2a4c3b'}}>
+                <ArrowDown className="w-6 h-6 text-accent-foreground" />
               </div>
             </div>
 
@@ -129,7 +129,7 @@ export default function ExchangeScreen() {
                 <span className="text-white font-mono text-lg" data-testid="text-selected-card">
                   {selectedCard}
                 </span>
-                <ChevronDown className="w-4 h-4 text-white" />
+                <ChevronDown className="w-6 h-6 text-white" />
               </div>
             </div>
             </div>
