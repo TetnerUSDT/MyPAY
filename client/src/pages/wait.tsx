@@ -228,7 +228,7 @@ export default function WaitScreen() {
           </div>
 
           {/* Arrow Down */}
-          <div className="w-10 h-10 bg-accent rounded-full flex items-center justify-center mb-4">
+          <div className="w-10 h-10 bg-accent rounded-full flex items-center justify-center mb-4 border-[6px]" style={{borderColor: '#2a4c3b'}}>
             <ArrowDown className="w-5 h-5 text-accent-foreground" />
           </div>
 

@@ -124,7 +124,7 @@ export default function PaymentScreen() {
 
         {/* Arrow Down */}
         <div className="flex justify-center mb-4">
-          <div className="w-10 h-10 bg-accent rounded-full flex items-center justify-center">
+          <div className="w-10 h-10 bg-accent rounded-full flex items-center justify-center border-[6px]" style={{borderColor: '#2a4c3b'}}>
             <ArrowDown className="w-5 h-5 text-accent-foreground" />
           </div>
         </div>
