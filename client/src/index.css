@@ -152,6 +152,8 @@
     @apply rounded-2xl p-6 text-white;
     background: var(--gradient-card);
     backdrop-filter: blur(10px);
+    border: 1px solid hsla(84, 76%, 50%, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   }
 
   .action-button {

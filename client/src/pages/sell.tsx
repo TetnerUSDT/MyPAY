@@ -143,8 +143,8 @@ export default function SellScreen() {
         </div>
         
         {/* Arrow Down */}
-        <div className="flex justify-center mb-6">
-          <div className="w-12 h-12 bg-accent rounded-full flex items-center justify-center">
+        <div className="flex justify-center -mt-[25px] -mb-[25px]">
+          <div className="w-12 h-12 bg-accent rounded-full flex items-center justify-center border-[6px]" style={{borderColor: '#2a4c3b'}}>
             <ArrowDown className="w-6 h-6 text-accent-foreground" />
           </div>
         </div>

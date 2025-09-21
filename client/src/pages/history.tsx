@@ -149,9 +149,26 @@ export default function HistoryScreen() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <span className="text-xl font-bold text-yellow-400" data-testid={`operation-amount-${operation.id}`}>
-                        {operation.applicationNumber}
-                      </span>
+                      <div className="flex items-center justify-end">
+                        <span 
+                          className="text-xl font-bold text-yellow-400 cursor-pointer"
+                          onClick={() => handleCopy(operation.applicationNumber, operation.id, 'applicationNumber')}
+                          data-testid={`operation-amount-${operation.id}`}
+                        >
+                          {operation.applicationNumber}
+                        </span>
+                        <button 
+                          className="ml-2 p-1 hover:bg-white/10 rounded"
+                          onClick={() => handleCopy(operation.applicationNumber, operation.id, 'applicationNumber')}
+                          data-testid={`button-copy-application-${operation.id}`}
+                        >
+                          {copiedItems[`${operation.id}-applicationNumber`] ? (
+                            <Check className="w-4 h-4 text-green-400" />
+                          ) : (
+                            <Copy className="w-4 h-4 text-accent" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
 
