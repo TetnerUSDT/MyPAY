@@ -9,17 +9,11 @@ import tonImage from "@assets/ton_1758481672408.png";
 import ethereumImage from "@assets/ethereum_1758481901648.png";
 import solanaImage from "@assets/solana_1758481901649.png";
 
-// Custom SVG icon components
+// Custom SVG icon component
 const RefreshIcon = ({ className = "w-6 h-6", ...props }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className={className} {...props}>
     <path fill="none" d="M0 0h24v24H0z"/>
     <path d="m22.69 18.37 1.14-1-1-1.73-1.45.49q-.48-.405-1.08-.63L20 14h-2l-.3 1.49q-.6.225-1.08.63l-1.45-.49-1 1.73 1.14 1c-.08.5-.08.76 0 1.26l-1.14 1 1 1.73 1.45-.49q.48.405 1.08.63L18 24h2l.3-1.49q.6-.225 1.08-.63l1.45.49 1-1.73-1.14-1c.08-.51.08-.77 0-1.27M19 21c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2M11 7v5.41l2.36 2.36 1.04-1.79-1.4-1.39V7zm10 5a9 9 0 0 0-9-9C9.17 3 6.65 4.32 5 6.36V4H3v6h6V8H6.26A7.01 7.01 0 0 1 12 5c3.86 0 7 3.14 7 7zm-10.14 6.91c-2.99-.49-5.35-2.9-5.78-5.91H3.06c.5 4.5 4.31 8 8.94 8h.07z"/>
-  </svg>
-);
-
-const UploadIcon = ({ className = "w-full h-5", ...props }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="currentColor" className={className} {...props}>
-    <path fillRule="evenodd" d="M1 254.956c0 107.01 66.496 198.497 160.559 235.887v-32.911C85.605 422.34 32.876 345.423 32.876 256c0-123.227 99.897-223.124 223.126-223.124 123.227 0 223.125 99.896 223.125 223.124 0 88.178-51.28 164.183-125.529 200.414v33.191C445.995 451.446 511 360.777 511 254.956 511 114.701 396.835 1 256.004 1S1 114.701 1 254.956m308.129 8.72 16.604 15.666c17.129 17.83 44.81 17.83 61.947 0 17.073-17.813 17.073-46.716 0-64.546l-97.722-94.926c-9.293-9.717-21.777-13.946-33.967-13.069-12.181-.878-24.63 3.351-33.981 13.069l-97.68 94.926c-17.078 17.83-17.078 46.733 0 64.546 17.099 17.83 44.808 17.83 61.883 0l16.666-15.714v193.335c0 29.845 23.781 54.038 53.126 54.038 29.337 0 53.125-24.192 53.125-54.038V263.676z" clipRule="evenodd" />
   </svg>
 );
 
@@ -208,7 +202,7 @@ export default function HomeScreen() {
             onClick={() => setIsModalOpen(true)}
             data-testid="button-add-network"
           >
-            <UploadIcon className="w-full h-5 mr-2" />
+            <Plus className="w-5 h-5 mr-2" />
             Добавить сеть
           </button>
         </div>
