@@ -202,7 +202,7 @@ export default function WaitScreen() {
           </div>
 
           {/* Transaction Found */}
-          <div className="w-full max-w-md bg-secondary/70 rounded-2xl p-6 mb-4">
+          <div className="w-full max-w-md crypto-card mb-4">
             <div className="text-sm text-muted-foreground mb-2 text-left">Хеш транзакции найден</div>
             <div className="flex items-center justify-between mb-4">
               <span className="text-3xl font-bold">100.00</span>
@@ -233,7 +233,7 @@ export default function WaitScreen() {
           </div>
 
           {/* Ready to Send */}
-          <div className="w-full max-w-md bg-secondary/70 rounded-2xl p-6 mb-8">
+          <div className="w-full max-w-md crypto-card mb-8">
             <div className="text-sm text-muted-foreground mb-2 text-left">Готовим к отправке</div>
             <div className="flex items-center justify-between mb-4">
               <span className="text-3xl font-bold">8000.00</span>
@@ -249,7 +249,7 @@ export default function WaitScreen() {
           </div>
 
           {/* Hourglass at bottom */}
-          <div className="w-12 h-12 bg-secondary/50 rounded-lg flex items-center justify-center">
+          <div className="w-12 h-12 crypto-card flex items-center justify-center p-2">
             <svg 
               width="24" 
               height="24" 
