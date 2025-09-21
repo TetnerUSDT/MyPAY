@@ -147,16 +147,7 @@ export default function CardsScreen() {
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="mobile-screen bg-secondary border-none text-white">
           <DialogHeader>
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-white">Добавление карты</DialogTitle>
-              <button 
-                onClick={() => setIsModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center"
-                data-testid="button-close-modal"
-              >
-                <X className="w-4 h-4 text-white" />
-              </button>
-            </div>
+            <DialogTitle className="text-white">Добавление карты</DialogTitle>
           </DialogHeader>
           
           <div className="crypto-card mt-4">
