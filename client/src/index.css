@@ -135,6 +135,31 @@
   }
 }
 
+@layer utilities {
+  @keyframes vibrate {
+    0%, 100% { transform: translateX(0); }
+    10% { transform: translateX(-1px) rotate(-0.5deg); }
+    20% { transform: translateX(1px) rotate(0.5deg); }
+    30% { transform: translateX(-1px) rotate(-0.5deg); }
+    40% { transform: translateX(1px) rotate(0.5deg); }
+    50% { transform: translateX(-1px) rotate(-0.5deg); }
+    60% { transform: translateX(1px) rotate(0.5deg); }
+    70% { transform: translateX(-1px) rotate(-0.5deg); }
+    80% { transform: translateX(1px) rotate(0.5deg); }
+    90% { transform: translateX(-1px) rotate(-0.5deg); }
+  }
+
+  .animate-vibrate {
+    animation: vibrate 0.8s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-vibrate {
+      animation: none;
+    }
+  }
+}
+
 @layer components {
   .mobile-screen {
     @apply min-h-screen flex flex-col;

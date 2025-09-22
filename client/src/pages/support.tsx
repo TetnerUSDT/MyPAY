@@ -54,7 +54,7 @@ export default function SupportScreen() {
         </div>
         
         <p className="text-sm text-muted-foreground px-6">
-          Если вы уверены что средства на вашу карту задайте вопрос консультанту если не поможет, откройте спор
+          Если вы уверены что средства на вашу карту не поступили, задайте вопрос консультанту если не поможет, откройте спор
         </p>
       </div>
       
@@ -86,10 +86,10 @@ export default function SupportScreen() {
             href="https://t.me/support_swiftx" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="flex items-center justify-between bg-white rounded-full p-3 text-gray-800"
+            className="action-button flex items-center justify-between animate-vibrate"
             data-testid="button-telegram-support"
           >
-            <span className="font-medium">Contact @support_swiftx</span>
+            <span className="font-medium">Обратиться за помощью</span>
             <svg 
               xmlns="http://www.w3.org/2000/svg" 
               width="24" 
