@@ -31,64 +31,55 @@ export const RouteChangePreloader = ({
   const [currentPreloaderId, setCurrentPreloaderId] = useState<string | null>(null);
   const previousLocationRef = useRef<string>(location);
   const routeChangeTimeRef = useRef<number>(0);
+  const hasShownInitialLoader = useRef<boolean>(false);
 
+  // Show preloader only on initial load
   useEffect(() => {
-    const previousLocation = previousLocationRef.current;
-    const currentLocation = location;
+    if (!hasShownInitialLoader.current) {
+      hasShownInitialLoader.current = true;
+      
+      // Record route change time
+      routeChangeTimeRef.current = Date.now();
 
-    // Check if route actually changed
-    if (previousLocation === currentLocation) {
-      return;
+      // Function to show preloader
+      const showPreloader = () => {
+        const preloaderId = show({
+          scope: 'page',
+          key: 'default',
+          delayMs: 0, // We handle delay here
+          minVisibleMs,
+          bgVariant: 'gradient',
+        });
+        
+        setCurrentPreloaderId(preloaderId);
+      };
+
+      // Delay showing preloader to avoid flicker on fast transitions
+      const delayTimer = setTimeout(showPreloader, delayMs);
+
+      return () => {
+        clearTimeout(delayTimer);
+      };
     }
+  }, [show, hide, delayMs, minVisibleMs]);
 
-    // Record route change time
-    routeChangeTimeRef.current = Date.now();
-    previousLocationRef.current = currentLocation;
-
-    // Function to show preloader
-    const showPreloader = () => {
-      if (currentPreloaderId) {
-        hide(currentPreloaderId);
-      }
-      
-      const preloaderId = show({
-        scope: 'page',
-        key: 'default',
-        delayMs: 0, // We handle delay here
-        minVisibleMs,
-        bgVariant: 'gradient',
-      });
-      
-      setCurrentPreloaderId(preloaderId);
-    };
-
-    // Function to check if we should show preloader
-    const checkAndShowPreloader = () => {
-      // Show preloader if queries are still fetching
-      if (isFetching > fetchThreshold) {
-        showPreloader();
-      }
-    };
-
-    // Delay showing preloader to avoid flicker on fast transitions
-    const delayTimer = setTimeout(checkAndShowPreloader, delayMs);
-
-    return () => {
-      clearTimeout(delayTimer);
-    };
-  }, [location, show, hide, delayMs, minVisibleMs, fetchThreshold]);
-
-  // Hide preloader when fetching is complete
+  // Hide preloader after minimum visible time or when fetching is complete
   useEffect(() => {
-    if (isFetching <= fetchThreshold && currentPreloaderId) {
+    if (currentPreloaderId) {
       // Ensure minimum visible time has passed since route change
       const elapsed = Date.now() - routeChangeTimeRef.current;
       const remainingMinTime = Math.max(0, minVisibleMs - elapsed);
 
-      setTimeout(() => {
+      // Hide preloader either after min time or when no more fetching (whichever is longer)
+      const shouldHideImmediately = isFetching <= fetchThreshold;
+      const hideDelay = shouldHideImmediately ? remainingMinTime : Math.max(remainingMinTime, 100);
+
+      const hideTimer = setTimeout(() => {
         hide(currentPreloaderId);
         setCurrentPreloaderId(null);
-      }, remainingMinTime);
+      }, hideDelay);
+
+      return () => clearTimeout(hideTimer);
     }
   }, [isFetching, currentPreloaderId, hide, minVisibleMs, fetchThreshold]);
 
