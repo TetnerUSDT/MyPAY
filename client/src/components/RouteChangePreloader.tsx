@@ -33,21 +33,35 @@ export const RouteChangePreloader = ({
   const routeChangeTimeRef = useRef<number>(0);
   const hasShownInitialLoader = useRef<boolean>(false);
 
-  // Show preloader only on initial load
+  // Show preloader on initial load (3 seconds) and route changes (normal duration)
   useEffect(() => {
-    if (!hasShownInitialLoader.current) {
-      hasShownInitialLoader.current = true;
+    const previousLocation = previousLocationRef.current;
+    const currentLocation = location;
+    
+    // Determine if this is initial load or route change
+    const isInitialLoad = !hasShownInitialLoader.current;
+    const isRouteChange = previousLocation !== currentLocation && hasShownInitialLoader.current;
+    
+    if (isInitialLoad || isRouteChange) {
+      if (isInitialLoad) {
+        hasShownInitialLoader.current = true;
+      }
       
       // Record route change time
       routeChangeTimeRef.current = Date.now();
+      previousLocationRef.current = currentLocation;
 
       // Function to show preloader
       const showPreloader = () => {
+        if (currentPreloaderId) {
+          hide(currentPreloaderId);
+        }
+        
         const preloaderId = show({
           scope: 'page',
           key: 'default',
           delayMs: 0, // We handle delay here
-          minVisibleMs,
+          minVisibleMs: isInitialLoad ? 3000 : minVisibleMs, // 3 seconds for initial load
           bgVariant: 'gradient',
         });
         
@@ -61,7 +75,7 @@ export const RouteChangePreloader = ({
         clearTimeout(delayTimer);
       };
     }
-  }, [show, hide, delayMs, minVisibleMs]);
+  }, [location, show, hide, delayMs, minVisibleMs]);
 
   // Hide preloader after minimum visible time or when fetching is complete
   useEffect(() => {
