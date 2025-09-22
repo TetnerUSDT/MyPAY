@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -119,46 +118,56 @@ export default function SupportScreen() {
               Открыть спор
             </button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px] bg-white text-gray-900">
+          <DialogContent className="mobile-screen bg-secondary border-none text-white">
             <DialogHeader>
-              <DialogTitle className="text-gray-900">Открыть спор</DialogTitle>
+              <DialogTitle className="text-white">Открыть спор</DialogTitle>
+              <DialogDescription className="text-gray-300">
+                Заполните форму для открытия спора по вашей заявке
+              </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="ticket-number" className="text-right text-gray-700">
-                  Номер заявки
-                </Label>
-                <Input
-                  id="ticket-number"
-                  value={ticketNumber}
-                  onChange={(e) => setTicketNumber(e.target.value)}
-                  className="col-span-3 text-gray-900"
-                  data-testid="input-ticket-number"
-                />
+            
+            <div className="crypto-card mt-4">
+              <div className="space-y-4">
+                {/* Ticket Number */}
+                <div>
+                  <Label htmlFor="ticket-number" className="text-white mb-2 block">
+                    Номер заявки
+                  </Label>
+                  <Input
+                    id="ticket-number"
+                    placeholder="Введите номер заявки"
+                    value={ticketNumber}
+                    onChange={(e) => setTicketNumber(e.target.value)}
+                    className="input-field"
+                    data-testid="input-ticket-number"
+                  />
+                </div>
+
+                {/* Dispute Message */}
+                <div>
+                  <Label htmlFor="dispute-message" className="text-white mb-2 block">
+                    Сообщение
+                  </Label>
+                  <Textarea
+                    id="dispute-message"
+                    placeholder="Опишите вашу проблему..."
+                    value={disputeMessage}
+                    onChange={(e) => setDisputeMessage(e.target.value)}
+                    className="input-field"
+                    rows={4}
+                    data-testid="textarea-dispute-message"
+                  />
+                </div>
+
+                {/* Submit Button */}
+                <button 
+                  onClick={handleOpenDispute}
+                  className="action-button mt-6"
+                  data-testid="button-submit-dispute"
+                >
+                  Открыть спор
+                </button>
               </div>
-              <div className="grid grid-cols-4 items-start gap-4">
-                <Label htmlFor="dispute-message" className="text-right text-gray-700 pt-2">
-                  Сообщение
-                </Label>
-                <Textarea
-                  id="dispute-message"
-                  placeholder="Опишите вашу проблему..."
-                  value={disputeMessage}
-                  onChange={(e) => setDisputeMessage(e.target.value)}
-                  className="col-span-3 text-gray-900"
-                  rows={4}
-                  data-testid="textarea-dispute-message"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end">
-              <Button 
-                onClick={handleOpenDispute}
-                className="bg-accent text-accent-foreground hover:bg-accent/90"
-                data-testid="button-submit-dispute"
-              >
-                Открыть спор
-              </Button>
             </div>
           </DialogContent>
         </Dialog>
