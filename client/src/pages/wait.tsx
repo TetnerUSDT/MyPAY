@@ -3,6 +3,8 @@ import { Link, useLocation } from "wouter";
 import { Clock, ArrowDown, Copy, Check } from "lucide-react";
 import { formatCountdown, copyToClipboard } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { LottieAnimation } from "@/components";
+import paymentSuccessAnimation from "@/assets/payment-success.json";
 
 type WaitState = "checking" | "processing" | "success";
 
@@ -161,19 +163,17 @@ export default function WaitScreen() {
             </span>
           </div>
 
-          {/* Hourglass Icon */}
-          <div className="w-full max-w-md crypto-card flex items-center justify-center p-16">
-            <svg 
-              width="80" 
-              height="80" 
-              viewBox="0 0 24 24" 
-              fill="#a5fe7c"
-              className="animate-pulse"
-              data-testid="icon-hourglass"
-            >
-              <path fill="none" d="M0 0h24v24H0z"/>
-              <path d="m18 22-.01-6L14 12l3.99-4.01L18 2H6v6l4 4-4 3.99V22zM8 7.5V4h8v3.5l-4 4z"/>
-            </svg>
+          {/* Payment Processing Animation */}
+          <div className="w-full max-w-md crypto-card flex items-center justify-center p-8">
+            <LottieAnimation
+              animationData={paymentSuccessAnimation}
+              width={160}
+              height={160}
+              loop={true}
+              autoplay={true}
+              className=""
+              data-testid="animation-payment-processing"
+            />
           </div>
         </div>
       </div>
@@ -250,19 +250,16 @@ export default function WaitScreen() {
             </div>
           </div>
 
-          {/* Hourglass at bottom */}
-          <div className="w-12 h-12 crypto-card flex items-center justify-center p-2">
-            <svg 
-              width="24" 
-              height="24" 
-              viewBox="0 0 24 24" 
-              fill="#a5fe7c"
-              className="animate-pulse"
-              data-testid="icon-hourglass-small"
-            >
-              <path fill="none" d="M0 0h24v24H0z"/>
-              <path d="m18 22-.01-6L14 12l3.99-4.01L18 2H6v6l4 4-4 3.99V22zM8 7.5V4h8v3.5l-4 4z"/>
-            </svg>
+          {/* Processing Animation Small */}
+          <div className="w-12 h-12 crypto-card flex items-center justify-center p-1">
+            <LottieAnimation
+              animationData={paymentSuccessAnimation}
+              width={32}
+              height={32}
+              loop={true}
+              autoplay={true}
+              data-testid="animation-hourglass-small"
+            />
           </div>
         </div>
       </div>
@@ -284,19 +281,16 @@ export default function WaitScreen() {
           Выполнена успешно
         </h1>
         
-        {/* Success Icon */}
+        {/* Success Animation */}
         <div className="w-32 h-32 mb-12 flex items-center justify-center">
-          <svg 
-            width="116" 
-            height="116" 
-            viewBox="0 0 24 24" 
-            fill="#a5fe7c"
-            className="animate-pulse"
-            data-testid="icon-success"
-          >
-            <path fill="none" d="M0 0h24v24H0z"/>
-            <path d="M22 5.18 10.59 16.6l-4.24-4.24 1.41-1.41 2.83 2.83 10-10zm-2.21 5.04c.13.57.21 1.17.21 1.78 0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8c1.58 0 3.04.46 4.28 1.25l1.44-1.44A9.9 9.9 0 0 0 12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10c0-1.19-.22-2.33-.6-3.39z"/>
-          </svg>
+          <LottieAnimation
+            animationData={paymentSuccessAnimation}
+            width={116}
+            height={116}
+            loop={false}
+            autoplay={true}
+            data-testid="animation-success"
+          />
         </div>
         
         <p className="text-lg mb-16 px-4">

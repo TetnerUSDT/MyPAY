@@ -1,5 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useEffect } from "react";
+import { LottieAnimation } from "@/components";
+import paymentSuccessAnimation from "@/assets/payment-success.json";
 
 export default function TransferProcessingScreen() {
   const [, setLocation] = useLocation();
@@ -21,27 +23,16 @@ export default function TransferProcessingScreen() {
           Выполнение платежа
         </h1>
         
-        {/* Processing Icon - Hourglass */}
+        {/* Processing Animation */}
         <div className="w-32 h-32 mb-16 flex items-center justify-center">
-          <svg 
-            width="116" 
-            height="116" 
-            viewBox="0 0 116 116" 
-            fill="none" 
-            className="animate-pulse-green"
-            data-testid="icon-processing"
-          >
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              height="116" 
-              width="116" 
-              viewBox="0 0 24 24" 
-              fill="#a5fe7c"
-            >
-              <path fill="none" d="M0 0h24v24H0z"/>
-              <path d="m18 22-.01-6L14 12l3.99-4.01L18 2H6v6l4 4-4 3.99V22zM8 7.5V4h8v3.5l-4 4z"/>
-            </svg>
-          </svg>
+          <LottieAnimation
+            animationData={paymentSuccessAnimation}
+            width={116}
+            height={116}
+            loop={true}
+            autoplay={true}
+            data-testid="animation-processing"
+          />
         </div>
         
         <p className="text-lg mb-16 px-4">
