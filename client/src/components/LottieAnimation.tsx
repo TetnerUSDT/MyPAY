@@ -1,7 +1,7 @@
 import Lottie from 'lottie-react';
 import { useRef, useEffect } from 'react';
 
-interface LottieAnimationProps {
+interface LottieAnimationProps extends React.HTMLAttributes<HTMLDivElement> {
   animationData: any;
   width?: number | string;
   height?: number | string;
@@ -18,7 +18,8 @@ export const LottieAnimation = ({
   loop = false,
   autoplay = true,
   className = '',
-  onComplete
+  onComplete,
+  ...rest
 }: LottieAnimationProps) => {
   const lottieRef = useRef<any>(null);
 
@@ -42,6 +43,7 @@ export const LottieAnimation = ({
     <div 
       className={`inline-block ${className}`}
       style={{ width, height }}
+      {...rest}
     >
       <Lottie
         lottieRef={lottieRef}
