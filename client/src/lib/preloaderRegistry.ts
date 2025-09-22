@@ -5,7 +5,15 @@
  * Supports future extensibility by allowing registration of new animations.
  */
 
-export type PreloaderAnimationKey = 'default' | 'success' | 'processing' | 'error';
+// Known animation keys for type safety and autocomplete
+export const RESERVED_ANIMATION_KEYS = {
+  default: 'default',
+  success: 'success', 
+  processing: 'processing',
+  error: 'error'
+} as const;
+
+export type PreloaderAnimationKey = string;
 
 export interface PreloaderAnimation {
   key: PreloaderAnimationKey;
@@ -15,11 +23,11 @@ export interface PreloaderAnimation {
 }
 
 // Dynamic import map for code splitting
-const animationImports: Record<PreloaderAnimationKey, () => Promise<any>> = {
-  default: () => import('@/assets/preload-default.json'),
-  success: () => import('@/assets/payment-success.json'), // existing success animation
-  processing: () => import('@/assets/preload-default.json'), // fallback to default for now
-  error: () => import('@/assets/preload-default.json'), // fallback to default for now
+const animationImports: Record<string, () => Promise<any>> = {
+  [RESERVED_ANIMATION_KEYS.default]: () => import('@/assets/preload-default.json'),
+  [RESERVED_ANIMATION_KEYS.success]: () => import('@/assets/payment-success.json'),
+  [RESERVED_ANIMATION_KEYS.processing]: () => import('@/assets/preload-default.json'),
+  [RESERVED_ANIMATION_KEYS.error]: () => import('@/assets/preload-default.json'),
 };
 
 // Animation cache to avoid repeated imports
@@ -38,7 +46,7 @@ export const loadAnimation = async (key: PreloaderAnimationKey): Promise<any> =>
     const importFn = animationImports[key];
     if (!importFn) {
       console.warn(`[PreloaderRegistry] Animation '${key}' not found, falling back to 'default'`);
-      return await loadAnimation('default');
+      return await loadAnimation(RESERVED_ANIMATION_KEYS.default);
     }
 
     const animationModule = await importFn();
@@ -52,12 +60,12 @@ export const loadAnimation = async (key: PreloaderAnimationKey): Promise<any> =>
     console.error(`[PreloaderRegistry] Failed to load animation '${key}':`, error);
     
     // If default animation also fails, return null (component will show skeleton)
-    if (key === 'default') {
+    if (key === RESERVED_ANIMATION_KEYS.default) {
       return null;
     }
     
     // Fallback to default animation
-    return await loadAnimation('default');
+    return await loadAnimation(RESERVED_ANIMATION_KEYS.default);
   }
 };
 
@@ -66,7 +74,7 @@ export const loadAnimation = async (key: PreloaderAnimationKey): Promise<any> =>
  * Useful for dynamically adding animations at runtime
  */
 export const registerAnimation = (
-  key: PreloaderAnimationKey, 
+  key: string, 
   importFn: () => Promise<any>
 ): void => {
   animationImports[key] = importFn;
@@ -77,16 +85,21 @@ export const registerAnimation = (
 /**
  * Get available animation keys
  */
-export const getAvailableKeys = (): PreloaderAnimationKey[] => {
-  return Object.keys(animationImports) as PreloaderAnimationKey[];
+export const getAvailableKeys = (): string[] => {
+  return Object.keys(animationImports);
 };
 
 /**
  * Preload multiple animations for better performance
  */
-export const preloadAnimations = async (keys: PreloaderAnimationKey[]): Promise<void> => {
+export const preloadAnimations = async (keys: string[]): Promise<void> => {
   const promises = keys.map(key => loadAnimation(key));
   await Promise.allSettled(promises);
+};
+
+// Preload essential animations on module load for better UX
+export const preloadEssentialAnimations = async (): Promise<void> => {
+  await preloadAnimations([RESERVED_ANIMATION_KEYS.default, RESERVED_ANIMATION_KEYS.success]);
 };
 
 /**

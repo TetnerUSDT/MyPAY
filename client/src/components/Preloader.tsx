@@ -5,7 +5,7 @@
  * Supports future extensibility with animation registry and theme integration.
  */
 
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { LottieAnimation } from './LottieAnimation';
 import { loadAnimation, type PreloaderAnimationKey } from '@/lib/preloaderRegistry';
@@ -23,6 +23,7 @@ export interface PreloaderConfig {
   bgVariant?: PreloaderBgVariant;
   delayMs?: number;
   minVisibleMs?: number;
+  respectReducedMotion?: boolean;
 }
 
 export interface PreloaderShowOptions extends Partial<PreloaderConfig> {
@@ -36,6 +37,7 @@ interface PreloaderState {
   config: PreloaderConfig;
   isVisible: boolean;
   startTime: number;
+  delayTimeout?: number;
 }
 
 interface PreloaderContextValue {
@@ -55,13 +57,29 @@ const DEFAULT_CONFIG: PreloaderConfig = {
   bgVariant: 'gradient',
   delayMs: 200,
   minVisibleMs: 400,
+  respectReducedMotion: true,
 };
 
 const PreloaderContext = createContext<PreloaderContextValue | undefined>(undefined);
 
+// Reduced motion helper functions
+const shouldUseReducedMotion = (config: PreloaderConfig): boolean => {
+  if (!config.respectReducedMotion) return false;
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+};
+
+const getReducedMotionLoop = (config: PreloaderConfig): boolean => {
+  return shouldUseReducedMotion(config) ? false : (config.loop ?? true);
+};
+
+const getReducedMotionAutoplay = (config: PreloaderConfig): boolean => {
+  return shouldUseReducedMotion(config) ? false : (config.autoplay ?? true);
+};
+
 // Provider Component
 export const PreloaderProvider = ({ children }: { children: ReactNode }) => {
   const [states, setStates] = useState<Record<string, PreloaderState>>({});
+  const timeoutsRef = useRef<Map<string, number>>(new Map());
 
   const show = useCallback((options: PreloaderShowOptions = {}): string => {
     const id = options.id || `preloader_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -80,10 +98,13 @@ export const PreloaderProvider = ({ children }: { children: ReactNode }) => {
           startTime: Date.now(),
         }
       }));
+      // Clear the timeout as it has fired
+      timeoutsRef.current.delete(id);
     };
 
     if (config.delayMs && config.delayMs > 0) {
-      setTimeout(showAfterDelay, config.delayMs);
+      const timeoutId = window.setTimeout(showAfterDelay, config.delayMs);
+      timeoutsRef.current.set(id, timeoutId);
     } else {
       showAfterDelay();
     }
@@ -93,6 +114,13 @@ export const PreloaderProvider = ({ children }: { children: ReactNode }) => {
 
   const hide = useCallback((id?: string) => {
     if (id) {
+      // Cancel any pending delay for this preloader
+      const pendingTimeout = timeoutsRef.current.get(id);
+      if (pendingTimeout) {
+        clearTimeout(pendingTimeout);
+        timeoutsRef.current.delete(id);
+      }
+
       // Hide specific preloader
       setStates(prev => {
         const state = prev[id];
@@ -101,7 +129,7 @@ export const PreloaderProvider = ({ children }: { children: ReactNode }) => {
         const elapsed = Date.now() - state.startTime;
         const minVisible = state.config.minVisibleMs || 0;
 
-        if (elapsed < minVisible) {
+        if (state.isVisible && elapsed < minVisible) {
           // Wait for minimum visible time
           setTimeout(() => {
             setStates(current => {
@@ -129,6 +157,14 @@ export const PreloaderProvider = ({ children }: { children: ReactNode }) => {
     }
     return visibleStates.length > 0;
   }, [states]);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      timeoutsRef.current.forEach((timeoutId: number) => clearTimeout(timeoutId));
+      timeoutsRef.current.clear();
+    };
+  }, []);
 
   const value: PreloaderContextValue = {
     show,
@@ -209,15 +245,15 @@ const PreloaderOverlay = () => {
       
       <div className="flex flex-col items-center gap-4 animate-scaleIn">
         {/* Animation or Skeleton */}
-        {isAnimationLoading || !animationData ? (
+        {isAnimationLoading || !animationData || shouldUseReducedMotion(config) ? (
           <PreloaderSkeleton config={config} />
         ) : (
           <LottieAnimation
             animationData={animationData}
             width={config.width}
             height={config.height}
-            loop={config.loop}
-            autoplay={config.autoplay}
+            loop={getReducedMotionLoop(config)}
+            autoplay={getReducedMotionAutoplay(config)}
             className="drop-shadow-lg"
             data-testid="overlay-preloader-animation"
           />
@@ -279,15 +315,15 @@ export const PreloaderSlot = ({
       aria-label="Загрузка"
       data-testid="slot-preloader"
     >
-      {isAnimationLoading || !animationData ? (
+      {isAnimationLoading || !animationData || shouldUseReducedMotion(config) ? (
         <PreloaderSkeleton config={config} />
       ) : (
         <LottieAnimation
           animationData={animationData}
           width={config.width}
           height={config.height}
-          loop={config.loop}
-          autoplay={config.autoplay}
+          loop={getReducedMotionLoop(config)}
+          autoplay={getReducedMotionAutoplay(config)}
           className="drop-shadow-sm"
           data-testid="slot-preloader-animation"
         />
