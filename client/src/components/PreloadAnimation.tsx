@@ -1,6 +1,4 @@
 import { useState, useEffect } from 'react';
-import { LottieAnimation } from './LottieAnimation';
-import reloadAnimation from '@/assets/reload.json';
 
 interface PreloadAnimationProps {
   onComplete: () => void;
@@ -38,15 +36,14 @@ export const PreloadAnimation = ({ onComplete }: PreloadAnimationProps) => {
       data-testid="preload-animation"
     >
       <div className="flex flex-col items-center justify-center">
-        <LottieAnimation
-          animationData={reloadAnimation}
-          width={200}
-          height={200}
-          loop={true}
-          autoplay={true}
-          className="mb-4"
-          data-testid="animation-preload"
-        />
+        <div className="relative">
+          {/* Outer spinning ring */}
+          <div className="animate-spin rounded-full h-20 w-20 border-4 border-white border-opacity-20"></div>
+          {/* Inner spinning dots */}
+          <div className="absolute inset-0 animate-spin rounded-full h-20 w-20 border-4 border-transparent border-t-primary" style={{ animationDuration: '1s' }}></div>
+          <div className="absolute inset-2 animate-spin rounded-full h-16 w-16 border-4 border-transparent border-r-accent" style={{ animationDuration: '1.5s', animationDirection: 'reverse' }}></div>
+          <div className="absolute inset-4 animate-pulse rounded-full h-12 w-12 bg-primary bg-opacity-30"></div>
+        </div>
       </div>
     </div>
   );
