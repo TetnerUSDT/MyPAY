@@ -406,25 +406,49 @@
   }
 
   .action-button {
-    @apply w-full font-semibold py-4 px-6 rounded-xl flex items-center justify-center;
+    @apply w-full font-semibold py-4 px-6 rounded-xl flex items-center justify-center relative overflow-hidden;
     background: var(--gradient-accent);
     color: var(--accent-foreground);
     transition: all var(--motion-duration-normal) var(--motion-easing-ease);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
 
-  .action-button:hover {
-    opacity: 0.9;
-    transform: translateY(-1px);
+  .action-button:hover:not(:disabled) {
+    opacity: 0.95;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
   }
 
-  .action-button:active {
+  .action-button:active:not(:disabled) {
     transform: translateY(0) scale(0.98);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   }
 
   .action-button:disabled {
     opacity: 0.6;
     cursor: not-allowed;
     transform: none;
+  }
+
+  .action-button.loading {
+    pointer-events: none;
+  }
+
+  .action-button.loading::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    animation: loading-shimmer 1.5s infinite;
+  }
+
+  /* Loading shimmer animation */
+  @keyframes loading-shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(200%); }
   }
 
   .input-field {
@@ -482,4 +506,84 @@
     0% { left: -100%; }
     100% { left: 100%; }
   }
-}
+
+  /* Enhanced Interactive Elements Animations */
+  
+  /* Button Hover Effects Enhancement */
+  .button-interactive {
+    transition: all var(--motion-duration-normal) var(--motion-easing-ease);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .button-interactive:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .button-interactive:active:not(:disabled) {
+    transform: translateY(0) scale(0.98);
+    transition: all var(--motion-duration-fast) var(--motion-easing-ease);
+  }
+
+  .button-interactive:focus:not(:disabled) {
+    box-shadow: 0 0 0 3px rgba(132, 204, 22, 0.2);
+  }
+
+  /* Tab Button Animations */
+  .tab-button {
+    transition: all var(--motion-duration-normal) var(--motion-easing-ease);
+    position: relative;
+  }
+
+  .tab-button:hover:not(.active) {
+    background-color: rgba(132, 204, 22, 0.1);
+    transform: translateY(-1px);
+  }
+
+  .tab-button.active {
+    animation: tab-activate var(--motion-duration-normal) var(--motion-easing-spring);
+  }
+
+  @keyframes tab-activate {
+    0% { transform: scale(0.95); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+  }
+
+  /* Card Hover Effects */
+  .crypto-card {
+    transition: all var(--motion-duration-normal) var(--motion-easing-ease);
+  }
+
+  .crypto-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Loading States */
+  .loading-overlay {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .loading-overlay::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    animation: shimmer 1.5s infinite;
+  }
+
+  /* Pulse Loading for Buttons */
+  .loading-pulse {
+    animation: loading-pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes loading-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
