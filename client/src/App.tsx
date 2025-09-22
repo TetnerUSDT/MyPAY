@@ -7,11 +7,9 @@ import SplashScreen from "@/pages/splash";
 import AgreementScreen from "@/pages/agreement";
 import HomeScreen from "@/pages/home";
 import SelectCountryScreen from "@/pages/select-country";
-import CountrySelectionScreen from "@/pages/country-selection";
 import ExchangeScreen from "@/pages/exchange";
 import TopUpScreen from "@/pages/top-up";
 import WaitScreen from "@/pages/wait";
-import SuccessScreen from "@/pages/success";
 import TopUpSuccessScreen from "@/pages/top-up-success";
 import TransferProcessingScreen from "@/pages/transfer-processing";
 import TransferSuccessScreen from "@/pages/transfer-success";
@@ -34,11 +32,9 @@ function Router() {
         <Route path="/agreement" component={AgreementScreen} />
         <Route path="/home" component={HomeScreen} />
         <Route path="/select-country" component={SelectCountryScreen} />
-        <Route path="/country" component={CountrySelectionScreen} />
         <Route path="/exchange" component={ExchangeScreen} />
         <Route path="/top-up" component={TopUpScreen} />
         <Route path="/wait" component={WaitScreen} />
-        <Route path="/success" component={SuccessScreen} />
         <Route path="/top-up-success" component={TopUpSuccessScreen} />
         <Route path="/transfer-processing" component={TransferProcessingScreen} />
         <Route path="/transfer-success" component={TransferSuccessScreen} />
