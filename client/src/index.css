@@ -43,6 +43,17 @@
   --gradient-primary: linear-gradient(135deg, hsl(155, 52%, 19%) 0%, hsl(155, 33%, 27%) 50%, hsl(155, 39%, 41%) 100%);
   --gradient-card: linear-gradient(135deg, hsla(155, 33%, 27%, 0.8) 0%, hsla(155, 39%, 41%, 0.6) 100%);
   --gradient-accent: linear-gradient(135deg, hsl(84, 76%, 50%) 0%, hsl(155, 39%, 41%) 100%);
+  
+  /* Animation System Variables */
+  --motion-duration-fast: 150ms;
+  --motion-duration-normal: 250ms;
+  --motion-duration-slow: 350ms;
+  --motion-duration-overlay: 500ms;
+  --motion-easing-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --motion-easing-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --motion-easing-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --motion-easing-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --motion-easing-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .dark {
@@ -136,6 +147,110 @@
 }
 
 @layer utilities {
+  /* Core Animation Keyframes */
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  @keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+  
+  @keyframes slideUp {
+    from { 
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to { 
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes slideDown {
+    from { 
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    to { 
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes slideLeft {
+    from { 
+      opacity: 0;
+      transform: translateX(20px);
+    }
+    to { 
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
+  @keyframes slideRight {
+    from { 
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+    to { 
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
+  @keyframes scaleIn {
+    from { 
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    to { 
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  @keyframes scaleOut {
+    from { 
+      opacity: 1;
+      transform: scale(1);
+    }
+    to { 
+      opacity: 0;
+      transform: scale(0.9);
+    }
+  }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+  
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  
+  @keyframes bounce {
+    0%, 100% { 
+      transform: translateY(0);
+      animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+    }
+    50% { 
+      transform: translateY(-25%);
+      animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+    }
+  }
+  
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+    20%, 40%, 60%, 80% { transform: translateX(2px); }
+  }
+  
   @keyframes vibrate {
     0%, 100% { transform: translateX(0); }
     10% { transform: translateX(-1px) rotate(-0.5deg); }
@@ -148,14 +263,78 @@
     80% { transform: translateX(1px) rotate(0.5deg); }
     90% { transform: translateX(-1px) rotate(-0.5deg); }
   }
-
-  .animate-vibrate {
-    animation: vibrate 0.8s ease-in-out infinite;
+  
+  @keyframes heartbeat {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+  
+  @keyframes glow {
+    0%, 100% { box-shadow: 0 0 5px var(--accent); }
+    50% { box-shadow: 0 0 20px var(--accent), 0 0 30px var(--accent); }
   }
 
+  /* Animation Utility Classes */
+  .animate-fadeIn { animation: fadeIn var(--motion-duration-normal) var(--motion-easing-ease-out) forwards; }
+  .animate-fadeOut { animation: fadeOut var(--motion-duration-normal) var(--motion-easing-ease-in) forwards; }
+  .animate-slideUp { animation: slideUp var(--motion-duration-normal) var(--motion-easing-ease-out) forwards; }
+  .animate-slideDown { animation: slideDown var(--motion-duration-normal) var(--motion-easing-ease-out) forwards; }
+  .animate-slideLeft { animation: slideLeft var(--motion-duration-normal) var(--motion-easing-ease-out) forwards; }
+  .animate-slideRight { animation: slideRight var(--motion-duration-normal) var(--motion-easing-ease-out) forwards; }
+  .animate-scaleIn { animation: scaleIn var(--motion-duration-normal) var(--motion-easing-spring) forwards; }
+  .animate-scaleOut { animation: scaleOut var(--motion-duration-normal) var(--motion-easing-ease-in) forwards; }
+  .animate-pulse { animation: pulse 2s var(--motion-easing-ease-in-out) infinite; }
+  .animate-spin { animation: spin 1s linear infinite; }
+  .animate-bounce { animation: bounce 1s infinite; }
+  .animate-shake { animation: shake var(--motion-duration-slow) var(--motion-easing-ease-in-out); }
+  .animate-vibrate { animation: vibrate 0.8s ease-in-out infinite; }
+  .animate-heartbeat { animation: heartbeat 1.5s var(--motion-easing-ease-in-out) infinite; }
+  .animate-glow { animation: glow 2s var(--motion-easing-ease-in-out) infinite; }
+
+  /* Fast/Slow Variants */
+  .animate-fadeIn-fast { animation: fadeIn var(--motion-duration-fast) var(--motion-easing-ease-out) forwards; }
+  .animate-slideUp-fast { animation: slideUp var(--motion-duration-fast) var(--motion-easing-ease-out) forwards; }
+  .animate-scaleIn-slow { animation: scaleIn var(--motion-duration-slow) var(--motion-easing-spring) forwards; }
+
+  /* Stagger Utilities */
+  .animate-stagger-1 { animation-delay: 50ms; }
+  .animate-stagger-2 { animation-delay: 100ms; }
+  .animate-stagger-3 { animation-delay: 150ms; }
+  .animate-stagger-4 { animation-delay: 200ms; }
+  .animate-stagger-5 { animation-delay: 250ms; }
+
+  /* Reduced Motion Support */
   @media (prefers-reduced-motion: reduce) {
-    .animate-vibrate {
-      animation: none;
+    .animate-fadeIn,
+    .animate-fadeOut,
+    .animate-slideUp,
+    .animate-slideDown,
+    .animate-slideLeft,
+    .animate-slideRight,
+    .animate-scaleIn,
+    .animate-scaleOut,
+    .animate-pulse,
+    .animate-spin,
+    .animate-bounce,
+    .animate-shake,
+    .animate-vibrate,
+    .animate-heartbeat,
+    .animate-glow,
+    .animate-fadeIn-fast,
+    .animate-slideUp-fast,
+    .animate-scaleIn-slow {
+      animation: none !important;
+    }
+    
+    /* For reduced motion, still show elements but without animation */
+    .animate-fadeIn,
+    .animate-slideUp,
+    .animate-slideDown,
+    .animate-slideLeft,
+    .animate-slideRight,
+    .animate-scaleIn {
+      opacity: 1;
+      transform: none;
     }
   }
 }
@@ -182,9 +361,10 @@
   }
 
   .action-button {
-    @apply w-full font-semibold py-4 px-6 rounded-xl transition-all duration-200 flex items-center justify-center;
+    @apply w-full font-semibold py-4 px-6 rounded-xl flex items-center justify-center;
     background: var(--gradient-accent);
     color: var(--accent-foreground);
+    transition: all var(--motion-duration-normal) var(--motion-easing-ease);
   }
 
   .action-button:hover {
@@ -192,7 +372,69 @@
     transform: translateY(-1px);
   }
 
+  .action-button:active {
+    transform: translateY(0) scale(0.98);
+  }
+
+  .action-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
   .input-field {
-    @apply w-full bg-secondary text-foreground px-4 py-3 rounded-lg outline-none border border-transparent focus:border-accent;
+    @apply w-full bg-secondary text-foreground px-4 py-3 rounded-lg outline-none border border-transparent;
+    transition: all var(--motion-duration-normal) var(--motion-easing-ease);
+  }
+
+  .input-field:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px hsla(from var(--accent) h s l / 0.2);
+  }
+
+  /* Enhanced button styles with animations */
+  .button-interactive {
+    transition: all var(--motion-duration-normal) var(--motion-easing-ease);
+  }
+
+  .button-interactive:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .button-interactive:active {
+    transform: translateY(0) scale(0.98);
+  }
+
+  /* Card hover effects */
+  .crypto-card {
+    transition: all var(--motion-duration-normal) var(--motion-easing-ease);
+  }
+
+  .crypto-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Loading states */
+  .loading-overlay {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .loading-overlay::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    animation: shimmer 1.5s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { left: -100%; }
+    100% { left: 100%; }
   }
 }
