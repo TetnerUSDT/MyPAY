@@ -180,6 +180,28 @@
     }
   }
   
+  @keyframes slideOutDown {
+    from { 
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to { 
+      opacity: 0;
+      transform: translateY(20px);
+    }
+  }
+  
+  @keyframes slideOutUp {
+    from { 
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to { 
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+  }
+  
   @keyframes slideLeft {
     from { 
       opacity: 0;
@@ -296,6 +318,20 @@
   .animate-slideUp-fast { animation: slideUp var(--motion-duration-fast) var(--motion-easing-ease-out) forwards; }
   .animate-scaleIn-slow { animation: scaleIn var(--motion-duration-slow) var(--motion-easing-spring) forwards; }
 
+  /* Overlay/Page Transition Utilities */
+  .animate-overlay-in { animation: fadeIn var(--motion-duration-overlay) var(--motion-easing-ease-out) forwards; }
+  .animate-overlay-out { animation: fadeOut var(--motion-duration-overlay) var(--motion-easing-ease-in) forwards; }
+  .animate-page-in { animation: slideUp var(--motion-duration-overlay) var(--motion-easing-ease-out) forwards; }
+  .animate-page-out { animation: slideOutDown var(--motion-duration-overlay) var(--motion-easing-ease-in) forwards; }
+  .animate-modal-in { 
+    animation: scaleIn var(--motion-duration-normal) var(--motion-easing-spring) forwards,
+               fadeIn var(--motion-duration-normal) var(--motion-easing-ease-out) forwards;
+  }
+  .animate-modal-out {
+    animation: scaleOut var(--motion-duration-normal) var(--motion-easing-ease-in) forwards,
+               fadeOut var(--motion-duration-normal) var(--motion-easing-ease-in) forwards;
+  }
+
   /* Stagger Utilities */
   .animate-stagger-1 { animation-delay: 50ms; }
   .animate-stagger-2 { animation-delay: 100ms; }
@@ -322,7 +358,13 @@
     .animate-glow,
     .animate-fadeIn-fast,
     .animate-slideUp-fast,
-    .animate-scaleIn-slow {
+    .animate-scaleIn-slow,
+    .animate-overlay-in,
+    .animate-overlay-out,
+    .animate-page-in,
+    .animate-page-out,
+    .animate-modal-in,
+    .animate-modal-out {
       animation: none !important;
     }
     
@@ -332,7 +374,10 @@
     .animate-slideDown,
     .animate-slideLeft,
     .animate-slideRight,
-    .animate-scaleIn {
+    .animate-scaleIn,
+    .animate-overlay-in,
+    .animate-page-in,
+    .animate-modal-in {
       opacity: 1;
       transform: none;
     }

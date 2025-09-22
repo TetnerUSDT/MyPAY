@@ -19,6 +19,7 @@ import SupportScreen from "@/pages/support";
 import CardsScreen from "@/pages/cards";
 import HistoryScreen from "@/pages/history";
 import BottomNavigation from "@/components/bottom-navigation";
+import PageTransition from "@/components/PageTransition";
 import { useLocation } from "wouter";
 
 function Router() {
@@ -27,23 +28,25 @@ function Router() {
 
   return (
     <div className="min-h-screen gradient-bg">
-      <Switch>
-        <Route path="/" component={SplashScreen} />
-        <Route path="/agreement" component={AgreementScreen} />
-        <Route path="/home" component={HomeScreen} />
-        <Route path="/select-country" component={SelectCountryScreen} />
-        <Route path="/exchange" component={ExchangeScreen} />
-        <Route path="/top-up" component={TopUpScreen} />
-        <Route path="/wait" component={WaitScreen} />
-        <Route path="/top-up-success" component={TopUpSuccessScreen} />
-        <Route path="/transfer-processing" component={TransferProcessingScreen} />
-        <Route path="/transfer-success" component={TransferSuccessScreen} />
-        <Route path="/payment" component={PaymentScreen} />
-        <Route path="/transfer" component={SellScreen} />
-        <Route path="/support" component={SupportScreen} />
-        <Route path="/cards" component={CardsScreen} />
-        <Route path="/history" component={HistoryScreen} />
-      </Switch>
+      <PageTransition routeKey={location}>
+        <Switch>
+          <Route path="/" component={SplashScreen} />
+          <Route path="/agreement" component={AgreementScreen} />
+          <Route path="/home" component={HomeScreen} />
+          <Route path="/select-country" component={SelectCountryScreen} />
+          <Route path="/exchange" component={ExchangeScreen} />
+          <Route path="/top-up" component={TopUpScreen} />
+          <Route path="/wait" component={WaitScreen} />
+          <Route path="/top-up-success" component={TopUpSuccessScreen} />
+          <Route path="/transfer-processing" component={TransferProcessingScreen} />
+          <Route path="/transfer-success" component={TransferSuccessScreen} />
+          <Route path="/payment" component={PaymentScreen} />
+          <Route path="/transfer" component={SellScreen} />
+          <Route path="/support" component={SupportScreen} />
+          <Route path="/cards" component={CardsScreen} />
+          <Route path="/history" component={HistoryScreen} />
+        </Switch>
+      </PageTransition>
       
       {showBottomNav && <BottomNavigation />}
     </div>
