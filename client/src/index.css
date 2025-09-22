@@ -227,7 +227,7 @@
   @keyframes scaleIn {
     from { 
       opacity: 0;
-      transform: scale(0.9);
+      transform: scale(0.98);
     }
     to { 
       opacity: 1;
@@ -303,7 +303,7 @@
   .animate-slideDown { animation: slideDown var(--motion-duration-normal) var(--motion-easing-ease-out) forwards; }
   .animate-slideLeft { animation: slideLeft var(--motion-duration-normal) var(--motion-easing-ease-out) forwards; }
   .animate-slideRight { animation: slideRight var(--motion-duration-normal) var(--motion-easing-ease-out) forwards; }
-  .animate-scaleIn { animation: scaleIn var(--motion-duration-normal) var(--motion-easing-spring) forwards; }
+  .animate-scaleIn { animation: scaleIn var(--motion-duration-normal) var(--motion-easing-ease-out) forwards; }
   .animate-scaleOut { animation: scaleOut var(--motion-duration-normal) var(--motion-easing-ease-in) forwards; }
   .animate-pulse { animation: pulse 2s var(--motion-easing-ease-in-out) infinite; }
   .animate-spin { animation: spin 1s linear infinite; }
@@ -316,7 +316,7 @@
   /* Fast/Slow Variants */
   .animate-fadeIn-fast { animation: fadeIn var(--motion-duration-fast) var(--motion-easing-ease-out) forwards; }
   .animate-slideUp-fast { animation: slideUp var(--motion-duration-fast) var(--motion-easing-ease-out) forwards; }
-  .animate-scaleIn-slow { animation: scaleIn var(--motion-duration-slow) var(--motion-easing-spring) forwards; }
+  .animate-scaleIn-slow { animation: scaleIn var(--motion-duration-slow) var(--motion-easing-ease-out) forwards; }
 
   /* Overlay/Page Transition Utilities */
   .animate-overlay-in { animation: fadeIn var(--motion-duration-overlay) var(--motion-easing-ease-out) forwards; }
@@ -324,7 +324,7 @@
   .animate-page-in { animation: slideUp var(--motion-duration-overlay) var(--motion-easing-ease-out) forwards; }
   .animate-page-out { animation: slideOutDown var(--motion-duration-overlay) var(--motion-easing-ease-in) forwards; }
   .animate-modal-in { 
-    animation: scaleIn var(--motion-duration-normal) var(--motion-easing-spring) forwards,
+    animation: scaleIn var(--motion-duration-normal) var(--motion-easing-ease-out) forwards,
                fadeIn var(--motion-duration-normal) var(--motion-easing-ease-out) forwards;
   }
   .animate-modal-out {
