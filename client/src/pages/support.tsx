@@ -1,52 +1,38 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { Send, Clock } from "lucide-react";
+import { Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 export default function SupportScreen() {
-  const [message, setMessage] = useState("");
-  const [chatId] = useState("demo-chat-1");
   const { toast } = useToast();
-  const queryClient = useQueryClient();
-
-  const sendMessageMutation = useMutation({
-    mutationFn: async (data: { sender: string; message: string }) => {
-      const response = await apiRequest("POST", `/api/support/chats/${chatId}/messages`, data);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/support/chats"] });
-      setMessage("");
-      toast({
-        title: "Message sent",
-        description: "Your message has been sent to support",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to send message",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (message.trim()) {
-      sendMessageMutation.mutate({
-        sender: "user",
-        message: message.trim(),
-      });
-    }
-  };
+  const [isDisputeModalOpen, setIsDisputeModalOpen] = useState(false);
+  const [ticketNumber, setTicketNumber] = useState("");
+  const [disputeMessage, setDisputeMessage] = useState("");
 
   const handleOpenDispute = () => {
+    if (!ticketNumber.trim() || !disputeMessage.trim()) {
+      toast({
+        title: "Ошибка",
+        description: "Заполните все поля",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Here you would send the dispute to your API
     toast({
-      title: "Dispute Opened",
-      description: "Your dispute has been submitted to our support team. You will be contacted within 24 hours.",
+      title: "Спор открыт",
+      description: "Ваш спор был отправлен в службу поддержки. С вами свяжутся в течение 24 часов.",
     });
+    
+    // Reset form and close modal
+    setTicketNumber("");
+    setDisputeMessage("");
+    setIsDisputeModalOpen(false);
   };
 
   return (
@@ -83,9 +69,9 @@ export default function SupportScreen() {
               </div>
             </div>
             <div className="flex-1">
-              <div className="flex items-center mb-1">
+              <div className="mb-1">
                 <span className="font-semibold text-gray-800">Elena from support</span>
-                <div className="flex items-center ml-2 text-xs text-gray-500">
+                <div className="flex items-center text-xs text-gray-500 mt-1">
                   <Clock className="w-3 h-3 mr-1" />
                   Response time: 1 min.
                 </div>
@@ -95,40 +81,87 @@ export default function SupportScreen() {
           </div>
         </div>
         
-        {/* Chat Input */}
+        {/* Telegram Bot Button */}
         <div className="mt-4">
-          <form onSubmit={handleSendMessage}>
-            <div className="flex items-center bg-white rounded-full p-2">
-              <input 
-                type="text" 
-                placeholder="Type your own question..." 
-                className="flex-1 px-4 py-2 text-gray-800 placeholder-gray-500 bg-transparent outline-none"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                data-testid="input-chat-message"
+          <a 
+            href="https://t.me/support_swiftx" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex items-center justify-between bg-white rounded-full p-3 text-gray-800"
+            data-testid="button-telegram-support"
+          >
+            <span className="font-medium">Contact @support_swiftx</span>
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              width="24" 
+              height="24" 
+              viewBox="0 0 24 24" 
+              className="ml-2"
+            >
+              <circle cx="12" cy="12" r="12" fill="#039be5" />
+              <path 
+                fill="#fff" 
+                d="m5.491 11.74 11.57-4.461c.537-.194 1.006.131.832.943l.001-.001-1.97 9.281c-.146.658-.537.818-1.084.508l-3-2.211-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.121l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953" 
               />
-              <button 
-                type="submit"
-                className="w-10 h-10 bg-accent rounded-full flex items-center justify-center ml-2 disabled:opacity-50"
-                disabled={!message.trim() || sendMessageMutation.isPending}
-                data-testid="button-send-message"
-              >
-                <Send className="w-4 h-4 text-accent-foreground" />
-              </button>
-            </div>
-          </form>
+            </svg>
+          </a>
         </div>
       </div>
       
       {/* Actions */}
       <div className="px-6 pb-20">
-        <button 
-          className="action-button mb-4"
-          onClick={handleOpenDispute}
-          data-testid="button-open-dispute"
-        >
-          Открыть спор
-        </button>
+        <Dialog open={isDisputeModalOpen} onOpenChange={setIsDisputeModalOpen}>
+          <DialogTrigger asChild>
+            <button 
+              className="action-button mb-4"
+              data-testid="button-open-dispute"
+            >
+              Открыть спор
+            </button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px] bg-white text-gray-900">
+            <DialogHeader>
+              <DialogTitle className="text-gray-900">Открыть спор</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="ticket-number" className="text-right text-gray-700">
+                  Номер заявки
+                </Label>
+                <Input
+                  id="ticket-number"
+                  value={ticketNumber}
+                  onChange={(e) => setTicketNumber(e.target.value)}
+                  className="col-span-3 text-gray-900"
+                  data-testid="input-ticket-number"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="dispute-message" className="text-right text-gray-700 pt-2">
+                  Сообщение
+                </Label>
+                <Textarea
+                  id="dispute-message"
+                  placeholder="Опишите вашу проблему..."
+                  value={disputeMessage}
+                  onChange={(e) => setDisputeMessage(e.target.value)}
+                  className="col-span-3 text-gray-900"
+                  rows={4}
+                  data-testid="textarea-dispute-message"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button 
+                onClick={handleOpenDispute}
+                className="bg-accent text-accent-foreground hover:bg-accent/90"
+                data-testid="button-submit-dispute"
+              >
+                Открыть спор
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
