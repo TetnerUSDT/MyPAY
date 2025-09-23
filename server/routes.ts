@@ -1,15 +1,17 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
+import { validate as validateInitData, parse as parseInitData } from "@telegram-apps/init-data-node";
 import { storage } from "./storage";
 import { insertTransactionSchema, insertSupportChatSchema, insertUserSchema } from "@shared/schema";
 
 // Validation schemas for auth endpoints
 const telegramAuthSchema = z.object({
-  tgId: z.string(),
-  name: z.string().optional(),
-  img: z.string().optional()
+  initData: z.string(),
 });
+
+// Environment variable for bot token (for development, use a placeholder)
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "dev-mock-token";
 
 // API Key authentication middleware
 interface AuthenticatedRequest extends Request {
@@ -64,13 +66,38 @@ const requireApiKey = async (req: AuthenticatedRequest, res: Response, next: Nex
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Telegram Authentication 
-  // WARNING: This endpoint is insecure without Telegram WebApp signature validation
-  // TODO: Implement Telegram initData HMAC verification before production
+  // Telegram Authentication with initData verification
   app.post("/api/auth/telegram", async (req, res) => {
     try {
       const validatedData = telegramAuthSchema.parse(req.body);
-      const { tgId, name, img } = validatedData;
+      const { initData } = validatedData;
+      
+      let userData;
+      
+      if (process.env.NODE_ENV === 'development' && TELEGRAM_BOT_TOKEN === 'dev-mock-token') {
+        // Development mode: mock validation
+        console.log('Development mode: Skipping Telegram initData validation');
+        userData = {
+          user: {
+            id: Date.now(), // Mock user ID
+            first_name: 'Dev User',
+            username: 'devuser'
+          }
+        };
+      } else {
+        // Production mode: validate initData
+        try {
+          validateInitData(initData, TELEGRAM_BOT_TOKEN);
+          userData = parseInitData(initData);
+        } catch (validationError) {
+          console.error('Telegram initData validation failed:', validationError);
+          return res.status(401).json({ message: "Invalid Telegram data" });
+        }
+      }
+      
+      const tgId = userData.user.id.toString();
+      const name = userData.user.first_name || userData.user.username || null;
+      const img = userData.user.photo_url || null;
       
       // Check if user already exists
       let user = await storage.getUserByTgId(tgId);
@@ -80,34 +107,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user = await storage.createUser({
           tgId,
           google: null,
-          name: name ?? null,
-          img: img ?? null,
+          name,
+          img,
           status: "active",
           agreement: 0,
           blocked: false
         });
       }
       
-      // Generate API key if user doesn't have one
-      if (!user.apiKey) {
-        const apiKey = await storage.generateApiKey(user.id);
-        user.apiKey = apiKey ?? null;
-      }
+      // Generate API key and return it (now secure after validation)
+      const apiKey = await storage.generateApiKey(user.id);
+      
+      // Store API key in localStorage on client-side for subsequent requests
+      const responseUser = {
+        id: user.id,
+        tgId: user.tgId,
+        name: user.name,
+        img: user.img,
+        agreement: user.agreement
+      };
       
       res.json({ 
-        user: {
-          id: user.id,
-          tgId: user.tgId,
-          name: user.name,
-          img: user.img,
-          agreement: user.agreement
-        }
-        // Note: apiKey removed for security - use /api/auth/generate-key with proper auth
+        user: responseUser,
+        apiKey // Safe to return now after verification
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid request data", errors: error.errors });
       }
+      console.error('Telegram auth error:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
