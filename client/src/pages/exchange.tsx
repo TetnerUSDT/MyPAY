@@ -113,7 +113,7 @@ export default function ExchangeScreen() {
                   data-testid="input-pay-amount"
                 />
                 <Select value={payCurrency} onValueChange={setPayCurrency}>
-                  <SelectTrigger className="w-auto bg-secondary border-0 text-white font-medium px-4 py-2 ml-4" data-testid="select-pay-currency">
+                  <SelectTrigger className="min-w-36 bg-secondary border-0 text-white font-medium px-4 py-2 ml-4" data-testid="select-pay-currency">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -146,7 +146,7 @@ export default function ExchangeScreen() {
                   data-testid="input-receive-amount"
                 />
                 <Select value={receiveCurrency} onValueChange={setReceiveCurrency}>
-                  <SelectTrigger className="w-auto bg-secondary border-0 text-white font-medium px-4 py-2 ml-4" data-testid="select-receive-currency">
+                  <SelectTrigger className="min-w-36 bg-secondary border-0 text-white font-medium px-4 py-2 ml-4" data-testid="select-receive-currency">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
