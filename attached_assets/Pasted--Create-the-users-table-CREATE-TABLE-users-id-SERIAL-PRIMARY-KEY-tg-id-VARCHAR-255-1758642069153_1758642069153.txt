@@ -1,0 +1,92 @@
+-- Create the 'users' table
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    tg_id VARCHAR(255) NOT NULL,
+    google VARCHAR(255) NOT NULL,
+    api_key VARCHAR(255),
+    name VARCHAR(255),
+    img VARCHAR(255),
+    status VARCHAR(50),
+    agreement INTEGER DEFAULT 0, --0 not agree, 1 agree with rools
+    blocked BOOLEAN DEFAULT FALSE
+);
+
+-- Create the 'balances' table
+CREATE TABLE balances (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    sum DECIMAL(18, 8) DEFAULT 0.0,
+    currency VARCHAR(10) NOT NULL,
+    rate DECIMAL(18, 8),
+    status VARCHAR(50)
+);
+
+-- Create the 'users_balances' table with foreign keys
+CREATE TABLE users_balances (
+    id SERIAL PRIMARY KEY,
+    id_balance INTEGER NOT NULL REFERENCES balances(id) ON DELETE CASCADE,
+    id_user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    sum DECIMAL(18, 8) DEFAULT 0.0,
+    status VARCHAR(50)
+);
+
+-- Create the 'wallets' table with foreign key
+CREATE TABLE wallets (
+    id SERIAL PRIMARY KEY,
+    id_user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    network VARCHAR(50) NOT NULL,
+    address VARCHAR(255) NOT NULL,
+    mnemonic TEXT,
+    private_key VARCHAR(500),
+    reservation_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP + INTERVAL '24 hours',
+    status VARCHAR(50)
+);
+
+-- Create the 'cards' table (updated lang to allow any country name)
+CREATE TABLE cards (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    country VARCHAR(50) NOT NULL,
+    lang VARCHAR(255),  -- Updated to allow any country name or string
+    time_exchange INTEGER NOT NULL, 
+    comission DECIMAL(5, 2) NOT NULL,  
+    status VARCHAR(50)
+);
+
+-- Create the 'user_cards' table with foreign keys
+CREATE TABLE user_cards (
+    id SERIAL PRIMARY KEY,
+    id_card INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+    id_user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    country VARCHAR(50) NOT NULL,
+    number_card VARCHAR(50) NOT NULL,
+    status VARCHAR(50)
+);
+
+-- Create the 'exchanges' table
+CREATE TABLE exchanges (
+id SERIAL PRIMARY KEY, 
+number_order VARCHAR(50) NOT NULL,
+id_user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+id_balance_from INTEGER REFERENCES balances(id) ON DELETE SET NULL,
+id_balance_to INTEGER REFERENCES balances(id) ON DELETE SET NULL,
+id_card INTEGER REFERENCES user_cards(id) ON DELETE SET NULL,
+from_currency VARCHAR(10) NOT NULL,
+to_currency VARCHAR(10) NOT NULL,
+amount_from DECIMAL(18, 8) NOT NULL,
+amount_to DECIMAL(18, 8) NOT NULL,
+rate DECIMAL(18, 8) NOT NULL,
+commission DECIMAL(18, 8) DEFAULT 0.0,
+timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+status VARCHAR(50) NOT NULL
+);
+-- Create the 'stats' table
+CREATE TABLE stats (
+id SERIAL PRIMARY KEY,
+stat_type VARCHAR(100) NOT NULL,  -- e.g., 'total_exchanges', 'daily_volume', 'user_activity'
+id_exchange VARCHAR(50) NOT NULL,
+sum DECIMAL(18, 8),
+timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+id_user INTEGER REFERENCES users(id) ON DELETE CASCADE,  -- optional, for user-specific stats
+timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
