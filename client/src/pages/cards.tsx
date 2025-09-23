@@ -17,6 +17,9 @@ interface Card {
   name: string;
   number: string;
   country: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
 }
 
 // Card icon component from provided SVG
@@ -35,19 +38,25 @@ export default function CardsScreen() {
   const [formData, setFormData] = useState({
     name: "",
     country: "",
-    number: ""
+    number: "",
+    firstName: "",
+    lastName: "",
+    phone: ""
   });
 
   const handleAddCard = () => {
-    if (formData.name && formData.country && formData.number) {
+    if (formData.name && formData.country && formData.number && formData.firstName && formData.lastName && formData.phone) {
       const newCard: Card = {
         id: Date.now().toString(),
         name: formData.name,
         number: formData.number,
         country: formData.country,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        phone: formData.phone
       };
       setCards([...cards, newCard]);
-      setFormData({ name: "", country: "", number: "" });
+      setFormData({ name: "", country: "", number: "", firstName: "", lastName: "", phone: "" });
       setIsModalOpen(false);
     }
   };
@@ -61,20 +70,28 @@ export default function CardsScreen() {
   };
 
   const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Remove all non-digit characters
-    const numericValue = e.target.value.replace(/\D/g, '');
-    
-    // Limit to 16 digits
-    const limitedValue = numericValue.slice(0, 16);
-    
-    // Add spaces every 4 digits for display
-    const formattedValue = limitedValue.replace(/(\d{4})(?=\d)/g, '$1 ');
+    // Remove all non-digit characters and limit to 16 digits
+    const numericValue = e.target.value.replace(/\D/g, '').slice(0, 16);
     
     // Update form state with raw numeric value
-    setFormData({ ...formData, number: limitedValue });
+    setFormData({ ...formData, number: numericValue });
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Extract only digits from input, limit to 15 digits per E.164 standard
+    const digits = e.target.value.replace(/\D/g, '').slice(0, 15);
     
-    // Update input display value
-    e.target.value = formattedValue;
+    // Always format with leading +
+    const formattedPhone = '+' + digits;
+    
+    // Update form state
+    setFormData({ ...formData, phone: formattedPhone });
+  };
+
+  const handleNameChange = (field: 'firstName' | 'lastName') => (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Only allow Latin characters and spaces
+    const latinValue = e.target.value.replace(/[^a-zA-Z\s]/g, '');
+    setFormData({ ...formData, [field]: latinValue });
   };
 
   return (
@@ -188,6 +205,51 @@ export default function CardsScreen() {
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="input-field"
                   data-testid="input-card-name"
+                />
+              </div>
+
+              {/* First Name */}
+              <div>
+                <Label htmlFor="firstName" className="text-white mb-2 block">
+                  Имя (латинницей)
+                </Label>
+                <Input
+                  id="firstName"
+                  placeholder="Ivan"
+                  value={formData.firstName}
+                  onChange={handleNameChange('firstName')}
+                  className="input-field"
+                  data-testid="input-first-name"
+                />
+              </div>
+
+              {/* Last Name */}
+              <div>
+                <Label htmlFor="lastName" className="text-white mb-2 block">
+                  Фамилия (латинницей)
+                </Label>
+                <Input
+                  id="lastName"
+                  placeholder="Petrov"
+                  value={formData.lastName}
+                  onChange={handleNameChange('lastName')}
+                  className="input-field"
+                  data-testid="input-last-name"
+                />
+              </div>
+
+              {/* Phone Number */}
+              <div>
+                <Label htmlFor="phone" className="text-white mb-2 block">
+                  Номер телефона
+                </Label>
+                <Input
+                  id="phone"
+                  placeholder="+79991234567"
+                  value={formData.phone}
+                  onChange={handlePhoneChange}
+                  className="input-field"
+                  data-testid="input-phone"
                 />
               </div>
 
