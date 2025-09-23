@@ -1,7 +1,10 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, decimal, timestamp, json, integer, boolean, serial } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, decimal, timestamp, json, integer, boolean, serial, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+// Define enums
+export const balanceTypeEnum = pgEnum('balance_type', ['fiat', 'crypto', 'token', 'voucher']);
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -21,6 +24,7 @@ export const balances = pgTable("balances", {
   sum: decimal("sum", { precision: 18, scale: 8 }).default("0.0"),
   currency: varchar("currency", { length: 10 }).notNull(),
   rate: decimal("rate", { precision: 18, scale: 8 }),
+  type: balanceTypeEnum("type").notNull().default("fiat"),
   status: varchar("status", { length: 50 }),
 });
 
