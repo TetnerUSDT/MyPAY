@@ -3,20 +3,22 @@ import { randomUUID } from "crypto";
 
 export interface IStorage {
   // User methods
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
+  getUser(id: number): Promise<User | undefined>;
+  getUserByTgId(tgId: string): Promise<User | undefined>;
+  getUserByApiKey(apiKey: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUserAgreement(id: number, agreement: number): Promise<User | undefined>;
+  generateApiKey(userId: number): Promise<string | undefined>;
 
   // Wallet methods
-  getWallet(id: string): Promise<Wallet | undefined>;
-  getWalletsByUserId(userId: string): Promise<Wallet[]>;
+  getWallet(id: number): Promise<Wallet | undefined>;
+  getWalletsByUserId(userId: number): Promise<Wallet[]>;
   createWallet(wallet: InsertWallet): Promise<Wallet>;
-  updateWalletBalance(id: string, balance: string): Promise<Wallet | undefined>;
 
   // Transaction methods
   getTransaction(id: string): Promise<Transaction | undefined>;
   getTransactionByOrderId(orderId: string): Promise<Transaction | undefined>;
-  getTransactionsByUserId(userId: string): Promise<Transaction[]>;
+  getTransactionsByUserId(userId: number): Promise<Transaction[]>;
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
   updateTransactionStatus(id: string, status: string, txHash?: string): Promise<Transaction | undefined>;
 
@@ -26,17 +28,19 @@ export interface IStorage {
 
   // Support chat methods
   getSupportChat(id: string): Promise<SupportChat | undefined>;
-  getSupportChatsByUserId(userId: string): Promise<SupportChat[]>;
+  getSupportChatsByUserId(userId: number): Promise<SupportChat[]>;
   createSupportChat(chat: InsertSupportChat): Promise<SupportChat>;
   addMessageToChat(chatId: string, sender: string, message: string): Promise<SupportChat | undefined>;
 }
 
 export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-  private wallets: Map<string, Wallet>;
+  private users: Map<number, User>;
+  private wallets: Map<number, Wallet>;
   private transactions: Map<string, Transaction>;
   private exchangeRates: Map<string, ExchangeRate>;
   private supportChats: Map<string, SupportChat>;
+  private nextUserId: number = 1;
+  private nextWalletId: number = 1;
 
   constructor() {
     this.users = new Map();
@@ -90,49 +94,76 @@ export class MemStorage implements IStorage {
     this.supportChats.set("demo-chat-1", demoChat);
   }
 
-  async getUser(id: string): Promise<User | undefined> {
+  async getUser(id: number): Promise<User | undefined> {
     return this.users.get(id);
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
+  async getUserByTgId(tgId: string): Promise<User | undefined> {
     return Array.from(this.users.values()).find(
-      (user) => user.username === username,
+      (user) => user.tgId === tgId,
+    );
+  }
+
+  async getUserByApiKey(apiKey: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(
+      (user) => user.apiKey === apiKey,
     );
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
+    const id = this.nextUserId++;
+    const user: User = { 
+      ...insertUser, 
+      id,
+      google: insertUser.google ?? null,
+      name: insertUser.name ?? null,
+      apiKey: insertUser.apiKey ?? null,
+      img: insertUser.img ?? null,
+      status: insertUser.status ?? null,
+      agreement: insertUser.agreement ?? 0,
+      blocked: insertUser.blocked ?? false
+    };
     this.users.set(id, user);
     return user;
   }
 
-  async getWallet(id: string): Promise<Wallet | undefined> {
+  async updateUserAgreement(id: number, agreement: number): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (user) {
+      user.agreement = agreement;
+      this.users.set(id, user);
+    }
+    return user;
+  }
+
+  async generateApiKey(userId: number): Promise<string | undefined> {
+    const user = this.users.get(userId);
+    if (user) {
+      const apiKey = randomUUID();
+      user.apiKey = apiKey;
+      this.users.set(userId, user);
+      return apiKey;
+    }
+    return undefined;
+  }
+
+  async getWallet(id: number): Promise<Wallet | undefined> {
     return this.wallets.get(id);
   }
 
-  async getWalletsByUserId(userId: string): Promise<Wallet[]> {
-    return Array.from(this.wallets.values()).filter(wallet => wallet.userId === userId);
+  async getWalletsByUserId(userId: number): Promise<Wallet[]> {
+    return Array.from(this.wallets.values()).filter(wallet => wallet.idUser === userId);
   }
 
   async createWallet(insertWallet: InsertWallet): Promise<Wallet> {
-    const id = randomUUID();
+    const id = this.nextWalletId++;
     const wallet: Wallet = { 
       ...insertWallet, 
       id,
-      userId: insertWallet.userId ?? null,
-      balance: insertWallet.balance ?? "0"
+      status: insertWallet.status ?? null,
+      reservationTime: insertWallet.reservationTime ?? null
     };
     this.wallets.set(id, wallet);
-    return wallet;
-  }
-
-  async updateWalletBalance(id: string, balance: string): Promise<Wallet | undefined> {
-    const wallet = this.wallets.get(id);
-    if (wallet) {
-      wallet.balance = balance;
-      this.wallets.set(id, wallet);
-    }
     return wallet;
   }
 
@@ -144,19 +175,25 @@ export class MemStorage implements IStorage {
     return Array.from(this.transactions.values()).find(tx => tx.orderId === orderId);
   }
 
-  async getTransactionsByUserId(userId: string): Promise<Transaction[]> {
+  async getTransactionsByUserId(userId: number): Promise<Transaction[]> {
     return Array.from(this.transactions.values()).filter(tx => tx.userId === userId);
   }
 
   async createTransaction(insertTransaction: InsertTransaction): Promise<Transaction> {
     const id = randomUUID();
+    const orderId = Math.floor(100000000 + Math.random() * 900000000).toString();
     const transaction: Transaction = {
       ...insertTransaction,
       id,
+      orderId,
       status: insertTransaction.status ?? "pending",
       userId: insertTransaction.userId ?? null,
       createdAt: new Date(),
       completedAt: null,
+      txHash: null,
+      fromAddress: null,
+      toAddress: null,
+      cardNumber: null,
     };
     this.transactions.set(id, transaction);
     return transaction;
@@ -202,7 +239,7 @@ export class MemStorage implements IStorage {
     return this.supportChats.get(id);
   }
 
-  async getSupportChatsByUserId(userId: string): Promise<SupportChat[]> {
+  async getSupportChatsByUserId(userId: number): Promise<SupportChat[]> {
     return Array.from(this.supportChats.values()).filter(chat => chat.userId === userId);
   }
 
@@ -214,7 +251,7 @@ export class MemStorage implements IStorage {
       status: insertChat.status ?? "open",
       userId: insertChat.userId ?? null,
       transactionId: insertChat.transactionId ?? null,
-      messages: Array.isArray(insertChat.messages) ? insertChat.messages : [],
+      messages: (insertChat.messages ?? []) as { sender: string; message: string; timestamp: Date }[],
       createdAt: new Date(),
     };
     this.supportChats.set(id, chat);
@@ -224,7 +261,7 @@ export class MemStorage implements IStorage {
   async addMessageToChat(chatId: string, sender: string, message: string): Promise<SupportChat | undefined> {
     const chat = this.supportChats.get(chatId);
     if (chat) {
-      const messages = chat.messages || [];
+      const messages: { sender: string; message: string; timestamp: Date }[] = Array.isArray(chat.messages) ? [...chat.messages] : [];
       messages.push({ sender, message, timestamp: new Date() });
       chat.messages = messages;
       this.supportChats.set(chatId, chat);
