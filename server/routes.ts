@@ -42,6 +42,10 @@ const requireApiKey = async (req: AuthenticatedRequest, res: Response, next: Nex
       return res.status(403).json({ message: "Account is blocked" });
     }
     
+    if (user.status !== "active") {
+      return res.status(403).json({ message: "Account is not active" });
+    }
+    
     // Attach user to request object
     req.user = {
       id: user.id,
@@ -60,7 +64,9 @@ const requireApiKey = async (req: AuthenticatedRequest, res: Response, next: Nex
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Telegram Authentication (Note: In production, validate Telegram WebApp initData signature)
+  // Telegram Authentication 
+  // WARNING: This endpoint is insecure without Telegram WebApp signature validation
+  // TODO: Implement Telegram initData HMAC verification before production
   app.post("/api/auth/telegram", async (req, res) => {
     try {
       const validatedData = telegramAuthSchema.parse(req.body);
@@ -95,8 +101,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name: user.name,
           img: user.img,
           agreement: user.agreement
-        },
-        apiKey: user.apiKey 
+        }
+        // Note: apiKey removed for security - use /api/auth/generate-key with proper auth
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -106,22 +112,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Generate API key for existing user
-  app.post("/api/auth/generate-key", async (req, res) => {
+  // Regenerate API key for authenticated user
+  app.post("/api/auth/generate-key", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {
-      const { tgId } = req.body;
-      
-      if (!tgId) {
-        return res.status(400).json({ message: "Telegram ID is required" });
-      }
-      
-      const user = await storage.getUserByTgId(tgId);
-      
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
-      const apiKey = await storage.generateApiKey(user.id);
+      const apiKey = await storage.generateApiKey(req.user!.id);
       
       res.json({ apiKey });
     } catch (error) {
@@ -194,8 +188,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get transaction by order ID
-  app.get("/api/transactions/order/:orderId", async (req, res) => {
+  // Get transaction by order ID (protected)
+  app.get("/api/transactions/order/:orderId", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {
       const { orderId } = req.params;
       const transaction = await storage.getTransactionByOrderId(orderId);
@@ -204,17 +198,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Transaction not found" });
       }
       
+      // Security: ensure user can only access their own transactions
+      if (transaction.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
       res.json(transaction);
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
     }
   });
 
-  // Update transaction status
+  // Update transaction status (webhook/system only)
+  // TODO: Implement proper webhook authentication with X-Webhook-Secret header
   app.patch("/api/transactions/:id/status", async (req, res) => {
     try {
       const { id } = req.params;
-      const { status, txHash } = req.body;
+      const { status, txHash, webhookSecret } = req.body;
+      
+      // Basic webhook authentication (placeholder)
+      // In production, verify X-Webhook-Secret header or require system-level auth
+      if (!webhookSecret || webhookSecret !== "dev-webhook-secret") {
+        return res.status(401).json({ message: "Unauthorized - webhook secret required" });
+      }
+      
+      // Validate status
+      const validStatuses = ["pending", "processing", "completed", "failed"];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
       
       const transaction = await storage.updateTransactionStatus(id, status, txHash);
       
@@ -229,10 +241,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get user transactions
-  app.get("/api/transactions/user/:userId", async (req, res) => {
+  app.get("/api/transactions/user", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {
-      const { userId } = req.params;
-      const transactions = await storage.getTransactionsByUserId(parseInt(userId));
+      const transactions = await storage.getTransactionsByUserId(req.user!.id);
       res.json(transactions);
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
@@ -240,10 +251,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Wallets
-  app.get("/api/wallets/user/:userId", async (req, res) => {
+  app.get("/api/wallets/user", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {
-      const { userId } = req.params;
-      const wallets = await storage.getWalletsByUserId(parseInt(userId));
+      const wallets = await storage.getWalletsByUserId(req.user!.id);
       res.json(wallets);
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
@@ -251,9 +261,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create wallet
-  app.post("/api/wallets", async (req, res) => {
+  app.post("/api/wallets", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {
-      const { userId, currency } = req.body;
+      const { currency } = req.body;
       
       // Generate a mock wallet address
       const generateAddress = (currency: string) => {
@@ -275,7 +285,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       const wallet = await storage.createWallet({
-        idUser: parseInt(userId),
+        idUser: req.user!.id,
         network: currency,
         address: generateAddress(currency),
       });
@@ -332,10 +342,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get user support chats
-  app.get("/api/support/chats/user/:userId", async (req, res) => {
+  app.get("/api/support/chats/user", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {
-      const { userId } = req.params;
-      const chats = await storage.getSupportChatsByUserId(parseInt(userId));
+      const chats = await storage.getSupportChatsByUserId(req.user!.id);
       res.json(chats);
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
