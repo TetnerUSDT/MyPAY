@@ -40,19 +40,16 @@ export default function AuthGuard({ children, requireAgreement = false }: AuthGu
       return;
     }
 
-    // If user is loaded and requireAgreement is true
-    if (user && requireAgreement) {
-      if (user.agreement === 0) {
-        // User hasn't agreed yet, redirect to agreement page
-        setLocation("/agreement");
-        return;
-      }
-      // User has agreed (agreement === 1), allow access
+    // Only redirect if user data is loaded (avoid race conditions)
+    if (user && requireAgreement && user.agreement === 0) {
+      // User hasn't agreed yet, redirect to agreement page
+      setLocation("/agreement");
+      return;
     }
   }, [hasApiKey, user, requireAgreement, setLocation]);
 
-  // Show loading while checking authentication
-  if (hasApiKey && isLoading) {
+  // Show loading while checking authentication or loading user data
+  if (hasApiKey && (isLoading || (requireAgreement && !user))) {
     return (
       <div className="mobile-screen gradient-bg text-white flex items-center justify-center">
         <div className="text-center">
@@ -63,8 +60,13 @@ export default function AuthGuard({ children, requireAgreement = false }: AuthGu
     );
   }
 
-  // If user is not loaded yet or redirecting, show nothing
-  if (!hasApiKey || (requireAgreement && (!user || user.agreement === 0))) {
+  // If no API key, show nothing (will redirect)
+  if (!hasApiKey) {
+    return null;
+  }
+
+  // If agreement is required but user hasn't agreed, show nothing (will redirect)
+  if (requireAgreement && user && user.agreement === 0) {
     return null;
   }
 

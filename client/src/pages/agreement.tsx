@@ -23,7 +23,7 @@ export default function AgreementScreen() {
       // Only clear API key on authentication errors (401/403)
       if (errorMessage.includes("401") || errorMessage.includes("403") || errorMessage.includes("API key")) {
         localStorage.removeItem("userApiKey");
-        setLocation("/splash");
+        setLocation("/");
       }
       // For other errors (500, network, etc.), leave API key intact
     }
@@ -42,9 +42,11 @@ export default function AgreementScreen() {
       const response = await apiRequest("PATCH", "/api/auth/agreement");
       return response.json();
     },
-    onSuccess: () => {
-      // Invalidate user query to refresh cache
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+    onSuccess: async (updatedUser) => {
+      // Update the cache immediately with the returned user data
+      queryClient.setQueryData(["/api/auth/me"], updatedUser);
+      // Ensure query is invalidated and refetched
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       // Redirect to home after successful agreement update
       setLocation("/home");
     },
@@ -56,7 +58,7 @@ export default function AgreementScreen() {
       if (errorMessage.includes("401") || errorMessage.includes("403") || errorMessage.includes("API key")) {
         // Clear invalid API key and redirect to splash for re-authentication
         localStorage.removeItem("userApiKey");
-        setLocation("/splash");
+        setLocation("/");
       } else {
         // For other errors, still show error but don't redirect
         console.error("Agreement update failed:", error);
@@ -67,7 +69,7 @@ export default function AgreementScreen() {
   const handleConfirmAgreement = () => {
     // If no API key, redirect to splash for authentication first
     if (!hasApiKey) {
-      setLocation("/splash");
+      setLocation("/");
       return;
     }
     updateAgreementMutation.mutate();

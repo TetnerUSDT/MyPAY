@@ -1,5 +1,7 @@
-import { type User, type InsertUser, type Wallet, type InsertWallet, type Transaction, type InsertTransaction, type ExchangeRate, type InsertExchangeRate, type SupportChat, type InsertSupportChat } from "@shared/schema";
+import { type User, type InsertUser, type Wallet, type InsertWallet, type Transaction, type InsertTransaction, type ExchangeRate, type InsertExchangeRate, type SupportChat, type InsertSupportChat, users, wallets, transactions, exchangeRates, supportChats } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { db } from "./db";
+import { eq, and } from "drizzle-orm";
 
 export interface IStorage {
   // User methods
@@ -33,241 +35,237 @@ export interface IStorage {
   addMessageToChat(chatId: string, sender: string, message: string): Promise<SupportChat | undefined>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private wallets: Map<number, Wallet>;
-  private transactions: Map<string, Transaction>;
-  private exchangeRates: Map<string, ExchangeRate>;
-  private supportChats: Map<string, SupportChat>;
-  private nextUserId: number = 1;
-  private nextWalletId: number = 1;
-
+export class DatabaseStorage implements IStorage {
   constructor() {
-    this.users = new Map();
-    this.wallets = new Map();
-    this.transactions = new Map();
-    this.exchangeRates = new Map();
-    this.supportChats = new Map();
-
-    // Initialize with some exchange rates
+    // Initialize with some exchange rates if not exist
     this.initializeExchangeRates();
     
-    // Initialize demo support chat
+    // Initialize demo support chat if not exist
     this.initializeDemoChat();
   }
 
-  private initializeExchangeRates() {
-    const rates = [
-      { fromCurrency: "USDT", toCurrency: "RUB", rate: "95.50" },
-      { fromCurrency: "USDT", toCurrency: "TRY", rate: "27.80" },
-      { fromCurrency: "BTC", toCurrency: "USDT", rate: "43500.00" },
-      { fromCurrency: "ETH", toCurrency: "USDT", rate: "2650.00" },
-    ];
+  private async initializeExchangeRates() {
+    try {
+      // Check if rates already exist
+      const existingRates = await db.select().from(exchangeRates).limit(1);
+      if (existingRates.length > 0) return;
 
-    rates.forEach(rate => {
-      const id = randomUUID();
-      const exchangeRate: ExchangeRate = {
-        id,
-        ...rate,
-        updatedAt: new Date(),
-      };
-      this.exchangeRates.set(`${rate.fromCurrency}_${rate.toCurrency}`, exchangeRate);
-    });
+      const rates = [
+        { fromCurrency: "USDT", toCurrency: "RUB", rate: "95.50" },
+        { fromCurrency: "USDT", toCurrency: "TRY", rate: "27.80" },
+        { fromCurrency: "BTC", toCurrency: "USDT", rate: "43500.00" },
+        { fromCurrency: "ETH", toCurrency: "USDT", rate: "2650.00" },
+      ];
+
+      for (const rate of rates) {
+        await db.insert(exchangeRates).values({
+          id: randomUUID(),
+          ...rate,
+          updatedAt: new Date(),
+        }).onConflictDoNothing();
+      }
+    } catch (error) {
+      console.log('Exchange rates initialization skipped (table may not exist yet)');
+    }
   }
 
-  private initializeDemoChat() {
-    const demoChat: SupportChat = {
-      id: "demo-chat-1",
-      userId: null,
-      transactionId: null,
-      messages: [
-        {
-          sender: "Elena from support",
-          message: "Hi there! How can I help?",
-          timestamp: new Date()
-        }
-      ],
-      status: "open",
-      createdAt: new Date(),
-    };
-    
-    this.supportChats.set("demo-chat-1", demoChat);
+  private async initializeDemoChat() {
+    try {
+      // Check if demo chat already exists
+      const existingChat = await db.select().from(supportChats).where(eq(supportChats.id, "demo-chat-1")).limit(1);
+      if (existingChat.length > 0) return;
+
+      await db.insert(supportChats).values({
+        id: "demo-chat-1",
+        userId: null,
+        transactionId: null,
+        status: "open",
+        messages: [
+          {
+            sender: "Elena from support",
+            message: "Hi there! How can I help?",
+            timestamp: new Date(),
+          },
+        ],
+        createdAt: new Date(),
+      }).onConflictDoNothing();
+    } catch (error) {
+      console.log('Demo chat initialization skipped (table may not exist yet)');
+    }
   }
 
+  // User methods
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async getUserByTgId(tgId: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.tgId === tgId,
-    );
+    const [user] = await db.select().from(users).where(eq(users.tgId, tgId));
+    return user || undefined;
   }
 
   async getUserByApiKey(apiKey: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.apiKey === apiKey,
-    );
+    const [user] = await db.select().from(users).where(eq(users.apiKey, apiKey));
+    return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.nextUserId++;
-    const user: User = { 
-      ...insertUser, 
-      id,
-      google: insertUser.google ?? null,
-      name: insertUser.name ?? null,
-      apiKey: insertUser.apiKey ?? null,
-      img: insertUser.img ?? null,
-      status: insertUser.status ?? null,
-      agreement: insertUser.agreement ?? 0,
-      blocked: insertUser.blocked ?? false
-    };
-    this.users.set(id, user);
+    const [user] = await db
+      .insert(users)
+      .values({
+        ...insertUser,
+        agreement: insertUser.agreement ?? 0,
+        blocked: insertUser.blocked ?? false,
+        apiKey: insertUser.apiKey ?? null,
+      })
+      .returning();
     return user;
   }
 
   async updateUserAgreement(id: number, agreement: number): Promise<User | undefined> {
-    const user = this.users.get(id);
-    if (user) {
-      user.agreement = agreement;
-      this.users.set(id, user);
-    }
-    return user;
+    const [user] = await db
+      .update(users)
+      .set({ agreement })
+      .where(eq(users.id, id))
+      .returning();
+    return user || undefined;
   }
 
   async generateApiKey(userId: number): Promise<string | undefined> {
-    const user = this.users.get(userId);
-    if (user) {
-      const apiKey = randomUUID();
-      user.apiKey = apiKey;
-      this.users.set(userId, user);
-      return apiKey;
-    }
-    return undefined;
+    const apiKey = randomUUID();
+    const [user] = await db
+      .update(users)
+      .set({ apiKey })
+      .where(eq(users.id, userId))
+      .returning();
+    return user?.apiKey || undefined;
   }
 
+  // Wallet methods
   async getWallet(id: number): Promise<Wallet | undefined> {
-    return this.wallets.get(id);
+    const [wallet] = await db.select().from(wallets).where(eq(wallets.id, id));
+    return wallet || undefined;
   }
 
   async getWalletsByUserId(userId: number): Promise<Wallet[]> {
-    return Array.from(this.wallets.values()).filter(wallet => wallet.idUser === userId);
+    return await db.select().from(wallets).where(eq(wallets.idUser, userId));
   }
 
   async createWallet(insertWallet: InsertWallet): Promise<Wallet> {
-    const id = this.nextWalletId++;
-    const wallet: Wallet = { 
-      ...insertWallet, 
-      id,
-      status: insertWallet.status ?? null,
-      reservationTime: insertWallet.reservationTime ?? null
-    };
-    this.wallets.set(id, wallet);
+    const [wallet] = await db
+      .insert(wallets)
+      .values(insertWallet)
+      .returning();
     return wallet;
   }
 
+  // Transaction methods
   async getTransaction(id: string): Promise<Transaction | undefined> {
-    return this.transactions.get(id);
+    const [transaction] = await db.select().from(transactions).where(eq(transactions.id, id));
+    return transaction || undefined;
   }
 
   async getTransactionByOrderId(orderId: string): Promise<Transaction | undefined> {
-    return Array.from(this.transactions.values()).find(tx => tx.orderId === orderId);
+    const [transaction] = await db.select().from(transactions).where(eq(transactions.orderId, orderId));
+    return transaction || undefined;
   }
 
   async getTransactionsByUserId(userId: number): Promise<Transaction[]> {
-    return Array.from(this.transactions.values()).filter(tx => tx.userId === userId);
+    return await db.select().from(transactions).where(eq(transactions.userId, userId));
   }
 
   async createTransaction(insertTransaction: InsertTransaction): Promise<Transaction> {
-    const id = randomUUID();
-    const orderId = Math.floor(100000000 + Math.random() * 900000000).toString();
-    const transaction: Transaction = {
-      ...insertTransaction,
-      id,
-      orderId,
-      status: insertTransaction.status ?? "pending",
-      userId: insertTransaction.userId ?? null,
-      createdAt: new Date(),
-      completedAt: null,
-      txHash: null,
-      fromAddress: null,
-      toAddress: null,
-      cardNumber: null,
-    };
-    this.transactions.set(id, transaction);
+    const [transaction] = await db
+      .insert(transactions)
+      .values({
+        ...insertTransaction,
+        status: insertTransaction.status ?? "pending",
+        createdAt: new Date(),
+      })
+      .returning();
     return transaction;
   }
 
   async updateTransactionStatus(id: string, status: string, txHash?: string): Promise<Transaction | undefined> {
-    const transaction = this.transactions.get(id);
-    if (transaction) {
-      transaction.status = status;
-      if (txHash) transaction.txHash = txHash;
-      if (status === "completed") transaction.completedAt = new Date();
-      this.transactions.set(id, transaction);
-    }
-    return transaction;
+    const updateData: any = { status };
+    if (txHash) updateData.txHash = txHash;
+
+    const [transaction] = await db
+      .update(transactions)
+      .set(updateData)
+      .where(eq(transactions.id, id))
+      .returning();
+    return transaction || undefined;
   }
 
+  // Exchange rate methods
   async getExchangeRate(fromCurrency: string, toCurrency: string): Promise<ExchangeRate | undefined> {
-    return this.exchangeRates.get(`${fromCurrency}_${toCurrency}`);
+    const [rate] = await db
+      .select()
+      .from(exchangeRates)
+      .where(and(
+        eq(exchangeRates.fromCurrency, fromCurrency),
+        eq(exchangeRates.toCurrency, toCurrency)
+      ));
+    return rate || undefined;
   }
 
   async createOrUpdateExchangeRate(insertRate: InsertExchangeRate): Promise<ExchangeRate> {
-    const key = `${insertRate.fromCurrency}_${insertRate.toCurrency}`;
-    const existing = this.exchangeRates.get(key);
-    
-    if (existing) {
-      existing.rate = insertRate.rate;
-      existing.updatedAt = new Date();
-      this.exchangeRates.set(key, existing);
-      return existing;
-    } else {
-      const id = randomUUID();
-      const rate: ExchangeRate = {
+    const [rate] = await db
+      .insert(exchangeRates)
+      .values({
         ...insertRate,
-        id,
         updatedAt: new Date(),
-      };
-      this.exchangeRates.set(key, rate);
-      return rate;
-    }
+      })
+      .onConflictDoUpdate({
+        target: [exchangeRates.fromCurrency, exchangeRates.toCurrency],
+        set: {
+          rate: insertRate.rate,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return rate;
   }
 
+  // Support chat methods
   async getSupportChat(id: string): Promise<SupportChat | undefined> {
-    return this.supportChats.get(id);
+    const [chat] = await db.select().from(supportChats).where(eq(supportChats.id, id));
+    return chat || undefined;
   }
 
   async getSupportChatsByUserId(userId: number): Promise<SupportChat[]> {
-    return Array.from(this.supportChats.values()).filter(chat => chat.userId === userId);
+    return await db.select().from(supportChats).where(eq(supportChats.userId, userId));
   }
 
   async createSupportChat(insertChat: InsertSupportChat): Promise<SupportChat> {
-    const id = randomUUID();
-    const chat: SupportChat = {
-      ...insertChat,
-      id,
-      status: insertChat.status ?? "open",
-      userId: insertChat.userId ?? null,
-      transactionId: insertChat.transactionId ?? null,
-      messages: (insertChat.messages ?? []) as { sender: string; message: string; timestamp: Date }[],
-      createdAt: new Date(),
-    };
-    this.supportChats.set(id, chat);
+    const [chat] = await db
+      .insert(supportChats)
+      .values({
+        ...insertChat,
+        status: insertChat.status ?? "open",
+        messages: insertChat.messages ?? [],
+        createdAt: new Date(),
+      })
+      .returning();
     return chat;
   }
 
   async addMessageToChat(chatId: string, sender: string, message: string): Promise<SupportChat | undefined> {
-    const chat = this.supportChats.get(chatId);
-    if (chat) {
-      const messages: { sender: string; message: string; timestamp: Date }[] = Array.isArray(chat.messages) ? [...chat.messages] : [];
-      messages.push({ sender, message, timestamp: new Date() });
-      chat.messages = messages;
-      this.supportChats.set(chatId, chat);
-    }
-    return chat;
+    const chat = await this.getSupportChat(chatId);
+    if (!chat) return undefined;
+
+    const messages: { sender: string; message: string; timestamp: Date }[] = Array.isArray(chat.messages) ? [...chat.messages] : [];
+    messages.push({ sender, message, timestamp: new Date() });
+
+    const [updatedChat] = await db
+      .update(supportChats)
+      .set({ messages })
+      .where(eq(supportChats.id, chatId))
+      .returning();
+    return updatedChat || undefined;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
