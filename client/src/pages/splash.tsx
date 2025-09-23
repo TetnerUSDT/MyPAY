@@ -1,5 +1,5 @@
 import { useLocation } from "wouter";
-import { Bitcoin, Loader2 } from "lucide-react";
+import { Bitcoin, Loader2, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -9,6 +9,8 @@ export default function SplashScreen() {
   const [, setLocation] = useLocation();
   const [telegramWebApp, setTelegramWebApp] = useState<any>(null);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [showTestMode, setShowTestMode] = useState(false);
+  const [testName, setTestName] = useState('');
   
   // Initialize Telegram WebApp
   useEffect(() => {
@@ -57,6 +59,33 @@ export default function SplashScreen() {
       console.error('Telegram auth failed:', error);
     },
   });
+
+  // Mutation for test authentication
+  const testAuthMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const response = await apiRequest('POST', '/api/auth/test', {
+        name
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      // Store API key for future requests
+      if (data.apiKey) {
+        localStorage.setItem('userApiKey', data.apiKey);
+      }
+      
+      // Check if user needs to agree to terms
+      if (data.user.agreement === 0) {
+        setLocation('/agreement');
+      } else {
+        setLocation('/home');
+      }
+    },
+    onError: (error) => {
+      setAuthError('Ошибка тестовой аутентификации. Попробуйте позже.');
+      console.error('Test auth failed:', error);
+    },
+  });
   
   const handleTelegramAuth = async (initData: string) => {
     try {
@@ -65,19 +94,29 @@ export default function SplashScreen() {
       setAuthError('Ошибка аутентификации');
     }
   };
-  
-  const handleManualStart = () => {
-    // For development or when not in Telegram
-    setLocation('/agreement');
+
+  const handleTestAuth = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (testName.trim()) {
+      setAuthError(null);
+      testAuthMutation.mutate(testName.trim());
+    }
   };
   
-  // If authenticating via Telegram, show loading
-  if (telegramAuthMutation.isPending) {
+  const handleManualStart = () => {
+    // For development or when not in Telegram - redirect to test mode instead
+    setShowTestMode(true);
+  };
+  
+  // If authenticating, show loading
+  if (telegramAuthMutation.isPending || testAuthMutation.isPending) {
     return (
       <div className="mobile-screen gradient-bg text-white">
         <div className="flex flex-col items-center justify-center min-h-screen text-center px-6">
           <Loader2 className="w-12 h-12 mb-6 animate-spin" />
-          <h2 className="text-xl font-semibold mb-2">Вход через Telegram</h2>
+          <h2 className="text-xl font-semibold mb-2">
+            {telegramAuthMutation.isPending ? 'Вход через Telegram' : 'Тестовый вход'}
+          </h2>
           <p className="text-sm text-gray-300">Проверяем ваши данные...</p>
         </div>
       </div>
@@ -111,36 +150,94 @@ export default function SplashScreen() {
           </div>
         )}
         
-        {telegramWebApp ? (
-          <div className="w-full max-w-sm space-y-4">
-            <p className="text-sm text-gray-300 mb-4">
-              Добро пожаловать в Telegram Mini App!
-            </p>
-            {!telegramWebApp.initData && (
+        <div className="w-full max-w-sm space-y-4">
+          {telegramWebApp && !showTestMode ? (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-300 mb-4">
+                Добро пожаловать в Telegram Mini App!
+              </p>
+              {!telegramWebApp.initData && (
+                <button 
+                  onClick={handleManualStart}
+                  className="action-button w-full"
+                  data-testid="button-start-telegram"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  Продолжить
+                </button>
+              )}
+              {import.meta.env.DEV && (
+                <button 
+                  onClick={() => setShowTestMode(true)}
+                  className="w-full px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg transition-colors text-sm"
+                  data-testid="button-switch-test-mode"
+                >
+                  <User className="w-4 h-4 mr-2 inline" />
+                  Тестовый режим
+                </button>
+              )}
+            </div>
+          ) : showTestMode ? (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-300 mb-4">
+                Тестовый вход для разработки
+              </p>
+              <form onSubmit={handleTestAuth} className="space-y-4">
+                <input
+                  type="text"
+                  value={testName}
+                  onChange={(e) => setTestName(e.target.value)}
+                  placeholder="Введите ваше имя"
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  data-testid="input-test-name"
+                  required
+                />
+                <button 
+                  type="submit"
+                  className="action-button w-full"
+                  data-testid="button-test-login"
+                  disabled={!testName.trim()}
+                >
+                  <User className="w-5 h-5 mr-2" />
+                  Войти в тестовом режиме
+                </button>
+              </form>
               <button 
-                onClick={handleManualStart}
-                className="action-button"
-                data-testid="button-start-telegram"
+                onClick={() => {setShowTestMode(false); setTestName(''); setAuthError(null);}}
+                className="w-full px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg transition-colors text-sm"
+                data-testid="button-back-to-main"
               >
-                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                Продолжить
+                Назад
               </button>
-            )}
-          </div>
-        ) : (
-          <button 
-            onClick={handleManualStart}
-            className="action-button w-full max-w-sm"
-            data-testid="button-start-agreement"
-          >
-            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-            Перейти к соглашению
-          </button>
-        )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {import.meta.env.DEV ? (
+                <button 
+                  onClick={handleManualStart}
+                  className="action-button w-full"
+                  data-testid="button-start-test"
+                >
+                  <User className="w-5 h-5 mr-2" />
+                  Начать тестирование
+                </button>
+              ) : (
+                <button 
+                  onClick={() => setLocation('/agreement')}
+                  className="action-button w-full"
+                  data-testid="button-start-agreement"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  Перейти к соглашению
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

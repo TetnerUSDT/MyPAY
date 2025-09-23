@@ -10,6 +10,10 @@ const telegramAuthSchema = z.object({
   initData: z.string(),
 });
 
+const testAuthSchema = z.object({
+  name: z.string().min(1, "Имя обязательно"),
+});
+
 // Environment variable for bot token (for development, use a placeholder)
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "dev-mock-token";
 
@@ -95,6 +99,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      if (!userData.user) {
+        return res.status(400).json({ message: "Invalid user data" });
+      }
+      
       const tgId = userData.user.id.toString();
       const name = userData.user.first_name || userData.user.username || null;
       const img = userData.user.photo_url || null;
@@ -136,6 +144,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid request data", errors: error.errors });
       }
       console.error('Telegram auth error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
+  // Test authentication for development (without Telegram)
+  app.post("/api/auth/test", async (req, res) => {
+    // Only allow in development environment
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(404).json({ message: "Not found" });
+    }
+    
+    try {
+      const validatedData = testAuthSchema.parse(req.body);
+      const { name } = validatedData;
+      
+      // Generate unique test tg_id based on name and timestamp
+      const testTgId = `test_${name.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`;
+      
+      // Create new test user
+      const user = await storage.createUser({
+        tgId: testTgId,
+        google: null,
+        name,
+        img: null,
+        status: "active",
+        agreement: 0,
+        blocked: false
+      });
+      
+      // Generate API key
+      const apiKey = await storage.generateApiKey(user.id);
+      
+      const responseUser = {
+        id: user.id,
+        tgId: user.tgId,
+        name: user.name,
+        img: user.img,
+        agreement: user.agreement
+      };
+      
+      res.json({ 
+        user: responseUser,
+        apiKey
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+      }
+      console.error('Test auth error:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
