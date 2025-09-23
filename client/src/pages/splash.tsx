@@ -33,12 +33,10 @@ export default function SplashScreen() {
     }
   }, []);
   
-  // Mutation for Telegram authentication
-  const telegramAuthMutation = useMutation({
-    mutationFn: async (initData: string) => {
-      const response = await apiRequest('POST', '/api/auth/telegram', {
-        initData
-      });
+  // Unified authentication mutation that works with both modes
+  const loginMutation = useMutation({
+    mutationFn: async (authData: { initData?: string; name?: string }) => {
+      const response = await apiRequest('POST', '/api/auth/login', authData);
       return response.json();
     },
     onSuccess: (data) => {
@@ -56,40 +54,13 @@ export default function SplashScreen() {
     },
     onError: (error) => {
       setAuthError('Ошибка аутентификации. Попробуйте позже.');
-      console.error('Telegram auth failed:', error);
-    },
-  });
-
-  // Mutation for test authentication
-  const testAuthMutation = useMutation({
-    mutationFn: async (name: string) => {
-      const response = await apiRequest('POST', '/api/auth/test', {
-        name
-      });
-      return response.json();
-    },
-    onSuccess: (data) => {
-      // Store API key for future requests
-      if (data.apiKey) {
-        localStorage.setItem('userApiKey', data.apiKey);
-      }
-      
-      // Check if user needs to agree to terms
-      if (data.user.agreement === 0) {
-        setLocation('/agreement');
-      } else {
-        setLocation('/home');
-      }
-    },
-    onError: (error) => {
-      setAuthError('Ошибка тестовой аутентификации. Попробуйте позже.');
-      console.error('Test auth failed:', error);
+      console.error('Auth failed:', error);
     },
   });
   
   const handleTelegramAuth = async (initData: string) => {
     try {
-      telegramAuthMutation.mutate(initData);
+      loginMutation.mutate({ initData });
     } catch (error) {
       setAuthError('Ошибка аутентификации');
     }
@@ -99,7 +70,7 @@ export default function SplashScreen() {
     e.preventDefault();
     if (testName.trim()) {
       setAuthError(null);
-      testAuthMutation.mutate(testName.trim());
+      loginMutation.mutate({ name: testName.trim() });
     }
   };
   
@@ -109,14 +80,12 @@ export default function SplashScreen() {
   };
   
   // If authenticating, show loading
-  if (telegramAuthMutation.isPending || testAuthMutation.isPending) {
+  if (loginMutation.isPending) {
     return (
       <div className="mobile-screen gradient-bg text-white">
         <div className="flex flex-col items-center justify-center min-h-screen text-center px-6">
           <Loader2 className="w-12 h-12 mb-6 animate-spin" />
-          <h2 className="text-xl font-semibold mb-2">
-            {telegramAuthMutation.isPending ? 'Вход через Telegram' : 'Тестовый вход'}
-          </h2>
+          <h2 className="text-xl font-semibold mb-2">Вход в систему</h2>
           <p className="text-sm text-gray-300">Проверяем ваши данные...</p>
         </div>
       </div>

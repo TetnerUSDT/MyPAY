@@ -4,18 +4,35 @@ import { z } from "zod";
 import { validate as validateInitData, parse as parseInitData } from "@telegram-apps/init-data-node";
 import { storage } from "./storage";
 import { insertTransactionSchema, insertSupportChatSchema, insertUserSchema } from "@shared/schema";
+import { config, isTestMode, isTelegramMode, isDevelopment } from "./config";
 
-// Validation schemas for auth endpoints
-const telegramAuthSchema = z.object({
-  initData: z.string(),
+// Unified login schema that supports both modes
+const loginSchema = z.discriminatedUnion("mode", [
+  z.object({
+    mode: z.literal("telegram"),
+    initData: z.string(),
+  }),
+  z.object({
+    mode: z.literal("test"),
+    name: z.string().min(1, "Имя обязательно"),
+  })
+]);
+
+// Auto-detect login schema based on config
+const autoLoginSchema = z.object({
+  // For telegram mode
+  initData: z.string().optional(),
+  // For test mode
+  name: z.string().optional(),
+}).refine((data) => {
+  if (isTestMode()) {
+    return data.name && data.name.trim().length > 0;
+  } else {
+    return data.initData && data.initData.length > 0;
+  }
+}, {
+  message: isTestMode() ? "Name is required in test mode" : "InitData is required in telegram mode"
 });
-
-const testAuthSchema = z.object({
-  name: z.string().min(1, "Имя обязательно"),
-});
-
-// Environment variable for bot token (for development, use a placeholder)
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "dev-mock-token";
 
 // API Key authentication middleware
 interface AuthenticatedRequest extends Request {
@@ -70,129 +87,125 @@ const requireApiKey = async (req: AuthenticatedRequest, res: Response, next: Nex
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Telegram Authentication with initData verification
-  app.post("/api/auth/telegram", async (req, res) => {
+  // Unified authentication endpoint that adapts based on configuration
+  app.post("/api/auth/login", async (req, res) => {
     try {
-      const validatedData = telegramAuthSchema.parse(req.body);
-      const { initData } = validatedData;
+      const validatedData = autoLoginSchema.parse(req.body);
       
-      let userData;
+      let user;
+      let apiKey;
       
-      if (process.env.NODE_ENV === 'development' && TELEGRAM_BOT_TOKEN === 'dev-mock-token') {
-        // Development mode: mock validation
-        console.log('Development mode: Skipping Telegram initData validation');
-        userData = {
-          user: {
-            id: Date.now(), // Mock user ID
-            first_name: 'Dev User',
-            username: 'devuser'
-          }
-        };
-      } else {
-        // Production mode: validate initData
-        try {
-          validateInitData(initData, TELEGRAM_BOT_TOKEN);
-          userData = parseInitData(initData);
-        } catch (validationError) {
-          console.error('Telegram initData validation failed:', validationError);
-          return res.status(401).json({ message: "Invalid Telegram data" });
+      if (isTestMode()) {
+        // Test mode authentication
+        if (!config.auth.test.enabled) {
+          return res.status(404).json({ message: "Test authentication is disabled" });
         }
+        
+        const name = validatedData.name!;
+        
+        // Generate deterministic test tg_id to avoid duplicate users
+        const testTgId = `test_${name.toLowerCase().replace(/\s+/g, '_')}`;
+        
+        // Check if test user already exists
+        user = await storage.getUserByTgId(testTgId);
+        
+        if (!user) {
+          // Create new test user
+          user = await storage.createUser({
+            tgId: testTgId,
+            google: null,
+            name,
+            img: null,
+            status: "active",
+            agreement: 0,
+            blocked: false
+          });
+        }
+        
+        // Generate or reuse API key
+        apiKey = await storage.generateApiKey(user.id);
+        
+      } else {
+        // Telegram mode authentication
+        const initData = validatedData.initData!;
+        let userData;
+        
+        if (isDevelopment() && config.auth.telegram.botToken === 'dev-mock-token') {
+          // Development mode: mock validation
+          console.log('Development mode: Skipping Telegram initData validation');
+          userData = {
+            user: {
+              id: Date.now(), // Mock user ID
+              first_name: 'Dev User',
+              username: 'devuser'
+            }
+          };
+        } else {
+          // Production mode: validate initData
+          if (!config.auth.telegram.validateInitData) {
+            return res.status(501).json({ message: "Telegram validation is disabled" });
+          }
+          
+          try {
+            validateInitData(initData, config.auth.telegram.botToken);
+            userData = parseInitData(initData);
+          } catch (validationError) {
+            console.error('Telegram initData validation failed:', validationError);
+            return res.status(401).json({ message: "Invalid Telegram data" });
+          }
+        }
+        
+        if (!userData.user) {
+          return res.status(400).json({ message: "Invalid user data" });
+        }
+        
+        const tgId = userData.user.id.toString();
+        const name = userData.user.first_name || userData.user.username || null;
+        const img = userData.user.photo_url || null;
+        
+        // Check if user already exists
+        user = await storage.getUserByTgId(tgId);
+        
+        if (!user) {
+          // Create new user
+          user = await storage.createUser({
+            tgId,
+            google: null,
+            name,
+            img,
+            status: "active",
+            agreement: 0,
+            blocked: false
+          });
+        }
+        
+        // Generate API key
+        apiKey = await storage.generateApiKey(user.id);
       }
       
-      if (!userData.user) {
-        return res.status(400).json({ message: "Invalid user data" });
-      }
+      const responseUser = {
+        id: user.id,
+        tgId: user.tgId,
+        name: user.name,
+        img: user.img,
+        agreement: user.agreement
+      };
       
-      const tgId = userData.user.id.toString();
-      const name = userData.user.first_name || userData.user.username || null;
-      const img = userData.user.photo_url || null;
+      res.json({ 
+        user: responseUser,
+        apiKey,
+        authMode: config.auth.mode // Include current mode for client info
+      });
       
-      // Check if user already exists
-      let user = await storage.getUserByTgId(tgId);
-      
-      if (!user) {
-        // Create new user
-        user = await storage.createUser({
-          tgId,
-          google: null,
-          name,
-          img,
-          status: "active",
-          agreement: 0,
-          blocked: false
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Invalid request data", 
+          errors: error.errors,
+          expectedMode: config.auth.mode 
         });
       }
-      
-      // Generate API key and return it (now secure after validation)
-      const apiKey = await storage.generateApiKey(user.id);
-      
-      // Store API key in localStorage on client-side for subsequent requests
-      const responseUser = {
-        id: user.id,
-        tgId: user.tgId,
-        name: user.name,
-        img: user.img,
-        agreement: user.agreement
-      };
-      
-      res.json({ 
-        user: responseUser,
-        apiKey // Safe to return now after verification
-      });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
-      }
-      console.error('Telegram auth error:', error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-  
-  // Test authentication for development (without Telegram)
-  app.post("/api/auth/test", async (req, res) => {
-    // Only allow in development environment
-    if (process.env.NODE_ENV === 'production') {
-      return res.status(404).json({ message: "Not found" });
-    }
-    
-    try {
-      const validatedData = testAuthSchema.parse(req.body);
-      const { name } = validatedData;
-      
-      // Generate unique test tg_id based on name and timestamp
-      const testTgId = `test_${name.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`;
-      
-      // Create new test user
-      const user = await storage.createUser({
-        tgId: testTgId,
-        google: null,
-        name,
-        img: null,
-        status: "active",
-        agreement: 0,
-        blocked: false
-      });
-      
-      // Generate API key
-      const apiKey = await storage.generateApiKey(user.id);
-      
-      const responseUser = {
-        id: user.id,
-        tgId: user.tgId,
-        name: user.name,
-        img: user.img,
-        agreement: user.agreement
-      };
-      
-      res.json({ 
-        user: responseUser,
-        apiKey
-      });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
-      }
-      console.error('Test auth error:', error);
+      console.error('Auth error:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
