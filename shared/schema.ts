@@ -1,26 +1,100 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, decimal, timestamp, json } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, decimal, timestamp, json, integer, boolean, serial } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+  id: serial("id").primaryKey(),
+  tgId: varchar("tg_id", { length: 255 }).notNull().unique(),
+  google: varchar("google", { length: 255 }),
+  apiKey: varchar("api_key", { length: 255 }).unique(),
+  name: varchar("name", { length: 255 }),
+  img: varchar("img", { length: 255 }),
+  status: varchar("status", { length: 50 }),
+  agreement: integer("agreement").default(0), // 0 not agree, 1 agree with rules
+  blocked: boolean("blocked").default(false),
+});
+
+export const balances = pgTable("balances", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  sum: decimal("sum", { precision: 18, scale: 8 }).default("0.0"),
+  currency: varchar("currency", { length: 10 }).notNull(),
+  rate: decimal("rate", { precision: 18, scale: 8 }),
+  status: varchar("status", { length: 50 }),
+});
+
+export const usersBalances = pgTable("users_balances", {
+  id: serial("id").primaryKey(),
+  idBalance: integer("id_balance").notNull().references(() => balances.id, { onDelete: "cascade" }),
+  idUser: integer("id_user").notNull().references(() => users.id, { onDelete: "cascade" }),
+  sum: decimal("sum", { precision: 18, scale: 8 }).default("0.0"),
+  status: varchar("status", { length: 50 }),
 });
 
 export const wallets = pgTable("wallets", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id),
-  address: text("address").notNull(),
-  currency: text("currency").notNull(),
-  balance: decimal("balance", { precision: 18, scale: 8 }).default("0"),
+  id: serial("id").primaryKey(),
+  idUser: integer("id_user").notNull().references(() => users.id, { onDelete: "cascade" }),
+  network: varchar("network", { length: 50 }).notNull(),
+  address: varchar("address", { length: 255 }).notNull(),
+  // Note: mnemonic and privateKey should be encrypted or stored externally for security
+  // These fields are commented out - implement secure storage if needed
+  // mnemonic: text("mnemonic"),
+  // privateKey: varchar("private_key", { length: 500 }),
+  reservationTime: timestamp("reservation_time").default(sql`CURRENT_TIMESTAMP + INTERVAL '24 hours'`),
+  status: varchar("status", { length: 50 }),
 });
 
+export const cards = pgTable("cards", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  country: varchar("country", { length: 50 }).notNull(),
+  lang: varchar("lang", { length: 255 }),
+  timeExchange: integer("time_exchange").notNull(),
+  commission: decimal("commission", { precision: 5, scale: 2 }).notNull(),
+  status: varchar("status", { length: 50 }),
+});
+
+export const userCards = pgTable("user_cards", {
+  id: serial("id").primaryKey(),
+  idCard: integer("id_card").notNull().references(() => cards.id, { onDelete: "cascade" }),
+  idUser: integer("id_user").notNull().references(() => users.id, { onDelete: "cascade" }),
+  country: varchar("country", { length: 50 }).notNull(),
+  numberCard: varchar("number_card", { length: 50 }).notNull(),
+  status: varchar("status", { length: 50 }),
+});
+
+export const exchanges = pgTable("exchanges", {
+  id: serial("id").primaryKey(),
+  numberOrder: varchar("number_order", { length: 50 }).notNull().unique(),
+  idUser: integer("id_user").notNull().references(() => users.id, { onDelete: "cascade" }),
+  idBalanceFrom: integer("id_balance_from").references(() => balances.id, { onDelete: "set null" }),
+  idBalanceTo: integer("id_balance_to").references(() => balances.id, { onDelete: "set null" }),
+  idCard: integer("id_card").references(() => userCards.id, { onDelete: "set null" }),
+  fromCurrency: varchar("from_currency", { length: 10 }).notNull(),
+  toCurrency: varchar("to_currency", { length: 10 }).notNull(),
+  amountFrom: decimal("amount_from", { precision: 18, scale: 8 }).notNull(),
+  amountTo: decimal("amount_to", { precision: 18, scale: 8 }).notNull(),
+  rate: decimal("rate", { precision: 18, scale: 8 }).notNull(),
+  commission: decimal("commission", { precision: 18, scale: 8 }).default("0.0"),
+  timestamp: timestamp("timestamp").default(sql`CURRENT_TIMESTAMP`),
+  status: varchar("status", { length: 50 }).notNull(),
+});
+
+export const stats = pgTable("stats", {
+  id: serial("id").primaryKey(),
+  statType: varchar("stat_type", { length: 100 }).notNull(),
+  idExchange: integer("id_exchange").notNull().references(() => exchanges.id, { onDelete: "cascade" }),
+  sum: decimal("sum", { precision: 18, scale: 8 }),
+  timestamp: timestamp("timestamp").default(sql`CURRENT_TIMESTAMP`),
+  idUser: integer("id_user").references(() => users.id, { onDelete: "cascade" }),
+});
+
+// Keep legacy transactions table for compatibility
 export const transactions = pgTable("transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   orderId: text("order_id").notNull().unique(),
-  userId: varchar("user_id").references(() => users.id),
+  userId: integer("user_id").references(() => users.id),
   fromCurrency: text("from_currency").notNull(),
   toCurrency: text("to_currency").notNull(),
   fromAmount: decimal("from_amount", { precision: 18, scale: 8 }).notNull(),
@@ -44,9 +118,9 @@ export const exchangeRates = pgTable("exchange_rates", {
 
 export const supportChats = pgTable("support_chats", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id),
+  userId: integer("user_id").references(() => users.id),
   transactionId: varchar("transaction_id").references(() => transactions.id),
-  messages: json("messages").$type<{ sender: string; message: string; timestamp: Date }[]>().default([]),
+  messages: json("messages").$type<{ sender: string; message: string; timestamp: Date }[]>().default(sql`'[]'::jsonb`),
   status: text("status").notNull().default("open"), // open, closed
   createdAt: timestamp("created_at").default(sql`now()`),
 });
@@ -55,7 +129,31 @@ export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
 });
 
+export const insertBalanceSchema = createInsertSchema(balances).omit({
+  id: true,
+});
+
+export const insertUsersBalancesSchema = createInsertSchema(usersBalances).omit({
+  id: true,
+});
+
 export const insertWalletSchema = createInsertSchema(wallets).omit({
+  id: true,
+});
+
+export const insertCardSchema = createInsertSchema(cards).omit({
+  id: true,
+});
+
+export const insertUserCardSchema = createInsertSchema(userCards).omit({
+  id: true,
+});
+
+export const insertExchangeSchema = createInsertSchema(exchanges).omit({
+  id: true,
+});
+
+export const insertStatSchema = createInsertSchema(stats).omit({
   id: true,
 });
 
@@ -80,8 +178,20 @@ export const insertSupportChatSchema = createInsertSchema(supportChats).omit({
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+export type InsertBalance = z.infer<typeof insertBalanceSchema>;
+export type Balance = typeof balances.$inferSelect;
+export type InsertUsersBalances = z.infer<typeof insertUsersBalancesSchema>;
+export type UsersBalances = typeof usersBalances.$inferSelect;
 export type InsertWallet = z.infer<typeof insertWalletSchema>;
 export type Wallet = typeof wallets.$inferSelect;
+export type InsertCard = z.infer<typeof insertCardSchema>;
+export type Card = typeof cards.$inferSelect;
+export type InsertUserCard = z.infer<typeof insertUserCardSchema>;
+export type UserCard = typeof userCards.$inferSelect;
+export type InsertExchange = z.infer<typeof insertExchangeSchema>;
+export type Exchange = typeof exchanges.$inferSelect;
+export type InsertStat = z.infer<typeof insertStatSchema>;
+export type Stat = typeof stats.$inferSelect;
 export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
 export type Transaction = typeof transactions.$inferSelect;
 export type InsertExchangeRate = z.infer<typeof insertExchangeRateSchema>;
