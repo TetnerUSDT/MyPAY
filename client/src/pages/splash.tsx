@@ -12,7 +12,33 @@ export default function SplashScreen() {
   const [showTestMode, setShowTestMode] = useState(false);
   const [testName, setTestName] = useState('');
   
-  // Initialize Telegram WebApp
+  // Check existing authentication on mount
+  useEffect(() => {
+    const checkExistingAuth = async () => {
+      const existingApiKey = localStorage.getItem('userApiKey');
+      if (existingApiKey) {
+        try {
+          const response = await apiRequest('GET', '/api/auth/me');
+          const userData = await response.json();
+          
+          if (userData.agreement === 1) {
+            setLocation('/home');
+            return;
+          } else if (userData.agreement === 0) {
+            setLocation('/agreement'); 
+            return;
+          }
+        } catch (error) {
+          // API key is invalid, remove it
+          localStorage.removeItem('userApiKey');
+        }
+      }
+    };
+
+    checkExistingAuth();
+  }, [setLocation]);
+
+  // Initialize Telegram WebApp  
   useEffect(() => {
     // Check if running in Telegram WebApp
     if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
@@ -26,8 +52,8 @@ export default function SplashScreen() {
       tg.setHeaderColor('#1a1a1a');
       tg.setBackgroundColor('#1a1a1a');
       
-      // Auto-authenticate if running in Telegram
-      if (tg.initData) {
+      // Auto-authenticate if running in Telegram and no existing auth
+      if (tg.initData && !localStorage.getItem('userApiKey')) {
         handleTelegramAuth(tg.initData);
       }
     }

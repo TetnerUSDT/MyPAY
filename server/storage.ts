@@ -180,8 +180,7 @@ export class DatabaseStorage implements IStorage {
       .insert(transactions)
       .values({
         ...insertTransaction,
-        status: insertTransaction.status ?? "pending",
-        createdAt: new Date(),
+        orderId: `order_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`,
       })
       .returning();
     return transaction;
@@ -244,9 +243,6 @@ export class DatabaseStorage implements IStorage {
       .insert(supportChats)
       .values({
         ...insertChat,
-        status: insertChat.status ?? "open",
-        messages: insertChat.messages ?? [],
-        createdAt: new Date(),
       })
       .returning();
     return chat;
