@@ -1,15 +1,48 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { X, ArrowDown, ArrowRight, Settings as SettingsIcon, RefreshCw, ChevronDown } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function ExchangeScreen() {
   const [activeTab, setActiveTab] = useState("exchange");
   const [payAmount, setPayAmount] = useState("100");
   const [receiveAmount, setReceiveAmount] = useState("8000.00");
-  const [payCurrency, setPayCurrency] = useState("USDT");
+  const [payCurrency, setPayCurrency] = useState("USDT TRC20");
   const [receiveCurrency, setReceiveCurrency] = useState("РУБ");
   const [selectedCard, setSelectedCard] = useState("4373 8349 9348 7328");
+  const [cardInputMode, setCardInputMode] = useState<'select' | 'manual'>('select');
+  const [manualCardInput, setManualCardInput] = useState("");
   const [, setLocation] = useLocation();
+
+  // Currency options
+  const payCurrencyOptions = [
+    { value: "USDT TRC20", label: "USDT TRC20" },
+    { value: "USDT BEP20", label: "USDT BEP20" },
+    { value: "USDT TON", label: "USDT TON" }
+  ];
+
+  const receiveCurrencyOptions = [
+    { value: "РУБ", label: "РУБ" }
+  ];
+
+  // Card options (empty as requested)
+  const cardOptions: { value: string; label: string }[] = [];
+
+  // Card mask helper function
+  const formatCardNumber = (value: string) => {
+    // Remove all non-digit characters
+    const digits = value.replace(/\D/g, '');
+    // Apply card mask: xxxx xxxx xxxx xxxx
+    const formatted = digits.replace(/(\d{4})(?=\d)/g, '$1 ');
+    // Limit to 16 digits (4 groups of 4)
+    return formatted.substring(0, 19);
+  };
+
+  const handleCardInputChange = (value: string) => {
+    const formatted = formatCardNumber(value);
+    setManualCardInput(formatted);
+    setSelectedCard(formatted);
+  };
 
   const handleExchange = () => {
     // Navigation to payment flow using router
@@ -79,12 +112,18 @@ export default function ExchangeScreen() {
                   className="text-3xl font-bold bg-transparent text-white outline-none w-full"
                   data-testid="input-pay-amount"
                 />
-                <div className="flex items-center bg-secondary rounded-lg px-4 py-2 ml-4">
-                  <span className="text-white font-medium mr-2" data-testid="text-pay-currency">
-                    {payCurrency}
-                  </span>
-                  <ChevronDown className="w-6 h-6 text-white" />
-                </div>
+                <Select value={payCurrency} onValueChange={setPayCurrency}>
+                  <SelectTrigger className="w-auto bg-secondary border-0 text-white font-medium px-4 py-2 ml-4" data-testid="select-pay-currency">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {payCurrencyOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -106,12 +145,18 @@ export default function ExchangeScreen() {
                   className="text-3xl font-bold bg-transparent text-white outline-none w-full"
                   data-testid="input-receive-amount"
                 />
-                <div className="flex items-center bg-secondary rounded-lg px-4 py-2 ml-4">
-                  <span className="text-white font-medium mr-2" data-testid="text-receive-currency">
-                    {receiveCurrency}
-                  </span>
-                  <ChevronDown className="w-6 h-6 text-white" />
-                </div>
+                <Select value={receiveCurrency} onValueChange={setReceiveCurrency}>
+                  <SelectTrigger className="w-auto bg-secondary border-0 text-white font-medium px-4 py-2 ml-4" data-testid="select-receive-currency">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {receiveCurrencyOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -125,12 +170,64 @@ export default function ExchangeScreen() {
             {/* Card Selection */}
             <div className="crypto-card">
               <div className="text-sm text-muted-foreground mb-3">Выберите карту</div>
-              <div className="flex items-center justify-between">
-                <span className="text-white font-mono text-lg" data-testid="text-selected-card">
-                  {selectedCard}
-                </span>
-                <ChevronDown className="w-6 h-6 text-white" />
-              </div>
+              {cardInputMode === 'select' ? (
+                <div className="space-y-3">
+                  <Select 
+                    value={selectedCard} 
+                    onValueChange={(value) => {
+                      if (value === 'manual') {
+                        setCardInputMode('manual');
+                        setManualCardInput('');
+                      } else {
+                        setSelectedCard(value);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-full bg-secondary border-0 text-white font-medium" data-testid="select-card">
+                      <SelectValue placeholder="Выберите карту или введите вручную" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {cardOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="manual">
+                        ✏️ Ввести номер карты вручную
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {selectedCard && selectedCard !== 'manual' && (
+                    <div className="text-white font-mono text-lg" data-testid="text-selected-card">
+                      {selectedCard}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    value={manualCardInput}
+                    onChange={(e) => handleCardInputChange(e.target.value)}
+                    placeholder="xxxx xxxx xxxx xxxx"
+                    className="w-full bg-secondary border-0 text-white font-mono text-lg px-4 py-3 rounded-lg outline-none"
+                    maxLength={19}
+                    data-testid="input-manual-card"
+                  />
+                  <button
+                    onClick={() => {
+                      setCardInputMode('select');
+                      if (cardOptions.length > 0) {
+                        setSelectedCard(cardOptions[0].value);
+                      }
+                    }}
+                    className="text-accent text-sm underline"
+                    data-testid="button-back-to-select"
+                  >
+                    ← Вернуться к выбору из списка
+                  </button>
+                </div>
+              )}
             </div>
             </div>
           ) : (
