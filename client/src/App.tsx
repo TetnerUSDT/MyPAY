@@ -3,7 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { PreloaderProvider, RouteChangePreloader } from "@/components";
+import { PreloaderProvider, RouteChangePreloader, AuthGuard } from "@/components";
 import SplashScreen from "@/pages/splash";
 import AgreementScreen from "@/pages/agreement";
 import HomeScreen from "@/pages/home";
@@ -29,21 +29,88 @@ function Router() {
   return (
     <div className="min-h-screen gradient-bg">
       <Switch>
+        {/* Public routes - no authentication required */}
         <Route path="/" component={SplashScreen} />
         <Route path="/agreement" component={AgreementScreen} />
-        <Route path="/home" component={HomeScreen} />
-        <Route path="/select-country" component={SelectCountryScreen} />
-        <Route path="/exchange" component={ExchangeScreen} />
-        <Route path="/top-up" component={TopUpScreen} />
-        <Route path="/wait" component={WaitScreen} />
-        <Route path="/top-up-success" component={TopUpSuccessScreen} />
-        <Route path="/transfer-processing" component={TransferProcessingScreen} />
-        <Route path="/transfer-success" component={TransferSuccessScreen} />
-        <Route path="/payment" component={PaymentScreen} />
-        <Route path="/transfer" component={SellScreen} />
-        <Route path="/support" component={SupportScreen} />
-        <Route path="/cards" component={CardsScreen} />
-        <Route path="/history" component={HistoryScreen} />
+        
+        {/* Protected routes - require authentication and agreement */}
+        <Route path="/home">
+          <AuthGuard requireAgreement={true}>
+            <HomeScreen />
+          </AuthGuard>
+        </Route>
+        
+        <Route path="/select-country">
+          <AuthGuard requireAgreement={true}>
+            <SelectCountryScreen />
+          </AuthGuard>
+        </Route>
+        
+        <Route path="/exchange">
+          <AuthGuard requireAgreement={true}>
+            <ExchangeScreen />
+          </AuthGuard>
+        </Route>
+        
+        <Route path="/top-up">
+          <AuthGuard requireAgreement={true}>
+            <TopUpScreen />
+          </AuthGuard>
+        </Route>
+        
+        <Route path="/wait">
+          <AuthGuard requireAgreement={true}>
+            <WaitScreen />
+          </AuthGuard>
+        </Route>
+        
+        <Route path="/top-up-success">
+          <AuthGuard requireAgreement={true}>
+            <TopUpSuccessScreen />
+          </AuthGuard>
+        </Route>
+        
+        <Route path="/transfer-processing">
+          <AuthGuard requireAgreement={true}>
+            <TransferProcessingScreen />
+          </AuthGuard>
+        </Route>
+        
+        <Route path="/transfer-success">
+          <AuthGuard requireAgreement={true}>
+            <TransferSuccessScreen />
+          </AuthGuard>
+        </Route>
+        
+        <Route path="/payment">
+          <AuthGuard requireAgreement={true}>
+            <PaymentScreen />
+          </AuthGuard>
+        </Route>
+        
+        <Route path="/transfer">
+          <AuthGuard requireAgreement={true}>
+            <SellScreen />
+          </AuthGuard>
+        </Route>
+        
+        <Route path="/support">
+          <AuthGuard requireAgreement={true}>
+            <SupportScreen />
+          </AuthGuard>
+        </Route>
+        
+        <Route path="/cards">
+          <AuthGuard requireAgreement={true}>
+            <CardsScreen />
+          </AuthGuard>
+        </Route>
+        
+        <Route path="/history">
+          <AuthGuard requireAgreement={true}>
+            <HistoryScreen />
+          </AuthGuard>
+        </Route>
       </Switch>
       
       {showBottomNav && <BottomNavigation />}

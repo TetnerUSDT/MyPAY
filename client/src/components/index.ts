@@ -9,3 +9,4 @@ export {
   usePreloader 
 } from './Preloader';
 export { RouteChangePreloader } from './RouteChangePreloader';
+export { default as AuthGuard } from './AuthGuard';
