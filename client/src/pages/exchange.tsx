@@ -9,7 +9,7 @@ export default function ExchangeScreen() {
   const [receiveAmount, setReceiveAmount] = useState("8000.00");
   const [payCurrency, setPayCurrency] = useState("USDT TRC20");
   const [receiveCurrency, setReceiveCurrency] = useState("РУБ");
-  const [selectedCard, setSelectedCard] = useState("4373 8349 9348 7328");
+  const [selectedCard, setSelectedCard] = useState("");
   const [cardInputMode, setCardInputMode] = useState<'select' | 'manual'>('select');
   const [manualCardInput, setManualCardInput] = useState("");
   const [, setLocation] = useLocation();
