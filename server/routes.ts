@@ -1,5 +1,6 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
+import { z } from "zod";
 import { storage } from "./storage";
 import { insertTransactionSchema, insertSupportChatSchema, insertUserSchema } from "@shared/schema";
 
@@ -9,7 +10,54 @@ const telegramAuthSchema = z.object({
   name: z.string().optional(),
   img: z.string().optional()
 });
-import { z } from "zod";
+
+// API Key authentication middleware
+interface AuthenticatedRequest extends Request {
+  user?: {
+    id: number;
+    tgId: string;
+    name: string | null;
+    img: string | null;
+    agreement: number | null;
+    status: string | null;
+    blocked: boolean | null;
+  };
+}
+
+const requireApiKey = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const apiKey = req.headers['x-api-key'] as string;
+    
+    if (!apiKey) {
+      return res.status(401).json({ message: "API key required" });
+    }
+    
+    const user = await storage.getUserByApiKey(apiKey);
+    
+    if (!user) {
+      return res.status(401).json({ message: "Invalid API key" });
+    }
+    
+    if (user.blocked) {
+      return res.status(403).json({ message: "Account is blocked" });
+    }
+    
+    // Attach user to request object
+    req.user = {
+      id: user.id,
+      tgId: user.tgId,
+      name: user.name,
+      img: user.img,
+      agreement: user.agreement,
+      status: user.status,
+      blocked: user.blocked
+    };
+    
+    next();
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Telegram Authentication (Note: In production, validate Telegram WebApp initData signature)
@@ -82,60 +130,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get current user by API key
-  app.get("/api/auth/me", async (req, res) => {
+  app.get("/api/auth/me", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {
-      const apiKey = req.headers['x-api-key'] as string;
-      
-      if (!apiKey) {
-        return res.status(401).json({ message: "API key required" });
-      }
-      
-      const user = await storage.getUserByApiKey(apiKey);
-      
-      if (!user) {
-        return res.status(401).json({ message: "Invalid API key" });
-      }
-      
-      res.json({
-        id: user.id,
-        tgId: user.tgId,
-        name: user.name,
-        img: user.img,
-        agreement: user.agreement,
-        status: user.status,
-        blocked: user.blocked
-      });
+      res.json(req.user);
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
     }
   });
   
   // Update user agreement
-  app.patch("/api/auth/agreement", async (req, res) => {
+  app.patch("/api/auth/agreement", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {
-      const apiKey = req.headers['x-api-key'] as string;
+      const updatedUser = await storage.updateUserAgreement(req.user!.id, 1);
       
-      if (!apiKey) {
-        return res.status(401).json({ message: "API key required" });
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
       }
       
-      const user = await storage.getUserByApiKey(apiKey);
+      // Update req.user with new agreement status
+      req.user!.agreement = updatedUser.agreement;
       
-      if (!user) {
-        return res.status(401).json({ message: "Invalid API key" });
-      }
-      
-      const updatedUser = await storage.updateUserAgreement(user.id, 1);
-      
-      res.json({
-        id: updatedUser!.id,
-        tgId: updatedUser!.tgId,
-        name: updatedUser!.name,
-        img: updatedUser!.img,
-        agreement: updatedUser!.agreement,
-        status: updatedUser!.status,
-        blocked: updatedUser!.blocked
-      });
+      res.json(req.user);
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
     }
@@ -158,14 +173,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create transaction
-  app.post("/api/transactions", async (req, res) => {
+  app.post("/api/transactions", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {
       const validatedData = insertTransactionSchema.parse(req.body);
       
-      // Generate order ID
-      const orderId = Math.floor(100000000 + Math.random() * 900000000).toString();
+      // Set userId from authenticated user (security: prevent IDOR)
+      const transactionData = {
+        ...validatedData,
+        userId: req.user!.id
+      };
       
-      const transaction = await storage.createTransaction(validatedData);
+      const transaction = await storage.createTransaction(transactionData);
       
       res.json(transaction);
     } catch (error) {
@@ -269,10 +287,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Support chats
-  app.post("/api/support/chats", async (req, res) => {
+  app.post("/api/support/chats", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {
       const validatedData = insertSupportChatSchema.parse(req.body);
-      const chat = await storage.createSupportChat(validatedData);
+      
+      // Set userId from authenticated user (security: prevent IDOR)
+      const chatData = {
+        ...validatedData,
+        userId: req.user!.id
+      };
+      
+      const chat = await storage.createSupportChat(chatData);
       res.json(chat);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -283,16 +308,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Add message to chat
-  app.post("/api/support/chats/:chatId/messages", async (req, res) => {
+  app.post("/api/support/chats/:chatId/messages", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {
       const { chatId } = req.params;
       const { sender, message } = req.body;
       
-      const chat = await storage.addMessageToChat(chatId, sender, message);
-      
-      if (!chat) {
+      // Security: Check if user owns this chat (prevent IDOR)
+      const existingChat = await storage.getSupportChat(chatId);
+      if (!existingChat) {
         return res.status(404).json({ message: "Chat not found" });
       }
+      
+      if (existingChat.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const chat = await storage.addMessageToChat(chatId, sender, message);
       
       res.json(chat);
     } catch (error) {
