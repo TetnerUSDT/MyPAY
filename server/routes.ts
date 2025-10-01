@@ -526,14 +526,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/user-cards", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {
       const cardData = {
-        ...req.body,
+        idCard: parseInt(req.body.idCard),
         idUser: req.user!.id,
-        id: randomUUID()
+        name: req.body.name,
+        firstName: req.body.firstName,
+        lastName: req.body.lastName,
+        phone: req.body.phone,
+        country: req.body.country,
+        numberCard: req.body.number,
+        status: "active"
       };
       
       const newCard = await storage.createUserCard(cardData);
       res.json(newCard);
     } catch (error) {
+      console.error('Error creating user card:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

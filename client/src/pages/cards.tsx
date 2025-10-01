@@ -16,9 +16,10 @@ import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 interface Card {
-  id: string;
+  id: number;
   name: string;
-  number: string;
+  numberCard?: string;
+  number?: string;
   country: string;
   firstName: string;
   lastName: string;
@@ -113,8 +114,8 @@ export default function CardsScreen() {
     }
   };
 
-  const handleDeleteCard = (cardId: string) => {
-    deleteCardMutation.mutate(cardId);
+  const handleDeleteCard = (cardId: number) => {
+    deleteCardMutation.mutate(cardId.toString());
   };
 
   const formatCardNumber = (number: string) => {
@@ -176,39 +177,52 @@ export default function CardsScreen() {
               {cards.map((card) => (
                 <div 
                   key={card.id}
-                  className="crypto-card flex items-center justify-between p-4"
+                  className="crypto-card p-4"
                   data-testid={`card-${card.id}`}
                 >
-                  <div className="flex items-center">
-                    {/* Card Icon */}
-                    <div className="w-12 h-12 bg-accent rounded-lg flex items-center justify-center mr-4">
-                      <CreditCard className="w-6 h-6 text-accent-foreground" />
+                  {/* Card Header */}
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center">
+                      {/* Card Icon */}
+                      <div className="w-12 h-12 bg-accent rounded-lg flex items-center justify-center mr-3">
+                        <CreditCard className="w-6 h-6 text-accent-foreground" />
+                      </div>
+                      
+                      {/* Card Name and Details */}
+                      <div>
+                        <h3 className="font-semibold text-accent text-base mb-1" data-testid={`card-name-${card.id}`}>
+                          {card.name}
+                        </h3>
+                        <p className="text-sm text-white" data-testid={`card-phone-${card.id}`}>
+                          {card.phone}
+                        </p>
+                        <p className="text-sm text-white" data-testid={`card-owner-${card.id}`}>
+                          {card.firstName} {card.lastName}
+                        </p>
+                      </div>
                     </div>
                     
-                    {/* Card Info */}
-                    <div>
-                      <h3 className="font-semibold text-white text-sm" data-testid={`card-name-${card.id}`}>
-                        {card.name}
-                      </h3>
-                      <p className="text-sm text-muted-foreground" data-testid={`card-number-${card.id}`}>
-                        {formatCardNumber(card.number)}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
                     {/* Country */}
-                    <span className="text-sm text-white" data-testid={`card-country-${card.id}`}>
+                    <span className="text-sm text-white font-medium" data-testid={`card-country-${card.id}`}>
                       {card.country}
                     </span>
+                  </div>
+                  
+                  {/* Card Number and Delete */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 bg-secondary/50 rounded-lg px-4 py-2 mr-2">
+                      <p className="text-white font-mono text-base" data-testid={`card-number-${card.id}`}>
+                        {formatCardNumber(card.numberCard || card.number || '')}
+                      </p>
+                    </div>
                     
                     {/* Delete Button */}
                     <button 
-                      className="w-8 h-8 bg-secondary rounded-lg flex items-center justify-center"
+                      className="w-10 h-10 bg-secondary rounded-lg flex items-center justify-center hover:bg-secondary/80 transition-colors"
                       onClick={() => handleDeleteCard(card.id)}
                       data-testid={`button-delete-${card.id}`}
                     >
-                      <Trash2 className="w-4 h-4 text-muted-foreground" />
+                      <Trash2 className="w-5 h-5 text-white" />
                     </button>
                   </div>
                 </div>
