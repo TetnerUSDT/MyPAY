@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Wallet, type InsertWallet, type Transaction, type InsertTransaction, type ExchangeRate, type InsertExchangeRate, type SupportChat, type InsertSupportChat, users, wallets, transactions, exchangeRates, supportChats } from "@shared/schema";
+import { type User, type InsertUser, type Wallet, type InsertWallet, type Transaction, type InsertTransaction, type ExchangeRate, type InsertExchangeRate, type SupportChat, type InsertSupportChat, type Card, users, wallets, transactions, exchangeRates, supportChats, cards } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, and } from "drizzle-orm";
@@ -33,6 +33,10 @@ export interface IStorage {
   getSupportChatsByUserId(userId: number): Promise<SupportChat[]>;
   createSupportChat(chat: InsertSupportChat): Promise<SupportChat>;
   addMessageToChat(chatId: string, sender: string, message: string): Promise<SupportChat | undefined>;
+
+  // Card methods
+  getActiveCards(): Promise<Card[]>;
+  getCard(id: number): Promise<Card | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -42,6 +46,9 @@ export class DatabaseStorage implements IStorage {
     
     // Initialize demo support chat if not exist
     this.initializeDemoChat();
+    
+    // Initialize cards (countries) if not exist
+    this.initializeCards();
   }
 
   private async initializeExchangeRates() {
@@ -86,11 +93,46 @@ export class DatabaseStorage implements IStorage {
             message: "Hi there! How can I help?",
             timestamp: new Date(),
           },
-        ],
+        ] as any,
         createdAt: new Date(),
       }).onConflictDoNothing();
     } catch (error) {
       console.log('Demo chat initialization skipped (table may not exist yet)');
+    }
+  }
+
+  private async initializeCards() {
+    try {
+      // Check if cards already exist
+      const existingCards = await db.select().from(cards).limit(1);
+      if (existingCards.length > 0) return;
+
+      const defaultCards = [
+        {
+          title: "Россия (RU)",
+          country: "Любой банк в России",
+          lang: "ru",
+          timeExchange: 15,
+          commission: "1.5",
+          idBalance: "1",
+          status: "1",
+        },
+        {
+          title: "Турция (TR)",
+          country: "Любой банк в Турции",
+          lang: "tr",
+          timeExchange: 15,
+          commission: "4.5",
+          idBalance: "1",
+          status: "1",
+        },
+      ];
+
+      for (const card of defaultCards) {
+        await db.insert(cards).values(card).onConflictDoNothing();
+      }
+    } catch (error) {
+      console.log('Cards initialization skipped (table may not exist yet)');
     }
   }
 
@@ -261,6 +303,16 @@ export class DatabaseStorage implements IStorage {
       .where(eq(supportChats.id, chatId))
       .returning();
     return updatedChat || undefined;
+  }
+
+  // Card methods
+  async getActiveCards(): Promise<Card[]> {
+    return await db.select().from(cards).where(eq(cards.status, "1"));
+  }
+
+  async getCard(id: number): Promise<Card | undefined> {
+    const [card] = await db.select().from(cards).where(eq(cards.id, id));
+    return card || undefined;
   }
 }
 

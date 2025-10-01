@@ -449,6 +449,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get active cards (countries for exchange)
+  app.get("/api/cards/active", async (req, res) => {
+    try {
+      const activeCards = await storage.getActiveCards();
+      res.json(activeCards);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -56,7 +56,8 @@ export const cards = pgTable("cards", {
   lang: varchar("lang", { length: 255 }),
   timeExchange: integer("time_exchange").notNull(),
   commission: decimal("commission", { precision: 5, scale: 2 }).notNull(),
-  status: varchar("status", { length: 50 }),
+  idBalance: varchar("id_balance", { length: 255 }), // Can store multiple balance IDs separated by comma
+  status: varchar("status", { length: 50 }).default("1"), // "0" = hidden, "1" = visible
 });
 
 export const userCards = pgTable("user_cards", {
