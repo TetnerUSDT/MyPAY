@@ -27,7 +27,12 @@ export default function ExchangeScreen() {
     queryKey: ['/api/exchange/receive-balances', selectedCountryId],
     queryFn: async () => {
       if (!selectedCountryId) return [];
+      const apiKey = localStorage.getItem("userApiKey");
+      const headers: Record<string, string> = {};
+      if (apiKey) headers['x-api-key'] = apiKey;
+      
       const response = await fetch(`/api/exchange/receive-balances/${selectedCountryId}`, {
+        headers,
         credentials: 'include'
       });
       if (!response.ok) throw new Error('Failed to fetch receive balances');
@@ -57,9 +62,13 @@ export default function ExchangeScreen() {
       if (!payBalanceId || !receiveBalanceId || !payAmount) return;
       
       try {
+        const apiKey = localStorage.getItem("userApiKey");
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (apiKey) headers['x-api-key'] = apiKey;
+        
         const response = await fetch('/api/exchange/quote', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           credentials: 'include',
           body: JSON.stringify({
             fromBalanceId: payBalanceId,

@@ -60,9 +60,13 @@ export default function CardsScreen() {
 
   const createCardMutation = useMutation({
     mutationFn: async (cardData: any) => {
+      const apiKey = localStorage.getItem("userApiKey");
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (apiKey) headers['x-api-key'] = apiKey;
+      
       const response = await fetch('/api/user-cards', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         credentials: 'include',
         body: JSON.stringify(cardData)
       });
@@ -82,8 +86,13 @@ export default function CardsScreen() {
 
   const deleteCardMutation = useMutation({
     mutationFn: async (cardId: string) => {
+      const apiKey = localStorage.getItem("userApiKey");
+      const headers: Record<string, string> = {};
+      if (apiKey) headers['x-api-key'] = apiKey;
+      
       const response = await fetch(`/api/user-cards/${cardId}`, {
         method: 'DELETE',
+        headers,
         credentials: 'include'
       });
       if (!response.ok) throw new Error('Failed to delete card');

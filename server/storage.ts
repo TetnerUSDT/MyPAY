@@ -1,7 +1,7 @@
 import { type User, type InsertUser, type Wallet, type InsertWallet, type Transaction, type InsertTransaction, type ExchangeRate, type InsertExchangeRate, type SupportChat, type InsertSupportChat, type Card, users, wallets, transactions, exchangeRates, supportChats, cards, balances, userCards } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // User methods
@@ -365,7 +365,7 @@ export class DatabaseStorage implements IStorage {
     if (!ids) return [];
     const idArray = ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
     if (idArray.length === 0) return [];
-    return await db.select().from(balances).where(sql`${balances.id} = ANY(${idArray})`);
+    return await db.select().from(balances).where(inArray(balances.id, idArray));
   }
 
   async getPaymentBalance(): Promise<any | undefined> {

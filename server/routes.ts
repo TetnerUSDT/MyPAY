@@ -513,12 +513,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get user cards
-  app.get("/api/user-cards", async (req, res) => {
+  app.get("/api/user-cards", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-      const userCards = await storage.getUserCardsByUserId(req.user.id);
+      const userCards = await storage.getUserCardsByUserId(req.user!.id);
       res.json(userCards);
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
@@ -526,15 +523,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create user card
-  app.post("/api/user-cards", async (req, res) => {
+  app.post("/api/user-cards", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-      
       const cardData = {
         ...req.body,
-        idUser: req.user.id,
+        idUser: req.user!.id,
         id: randomUUID()
       };
       
@@ -546,12 +539,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete user card
-  app.delete("/api/user-cards/:id", async (req, res) => {
+  app.delete("/api/user-cards/:id", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-      
       await storage.deleteUserCard(req.params.id);
       res.json({ success: true });
     } catch (error) {
