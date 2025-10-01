@@ -1,32 +1,92 @@
-import { useState } from "react";
-import { Link, useLocation } from "wouter";
-import { X, ArrowDown, ArrowRight, Settings as SettingsIcon, RefreshCw, ChevronDown } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Link, useLocation, useSearch } from "wouter";
+import { X, ArrowDown, ArrowRight, Settings as SettingsIcon, RefreshCw } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useQuery } from "@tanstack/react-query";
 
 export default function ExchangeScreen() {
+  const searchParams = new URLSearchParams(useSearch());
+  const selectedCountryId = searchParams.get('country');
+  
   const [activeTab, setActiveTab] = useState("exchange");
   const [payAmount, setPayAmount] = useState("100");
-  const [receiveAmount, setReceiveAmount] = useState("8000.00");
-  const [payCurrency, setPayCurrency] = useState("USDT TRC20");
-  const [receiveCurrency, setReceiveCurrency] = useState("РУБ");
+  const [receiveAmount, setReceiveAmount] = useState("0.00");
+  const [payBalanceId, setPayBalanceId] = useState<number | null>(null);
+  const [receiveBalanceId, setReceiveBalanceId] = useState<number | null>(null);
   const [selectedCard, setSelectedCard] = useState("");
   const [cardInputMode, setCardInputMode] = useState<'select' | 'manual'>('select');
   const [manualCardInput, setManualCardInput] = useState("");
   const [, setLocation] = useLocation();
 
-  // Currency options
-  const payCurrencyOptions = [
-    { value: "USDT TRC20", label: "USDT TRC20" },
-    { value: "USDT BEP20", label: "USDT BEP20" },
-    { value: "USDT TON", label: "USDT TON" }
-  ];
+  const { data: paymentBalance } = useQuery({
+    queryKey: ['/api/exchange/payment-balance'],
+    enabled: true
+  });
 
-  const receiveCurrencyOptions = [
-    { value: "РУБ", label: "РУБ" }
-  ];
+  const { data: receiveBalances = [] } = useQuery({
+    queryKey: ['/api/exchange/receive-balances', selectedCountryId],
+    queryFn: async () => {
+      if (!selectedCountryId) return [];
+      const response = await fetch(`/api/exchange/receive-balances/${selectedCountryId}`, {
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error('Failed to fetch receive balances');
+      return response.json();
+    },
+    enabled: !!selectedCountryId
+  });
 
-  // Card options (empty as requested)
-  const cardOptions: { value: string; label: string }[] = [];
+  const { data: userCards = [] } = useQuery<any[]>({
+    queryKey: ['/api/user-cards']
+  });
+
+  useEffect(() => {
+    if (paymentBalance) {
+      setPayBalanceId(paymentBalance.id);
+    }
+  }, [paymentBalance]);
+
+  useEffect(() => {
+    if (receiveBalances.length > 0 && !receiveBalanceId) {
+      setReceiveBalanceId(receiveBalances[0].id);
+    }
+  }, [receiveBalances]);
+
+  useEffect(() => {
+    const calculateExchange = async () => {
+      if (!payBalanceId || !receiveBalanceId || !payAmount) return;
+      
+      try {
+        const response = await fetch('/api/exchange/quote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            fromBalanceId: payBalanceId,
+            toBalanceId: receiveBalanceId,
+            amount: payAmount
+          })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setReceiveAmount(data.toAmount.toFixed(2));
+        }
+      } catch (error) {
+        console.error('Error calculating exchange:', error);
+      }
+    };
+
+    const debounce = setTimeout(calculateExchange, 300);
+    return () => clearTimeout(debounce);
+  }, [payAmount, payBalanceId, receiveBalanceId]);
+
+  const cardOptions = userCards
+    .filter(card => selectedCountryId && card.idCard === parseInt(selectedCountryId))
+    .map(card => ({
+      value: card.id,
+      label: `${card.name} (${card.number.slice(-4)})`
+    }));
 
   // Card mask helper function
   const formatCardNumber = (value: string) => {
@@ -112,18 +172,9 @@ export default function ExchangeScreen() {
                   className="text-3xl font-bold bg-transparent text-white outline-none w-full"
                   data-testid="input-pay-amount"
                 />
-                <Select value={payCurrency} onValueChange={setPayCurrency}>
-                  <SelectTrigger className="min-w-36 bg-secondary border-0 text-white font-medium px-4 py-2 ml-4" data-testid="select-pay-currency">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {payCurrencyOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="min-w-36 bg-secondary border-0 text-white font-medium px-4 py-2 ml-4 rounded-md flex items-center" data-testid="select-pay-currency">
+                  {paymentBalance ? `${paymentBalance.currency}${paymentBalance.network ? `.${paymentBalance.network}` : ''}` : 'Loading...'}
+                </div>
               </div>
             </div>
 
@@ -141,18 +192,21 @@ export default function ExchangeScreen() {
                 <input
                   type="text"
                   value={receiveAmount}
-                  onChange={(e) => setReceiveAmount(e.target.value)}
+                  readOnly
                   className="text-3xl font-bold bg-transparent text-white outline-none w-full"
                   data-testid="input-receive-amount"
                 />
-                <Select value={receiveCurrency} onValueChange={setReceiveCurrency}>
+                <Select 
+                  value={receiveBalanceId?.toString()} 
+                  onValueChange={(value) => setReceiveBalanceId(parseInt(value))}
+                >
                   <SelectTrigger className="min-w-36 bg-secondary border-0 text-white font-medium px-4 py-2 ml-4" data-testid="select-receive-currency">
-                    <SelectValue />
+                    <SelectValue placeholder="Выберите валюту" />
                   </SelectTrigger>
                   <SelectContent>
-                    {receiveCurrencyOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
+                    {receiveBalances.map((balance: any) => (
+                      <SelectItem key={balance.id} value={balance.id.toString()}>
+                        {balance.currency}
                       </SelectItem>
                     ))}
                   </SelectContent>

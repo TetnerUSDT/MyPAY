@@ -459,6 +459,106 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get payment balance (USDT.BEP20)
+  app.get("/api/exchange/payment-balance", async (req, res) => {
+    try {
+      const paymentBalance = await storage.getPaymentBalance();
+      res.json(paymentBalance);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get receive balances for a card
+  app.get("/api/exchange/receive-balances/:cardId", async (req, res) => {
+    try {
+      const cardId = parseInt(req.params.cardId);
+      const card = await storage.getCard(cardId);
+      
+      if (!card || !card.idBalance) {
+        return res.status(404).json({ message: "Card not found or no balances configured" });
+      }
+
+      const balances = await storage.getBalancesByIds(card.idBalance);
+      res.json(balances);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Calculate exchange quote
+  app.post("/api/exchange/quote", async (req, res) => {
+    try {
+      const { fromBalanceId, toBalanceId, amount } = req.body;
+      
+      const rate = await storage.getExchangeRateByBalances(fromBalanceId, toBalanceId);
+      if (!rate) {
+        return res.status(404).json({ message: "Exchange rate not found" });
+      }
+
+      const fromAmount = parseFloat(amount);
+      const exchangeRate = parseFloat(rate.rate);
+      const toAmount = fromAmount * exchangeRate;
+
+      res.json({
+        fromBalanceId,
+        toBalanceId,
+        fromAmount,
+        toAmount,
+        rate: exchangeRate
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get user cards
+  app.get("/api/user-cards", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      const userCards = await storage.getUserCardsByUserId(req.user.id);
+      res.json(userCards);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Create user card
+  app.post("/api/user-cards", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const cardData = {
+        ...req.body,
+        idUser: req.user.id,
+        id: randomUUID()
+      };
+      
+      const newCard = await storage.createUserCard(cardData);
+      res.json(newCard);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Delete user card
+  app.delete("/api/user-cards/:id", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      await storage.deleteUserCard(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

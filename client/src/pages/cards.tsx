@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, CreditCard, Trash2 } from "lucide-react";
+import { CreditCard, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface Card {
   id: string;
@@ -20,6 +23,8 @@ interface Card {
   firstName: string;
   lastName: string;
   phone: string;
+  idUser: number;
+  idCard: number;
 }
 
 // Card icon component from provided SVG
@@ -33,36 +38,74 @@ const CardIcon = () => (
 );
 
 export default function CardsScreen() {
+  const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [cards, setCards] = useState<Card[]>([]);
   const [formData, setFormData] = useState({
     name: "",
     country: "",
     number: "",
     firstName: "",
     lastName: "",
-    phone: ""
+    phone: "",
+    idCard: ""
+  });
+
+  const { data: cards = [], isLoading } = useQuery<Card[]>({
+    queryKey: ['/api/user-cards']
+  });
+
+  const { data: activeCards = [] } = useQuery<any[]>({
+    queryKey: ['/api/cards/active']
+  });
+
+  const createCardMutation = useMutation({
+    mutationFn: async (cardData: any) => {
+      const response = await fetch('/api/user-cards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(cardData)
+      });
+      if (!response.ok) throw new Error('Failed to create card');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/user-cards'] });
+      setFormData({ name: "", country: "", number: "", firstName: "", lastName: "", phone: "", idCard: "" });
+      setIsModalOpen(false);
+      toast({ title: "Карта добавлена успешно" });
+    },
+    onError: () => {
+      toast({ title: "Ошибка при добавлении карты", variant: "destructive" });
+    }
+  });
+
+  const deleteCardMutation = useMutation({
+    mutationFn: async (cardId: string) => {
+      const response = await fetch(`/api/user-cards/${cardId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error('Failed to delete card');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/user-cards'] });
+      toast({ title: "Карта удалена" });
+    },
+    onError: () => {
+      toast({ title: "Ошибка при удалении карты", variant: "destructive" });
+    }
   });
 
   const handleAddCard = () => {
-    if (formData.name && formData.country && formData.number && formData.firstName && formData.lastName && formData.phone) {
-      const newCard: Card = {
-        id: Date.now().toString(),
-        name: formData.name,
-        number: formData.number,
-        country: formData.country,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        phone: formData.phone
-      };
-      setCards([...cards, newCard]);
-      setFormData({ name: "", country: "", number: "", firstName: "", lastName: "", phone: "" });
-      setIsModalOpen(false);
+    if (formData.name && formData.country && formData.number && formData.firstName && formData.lastName && formData.phone && formData.idCard) {
+      createCardMutation.mutate(formData);
     }
   };
 
   const handleDeleteCard = (cardId: string) => {
-    setCards(cards.filter(card => card.id !== cardId));
+    deleteCardMutation.mutate(cardId);
   };
 
   const formatCardNumber = (number: string) => {
@@ -259,17 +302,25 @@ export default function CardsScreen() {
                   Выберите страну
                 </Label>
                 <Select
-                  value={formData.country}
-                  onValueChange={(value) => setFormData({ ...formData, country: value })}
+                  value={formData.idCard}
+                  onValueChange={(value) => {
+                    const selectedCard = activeCards.find(c => c.id.toString() === value);
+                    setFormData({ 
+                      ...formData, 
+                      idCard: value,
+                      country: selectedCard?.country || ""
+                    });
+                  }}
                 >
                   <SelectTrigger className="input-field" data-testid="select-country">
-                    <SelectValue placeholder="РОССИЯ" />
+                    <SelectValue placeholder="Выберите страну" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="РОССИЯ">РОССИЯ</SelectItem>
-                    <SelectItem value="УКРАИНА">УКРАИНА</SelectItem>
-                    <SelectItem value="БЕЛАРУСЬ">БЕЛАРУСЬ</SelectItem>
-                    <SelectItem value="КАЗАХСТАН">КАЗАХСТАН</SelectItem>
+                    {activeCards.map(card => (
+                      <SelectItem key={card.id} value={card.id.toString()}>
+                        {card.country}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

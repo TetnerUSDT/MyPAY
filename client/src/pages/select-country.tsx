@@ -50,7 +50,7 @@ export default function SelectCountryScreen() {
           const FlagComponent = card.lang ? flagMap[card.lang] : null;
           
           return (
-            <Link key={card.id} href="/exchange">
+            <Link key={card.id} href={`/exchange?country=${card.id}`}>
               <div 
                 className="crypto-card mx-6 cursor-pointer hover:opacity-90 transition-all mb-[15px]"
                 data-testid={`country-card-${card.id}`}

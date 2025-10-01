@@ -1,7 +1,7 @@
-import { type User, type InsertUser, type Wallet, type InsertWallet, type Transaction, type InsertTransaction, type ExchangeRate, type InsertExchangeRate, type SupportChat, type InsertSupportChat, type Card, users, wallets, transactions, exchangeRates, supportChats, cards } from "@shared/schema";
+import { type User, type InsertUser, type Wallet, type InsertWallet, type Transaction, type InsertTransaction, type ExchangeRate, type InsertExchangeRate, type SupportChat, type InsertSupportChat, type Card, users, wallets, transactions, exchangeRates, supportChats, cards, balances, userCards } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 export interface IStorage {
   // User methods
@@ -37,18 +37,58 @@ export interface IStorage {
   // Card methods
   getActiveCards(): Promise<Card[]>;
   getCard(id: number): Promise<Card | undefined>;
+
+  // Balance methods
+  getBalance(id: number): Promise<any | undefined>;
+  getBalancesByIds(ids: string): Promise<any[]>;
+  getPaymentBalance(): Promise<any | undefined>; // USDT.BEP20
+
+  // Exchange rate methods by balance IDs
+  getExchangeRateByBalances(fromBalanceId: number, toBalanceId: number): Promise<any | undefined>;
+
+  // User cards methods
+  getUserCardsByUserId(userId: number): Promise<any[]>;
+  createUserCard(card: any): Promise<any>;
+  deleteUserCard(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
+  private static initialized = false;
+
   constructor() {
-    // Initialize with some exchange rates if not exist
-    this.initializeExchangeRates();
+    // Initialization happens via static initialize() method
+  }
+
+  static async initialize() {
+    if (this.initialized) return;
     
-    // Initialize demo support chat if not exist
-    this.initializeDemoChat();
+    const instance = storage;
+    await instance.initializeBalances();
+    await instance.initializeExchangeRates();
+    await instance.initializeDemoChat();
+    await instance.initializeCards();
     
-    // Initialize cards (countries) if not exist
-    this.initializeCards();
+    this.initialized = true;
+  }
+
+  private async initializeBalances() {
+    try {
+      const existingBalances = await db.select().from(balances).limit(1);
+      if (existingBalances.length > 0) return;
+
+      const defaultBalances = [
+        { id: 1, title: "Российский рубль", network: null, currency: "RUB", type: "fiat", status: "1" },
+        { id: 2, title: "Турецкая лира", network: null, currency: "TRY", type: "fiat", status: "1" },
+        { id: 3, title: "USDT TRC20", network: "TRC20", currency: "USDT", type: "crypto", status: "1" },
+        { id: 4, title: "USDT BEP20", network: "BEP20", currency: "USDT", type: "crypto", status: "1" },
+      ];
+
+      for (const balance of defaultBalances) {
+        await db.insert(balances).values(balance as any).onConflictDoNothing();
+      }
+    } catch (error) {
+      console.log('Balances initialization skipped (table may not exist yet)');
+    }
   }
 
   private async initializeExchangeRates() {
@@ -58,10 +98,10 @@ export class DatabaseStorage implements IStorage {
       if (existingRates.length > 0) return;
 
       const rates = [
-        { fromCurrency: "USDT", toCurrency: "RUB", rate: "95.50" },
-        { fromCurrency: "USDT", toCurrency: "TRY", rate: "27.80" },
-        { fromCurrency: "BTC", toCurrency: "USDT", rate: "43500.00" },
-        { fromCurrency: "ETH", toCurrency: "USDT", rate: "2650.00" },
+        { fromBalanceId: 4, toBalanceId: 1, fromCurrency: "USDT", toCurrency: "RUB", rate: "95.50" },
+        { fromBalanceId: 4, toBalanceId: 2, fromCurrency: "USDT", toCurrency: "TRY", rate: "27.80" },
+        { fromBalanceId: 3, toBalanceId: 1, fromCurrency: "USDT", toCurrency: "RUB", rate: "95.50" },
+        { fromBalanceId: 3, toBalanceId: 2, fromCurrency: "USDT", toCurrency: "TRY", rate: "27.80" },
       ];
 
       for (const rate of rates) {
@@ -313,6 +353,50 @@ export class DatabaseStorage implements IStorage {
   async getCard(id: number): Promise<Card | undefined> {
     const [card] = await db.select().from(cards).where(eq(cards.id, id));
     return card || undefined;
+  }
+
+  // Balance methods
+  async getBalance(id: number): Promise<any | undefined> {
+    const [balance] = await db.select().from(balances).where(eq(balances.id, id));
+    return balance || undefined;
+  }
+
+  async getBalancesByIds(ids: string): Promise<any[]> {
+    if (!ids) return [];
+    const idArray = ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+    if (idArray.length === 0) return [];
+    return await db.select().from(balances).where(sql`${balances.id} = ANY(${idArray})`);
+  }
+
+  async getPaymentBalance(): Promise<any | undefined> {
+    // USDT.BEP20 is id=4
+    const [balance] = await db.select().from(balances).where(eq(balances.id, 4));
+    return balance || undefined;
+  }
+
+  // Exchange rate methods by balance IDs
+  async getExchangeRateByBalances(fromBalanceId: number, toBalanceId: number): Promise<any | undefined> {
+    const [rate] = await db.select().from(exchangeRates).where(
+      and(
+        eq(exchangeRates.fromBalanceId, fromBalanceId),
+        eq(exchangeRates.toBalanceId, toBalanceId)
+      )
+    );
+    return rate || undefined;
+  }
+
+  // User cards methods
+  async getUserCardsByUserId(userId: number): Promise<any[]> {
+    return await db.select().from(userCards).where(eq(userCards.idUser, userId));
+  }
+
+  async createUserCard(card: any): Promise<any> {
+    const [newCard] = await db.insert(userCards).values(card).returning();
+    return newCard;
+  }
+
+  async deleteUserCard(id: string): Promise<void> {
+    await db.delete(userCards).where(eq(userCards.id, id));
   }
 }
 

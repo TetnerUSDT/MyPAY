@@ -21,7 +21,7 @@ export const users = pgTable("users", {
 export const balances = pgTable("balances", {
   id: serial("id").primaryKey(),
   title: varchar("title", { length: 255 }).notNull(),
-  sum: decimal("sum", { precision: 18, scale: 8 }).default("0.0"),
+  network: varchar("network", { length: 50 }),
   currency: varchar("currency", { length: 10 }).notNull(),
   rate: decimal("rate", { precision: 18, scale: 8 }),
   type: balanceTypeEnum("type").notNull().default("fiat"),
@@ -115,6 +115,8 @@ export const transactions = pgTable("transactions", {
 
 export const exchangeRates = pgTable("exchange_rates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  fromBalanceId: integer("from_balance_id").references(() => balances.id),
+  toBalanceId: integer("to_balance_id").references(() => balances.id),
   fromCurrency: text("from_currency").notNull(),
   toCurrency: text("to_currency").notNull(),
   rate: decimal("rate", { precision: 18, scale: 8 }).notNull(),
