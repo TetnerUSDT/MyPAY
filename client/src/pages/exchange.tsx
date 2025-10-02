@@ -278,11 +278,14 @@ export default function ExchangeScreen() {
                       </SelectItem>
                     </SelectContent>
                   </Select>
-                  {selectedCard && selectedCard !== 'manual' && (
-                    <div className="text-white font-mono text-lg" data-testid="text-selected-card">
-                      {selectedCard}
-                    </div>
-                  )}
+                  {selectedCard && selectedCard !== 'manual' && (() => {
+                    const card = userCards.find(c => c.id.toString() === selectedCard);
+                    return card ? (
+                      <div className="text-white font-mono text-lg" data-testid="text-selected-card">
+                        {formatCardNumber(card.numberCard)}
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
               ) : (
                 <div className="space-y-3">
