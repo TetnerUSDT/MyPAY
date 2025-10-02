@@ -4,6 +4,24 @@ import { X, ArrowDown, ArrowRight, Settings as SettingsIcon, RefreshCw } from "l
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
 
+interface UserCard {
+  id: number;
+  name: string;
+  numberCard: string;
+  country: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  idUser: number;
+  idCard: number;
+}
+
+interface Balance {
+  id: number;
+  currency: string;
+  network?: string;
+}
+
 export default function ExchangeScreen() {
   const searchParams = new URLSearchParams(useSearch());
   const selectedCountryId = searchParams.get('country');
@@ -18,12 +36,12 @@ export default function ExchangeScreen() {
   const [manualCardInput, setManualCardInput] = useState("");
   const [, setLocation] = useLocation();
 
-  const { data: paymentBalance } = useQuery({
+  const { data: paymentBalance } = useQuery<Balance>({
     queryKey: ['/api/exchange/payment-balance'],
     enabled: true
   });
 
-  const { data: receiveBalances = [] } = useQuery({
+  const { data: receiveBalances = [] } = useQuery<Balance[]>({
     queryKey: ['/api/exchange/receive-balances', selectedCountryId],
     queryFn: async () => {
       if (!selectedCountryId) return [];
@@ -41,7 +59,7 @@ export default function ExchangeScreen() {
     enabled: !!selectedCountryId
   });
 
-  const { data: userCards = [] } = useQuery<any[]>({
+  const { data: userCards = [] } = useQuery<UserCard[]>({
     queryKey: ['/api/user-cards']
   });
 
@@ -93,8 +111,8 @@ export default function ExchangeScreen() {
   const cardOptions = userCards
     .filter(card => selectedCountryId && card.idCard === parseInt(selectedCountryId))
     .map(card => ({
-      value: card.id,
-      label: `${card.name} (${card.number.slice(-4)})`
+      value: card.id.toString(),
+      label: `${card.name} (${(card.numberCard || '').slice(-4)})`
     }));
 
   // Card mask helper function
