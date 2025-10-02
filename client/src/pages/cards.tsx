@@ -14,6 +14,7 @@ import {
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { RussiaFlag, TurkeyFlag } from "@/components/flags";
 
 interface Card {
   id: number;
@@ -27,6 +28,23 @@ interface Card {
   idUser: number;
   idCard: number;
 }
+
+interface CountryCard {
+  id: number;
+  title: string;
+  country: string;
+  lang: string | null;
+  timeExchange: number;
+  commission: string;
+  idBalance: string | null;
+  status: string | null;
+}
+
+// Map language codes to flag components
+const flagMap: Record<string, React.FC<React.SVGProps<SVGSVGElement>>> = {
+  ru: RussiaFlag,
+  tr: TurkeyFlag,
+};
 
 // Card icon component from provided SVG
 const CardIcon = () => (
@@ -55,7 +73,7 @@ export default function CardsScreen() {
     queryKey: ['/api/user-cards']
   });
 
-  const { data: activeCards = [] } = useQuery<any[]>({
+  const { data: activeCards = [] } = useQuery<CountryCard[]>({
     queryKey: ['/api/cards/active']
   });
 
@@ -202,10 +220,23 @@ export default function CardsScreen() {
                       </div>
                     </div>
                     
-                    {/* Country */}
-                    <span className="text-sm text-white font-medium" data-testid={`card-country-${card.id}`}>
-                      {card.country}
-                    </span>
+                    {/* Country Flag */}
+                    {(() => {
+                      const countryCard = activeCards.find(c => c.id === card.idCard);
+                      const FlagComponent = countryCard?.lang ? flagMap[countryCard.lang] : null;
+                      return FlagComponent ? (
+                        <div 
+                          className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden bg-white/5 border border-white/10"
+                          data-testid={`card-country-${card.id}`}
+                        >
+                          <FlagComponent className="w-8 h-8" />
+                        </div>
+                      ) : (
+                        <span className="text-sm text-white font-medium" data-testid={`card-country-${card.id}`}>
+                          {card.country}
+                        </span>
+                      );
+                    })()}
                   </div>
                   
                   {/* Card Number and Delete */}
