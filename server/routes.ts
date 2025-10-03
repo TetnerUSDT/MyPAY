@@ -44,6 +44,7 @@ interface AuthenticatedRequest extends Request {
     agreement: number | null;
     status: string | null;
     blocked: boolean | null;
+    defaultFiatBalanceId: number | null;
   };
 }
 
@@ -77,7 +78,8 @@ const requireApiKey = async (req: AuthenticatedRequest, res: Response, next: Nex
       img: user.img,
       agreement: user.agreement,
       status: user.status,
-      blocked: user.blocked
+      blocked: user.blocked,
+      defaultFiatBalanceId: user.defaultFiatBalanceId
     };
     
     next();
@@ -593,7 +595,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { balanceId } = req.body;
       const updatedUser = await storage.updateUserDefaultBalance(req.user!.id, balanceId);
-      res.json(updatedUser);
+      
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Update req.user with new default balance
+      req.user!.defaultFiatBalanceId = updatedUser.defaultFiatBalanceId;
+      
+      res.json(req.user);
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
     }
