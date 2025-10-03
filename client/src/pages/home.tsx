@@ -215,9 +215,9 @@ export default function HomeScreen() {
         </div>
 
         {/* Fiat Balance Card */}
-        <div className="px-6 mb-6">
+        <div className="px-6 mb-4">
           <div 
-            className="bg-gradient-to-r from-green-700/40 to-green-800/40 rounded-2xl p-4 border border-green-600/30 backdrop-blur-sm"
+            className="bg-gradient-to-r from-green-700/40 to-green-800/40 rounded-2xl p-4 border border-green-600/30 backdrop-blur-sm shadow-[0_4px_12px_rgba(0,0,0,0.2)]"
             data-testid="fiat-balance-card"
           >
             <div className="flex items-center justify-between">
