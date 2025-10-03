@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Wallet, type InsertWallet, type Transaction, type InsertTransaction, type ExchangeRate, type InsertExchangeRate, type SupportChat, type InsertSupportChat, type Card, users, wallets, transactions, exchangeRates, supportChats, cards, balances, userCards } from "@shared/schema";
+import { type User, type InsertUser, type Wallet, type InsertWallet, type Transaction, type InsertTransaction, type ExchangeRate, type InsertExchangeRate, type SupportChat, type InsertSupportChat, type Card, type Bank, type InsertBank, users, wallets, transactions, exchangeRates, supportChats, cards, banks, balances, userCards } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, and, sql, inArray } from "drizzle-orm";
@@ -38,6 +38,11 @@ export interface IStorage {
   getActiveCards(): Promise<Card[]>;
   getCard(id: number): Promise<Card | undefined>;
 
+  // Bank methods
+  getBanksByCardId(cardId: number): Promise<Bank[]>;
+  getBank(id: number): Promise<Bank | undefined>;
+  createBank(bank: InsertBank): Promise<Bank>;
+
   // Balance methods
   getBalance(id: number): Promise<any | undefined>;
   getBalancesByIds(ids: string): Promise<any[]>;
@@ -67,6 +72,7 @@ export class DatabaseStorage implements IStorage {
     await instance.initializeExchangeRates();
     await instance.initializeDemoChat();
     await instance.initializeCards();
+    await instance.initializeBanks();
     
     this.initialized = true;
   }
@@ -173,6 +179,36 @@ export class DatabaseStorage implements IStorage {
       }
     } catch (error) {
       console.log('Cards initialization skipped (table may not exist yet)');
+    }
+  }
+
+  private async initializeBanks() {
+    try {
+      // Check if banks already exist
+      const existingBanks = await db.select().from(banks).limit(1);
+      if (existingBanks.length > 0) return;
+
+      // 12 Russian banks for cards.id=1 (Россия)
+      const russianBanks = [
+        { cardId: 1, bankName: "Ozon Банк", timeExchange: null, commission: null, status: "1" },
+        { cardId: 1, bankName: "ПАО Сбербанк", timeExchange: null, commission: null, status: "1" },
+        { cardId: 1, bankName: "ПАО «Совкомбанк»", timeExchange: null, commission: null, status: "1" },
+        { cardId: 1, bankName: "АО «Газпромбанк»", timeExchange: null, commission: null, status: "1" },
+        { cardId: 1, bankName: "АО «ОТП Банк»", timeExchange: null, commission: null, status: "1" },
+        { cardId: 1, bankName: "АО «Альфа-Банк»", timeExchange: null, commission: null, status: "1" },
+        { cardId: 1, bankName: "АО «Банк Уралсиб»", timeExchange: null, commission: null, status: "1" },
+        { cardId: 1, bankName: "ПАО «Промсвязьбанк»", timeExchange: null, commission: null, status: "1" },
+        { cardId: 1, bankName: "АО «Яндекс Банк»", timeExchange: null, commission: null, status: "1" },
+        { cardId: 1, bankName: "АО «Коммерческий банк Юнистрим»", timeExchange: null, commission: null, status: "1" },
+        { cardId: 1, bankName: "АО «Т-Банк»", timeExchange: null, commission: null, status: "1" },
+        { cardId: 1, bankName: "АО «Акционерный банк «Россия»", timeExchange: null, commission: null, status: "1" },
+      ];
+
+      for (const bank of russianBanks) {
+        await db.insert(banks).values(bank).onConflictDoNothing();
+      }
+    } catch (error) {
+      console.log('Banks initialization skipped (table may not exist yet)');
     }
   }
 
@@ -353,6 +389,24 @@ export class DatabaseStorage implements IStorage {
   async getCard(id: number): Promise<Card | undefined> {
     const [card] = await db.select().from(cards).where(eq(cards.id, id));
     return card || undefined;
+  }
+
+  // Bank methods
+  async getBanksByCardId(cardId: number): Promise<Bank[]> {
+    return await db.select().from(banks).where(eq(banks.cardId, cardId));
+  }
+
+  async getBank(id: number): Promise<Bank | undefined> {
+    const [bank] = await db.select().from(banks).where(eq(banks.id, id));
+    return bank || undefined;
+  }
+
+  async createBank(insertBank: InsertBank): Promise<Bank> {
+    const [bank] = await db
+      .insert(banks)
+      .values(insertBank)
+      .returning();
+    return bank;
   }
 
   // Balance methods
