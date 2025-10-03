@@ -60,10 +60,20 @@ export const cards = pgTable("cards", {
   status: varchar("status", { length: 50 }).default("1"), // "0" = hidden, "1" = visible
 });
 
+export const banks = pgTable("banks", {
+  id: serial("id").primaryKey(),
+  cardId: integer("card_id").notNull().references(() => cards.id, { onDelete: "cascade" }),
+  bankName: varchar("bank_name", { length: 255 }).notNull(),
+  timeExchange: integer("time_exchange"),
+  commission: decimal("commission", { precision: 5, scale: 2 }),
+  status: varchar("status", { length: 50 }).default("1"),
+});
+
 export const userCards = pgTable("user_cards", {
   id: serial("id").primaryKey(),
   idCard: integer("id_card").notNull().references(() => cards.id, { onDelete: "cascade" }),
   idUser: integer("id_user").notNull().references(() => users.id, { onDelete: "cascade" }),
+  idBank: integer("id_bank").references(() => banks.id, { onDelete: "set null" }),
   name: varchar("name", { length: 100 }),
   firstName: varchar("first_name", { length: 100 }),
   lastName: varchar("last_name", { length: 100 }),
@@ -156,6 +166,10 @@ export const insertCardSchema = createInsertSchema(cards).omit({
   id: true,
 });
 
+export const insertBankSchema = createInsertSchema(banks).omit({
+  id: true,
+});
+
 export const insertUserCardSchema = createInsertSchema(userCards).omit({
   id: true,
 });
@@ -197,6 +211,8 @@ export type InsertWallet = z.infer<typeof insertWalletSchema>;
 export type Wallet = typeof wallets.$inferSelect;
 export type InsertCard = z.infer<typeof insertCardSchema>;
 export type Card = typeof cards.$inferSelect;
+export type InsertBank = z.infer<typeof insertBankSchema>;
+export type Bank = typeof banks.$inferSelect;
 export type InsertUserCard = z.infer<typeof insertUserCardSchema>;
 export type UserCard = typeof userCards.$inferSelect;
 export type InsertExchange = z.infer<typeof insertExchangeSchema>;
