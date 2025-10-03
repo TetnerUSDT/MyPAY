@@ -459,6 +459,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get banks for a specific card
+  app.get("/api/banks/:cardId", async (req, res) => {
+    try {
+      const cardId = parseInt(req.params.cardId);
+      const banks = await storage.getBanksByCardId(cardId);
+      res.json(banks);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Get payment balance (USDT.BEP20)
   app.get("/api/exchange/payment-balance", async (req, res) => {
     try {
@@ -528,6 +539,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const cardData = {
         idCard: parseInt(req.body.idCard),
         idUser: req.user!.id,
+        idBank: req.body.idBank ? parseInt(req.body.idBank) : null,
         name: req.body.name,
         firstName: req.body.firstName,
         lastName: req.body.lastName,
