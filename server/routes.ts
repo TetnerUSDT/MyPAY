@@ -567,6 +567,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all fiat balances
+  app.get("/api/fiat-balances", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const fiatBalances = await storage.getFiatBalances();
+      res.json(fiatBalances);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get or create user balance
+  app.get("/api/user-balance/:balanceId", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const balanceId = parseInt(req.params.balanceId);
+      const userBalance = await storage.getUserBalance(req.user!.id, balanceId);
+      res.json(userBalance);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Update user default fiat balance
+  app.patch("/api/user/default-balance", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { balanceId } = req.body;
+      const updatedUser = await storage.updateUserDefaultBalance(req.user!.id, balanceId);
+      res.json(updatedUser);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

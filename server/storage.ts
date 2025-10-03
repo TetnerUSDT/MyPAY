@@ -55,6 +55,11 @@ export interface IStorage {
   getUserCardsByUserId(userId: number): Promise<any[]>;
   createUserCard(card: any): Promise<any>;
   deleteUserCard(id: string): Promise<void>;
+
+  // Fiat balance methods
+  getFiatBalances(): Promise<any[]>;
+  getUserBalance(userId: number, balanceId: number): Promise<any>;
+  updateUserDefaultBalance(userId: number, balanceId: number): Promise<User | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -470,6 +475,53 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUserCard(id: string): Promise<void> {
     await db.delete(userCards).where(eq(userCards.id, id));
+  }
+
+  // Fiat balance methods
+  async getFiatBalances(): Promise<any[]> {
+    return await db.select().from(balances).where(eq(balances.type, "fiat"));
+  }
+
+  async getUserBalance(userId: number, balanceId: number): Promise<any> {
+    const { usersBalances } = await import("@shared/schema");
+    
+    // Try to find existing user balance
+    const [existingBalance] = await db
+      .select()
+      .from(usersBalances)
+      .where(
+        and(
+          eq(usersBalances.idUser, userId),
+          eq(usersBalances.idBalance, balanceId)
+        )
+      );
+
+    if (existingBalance) {
+      return existingBalance;
+    }
+
+    // Create new user balance if not exists
+    const [newBalance] = await db
+      .insert(usersBalances)
+      .values({
+        idUser: userId,
+        idBalance: balanceId,
+        sum: "0.0",
+        status: "active"
+      })
+      .returning();
+
+    return newBalance;
+  }
+
+  async updateUserDefaultBalance(userId: number, balanceId: number): Promise<User | undefined> {
+    const [updatedUser] = await db
+      .update(users)
+      .set({ defaultFiatBalanceId: balanceId })
+      .where(eq(users.id, userId))
+      .returning();
+
+    return updatedUser;
   }
 }
 
