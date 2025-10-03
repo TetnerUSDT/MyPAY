@@ -40,6 +40,15 @@ interface CountryCard {
   status: string | null;
 }
 
+interface Bank {
+  id: number;
+  cardId: number;
+  bankName: string;
+  timeExchange: number | null;
+  commission: string | null;
+  status: string | null;
+}
+
 // Map language codes to flag components
 const flagMap: Record<string, React.FC<React.SVGProps<SVGSVGElement>>> = {
   ru: RussiaFlag,
@@ -59,6 +68,7 @@ const CardIcon = () => (
 export default function CardsScreen() {
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedCardId, setSelectedCardId] = useState<string>("");
   const [formData, setFormData] = useState({
     name: "",
     country: "",
@@ -66,7 +76,8 @@ export default function CardsScreen() {
     firstName: "",
     lastName: "",
     phone: "",
-    idCard: ""
+    idCard: "",
+    idBank: ""
   });
 
   const { data: cards = [], isLoading } = useQuery<Card[]>({
@@ -75,6 +86,16 @@ export default function CardsScreen() {
 
   const { data: activeCards = [] } = useQuery<CountryCard[]>({
     queryKey: ['/api/cards/active']
+  });
+
+  const { data: banks = [] } = useQuery<Bank[]>({
+    queryKey: ['/api/banks', selectedCardId],
+    queryFn: async () => {
+      const response = await fetch(`/api/banks/${selectedCardId}`);
+      if (!response.ok) throw new Error('Failed to fetch banks');
+      return response.json();
+    },
+    enabled: !!selectedCardId && selectedCardId !== ""
   });
 
   const createCardMutation = useMutation({
@@ -94,7 +115,8 @@ export default function CardsScreen() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/user-cards'] });
-      setFormData({ name: "", country: "", number: "", firstName: "", lastName: "", phone: "", idCard: "" });
+      setFormData({ name: "", country: "", number: "", firstName: "", lastName: "", phone: "", idCard: "", idBank: "" });
+      setSelectedCardId("");
       setIsModalOpen(false);
       toast({ title: "Карта добавлена успешно" });
     },
@@ -128,7 +150,19 @@ export default function CardsScreen() {
 
   const handleAddCard = () => {
     if (formData.name && formData.country && formData.number && formData.firstName && formData.lastName && formData.phone && formData.idCard) {
-      createCardMutation.mutate(formData);
+      const dataToSend: any = {
+        name: formData.name,
+        country: formData.country,
+        number: formData.number,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        phone: formData.phone,
+        idCard: formData.idCard
+      };
+      if (formData.idBank) {
+        dataToSend.idBank = parseInt(formData.idBank);
+      }
+      createCardMutation.mutate(dataToSend);
     }
   };
 
@@ -359,10 +393,12 @@ export default function CardsScreen() {
                   value={formData.idCard}
                   onValueChange={(value) => {
                     const selectedCard = activeCards.find(c => c.id.toString() === value);
+                    setSelectedCardId(value);
                     setFormData({ 
                       ...formData, 
                       idCard: value,
-                      country: selectedCard?.country || ""
+                      country: selectedCard?.country || "",
+                      idBank: ""
                     });
                   }}
                 >
@@ -378,6 +414,35 @@ export default function CardsScreen() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Bank Selection - shown only if banks are available for selected country */}
+              {banks.length > 0 && (
+                <div>
+                  <Label className="text-white mb-2 block">
+                    Выберите банк
+                  </Label>
+                  <Select
+                    value={formData.idBank}
+                    onValueChange={(value) => {
+                      setFormData({ 
+                        ...formData, 
+                        idBank: value
+                      });
+                    }}
+                  >
+                    <SelectTrigger className="input-field" data-testid="select-bank">
+                      <SelectValue placeholder="Выберите банк" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {banks.map(bank => (
+                        <SelectItem key={bank.id} value={bank.id.toString()}>
+                          {bank.bankName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {/* Card Number */}
               <div>
