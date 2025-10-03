@@ -98,7 +98,7 @@ export default function AgreementScreen() {
         {/* Header */}
         <div className="text-center pt-8 pb-4">
           <h1 className="text-xl font-bold text-accent" data-testid="text-agreement-title">
-            Соглашение об использовании услуг<br />обменного сервиса
+            Соглашение об использовании услуг<br />обменного p2p сервиса
           </h1>
         </div>
         
@@ -110,7 +110,7 @@ export default function AgreementScreen() {
             <div className="mb-6">
               <h2 className="text-base font-semibold text-accent mb-3">1. Общие положения</h2>
               <p className="text-white/90 mb-2">
-                <span className="font-medium">1.1.</span> Настоящее соглашение (далее — Соглашение) регулирует порядок предоставления услуг обменного сервиса (далее — Сервис) по обмену электронных валют, криптовалют и иных платежных средств между пользователем (далее — Пользователь) и Сервисом.
+                <span className="font-medium">1.1.</span> Настоящее соглашение (далее — Соглашение) регулирует порядок предоставления услуг обменного p2p сервиса (далее — Сервис) по обмену электронных валют, криптовалют и иных платежных средств между пользователем (далее — Пользователь) и Сервисом.
               </p>
               <p className="text-white/90 mb-2">
                 <span className="font-medium">1.2.</span> Использование услуг Сервиса означает полное и безоговорочное согласие Пользователя с условиями настоящего Соглашения.
