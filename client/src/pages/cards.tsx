@@ -27,6 +27,8 @@ interface Card {
   phone: string;
   idUser: number;
   idCard: number;
+  idBank?: number | null;
+  bankName?: string | null;
 }
 
 interface CountryCard {
@@ -245,6 +247,11 @@ export default function CardsScreen() {
                         <h3 className="font-semibold text-accent text-base mb-1" data-testid={`card-name-${card.id}`}>
                           {card.name}
                         </h3>
+                        {card.bankName && (
+                          <p className="text-sm text-white/70 mb-1" data-testid={`card-bank-${card.id}`}>
+                            {card.bankName}
+                          </p>
+                        )}
                         <p className="text-sm text-white" data-testid={`card-phone-${card.id}`}>
                           {card.phone}
                         </p>

@@ -441,7 +441,26 @@ export class DatabaseStorage implements IStorage {
 
   // User cards methods
   async getUserCardsByUserId(userId: number): Promise<any[]> {
-    return await db.select().from(userCards).where(eq(userCards.idUser, userId));
+    const result = await db
+      .select({
+        id: userCards.id,
+        idCard: userCards.idCard,
+        idUser: userCards.idUser,
+        idBank: userCards.idBank,
+        name: userCards.name,
+        firstName: userCards.firstName,
+        lastName: userCards.lastName,
+        phone: userCards.phone,
+        country: userCards.country,
+        numberCard: userCards.numberCard,
+        status: userCards.status,
+        bankName: banks.bankName
+      })
+      .from(userCards)
+      .leftJoin(banks, eq(userCards.idBank, banks.id))
+      .where(eq(userCards.idUser, userId));
+    
+    return result;
   }
 
   async createUserCard(card: any): Promise<any> {
