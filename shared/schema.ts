@@ -6,6 +6,16 @@ import { z } from "zod";
 // Define enums
 export const balanceTypeEnum = pgEnum('balance_type', ['fiat', 'crypto', 'token', 'voucher']);
 
+export const balances = pgTable("balances", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  network: varchar("network", { length: 50 }),
+  currency: varchar("currency", { length: 10 }).notNull(),
+  rate: decimal("rate", { precision: 18, scale: 8 }),
+  type: balanceTypeEnum("type").notNull().default("fiat"),
+  status: varchar("status", { length: 50 }),
+});
+
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   tgId: varchar("tg_id", { length: 255 }).notNull().unique(),
@@ -17,16 +27,6 @@ export const users = pgTable("users", {
   agreement: integer("agreement").default(0), // 0 not agree, 1 agree with rules
   blocked: boolean("blocked").default(false),
   defaultFiatBalanceId: integer("default_fiat_balance_id").references(() => balances.id, { onDelete: "set null" }),
-});
-
-export const balances = pgTable("balances", {
-  id: serial("id").primaryKey(),
-  title: varchar("title", { length: 255 }).notNull(),
-  network: varchar("network", { length: 50 }),
-  currency: varchar("currency", { length: 10 }).notNull(),
-  rate: decimal("rate", { precision: 18, scale: 8 }),
-  type: balanceTypeEnum("type").notNull().default("fiat"),
-  status: varchar("status", { length: 50 }),
 });
 
 export const usersBalances = pgTable("users_balances", {

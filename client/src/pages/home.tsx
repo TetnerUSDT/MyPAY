@@ -1,7 +1,10 @@
-import { useState } from "react";
-import { Settings, ArrowDownLeft, ArrowUpRight, RotateCcw, CreditCard, Plus, ArrowRightLeft, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Settings, ArrowDownLeft, ArrowUpRight, RotateCcw, CreditCard, Plus, ArrowRightLeft, X, ChevronDown } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { User } from "@shared/schema";
 import catImage from "@assets/Image_1758366163369.png";
 import tronImage from "@assets/tron_1758481649917.png";
 import bnbImage from "@assets/bnb_1758481660380.png";
@@ -9,7 +12,7 @@ import tonImage from "@assets/ton_1758481672408.png";
 import ethereumImage from "@assets/ethereum_1758481901648.png";
 import solanaImage from "@assets/solana_1758481901649.png";
 
-// Custom SVG icon component
+// Custom SVG icon components
 const RefreshIcon = ({ className = "w-6 h-6", ...props }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className={className} {...props}>
     <path fill="none" d="M0 0h24v24H0z"/>
@@ -17,9 +20,75 @@ const RefreshIcon = ({ className = "w-6 h-6", ...props }) => (
   </svg>
 );
 
+const WalletIcon = ({ className = "w-12 h-12", ...props }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 49 55" width="49" height="55" fill="none" className={className} {...props}>
+    <svg xmlns="http://www.w3.org/2000/svg" height="49" width="49" viewBox="0 0 24 24" fill="#ecfa8b" y="3" opacity="100%">
+      <path d="M0 0h24v24H0z" fill="none"/>
+      <path d="M21 18v1c0 1.1-.9 2-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14c1.1 0 2 .9 2 2v1h-9a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2zm-9-2h10V8H12zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5"/>
+    </svg>
+  </svg>
+);
+
 export default function HomeScreen() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCurrencyModalOpen, setIsCurrencyModalOpen] = useState(false);
+  const [selectedFiatBalanceId, setSelectedFiatBalanceId] = useState<number>(1); // Default RUB
   const { toast } = useToast();
+
+  // Get current user
+  const { data: user } = useQuery<User>({
+    queryKey: ["/api/auth/me"],
+  });
+
+  // Get fiat balances
+  const { data: fiatBalances = [] } = useQuery<any[]>({
+    queryKey: ["/api/fiat-balances"],
+  });
+
+  // Get user balance for selected fiat
+  const { data: userBalance, refetch: refetchUserBalance } = useQuery<any>({
+    queryKey: ["/api/user-balance", selectedFiatBalanceId],
+    queryFn: async () => {
+      const response = await fetch(`/api/user-balance/${selectedFiatBalanceId}`, {
+        headers: {
+          'x-api-key': localStorage.getItem('userApiKey') || '',
+        },
+      });
+      if (!response.ok) throw new Error('Failed to fetch balance');
+      return response.json();
+    },
+    enabled: !!selectedFiatBalanceId,
+  });
+
+  // Update default balance mutation
+  const updateDefaultBalanceMutation = useMutation({
+    mutationFn: async (balanceId: number) => {
+      const response = await apiRequest("PATCH", "/api/user/default-balance", {
+        balanceId,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      refetchUserBalance();
+    },
+  });
+
+  // Set initial balance from user's default
+  useEffect(() => {
+    if (user?.defaultFiatBalanceId) {
+      setSelectedFiatBalanceId(user.defaultFiatBalanceId);
+    }
+  }, [user]);
+
+  const handleBalanceChange = (balanceId: number) => {
+    setSelectedFiatBalanceId(balanceId);
+    updateDefaultBalanceMutation.mutate(balanceId);
+    setIsCurrencyModalOpen(false);
+  };
+
+  const selectedBalance = fiatBalances.find(b => b.id === selectedFiatBalanceId);
+
   const wallets = [
     {
       id: 1,
@@ -142,6 +211,39 @@ export default function HomeScreen() {
                 </div>
               );
             })}
+          </div>
+        </div>
+
+        {/* Fiat Balance Card */}
+        <div className="px-6 mb-6">
+          <div 
+            className="bg-gradient-to-r from-green-700/40 to-green-800/40 rounded-2xl p-4 border border-green-600/30 backdrop-blur-sm"
+            data-testid="fiat-balance-card"
+          >
+            <div className="flex items-center justify-between">
+              {/* Left: Icon and Balance */}
+              <div className="flex items-center">
+                <div className="mr-4">
+                  <WalletIcon className="w-12 h-12" />
+                </div>
+                <div>
+                  <p className="text-sm text-white/70 mb-1">{selectedBalance?.title || 'Balance'}</p>
+                  <p className="text-2xl font-bold text-white" data-testid="fiat-balance-amount">
+                    {userBalance?.sum || '0.00'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Right: Currency Selector */}
+              <button
+                onClick={() => setIsCurrencyModalOpen(true)}
+                className="bg-black/20 hover:bg-black/30 transition-colors px-4 py-2 rounded-lg flex items-center gap-2"
+                data-testid="button-select-currency"
+              >
+                <span className="text-accent font-semibold">{selectedBalance?.currency || 'RUB'}</span>
+                <ChevronDown className="w-4 h-4 text-accent" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -297,6 +399,64 @@ export default function HomeScreen() {
                     </div>
                   </div>
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Currency Selection Modal */}
+      {isCurrencyModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => setIsCurrencyModalOpen(false)}
+          />
+          
+          {/* Modal Content */}
+          <div className="relative bg-gradient-to-b from-gray-900 to-gray-800 rounded-2xl border border-gray-700 shadow-2xl max-w-sm w-full mx-4 overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-700">
+              <h2 className="text-xl font-semibold text-white">Выберите валюту</h2>
+              <button
+                onClick={() => setIsCurrencyModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-gray-700/50 flex items-center justify-center hover:bg-gray-600/50 transition-colors"
+                data-testid="button-close-currency-modal"
+              >
+                <X className="w-4 h-4 text-gray-300" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6">
+              <div className="space-y-3">
+                {fiatBalances.map((balance) => (
+                  <button
+                    key={balance.id}
+                    onClick={() => handleBalanceChange(balance.id)}
+                    className={`w-full p-4 rounded-xl transition-all border ${
+                      selectedFiatBalanceId === balance.id
+                        ? 'bg-green-700/30 border-green-600/50'
+                        : 'bg-gray-800/50 border-gray-600/30 hover:bg-gray-700/30 hover:border-gray-500/50'
+                    }`}
+                    data-testid={`button-select-${balance.currency}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="text-left">
+                        <h3 className="font-semibold text-white">{balance.title}</h3>
+                        <p className="text-sm text-gray-400">{balance.currency}</p>
+                      </div>
+                      {selectedFiatBalanceId === balance.id && (
+                        <div className="w-6 h-6 rounded-full bg-accent flex items-center justify-center">
+                          <svg className="w-4 h-4 text-accent-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
