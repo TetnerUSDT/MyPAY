@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { adminRequest, getAdminCredentials, clearAdminCredentials, getAdminPath } from "@/lib/adminApi";
 import { 
   Users, Wallet, ArrowRightLeft, CreditCard, DollarSign, 
-  MessageSquare, Settings, LogOut, LayoutDashboard 
+  MessageSquare, Settings, LogOut, LayoutDashboard, Landmark, TrendingUp
 } from "lucide-react";
 
 interface AdminInfo {
@@ -48,14 +48,14 @@ export default function AdminDashboard() {
   };
 
   const menuItems = [
+    { icon: DollarSign, title: "Балансы", description: "Управление балансами", path: `/${adminPath}/balances` },
     { icon: ArrowRightLeft, title: "Обмены", description: "Управление заявками", path: `/${adminPath}/exchanges` },
+    { icon: CreditCard, title: "Страны", description: "Настройка стран", path: `/${adminPath}/cards` },
+    { icon: Landmark, title: "Банки", description: "Управление банками", path: `/${adminPath}/banks` },
+    { icon: TrendingUp, title: "Курсы обмена", description: "Настройка курсов", path: `/${adminPath}/exchange-rates` },
+    { icon: MessageSquare, title: "Поддержка", description: "Чаты с пользователями", path: `/${adminPath}/support` },
     { icon: Users, title: "Пользователи", description: "Управление пользователями", path: `/${adminPath}/users` },
     { icon: Wallet, title: "Кошельки", description: "Управление кошельками", path: `/${adminPath}/wallets` },
-    { icon: CreditCard, title: "Карты и банки", description: "Настройка стран и банков", path: `/${adminPath}/cards` },
-    { icon: DollarSign, title: "Балансы", description: "Управление балансами", path: `/${adminPath}/balances` },
-    { icon: DollarSign, title: "Курсы обмена", description: "Настройка курсов", path: `/${adminPath}/rates` },
-    { icon: MessageSquare, title: "Поддержка", description: "Тикеты и сообщения", path: `/${adminPath}/support` },
-    { icon: Settings, title: "Администраторы", description: "Управление админами", path: `/${adminPath}/admins` },
   ];
 
   if (!adminInfo) {

@@ -5,6 +5,12 @@ import AdminLogin from "@/pages/admin/login";
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminBalances from "@/pages/admin/balances";
 import AdminExchanges from "@/pages/admin/exchanges";
+import AdminCards from "@/pages/admin/cards";
+import AdminBanks from "@/pages/admin/banks";
+import AdminExchangeRates from "@/pages/admin/exchange-rates";
+import AdminSupport from "@/pages/admin/support";
+import AdminUsers from "@/pages/admin/users";
+import AdminWallets from "@/pages/admin/wallets";
 
 export function AdminRoutes() {
   const [adminPath, setAdminPath] = useState<string>('admin');
@@ -19,6 +25,12 @@ export function AdminRoutes() {
       <Route path={`/${adminPath}/dashboard`} component={AdminDashboard} />
       <Route path={`/${adminPath}/balances`} component={AdminBalances} />
       <Route path={`/${adminPath}/exchanges`} component={AdminExchanges} />
+      <Route path={`/${adminPath}/cards`} component={AdminCards} />
+      <Route path={`/${adminPath}/banks`} component={AdminBanks} />
+      <Route path={`/${adminPath}/exchange-rates`} component={AdminExchangeRates} />
+      <Route path={`/${adminPath}/support`} component={AdminSupport} />
+      <Route path={`/${adminPath}/users`} component={AdminUsers} />
+      <Route path={`/${adminPath}/wallets`} component={AdminWallets} />
       <Route path={`/${adminPath}`}>
         {() => {
           window.location.href = `/${adminPath}/login`;

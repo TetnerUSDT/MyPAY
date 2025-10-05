@@ -2,7 +2,7 @@ import { Express } from "express";
 import { AdminRequest, requireSuperAdmin, requireAdmin, requirePermission } from "./admin-middleware";
 import { IStorage } from "./storage";
 import { db } from "./db";
-import { balances, exchanges, cards, banks, exchangeRates, supportTickets, supportMessages, users, wallets, admins } from "@shared/schema";
+import { balances, exchanges, cards, banks, exchangeRates, supportTickets, supportMessages, supportChats, users, wallets, admins } from "@shared/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { insertBalanceSchema, insertCardSchema, insertBankSchema, insertExchangeRateSchema, insertSupportMessageSchema, insertAdminSchema } from "@shared/schema";
 
@@ -278,7 +278,72 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
     }
   });
 
-  // ========== SUPPORT MANAGEMENT ==========
+  // ========== SUPPORT MANAGEMENT (Support Chats) ==========
+  app.get(`/${adminPath}/api/support`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const { status } = req.query;
+      let query = db.select().from(supportChats).orderBy(desc(supportChats.createdAt));
+      
+      if (status) {
+        query = db.select().from(supportChats).where(eq(supportChats.status, status as string)).orderBy(desc(supportChats.createdAt));
+      }
+      
+      const chats = await query;
+      res.json(chats);
+    } catch (error) {
+      console.error('Get support chats error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post(`/${adminPath}/api/support/:chatId/reply`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const { chatId } = req.params;
+      const { message } = req.body;
+      
+      const [chat] = await db.select().from(supportChats).where(eq(supportChats.id, chatId));
+      
+      if (!chat) {
+        return res.status(404).json({ message: "Chat not found" });
+      }
+
+      const newMessage = {
+        sender: 'admin',
+        message,
+        timestamp: new Date().toISOString(),
+      };
+
+      const updatedMessages = [...(chat.messages || []), newMessage];
+
+      const [updated] = await db.update(supportChats)
+        .set({ messages: updatedMessages })
+        .where(eq(supportChats.id, chatId))
+        .returning();
+
+      res.json(updated);
+    } catch (error) {
+      console.error('Reply to support chat error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post(`/${adminPath}/api/support/:chatId/close`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const { chatId } = req.params;
+      
+      const [updated] = await db.update(supportChats)
+        .set({ status: 'closed' })
+        .where(eq(supportChats.id, chatId))
+        .returning();
+
+      res.json(updated);
+    } catch (error) {
+      console.error('Close support chat error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Legacy support tickets routes (keeping for compatibility)
   app.get(`/${adminPath}/api/support/tickets`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
       const { status } = req.query;
