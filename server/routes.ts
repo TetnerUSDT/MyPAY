@@ -397,6 +397,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get or reserve wallet for topup
+  app.post("/api/wallets/reserve-for-topup", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { network } = req.body;
+      
+      if (!network) {
+        return res.status(400).json({ message: "Network is required" });
+      }
+      
+      const wallet = await storage.findOrReserveWalletForOperation(req.user!.id, network, "topup");
+      
+      if (!wallet) {
+        return res.status(500).json({ message: "Failed to reserve wallet" });
+      }
+      
+      res.json(wallet);
+    } catch (error) {
+      console.error("Error reserving wallet for topup:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Support chats
   app.post("/api/support/chats", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {
