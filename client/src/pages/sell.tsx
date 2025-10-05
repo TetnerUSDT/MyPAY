@@ -7,15 +7,23 @@ import { useToast } from "@/hooks/use-toast";
 
 type NetworkType = "TRC20" | "BEP20" | "TON";
 
+interface CryptoBalance {
+  id: number;
+  title: string;
+  network: string;
+  currency: string;
+  sum: string;
+  status: string;
+}
+
 export default function SellScreen() {
   const [sendAmount, setSendAmount] = useState("0");
   const [activeNetwork, setActiveNetwork] = useState<NetworkType>("TRC20");
-  const [walletAddress] = useState("TW6LqMKykCfsgkMkLxd92HGbp...");
+  const [walletAddress, setWalletAddress] = useState("");
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Read network from URL parameters
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const networkParam = urlParams.get('network') as NetworkType;
@@ -24,27 +32,27 @@ export default function SellScreen() {
     }
   }, [location]);
 
-  // Get user balance (mock data for demo)
-  const { data: balance } = useQuery({
-    queryKey: ["/api/wallets/user/demo"],
-    queryFn: () => Promise.resolve({ balance: "100.000000" }),
+  const { data: cryptoBalances = [], isLoading } = useQuery<CryptoBalance[]>({
+    queryKey: ["/api/user/crypto-balances"],
   });
 
-  // Calculate commission dynamically (1% of send amount)
+  const currentBalance = useMemo(() => {
+    const balance = cryptoBalances.find(b => b.network === activeNetwork);
+    return balance?.sum || "0.00";
+  }, [cryptoBalances, activeNetwork]);
+
   const commission = useMemo(() => {
     const amount = parseFloat(sendAmount) || 0;
-    const commissionRate = 0.01; // 1%
+    const commissionRate = 0.01;
     return (amount * commissionRate).toFixed(6);
   }, [sendAmount]);
 
-  // Validation
   const isValidTransaction = useMemo(() => {
     const amount = parseFloat(sendAmount) || 0;
-    const availableBalance = parseFloat(balance?.balance || "0");
-    return amount > 0 && amount <= availableBalance;
-  }, [sendAmount, balance?.balance]);
+    const availableBalance = parseFloat(currentBalance);
+    return amount > 0 && amount <= availableBalance && walletAddress.trim().length > 0;
+  }, [sendAmount, currentBalance, walletAddress]);
 
-  // Create sell transaction mutation
   const sellMutation = useMutation({
     mutationFn: async (data: any) => {
       const response = await apiRequest("POST", "/api/transactions", data);
@@ -52,56 +60,32 @@ export default function SellScreen() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
-      // Navigate to processing state
       setLocation("/transfer-processing");
     },
     onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to complete transaction",
+        title: "Ошибка",
+        description: "Не удалось выполнить транзакцию",
         variant: "destructive",
       });
     },
   });
 
   const handleSell = async () => {
-    if (!isValidTransaction) {
-      toast({
-        title: "Invalid Amount",
-        description: "Please enter a valid amount within your balance",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const commissionAmount = parseFloat(commission);
-    const receiveAmount = parseFloat(sendAmount) - commissionAmount;
-
-    try {
-      await sellMutation.mutateAsync({
-        fromCurrency: "USDT",
-        toCurrency: "USDT",
-        fromAmount: sendAmount,
-        toAmount: receiveAmount.toFixed(6),
-        fromAddress: walletAddress,
-        toAddress: walletAddress,
-        cardNumber: null,
-        status: "completed",
-      });
-    } catch (error) {
-      // Error handling done in onError
-    }
+    toast({
+      title: "Сервис временно не доступен",
+      description: "Пожалуйста, попробуйте позже",
+      variant: "destructive",
+    });
   };
 
   return (
     <div className="mobile-screen text-white">
-      {/* Content */}
       <div className="px-6 py-8">
         <h1 className="text-2xl font-bold text-center mb-8" data-testid="text-title">
           Отправить
         </h1>
         
-        {/* Network Selection */}
         <div className="flex justify-center mb-8">
           <div className="flex bg-secondary rounded-lg p-1">
             {(["TRC20", "BEP20", "TON"] as NetworkType[]).map((network) => (
@@ -121,18 +105,20 @@ export default function SellScreen() {
           </div>
         </div>
         
-        {/* Balance Display */}
         <div className="text-center mb-8">
           <div className="text-sm text-muted-foreground">Баланс:</div>
-          <div 
-            className="text-2xl font-bold text-yellow-400"
-            data-testid="text-balance"
-          >
-            {balance?.balance || "100.000000"} USDT
-          </div>
+          {isLoading ? (
+            <div className="text-2xl font-bold text-yellow-400">Загрузка...</div>
+          ) : (
+            <div 
+              className="text-2xl font-bold text-yellow-400"
+              data-testid="text-balance"
+            >
+              {currentBalance} USDT
+            </div>
+          )}
         </div>
         
-        {/* Send Amount */}
         <div className="crypto-card mb-6">
           <div className="text-sm text-muted-foreground mb-2">Введите сумму отправки</div>
           <div className="flex items-center bg-secondary rounded-lg">
@@ -151,28 +137,26 @@ export default function SellScreen() {
           </div>
         </div>
         
-        {/* Arrow Down */}
         <div className="flex justify-center -mt-[25px] -mb-[25px] relative z-20">
           <div className="w-12 h-12 bg-accent rounded-full flex items-center justify-center border-[6px] relative -top-2" style={{borderColor: '#2a4c3b'}}>
             <ArrowDown className="w-6 h-6 text-accent-foreground" />
           </div>
         </div>
         
-        {/* Recipient Wallet */}
         <div className="crypto-card mb-6">
           <div className="text-sm text-muted-foreground mb-2">Введите кошелек в сети {activeNetwork}</div>
-          <div className="bg-secondary rounded-lg px-4 py-3 flex items-center">
-            <span 
-              className="font-mono text-sm flex-1"
-              data-testid="text-recipient-wallet"
-            >
-              {walletAddress}
-            </span>
-            <ChevronDown className="w-4 h-4 ml-2" />
+          <div className="bg-secondary rounded-lg px-4 py-3">
+            <input
+              type="text"
+              placeholder={`Введите адрес ${activeNetwork}`}
+              className="w-full bg-transparent font-mono text-sm outline-none input-field"
+              value={walletAddress}
+              onChange={(e) => setWalletAddress(e.target.value)}
+              data-testid="input-recipient-wallet"
+            />
           </div>
         </div>
         
-        {/* Commission */}
         <div className="text-center mb-8">
           <div className="text-sm text-muted-foreground">Комиссия составит</div>
           <div 
@@ -183,7 +167,6 @@ export default function SellScreen() {
           </div>
         </div>
         
-        {/* Send Button */}
         <button 
           className={`action-button ${!isValidTransaction ? 'opacity-50 cursor-not-allowed' : ''}`}
           onClick={handleSell}
