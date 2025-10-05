@@ -138,13 +138,13 @@ export default function SupportScreen() {
       case "wait-user":
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-400/20 text-yellow-400">
-            Ожидает ответа клиента
+            Ожидает вашего ответа
           </span>
         );
       case "wait-support":
         return (
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-400/20 text-blue-400">
-            Ожидает ответа поддержки
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-400/20 text-white">
+            Ожидает ответа
           </span>
         );
       default:
@@ -208,7 +208,7 @@ export default function SupportScreen() {
         {/* Telegram Bot Button */}
         <div className="mt-4">
           <a 
-            href="https://t.me/support_swiftx" 
+            href="https://t.me/swiftx11" 
             target="_blank" 
             rel="noopener noreferrer"
             className="action-button flex items-center justify-between animate-vibrate"
@@ -327,22 +327,11 @@ export default function SupportScreen() {
           <DialogContent className="mobile-screen bg-secondary border-none text-white max-h-[90vh] flex flex-col p-0">
             {/* Header */}
             <DialogHeader className="px-6 py-4 border-b border-white/10">
-              <div className="flex items-center justify-between">
-                <div>
-                  <DialogTitle className="text-white text-lg">
-                    Тикет #{ticket?.exchangeNumber}
-                  </DialogTitle>
-                  <div className="mt-2">
-                    {ticket && getStatusBadge(ticket.status)}
-                  </div>
-                </div>
-                <button
-                  onClick={() => setIsChatModalOpen(false)}
-                  className="p-2 hover:bg-white/10 rounded-full transition-colors"
-                  data-testid="button-close-chat"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+              <DialogTitle className="text-white text-lg">
+                Тикет #{ticket?.exchangeNumber}
+              </DialogTitle>
+              <div className="mt-2">
+                {ticket && getStatusBadge(ticket.status)}
               </div>
             </DialogHeader>
 
@@ -374,7 +363,7 @@ export default function SupportScreen() {
                       </div>
                       
                       {/* Message bubble */}
-                      <div className={`rounded-lg px-4 py-3 ${msg.sender === "user" ? "bg-accent/20" : "bg-blue-500/20"}`}>
+                      <div className={`rounded-lg px-4 py-3 border ${msg.sender === "user" ? "bg-accent/10 border-accent/30" : "bg-white/5 border-white/10"}`}>
                         <p className="text-sm text-white">{msg.message}</p>
                         <p className="text-xs text-gray-400 mt-1">
                           {new Date(msg.createdAt).toLocaleTimeString("ru-RU", { 
