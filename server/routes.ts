@@ -6,6 +6,7 @@ import { storage } from "./storage";
 import { insertTransactionSchema, insertSupportChatSchema, insertUserSchema, insertSupportTicketSchema, insertSupportMessageSchema } from "@shared/schema";
 import { config, isTestMode, isTelegramMode, isDevelopment } from "./config";
 import { createWalletViaAPI } from "./wallet-api";
+import { registerAdminRoutes } from "./admin-routes";
 
 // Unified login schema that supports both modes
 const loginSchema = z.discriminatedUnion("mode", [
@@ -928,6 +929,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Internal server error" });
     }
   });
+
+  // Register admin routes
+  registerAdminRoutes(app, storage);
 
   const httpServer = createServer(app);
   return httpServer;
