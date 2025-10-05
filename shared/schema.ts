@@ -30,6 +30,8 @@ export const users = pgTable("users", {
   agreement: integer("agreement").default(0), // 0 not agree, 1 agree with rules
   blocked: boolean("blocked").default(false),
   defaultFiatBalanceId: integer("default_fiat_balance_id").references(() => balances.id, { onDelete: "set null" }),
+  idRef: integer("id_ref").references(() => users.id, { onDelete: "set null" }),
+  codeRef: varchar("code_ref", { length: 20 }).unique(),
 });
 
 export const usersBalances = pgTable("users_balances", {
