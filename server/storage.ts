@@ -252,7 +252,33 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
+  private generateReferralCode(): string {
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const randomLetter = letters.charAt(Math.floor(Math.random() * letters.length));
+    const randomDigits = Math.floor(100000000 + Math.random() * 900000000).toString();
+    return randomLetter + randomDigits;
+  }
+
+  private async generateUniqueReferralCode(): Promise<string> {
+    let code = this.generateReferralCode();
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    while (attempts < maxAttempts) {
+      const [existing] = await db.select().from(users).where(eq(users.codeRef, code)).limit(1);
+      if (!existing) {
+        return code;
+      }
+      code = this.generateReferralCode();
+      attempts++;
+    }
+
+    throw new Error('Failed to generate unique referral code after maximum attempts');
+  }
+
   async createUser(insertUser: InsertUser): Promise<User> {
+    const codeRef = await this.generateUniqueReferralCode();
+    
     const [user] = await db
       .insert(users)
       .values({
@@ -260,6 +286,7 @@ export class DatabaseStorage implements IStorage {
         agreement: insertUser.agreement ?? 0,
         blocked: insertUser.blocked ?? false,
         apiKey: insertUser.apiKey ?? null,
+        codeRef,
       })
       .returning();
     return user;
