@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { z } from "zod";
 import { validate as validateInitData, parse as parseInitData } from "@telegram-apps/init-data-node";
 import { storage } from "./storage";
-import { insertTransactionSchema, insertSupportChatSchema, insertUserSchema } from "@shared/schema";
+import { insertTransactionSchema, insertSupportChatSchema, insertUserSchema, insertSupportTicketSchema, insertSupportMessageSchema } from "@shared/schema";
 import { config, isTestMode, isTelegramMode, isDevelopment } from "./config";
 import { createWalletViaAPI } from "./wallet-api";
 
@@ -785,6 +785,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(history);
     } catch (error) {
       console.error('Get exchange history error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Support tickets
+  // Create support ticket
+  app.post("/api/support/tickets", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { exchangeNumber, message } = req.body;
+      
+      if (!exchangeNumber || !message) {
+        return res.status(400).json({ message: "Exchange number and message are required" });
+      }
+      
+      // Find exchange by order number
+      const exchange = await storage.getExchangeByOrderNumber(exchangeNumber);
+      if (!exchange) {
+        return res.status(404).json({ message: "Exchange not found" });
+      }
+      
+      // Security: ensure user owns this exchange
+      if (exchange.idUser !== req.user!.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Check if user already has an open ticket
+      const existingTicket = await storage.getUserOpenTicket(req.user!.id);
+      if (existingTicket) {
+        return res.status(400).json({ message: "You already have an open ticket" });
+      }
+      
+      // Create ticket with initial message
+      const ticket = await storage.createSupportTicket({
+        userId: req.user!.id,
+        exchangeId: exchange.id,
+        status: "wait-support"
+      }, message);
+      
+      res.json(ticket);
+    } catch (error) {
+      console.error('Create ticket error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get user's open ticket
+  app.get("/api/support/tickets/open", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const ticket = await storage.getUserOpenTicket(req.user!.id);
+      
+      if (!ticket) {
+        return res.status(404).json({ message: "No open ticket found" });
+      }
+      
+      res.json(ticket);
+    } catch (error) {
+      console.error('Get open ticket error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get messages for a ticket
+  app.get("/api/support/tickets/:ticketId/messages", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const ticketId = parseInt(req.params.ticketId);
+      
+      // Get ticket to verify ownership
+      const ticket = await storage.getUserOpenTicket(req.user!.id);
+      if (!ticket || ticket.id !== ticketId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const messages = await storage.getTicketMessages(ticketId);
+      res.json(messages);
+    } catch (error) {
+      console.error('Get ticket messages error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Add message to ticket
+  app.post("/api/support/tickets/:ticketId/messages", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const ticketId = parseInt(req.params.ticketId);
+      const { message } = req.body;
+      
+      if (!message) {
+        return res.status(400).json({ message: "Message is required" });
+      }
+      
+      // Get ticket to verify ownership
+      const ticket = await storage.getUserOpenTicket(req.user!.id);
+      if (!ticket || ticket.id !== ticketId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Add message and update ticket status to wait-support
+      const newMessage = await storage.addTicketMessage({
+        ticketId,
+        sender: "user",
+        message
+      });
+      
+      await storage.updateTicketStatus(ticketId, "wait-support");
+      
+      res.json(newMessage);
+    } catch (error) {
+      console.error('Add ticket message error:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

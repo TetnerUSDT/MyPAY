@@ -6,6 +6,8 @@ import { z } from "zod";
 // Define enums
 export const balanceTypeEnum = pgEnum('balance_type', ['fiat', 'crypto', 'token', 'voucher']);
 export const exchangeStatusEnum = pgEnum('exchange_status', ['wait', 'wait-paid', 'paid', 'complete', 'canceled', 'dispute']);
+export const supportTicketStatusEnum = pgEnum('support_ticket_status', ['wait-user', 'wait-support', 'closed']);
+export const messageSenderEnum = pgEnum('message_sender', ['user', 'support']);
 
 export const balances = pgTable("balances", {
   id: serial("id").primaryKey(),
@@ -149,6 +151,23 @@ export const supportChats = pgTable("support_chats", {
   createdAt: timestamp("created_at").default(sql`now()`),
 });
 
+export const supportTickets = pgTable("support_tickets", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  exchangeId: integer("exchange_id").notNull().references(() => exchanges.id, { onDelete: "cascade" }),
+  status: supportTicketStatusEnum("status").notNull().default("wait-support"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const supportMessages = pgTable("support_messages", {
+  id: serial("id").primaryKey(),
+  ticketId: integer("ticket_id").notNull().references(() => supportTickets.id, { onDelete: "cascade" }),
+  sender: messageSenderEnum("sender").notNull(),
+  message: text("message").notNull(),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
 });
@@ -204,6 +223,17 @@ export const insertSupportChatSchema = createInsertSchema(supportChats).omit({
   createdAt: true,
 });
 
+export const insertSupportTicketSchema = createInsertSchema(supportTickets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSupportMessageSchema = createInsertSchema(supportMessages).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertBalance = z.infer<typeof insertBalanceSchema>;
@@ -228,3 +258,7 @@ export type InsertExchangeRate = z.infer<typeof insertExchangeRateSchema>;
 export type ExchangeRate = typeof exchangeRates.$inferSelect;
 export type InsertSupportChat = z.infer<typeof insertSupportChatSchema>;
 export type SupportChat = typeof supportChats.$inferSelect;
+export type InsertSupportTicket = z.infer<typeof insertSupportTicketSchema>;
+export type SupportTicket = typeof supportTickets.$inferSelect;
+export type InsertSupportMessage = z.infer<typeof insertSupportMessageSchema>;
+export type SupportMessage = typeof supportMessages.$inferSelect;

@@ -1,16 +1,110 @@
-import { useState } from "react";
-import { Clock } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Clock, Send, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import supportAvatar from "@assets/support_1759681481551.jpg";
+
+interface Message {
+  id: number;
+  ticketId: number;
+  sender: "user" | "support";
+  message: string;
+  createdAt: string;
+}
+
+interface Ticket {
+  id: number;
+  userId: number;
+  exchangeId: number;
+  exchangeNumber: string;
+  status: "wait-user" | "wait-support" | "closed";
+  createdAt: string;
+  updatedAt: string;
+}
 
 export default function SupportScreen() {
   const { toast } = useToast();
   const [isDisputeModalOpen, setIsDisputeModalOpen] = useState(false);
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const [ticketNumber, setTicketNumber] = useState("");
   const [disputeMessage, setDisputeMessage] = useState("");
+  const [chatMessage, setChatMessage] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Fetch user data for avatar
+  const { data: user } = useQuery<{ img: string | null }>({
+    queryKey: ["/api/auth/me"],
+  });
+
+  // Fetch open ticket
+  const { data: ticket, isLoading: ticketLoading } = useQuery<Ticket>({
+    queryKey: ["/api/support/tickets/open"],
+    retry: false,
+  });
+
+  // Fetch messages for open ticket
+  const { data: messages = [] } = useQuery<Message[]>({
+    queryKey: ["/api/support/tickets", ticket?.id, "messages"],
+    enabled: !!ticket?.id,
+  });
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
+
+  // Create ticket mutation
+  const createTicketMutation = useMutation({
+    mutationFn: async (data: { exchangeNumber: string; message: string }) => {
+      const res = await apiRequest("POST", "/api/support/tickets", data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Тикет создан",
+        description: "Ваш тикет был успешно создан. Поддержка ответит в ближайшее время.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/support/tickets/open"] });
+      setTicketNumber("");
+      setDisputeMessage("");
+      setIsDisputeModalOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось создать тикет",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Send message mutation
+  const sendMessageMutation = useMutation({
+    mutationFn: async (data: { ticketId: number; message: string }) => {
+      const res = await apiRequest("POST", `/api/support/tickets/${data.ticketId}/messages`, { message: data.message });
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/support/tickets", ticket?.id, "messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/support/tickets/open"] });
+      setChatMessage("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось отправить сообщение",
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleOpenDispute = () => {
     if (!ticketNumber.trim() || !disputeMessage.trim()) {
@@ -22,16 +116,48 @@ export default function SupportScreen() {
       return;
     }
 
-    // Here you would send the dispute to your API
-    toast({
-      title: "Спор открыт",
-      description: "Ваш спор был отправлен в службу поддержки. С вами свяжутся в течение 24 часов.",
+    createTicketMutation.mutate({
+      exchangeNumber: ticketNumber,
+      message: disputeMessage,
     });
-    
-    // Reset form and close modal
-    setTicketNumber("");
-    setDisputeMessage("");
-    setIsDisputeModalOpen(false);
+  };
+
+  const handleSendMessage = () => {
+    if (!chatMessage.trim() || !ticket) {
+      return;
+    }
+
+    sendMessageMutation.mutate({
+      ticketId: ticket.id,
+      message: chatMessage,
+    });
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "wait-user":
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-400/20 text-yellow-400">
+            Ожидает ответа клиента
+          </span>
+        );
+      case "wait-support":
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-400/20 text-blue-400">
+            Ожидает ответа поддержки
+          </span>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const getUserAvatar = () => {
+    if (user?.img) {
+      return user.img;
+    }
+    // Cat placeholder
+    return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512' viewBox='0 0 512 512'%3E%3Cg fill='%2313b601'%3E%3Cpath d='M496.52 129.86C483.09 80.38 431.63 28.92 382.15 15.49 351.82 7.92 311.17.13 256 0c-55.16.14-95.81 7.92-126.14 15.49C80.38 28.93 28.92 80.38 15.49 129.86 7.92 160.19.14 200.84 0 256c.14 55.17 7.92 95.82 15.49 126.15 13.43 49.48 64.89 100.93 114.37 114.37 30.33 7.57 71 15.35 126.14 15.49 55.17-.14 95.82-7.92 126.15-15.49 49.48-13.44 100.94-64.89 114.37-114.37 7.57-30.33 15.35-71 15.49-126.15-.14-55.16-7.92-95.81-15.49-126.14'/%3E%3C/g%3E%3C/svg%3E";
   };
 
   return (
@@ -60,19 +186,11 @@ export default function SupportScreen() {
         <div className="chat-bubble">
           <div className="flex items-start space-x-3">
             <div className="avatar">
-              <div className="w-full h-full bg-gradient-accent rounded-full flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 512 512" xmlSpace="preserve">
-                  <linearGradient id="a" x1="400.3" x2="236.55" y1="354.24" y2="190.49" gradientUnits="userSpaceOnUse"><stop offset="0" stopColor="#34344f"/><stop offset=".54" stopColor="#353551"/><stop offset="1" stopColor="#666684"/></linearGradient>
-                  <linearGradient id="b" x1="287.85" x2="114.92" y1="292.3" y2="119.37" gradientUnits="userSpaceOnUse"><stop offset="0" stopColor="#13b601"/><stop offset=".52" stopColor="#13b601"/><stop offset="1" stopColor="#cbf4b4"/></linearGradient>
-                  <linearGradient id="c" x1="226.75" x2="152.83" y1="229.57" y2="155.65" gradientUnits="userSpaceOnUse"><stop offset="0" stopColor="#cbf4b4"/><stop offset=".57" stopColor="#fff"/><stop offset="1" stopColor="#fff"/></linearGradient>
-                  <g data-name="Layer 12">
-                    <path fill="#e5f4d9" d="M496.52 129.86C483.09 80.38 431.63 28.92 382.15 15.49 351.82 7.92 311.17.13 256 0c-55.16.14-95.81 7.92-126.14 15.49C80.38 28.93 28.92 80.38 15.49 129.86 7.92 160.19.14 200.84 0 256c.14 55.17 7.92 95.82 15.49 126.15 13.43 49.48 64.89 100.93 114.37 114.37 30.33 7.57 71 15.35 126.14 15.49 55.17-.14 95.82-7.92 126.15-15.49 49.48-13.44 100.94-64.89 114.37-114.37 7.57-30.33 15.35-71 15.49-126.15-.14-55.16-7.92-95.81-15.49-126.14" data-original="#e5f4d9"/>
-                    <path fill="url(#a)" d="M208.88 271.24a269.7 269.7 0 0 0 3.68 46.15c3.26 18 19.79 33.74 37.87 36.58 10.92 1.81 46.25 4 66.63 3.8l23.29 37a11.25 11.25 0 0 0 19 0l25.79-41c17.69-3.25 33.68-18.71 36.89-36.41a271 271 0 0 0 3.67-46.15 271 271 0 0 0-3.67-46.14c-3.27-18-19.8-33.74-37.88-36.59-11-1.81-46.54-4-66.87-3.79-20.34-.19-55.91 2-66.88 3.79-18.08 2.85-34.61 18.55-37.87 36.59a269.6 269.6 0 0 0-3.65 46.17" data-original="url(#a)"/>
-                    <path fill="url(#b)" d="M314.73 155.23c-3.5-19.31-21.19-36.13-40.55-39.17-11.74-1.94-49.82-4.26-71.6-4.06-21.77-.2-59.85 2.12-71.6 4.06-19.36 3-37 19.86-40.55 39.17a289 289 0 0 0-3.93 49.41A289 289 0 0 0 90.43 254c3.44 19 20.55 35.5 39.49 39l27.62 43.8a12 12 0 0 0 20.29 0l27.63-43.8c18.93-3.49 36.05-19.93 39.49-39a289.1 289.1 0 0 0 3.92-49.36 289 289 0 0 0-3.92-49.41" data-original="url(#b)"/>
-                    <path fill="url(#c)" d="M168.61 156.11a56.3 56.3 0 0 1 28.2-29.44c8.53-3.55 36.17-6.18 59.19-6 23-.14 50.66 2.49 59.19 6a56.3 56.3 0 0 1 28.2 29.44 223.9 223.9 0 0 1 3 38.25 224.3 224.3 0 0 1-3 38.26 56.3 56.3 0 0 1-28.2 29.44c-8.53 3.55-36.17 6.18-59.19 6-23 .14-50.66-2.49-59.19-6a56.3 56.3 0 0 1-28.2-29.44 224.3 224.3 0 0 1-3-38.26 223.9 223.9 0 0 1 3-38.25" data-original="url(#c)"/>
-                  </g>
-                </svg>
-              </div>
+              <img 
+                src={supportAvatar} 
+                alt="Support" 
+                className="w-full h-full rounded-full object-cover"
+              />
             </div>
             <div className="flex-1">
               <div className="mb-1">
@@ -114,15 +232,39 @@ export default function SupportScreen() {
         </div>
       </div>
       
+      {/* Open Ticket Widget */}
+      {ticket && (
+        <div className="px-6 mt-6">
+          <div 
+            className="crypto-card cursor-pointer hover:bg-secondary/80 transition-colors"
+            onClick={() => setIsChatModalOpen(true)}
+            data-testid="widget-open-ticket"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold">Открытый тикет</h3>
+              {getStatusBadge(ticket.status)}
+            </div>
+            <div className="text-sm text-muted-foreground mb-2">
+              Заявка: <span className="font-mono text-accent">{ticket.exchangeNumber}</span>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Кликните чтобы открыть чат
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Actions */}
-      <div className="px-6 pb-20">
+      <div className="px-6 pb-20 mt-6">
+        {/* Create Dispute Modal */}
         <Dialog open={isDisputeModalOpen} onOpenChange={setIsDisputeModalOpen}>
           <DialogTrigger asChild>
             <button 
               className="action-button mb-4"
               data-testid="button-open-dispute"
+              disabled={!!ticket}
             >
-              Открыть спор
+              {ticket ? "У вас уже есть открытый тикет" : "Открыть спор"}
             </button>
           </DialogTrigger>
           <DialogContent className="mobile-screen bg-secondary border-none text-white">
@@ -171,8 +313,106 @@ export default function SupportScreen() {
                   onClick={handleOpenDispute}
                   className="action-button mt-6"
                   data-testid="button-submit-dispute"
+                  disabled={createTicketMutation.isPending}
                 >
-                  Открыть спор
+                  {createTicketMutation.isPending ? "Создание..." : "Открыть спор"}
+                </button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Chat Modal */}
+        <Dialog open={isChatModalOpen} onOpenChange={setIsChatModalOpen}>
+          <DialogContent className="mobile-screen bg-secondary border-none text-white max-h-[90vh] flex flex-col p-0">
+            {/* Header */}
+            <DialogHeader className="px-6 py-4 border-b border-white/10">
+              <div className="flex items-center justify-between">
+                <div>
+                  <DialogTitle className="text-white text-lg">
+                    Тикет #{ticket?.exchangeNumber}
+                  </DialogTitle>
+                  <div className="mt-2">
+                    {ticket && getStatusBadge(ticket.status)}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsChatModalOpen(false)}
+                  className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                  data-testid="button-close-chat"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </DialogHeader>
+
+            {/* Messages */}
+            <ScrollArea className="flex-1 px-6 py-4">
+              <div className="space-y-4">
+                {messages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`flex ${msg.sender === "user" ? "justify-start" : "justify-end"}`}
+                    data-testid={`message-${msg.sender}-${msg.id}`}
+                  >
+                    <div className={`flex items-start space-x-3 max-w-[80%] ${msg.sender === "support" ? "flex-row-reverse space-x-reverse" : ""}`}>
+                      {/* Avatar */}
+                      <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+                        {msg.sender === "user" ? (
+                          <img 
+                            src={getUserAvatar()} 
+                            alt="User" 
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <img 
+                            src={supportAvatar} 
+                            alt="Support" 
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                      </div>
+                      
+                      {/* Message bubble */}
+                      <div className={`rounded-lg px-4 py-3 ${msg.sender === "user" ? "bg-accent/20" : "bg-blue-500/20"}`}>
+                        <p className="text-sm text-white">{msg.message}</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {new Date(msg.createdAt).toLocaleTimeString("ru-RU", { 
+                            hour: "2-digit", 
+                            minute: "2-digit" 
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
+            </ScrollArea>
+
+            {/* Input */}
+            <div className="px-6 py-4 border-t border-white/10">
+              <div className="flex items-center space-x-3">
+                <Input
+                  placeholder="Введите сообщение..."
+                  value={chatMessage}
+                  onChange={(e) => setChatMessage(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  className="input-field flex-1"
+                  data-testid="input-chat-message"
+                />
+                <button
+                  onClick={handleSendMessage}
+                  disabled={!chatMessage.trim() || sendMessageMutation.isPending}
+                  className="w-12 h-12 bg-accent hover:bg-accent/80 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg flex items-center justify-center transition-colors"
+                  data-testid="button-send-message"
+                >
+                  <Send className="w-5 h-5 text-accent-foreground" />
                 </button>
               </div>
             </div>

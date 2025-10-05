@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Wallet, type InsertWallet, type Transaction, type InsertTransaction, type ExchangeRate, type InsertExchangeRate, type SupportChat, type InsertSupportChat, type Card, type Bank, type InsertBank, users, wallets, transactions, exchangeRates, supportChats, cards, banks, balances, userCards, exchanges, usersBalances } from "@shared/schema";
+import { type User, type InsertUser, type Wallet, type InsertWallet, type Transaction, type InsertTransaction, type ExchangeRate, type InsertExchangeRate, type SupportChat, type InsertSupportChat, type SupportTicket, type InsertSupportTicket, type SupportMessage, type InsertSupportMessage, type Card, type Bank, type InsertBank, users, wallets, transactions, exchangeRates, supportChats, supportTickets, supportMessages, cards, banks, balances, userCards, exchanges, usersBalances } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, and, sql, inArray } from "drizzle-orm";
@@ -69,6 +69,13 @@ export interface IStorage {
   getExchangeByOrderNumber(orderNumber: string): Promise<any | undefined>;
   updateExchangeStatus(id: number, status: string): Promise<any | undefined>;
   getExchangeHistory(userId: number, limit: number, offset: number): Promise<any[]>;
+
+  // Support ticket methods
+  createSupportTicket(ticket: InsertSupportTicket, initialMessage: string): Promise<SupportTicket>;
+  getUserOpenTicket(userId: number): Promise<any | undefined>;
+  getTicketMessages(ticketId: number): Promise<SupportMessage[]>;
+  addTicketMessage(message: InsertSupportMessage): Promise<SupportMessage>;
+  updateTicketStatus(ticketId: number, status: 'wait-user' | 'wait-support' | 'closed'): Promise<SupportTicket | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -702,6 +709,81 @@ export class DatabaseStorage implements IStorage {
     }));
     
     return enrichedResults;
+  }
+
+  // Support ticket methods
+  async createSupportTicket(ticket: InsertSupportTicket, initialMessage: string): Promise<SupportTicket> {
+    return await db.transaction(async (tx) => {
+      const [newTicket] = await tx
+        .insert(supportTickets)
+        .values(ticket)
+        .returning();
+      
+      await tx.insert(supportMessages).values({
+        ticketId: newTicket.id,
+        sender: "user",
+        message: initialMessage,
+      });
+      
+      return newTicket;
+    });
+  }
+
+  async getUserOpenTicket(userId: number): Promise<any | undefined> {
+    const { not } = await import("drizzle-orm");
+    
+    const [ticket] = await db
+      .select({
+        ticket: supportTickets,
+        exchangeNumber: exchanges.numberOrder,
+      })
+      .from(supportTickets)
+      .leftJoin(exchanges, eq(supportTickets.exchangeId, exchanges.id))
+      .where(
+        and(
+          eq(supportTickets.userId, userId),
+          not(eq(supportTickets.status, "closed"))
+        )
+      )
+      .limit(1);
+    
+    if (!ticket) return undefined;
+    
+    return {
+      ...ticket.ticket,
+      exchangeNumber: ticket.exchangeNumber,
+    };
+  }
+
+  async getTicketMessages(ticketId: number): Promise<SupportMessage[]> {
+    return await db
+      .select()
+      .from(supportMessages)
+      .where(eq(supportMessages.ticketId, ticketId))
+      .orderBy(supportMessages.createdAt);
+  }
+
+  async addTicketMessage(message: InsertSupportMessage): Promise<SupportMessage> {
+    const [newMessage] = await db
+      .insert(supportMessages)
+      .values(message)
+      .returning();
+    
+    await db
+      .update(supportTickets)
+      .set({ updatedAt: new Date() })
+      .where(eq(supportTickets.id, message.ticketId));
+    
+    return newMessage;
+  }
+
+  async updateTicketStatus(ticketId: number, status: 'wait-user' | 'wait-support' | 'closed'): Promise<SupportTicket | undefined> {
+    const [updatedTicket] = await db
+      .update(supportTickets)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(supportTickets.id, ticketId))
+      .returning();
+    return updatedTicket || undefined;
   }
 }
 
