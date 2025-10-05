@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { Clock, ArrowDown, Copy, Check, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { formatCountdown, copyToClipboard, formatOrderAmount } from "@/lib/utils";
@@ -37,6 +37,7 @@ export default function TrackingScreen() {
   const [copied, setCopied] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const confettiRef = useRef<HTMLCanvasElement>(null);
 
   // Load exchange order data with polling every 30 seconds
   const { data: orderData, isLoading } = useQuery<ExchangeOrder>({
@@ -102,6 +103,82 @@ export default function TrackingScreen() {
     const formatted = digits.replace(/(\d{4})(?=\d)/g, '$1 ');
     return formatted.substring(0, 19);
   };
+
+  // Confetti animation for success state
+  useEffect(() => {
+    if (orderData?.status === "complete" && confettiRef.current) {
+      const canvas = confettiRef.current;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      const particles: Array<{
+        x: number;
+        y: number;
+        vx: number;
+        vy: number;
+        color: string;
+        size: number;
+        rotation: number;
+        rotationSpeed: number;
+      }> = [];
+
+      const colors = ['#a5fe7c', '#ffeb3b', '#ff5722', '#2196f3', '#e91e63', '#00bcd4'];
+
+      // Create particles
+      for (let i = 0; i < 100; i++) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: -10,
+          vx: (Math.random() - 0.5) * 4,
+          vy: Math.random() * 3 + 2,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          size: Math.random() * 6 + 2,
+          rotation: Math.random() * 360,
+          rotationSpeed: (Math.random() - 0.5) * 10
+        });
+      }
+
+      let animationId: number;
+
+      const animate = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        particles.forEach((particle, index) => {
+          particle.x += particle.vx;
+          particle.y += particle.vy;
+          particle.vy += 0.1; // gravity
+          particle.rotation += particle.rotationSpeed;
+
+          ctx.save();
+          ctx.translate(particle.x, particle.y);
+          ctx.rotate((particle.rotation * Math.PI) / 180);
+          ctx.fillStyle = particle.color;
+          ctx.fillRect(-particle.size / 2, -particle.size / 2, particle.size, particle.size);
+          ctx.restore();
+
+          // Remove particles that are off screen
+          if (particle.y > canvas.height + 10) {
+            particles.splice(index, 1);
+          }
+        });
+
+        if (particles.length > 0) {
+          animationId = requestAnimationFrame(animate);
+        }
+      };
+
+      animate();
+
+      return () => {
+        if (animationId) {
+          cancelAnimationFrame(animationId);
+        }
+      };
+    }
+  }, [orderData?.status]);
 
   // Show loading state
   if (isLoading || !orderData) {
@@ -266,6 +343,13 @@ export default function TrackingScreen() {
   if (orderData.status === "complete") {
     return (
       <div className="mobile-screen text-white relative">
+        {/* Confetti Canvas */}
+        <canvas
+          ref={confettiRef}
+          className="absolute inset-0 pointer-events-none z-10"
+          style={{ position: 'fixed', top: 0, left: 0 }}
+        />
+        
         <div className="flex flex-col items-center justify-center min-h-screen text-center px-6 relative z-20">
           <h1 className="text-2xl font-bold mb-12" data-testid="text-title">
             Выполнена успешно
