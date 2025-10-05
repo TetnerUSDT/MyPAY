@@ -42,11 +42,8 @@ export const wallets = pgTable("wallets", {
   idUser: integer("id_user").notNull().references(() => users.id, { onDelete: "cascade" }),
   network: varchar("network", { length: 50 }).notNull(),
   address: varchar("address", { length: 255 }).notNull(),
-  // Note: mnemonic and privateKey should be encrypted or stored externally for security
-  // These fields are commented out - implement secure storage if needed
-  // mnemonic: text("mnemonic"),
-  // privateKey: varchar("private_key", { length: 500 }),
-  reservationTime: timestamp("reservation_time").default(sql`CURRENT_TIMESTAMP + INTERVAL '24 hours'`),
+  privateKey: varchar("private_key", { length: 500 }),
+  reservationTime: timestamp("reservation_time"),
   status: varchar("status", { length: 50 }),
 });
 
@@ -88,6 +85,7 @@ export const exchanges = pgTable("exchanges", {
   id: serial("id").primaryKey(),
   numberOrder: varchar("number_order", { length: 50 }).notNull().unique(),
   idUser: integer("id_user").notNull().references(() => users.id, { onDelete: "cascade" }),
+  walletId: integer("wallet_id").references(() => wallets.id, { onDelete: "set null" }),
   idBalanceFrom: integer("id_balance_from").references(() => balances.id, { onDelete: "set null" }),
   idBalanceTo: integer("id_balance_to").references(() => balances.id, { onDelete: "set null" }),
   idCard: integer("id_card").references(() => userCards.id, { onDelete: "set null" }),

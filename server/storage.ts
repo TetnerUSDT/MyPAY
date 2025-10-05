@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Wallet, type InsertWallet, type Transaction, type InsertTransaction, type ExchangeRate, type InsertExchangeRate, type SupportChat, type InsertSupportChat, type Card, type Bank, type InsertBank, users, wallets, transactions, exchangeRates, supportChats, cards, banks, balances, userCards } from "@shared/schema";
+import { type User, type InsertUser, type Wallet, type InsertWallet, type Transaction, type InsertTransaction, type ExchangeRate, type InsertExchangeRate, type SupportChat, type InsertSupportChat, type Card, type Bank, type InsertBank, users, wallets, transactions, exchangeRates, supportChats, cards, banks, balances, userCards, exchanges, usersBalances } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, and, sql, inArray } from "drizzle-orm";
@@ -16,6 +16,8 @@ export interface IStorage {
   getWallet(id: number): Promise<Wallet | undefined>;
   getWalletsByUserId(userId: number): Promise<Wallet[]>;
   createWallet(wallet: InsertWallet): Promise<Wallet>;
+  findAvailableWallet(network: string): Promise<Wallet | undefined>;
+  reserveWallet(walletId: number, hours: number): Promise<Wallet | undefined>;
 
   // Transaction methods
   getTransaction(id: string): Promise<Transaction | undefined>;
@@ -60,6 +62,12 @@ export interface IStorage {
   getFiatBalances(): Promise<any[]>;
   getUserBalance(userId: number, balanceId: number): Promise<any>;
   updateUserDefaultBalance(userId: number, balanceId: number): Promise<User | undefined>;
+
+  // Exchange methods
+  createExchange(exchange: any): Promise<any>;
+  getExchange(id: number): Promise<any | undefined>;
+  getExchangeByOrderNumber(orderNumber: string): Promise<any | undefined>;
+  updateExchangeStatus(id: number, status: string): Promise<any | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -281,6 +289,33 @@ export class DatabaseStorage implements IStorage {
       .values(insertWallet)
       .returning();
     return wallet;
+  }
+
+  async findAvailableWallet(network: string): Promise<Wallet | undefined> {
+    const now = new Date();
+    const [wallet] = await db
+      .select()
+      .from(wallets)
+      .where(
+        and(
+          eq(wallets.network, network),
+          sql`(${wallets.reservationTime} IS NULL OR ${wallets.reservationTime} < ${now})`
+        )
+      )
+      .limit(1);
+    return wallet || undefined;
+  }
+
+  async reserveWallet(walletId: number, hours: number): Promise<Wallet | undefined> {
+    const reservationTime = new Date();
+    reservationTime.setHours(reservationTime.getHours() + hours);
+    
+    const [wallet] = await db
+      .update(wallets)
+      .set({ reservationTime })
+      .where(eq(wallets.id, walletId))
+      .returning();
+    return wallet || undefined;
   }
 
   // Transaction methods
@@ -522,6 +557,40 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return updatedUser;
+  }
+
+  // Exchange methods
+  async createExchange(exchange: any): Promise<any> {
+    const [newExchange] = await db
+      .insert(exchanges)
+      .values(exchange)
+      .returning();
+    return newExchange;
+  }
+
+  async getExchange(id: number): Promise<any | undefined> {
+    const [exchange] = await db
+      .select()
+      .from(exchanges)
+      .where(eq(exchanges.id, id));
+    return exchange || undefined;
+  }
+
+  async getExchangeByOrderNumber(orderNumber: string): Promise<any | undefined> {
+    const [exchange] = await db
+      .select()
+      .from(exchanges)
+      .where(eq(exchanges.numberOrder, orderNumber));
+    return exchange || undefined;
+  }
+
+  async updateExchangeStatus(id: number, status: string): Promise<any | undefined> {
+    const [updatedExchange] = await db
+      .update(exchanges)
+      .set({ status })
+      .where(eq(exchanges.id, id))
+      .returning();
+    return updatedExchange || undefined;
   }
 }
 

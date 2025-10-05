@@ -5,6 +5,7 @@ import { validate as validateInitData, parse as parseInitData } from "@telegram-
 import { storage } from "./storage";
 import { insertTransactionSchema, insertSupportChatSchema, insertUserSchema } from "@shared/schema";
 import { config, isTestMode, isTelegramMode, isDevelopment } from "./config";
+import { createWalletViaAPI } from "./wallet-api";
 
 // Unified login schema that supports both modes
 const loginSchema = z.discriminatedUnion("mode", [
@@ -605,6 +606,141 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(req.user);
     } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Create exchange order with wallet reservation
+  app.post("/api/exchange/create", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const {
+        fromBalanceId,
+        toBalanceId,
+        fromCurrency,
+        toCurrency,
+        amountFrom,
+        amountTo,
+        rate,
+        commission,
+        cardId,
+        network
+      } = req.body;
+
+      // Validate required fields
+      if (!fromBalanceId || !toBalanceId || !fromCurrency || !toCurrency || !amountFrom || !amountTo || !rate || !network) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      // Generate unique order number
+      const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+
+      // Find or create wallet
+      let wallet = await storage.findAvailableWallet(network);
+      
+      if (!wallet) {
+        console.log(`No available wallet found for ${network}, creating new one...`);
+        try {
+          // Create new wallet via external API
+          const walletData = await createWalletViaAPI(network);
+          
+          // Store wallet in database
+          wallet = await storage.createWallet({
+            idUser: req.user!.id,
+            network,
+            address: walletData.address,
+            privateKey: walletData.private_key,
+            status: 'active'
+          });
+        } catch (error) {
+          console.error('Failed to create wallet:', error);
+          return res.status(500).json({ message: "Failed to create wallet for exchange" });
+        }
+      }
+
+      // Reserve wallet for 12 hours
+      await storage.reserveWallet(wallet.id, 12);
+
+      // Create exchange order
+      const exchange = await storage.createExchange({
+        numberOrder: orderNumber,
+        idUser: req.user!.id,
+        walletId: wallet.id,
+        idBalanceFrom: fromBalanceId,
+        idBalanceTo: toBalanceId,
+        idCard: cardId || null,
+        fromCurrency,
+        toCurrency,
+        amountFrom,
+        amountTo,
+        rate,
+        commission: commission || "0.0",
+        status: "pending"
+      });
+
+      // Return exchange details with wallet address
+      res.json({
+        ...exchange,
+        walletAddress: wallet.address,
+        walletNetwork: wallet.network
+      });
+    } catch (error) {
+      console.error('Create exchange error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get exchange by order number
+  app.get("/api/exchange/:orderNumber", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { orderNumber } = req.params;
+      const exchange = await storage.getExchangeByOrderNumber(orderNumber);
+      
+      if (!exchange) {
+        return res.status(404).json({ message: "Exchange not found" });
+      }
+
+      // Get wallet details if walletId exists
+      let walletAddress = null;
+      let walletNetwork = null;
+      if (exchange.walletId) {
+        const wallet = await storage.getWallet(exchange.walletId);
+        if (wallet) {
+          walletAddress = wallet.address;
+          walletNetwork = wallet.network;
+        }
+      }
+
+      res.json({
+        ...exchange,
+        walletAddress,
+        walletNetwork
+      });
+    } catch (error) {
+      console.error('Get exchange error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Update exchange status (for "I paid" button)
+  app.patch("/api/exchange/:orderNumber/status", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { orderNumber } = req.params;
+      const { status } = req.body;
+
+      const exchange = await storage.getExchangeByOrderNumber(orderNumber);
+      
+      if (!exchange) {
+        return res.status(404).json({ message: "Exchange not found" });
+      }
+
+      if (exchange.idUser !== req.user!.id) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const updatedExchange = await storage.updateExchangeStatus(exchange.id, status);
+      res.json(updatedExchange);
+    } catch (error) {
+      console.error('Update exchange status error:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
