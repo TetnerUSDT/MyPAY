@@ -332,6 +332,52 @@ export class DatabaseStorage implements IStorage {
     return wallet || undefined;
   }
 
+  async createWalletViaAPI(network: string, userId: number): Promise<{ address: string; privateKey: string } | null> {
+    try {
+      const apiKey = process.env.WALLET_API_KEY;
+      if (!apiKey) {
+        console.error("WALLET_API_KEY not found in environment variables");
+        return null;
+      }
+
+      const nodeMap: Record<string, string> = {
+        "TRC20": "TRON",
+        "BEP20": "BSC",
+        "TON": "TON"
+      };
+
+      const node = nodeMap[network];
+      if (!node) {
+        console.error(`Unknown network: ${network}`);
+        return null;
+      }
+
+      const response = await fetch("https://demo.u-api.pro/api/wallet/create", {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Authorization": apiKey,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ node })
+      });
+
+      if (!response.ok) {
+        console.error(`Failed to create wallet via API: ${response.status} ${response.statusText}`);
+        return null;
+      }
+
+      const data = await response.json();
+      return {
+        address: data.address,
+        privateKey: data.private_key
+      };
+    } catch (error) {
+      console.error("Error creating wallet via API:", error);
+      return null;
+    }
+  }
+
   async findOrReserveWalletForOperation(userId: number, network: string, operation: string): Promise<Wallet | undefined> {
     const now = new Date();
     const sixHoursFromNow = new Date(now.getTime() + 6 * 60 * 60 * 1000);
@@ -364,11 +410,17 @@ export class DatabaseStorage implements IStorage {
       return await this.reserveWallet(availableWallet.id, 24, operation);
     }
     
-    // Create a new wallet and reserve it
+    // Create a new wallet via API
+    const walletData = await this.createWalletViaAPI(network, userId);
+    if (!walletData) {
+      throw new Error("Failed to create wallet via API");
+    }
+
     const newWallet = await this.createWallet({
       idUser: userId,
       network,
-      address: `${network}_${userId}_${Date.now()}`, // Mock address
+      address: walletData.address,
+      privateKey: walletData.privateKey,
       reservationTime: new Date(now.getTime() + 24 * 60 * 60 * 1000),
       reserved: operation,
       status: "active",
