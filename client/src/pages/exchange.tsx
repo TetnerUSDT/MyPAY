@@ -211,6 +211,7 @@ export default function ExchangeScreen() {
       rate,
       commission: "0.0",
       cardId: cardInputMode === 'select' && selectedCard ? parseInt(selectedCard) : null,
+      manualCardNumber: cardInputMode === 'manual' ? selectedCard : null,
       network
     });
   };

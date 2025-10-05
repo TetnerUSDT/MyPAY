@@ -89,6 +89,7 @@ export const exchanges = pgTable("exchanges", {
   idBalanceFrom: integer("id_balance_from").references(() => balances.id, { onDelete: "set null" }),
   idBalanceTo: integer("id_balance_to").references(() => balances.id, { onDelete: "set null" }),
   idCard: integer("id_card").references(() => userCards.id, { onDelete: "set null" }),
+  manualCardNumber: varchar("manual_card_number", { length: 50 }),
   fromCurrency: varchar("from_currency", { length: 10 }).notNull(),
   toCurrency: varchar("to_currency", { length: 10 }).notNull(),
   amountFrom: decimal("amount_from", { precision: 18, scale: 8 }).notNull(),

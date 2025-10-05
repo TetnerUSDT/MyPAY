@@ -623,6 +623,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         rate,
         commission,
         cardId,
+        manualCardNumber,
         network
       } = req.body;
 
@@ -668,6 +669,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         idBalanceFrom: fromBalanceId,
         idBalanceTo: toBalanceId,
         idCard: cardId || null,
+        manualCardNumber: manualCardNumber || null,
         fromCurrency,
         toCurrency,
         amountFrom,

@@ -577,11 +577,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getExchangeByOrderNumber(orderNumber: string): Promise<any | undefined> {
-    const [exchange] = await db
-      .select()
+    const [result] = await db
+      .select({
+        exchange: exchanges,
+        savedCardNumber: userCards.numberCard,
+      })
       .from(exchanges)
+      .leftJoin(userCards, eq(exchanges.idCard, userCards.id))
       .where(eq(exchanges.numberOrder, orderNumber));
-    return exchange || undefined;
+    
+    if (!result) return undefined;
+    
+    // Use saved card number if available, otherwise use manual card number
+    return {
+      ...result.exchange,
+      cardNumber: result.savedCardNumber || result.exchange.manualCardNumber
+    };
   }
 
   async updateExchangeStatus(id: number, status: string): Promise<any | undefined> {

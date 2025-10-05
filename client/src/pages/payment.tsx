@@ -1,22 +1,49 @@
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { X, ArrowDown, Copy, Check, Clock } from "lucide-react";
 import { copyToClipboard } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+
+interface ExchangeOrder {
+  id: number;
+  numberOrder: string;
+  idUser: number;
+  walletId: number;
+  idBalanceFrom: number;
+  idBalanceTo: number;
+  idCard: number | null;
+  fromCurrency: string;
+  toCurrency: string;
+  amountFrom: string;
+  amountTo: string;
+  rate: string;
+  commission: string;
+  timestamp: string;
+  status: string;
+  walletAddress?: string;
+  walletNetwork?: string;
+  cardNumber?: string;
+}
 
 export default function PaymentScreen() {
-  const [timer, setTimer] = useState(3599); // 59:59 in seconds
+  const searchParams = new URLSearchParams(useSearch());
+  const orderNumber = searchParams.get('order');
+  const [timer, setTimer] = useState(3600); // 1 hour in seconds
   const [copied, setCopied] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  
-  const applicationNumber = "872342833";
-  const transferAmount = "100.00";
-  const currency = "USDT TRC20";
-  const fullWalletAddress = "TW6LqMKykCfsgkMkLxd92HGbpQnGtcpLzGzJKTdLhQ2"; // Full address for copying
-  const displayWalletAddress = "TW6LqMKykCfsgkMkLxd92HGbp..."; // Truncated for display
-  const receiveAmount = "8000.00";
-  const cardNumber = "4373 8349 9348 7328";
+
+  // Load exchange order data
+  const { data: orderData, isLoading, error } = useQuery<ExchangeOrder>({
+    queryKey: ['/api/exchange', orderNumber],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/exchange/${orderNumber}`, undefined);
+      return response.json();
+    },
+    enabled: !!orderNumber,
+  });
 
   // Timer countdown
   useEffect(() => {
@@ -34,27 +61,92 @@ export default function PaymentScreen() {
     return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
+  // Update exchange status mutation
+  const updateStatusMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("PATCH", `/api/exchange/${orderNumber}/status`, {
+        status: "paid"
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      // Navigate to waiting page
+      setLocation("/wait");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось обновить статус заявки",
+        variant: "destructive",
+      });
+    }
+  });
+
   const handleCopyAddress = async () => {
+    const fullWalletAddress = orderData?.walletAddress || "";
     try {
       await copyToClipboard(fullWalletAddress);
       setCopied(true);
       toast({
-        title: "Copied!",
-        description: "Wallet address copied to clipboard",
+        title: "Скопировано!",
+        description: "Адрес кошелька скопирован в буфер обмена",
       });
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to copy address",
+        title: "Ошибка",
+        description: "Не удалось скопировать адрес",
         variant: "destructive",
       });
     }
   };
 
   const handlePaymentConfirmed = () => {
-    setLocation("/wait");
+    updateStatusMutation.mutate();
   };
+
+  // Redirect if no order number
+  useEffect(() => {
+    if (!orderNumber) {
+      setLocation("/exchange");
+    }
+  }, [orderNumber, setLocation]);
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="mobile-screen text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-lg">Загрузка данных заявки...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error || !orderData) {
+    return (
+      <div className="mobile-screen text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-lg text-red-500">Ошибка загрузки заявки</div>
+          <button 
+            onClick={() => setLocation("/exchange")}
+            className="action-button mt-4"
+          >
+            Вернуться к обмену
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Format wallet address for display (truncate middle)
+  const displayWalletAddress = orderData.walletAddress 
+    ? `${orderData.walletAddress.slice(0, 20)}...${orderData.walletAddress.slice(-6)}`
+    : "";
+
+  // Format currency with network
+  const currencyDisplay = `${orderData.fromCurrency} ${orderData.walletNetwork || ''}`.trim();
 
   return (
     <div className="mobile-screen text-white">
@@ -77,7 +169,7 @@ export default function PaymentScreen() {
         {/* Application Number */}
         <div className="text-center mb-6">
           <div className="text-2xl font-bold text-yellow-400 mb-4" data-testid="text-application-number">
-            {applicationNumber}
+            {orderData.numberOrder}
           </div>
           
           {/* Timer */}
@@ -93,9 +185,9 @@ export default function PaymentScreen() {
         <div className="crypto-card mb-4">
           <div className="text-sm text-muted-foreground mb-2">Переведите сумму</div>
           <div className="flex items-center justify-between mb-4">
-            <span className="text-3xl font-bold">{transferAmount}</span>
+            <span className="text-3xl font-bold">{orderData.amountFrom}</span>
             <div className="flex items-center bg-secondary rounded-lg px-3 py-1">
-              <span className="text-yellow-400 font-medium">{currency}</span>
+              <span className="text-yellow-400 font-medium">{currencyDisplay}</span>
             </div>
           </div>
           
@@ -103,7 +195,7 @@ export default function PaymentScreen() {
           <div className="text-sm text-muted-foreground mb-2">На адрес кошелька</div>
           <div className="flex items-center bg-secondary rounded-lg p-3">
             <span 
-              className="font-mono text-sm flex-1"
+              className="font-mono text-sm flex-1 break-all"
               data-testid="text-wallet-address"
             >
               {displayWalletAddress}
@@ -133,30 +225,35 @@ export default function PaymentScreen() {
         <div className="crypto-card mb-6">
           <div className="text-sm text-muted-foreground mb-2">Сумма к получению</div>
           <div className="flex items-center justify-between mb-4">
-            <span className="text-3xl font-bold">{receiveAmount}</span>
-            <span className="text-2xl font-bold text-yellow-400">РУБ</span>
+            <span className="text-3xl font-bold">{orderData.amountTo}</span>
+            <span className="text-2xl font-bold text-yellow-400">{orderData.toCurrency}</span>
           </div>
           
           {/* Card Number */}
-          <div className="text-sm text-muted-foreground mb-2">На номер карты</div>
-          <div className="bg-secondary rounded-lg p-3">
-            <span 
-              className="font-mono text-sm"
-              data-testid="text-card-number"
-            >
-              {cardNumber}
-            </span>
-          </div>
+          {orderData.cardNumber && (
+            <>
+              <div className="text-sm text-muted-foreground mb-2">На номер карты</div>
+              <div className="bg-secondary rounded-lg p-3">
+                <span 
+                  className="font-mono text-sm"
+                  data-testid="text-card-number"
+                >
+                  {orderData.cardNumber}
+                </span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Payment Confirmed Button */}
         <button 
           className="action-button"
           onClick={handlePaymentConfirmed}
+          disabled={updateStatusMutation.isPending}
           data-testid="button-payment-confirmed"
         >
-          Я оплатил
-          <ArrowDown className="w-6 h-6 ml-2 rotate-90" />
+          {updateStatusMutation.isPending ? "Обработка..." : "Я оплатил"}
+          {!updateStatusMutation.isPending && <ArrowDown className="w-6 h-6 ml-2 rotate-90" />}
         </button>
       </div>
     </div>
