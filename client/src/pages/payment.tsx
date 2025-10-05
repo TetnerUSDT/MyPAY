@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { X, ArrowDown, Copy, Check, Clock } from "lucide-react";
-import { copyToClipboard } from "@/lib/utils";
+import { copyToClipboard, formatOrderAmount } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -197,7 +197,7 @@ export default function PaymentScreen() {
         <div className="crypto-card mb-4">
           <div className="text-sm text-muted-foreground mb-2">Переведите сумму</div>
           <div className="flex items-center justify-between mb-4">
-            <span className="text-3xl font-bold">{orderData.amountFrom}</span>
+            <span className="text-3xl font-bold">{formatOrderAmount(orderData.amountFrom)}</span>
             <div className="flex items-center bg-secondary rounded-lg px-3 py-1">
               <span className="text-yellow-400 font-medium">{currencyDisplay}</span>
             </div>
@@ -237,7 +237,7 @@ export default function PaymentScreen() {
         <div className="crypto-card mb-6">
           <div className="text-sm text-muted-foreground mb-2">Сумма к получению</div>
           <div className="flex items-center justify-between mb-4">
-            <span className="text-3xl font-bold">{orderData.amountTo}</span>
+            <span className="text-3xl font-bold">{formatOrderAmount(orderData.amountTo)}</span>
             <span className="text-2xl font-bold text-yellow-400">{orderData.toCurrency}</span>
           </div>
           

@@ -48,3 +48,25 @@ export function copyToClipboard(text: string): Promise<void> {
     return Promise.resolve();
   }
 }
+
+// Format order amounts - round to 2 decimals (100.00000000 -> 100.00)
+export function formatOrderAmount(amount: string | number): string {
+  const num = typeof amount === "string" ? parseFloat(amount) : amount;
+  if (isNaN(num)) return "0.00";
+  return num.toFixed(2);
+}
+
+// Format balance - remove trailing zeros but keep significant digits (100.00001000 -> 100.00001)
+export function formatBalance(balance: string | number): string {
+  const num = typeof balance === "string" ? parseFloat(balance) : balance;
+  if (isNaN(num)) return "0";
+  
+  // Convert to string with full precision
+  const str = num.toString();
+  
+  // If no decimal point, return as is
+  if (!str.includes('.')) return str;
+  
+  // Remove trailing zeros after decimal point
+  return str.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+}

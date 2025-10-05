@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { User } from "@shared/schema";
+import { formatBalance } from "@/lib/utils";
 import catImage from "@assets/Image_1758366163369.png";
 import tronImage from "@assets/tron_1758481649917.png";
 import bnbImage from "@assets/bnb_1758481660380.png";
@@ -229,7 +230,7 @@ export default function HomeScreen() {
                 <div>
                   <p className="text-sm text-white/70 mb-1">{selectedBalance?.title || 'Balance'}</p>
                   <p className="text-2xl font-bold text-white" data-testid="fiat-balance-amount">
-                    {userBalance?.sum || '0.00'}
+                    {formatBalance(userBalance?.sum || '0')}
                   </p>
                 </div>
               </div>
