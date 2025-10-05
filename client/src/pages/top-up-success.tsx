@@ -1,6 +1,5 @@
 import { Link } from "wouter";
-import { LottieAnimation } from "@/components";
-import paymentSuccessAnimation from "@/assets/payment-success.json";
+import { CheckCircle } from "lucide-react";
 
 export default function TopUpSuccessScreen() {
   return (
@@ -12,12 +11,8 @@ export default function TopUpSuccessScreen() {
         
         {/* Success Animation */}
         <div className="w-32 h-32 mb-16 flex items-center justify-center">
-          <LottieAnimation
-            animationData={paymentSuccessAnimation}
-            width={116}
-            height={116}
-            loop={false}
-            autoplay={true}
+          <CheckCircle 
+            className="w-24 h-24 text-accent" 
             data-testid="animation-success"
           />
         </div>

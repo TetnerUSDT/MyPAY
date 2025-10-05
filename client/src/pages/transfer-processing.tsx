@@ -1,7 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useEffect } from "react";
-import { LottieAnimation } from "@/components";
-import paymentSuccessAnimation from "@/assets/payment-success.json";
+import { Loader2 } from "lucide-react";
 
 export default function TransferProcessingScreen() {
   const [, setLocation] = useLocation();
@@ -25,12 +24,8 @@ export default function TransferProcessingScreen() {
         
         {/* Processing Animation */}
         <div className="w-32 h-32 mb-16 flex items-center justify-center">
-          <LottieAnimation
-            animationData={paymentSuccessAnimation}
-            width={116}
-            height={116}
-            loop={true}
-            autoplay={true}
+          <Loader2 
+            className="w-24 h-24 animate-spin text-accent" 
             data-testid="animation-processing"
           />
         </div>

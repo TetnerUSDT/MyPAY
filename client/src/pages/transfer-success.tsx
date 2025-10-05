@@ -1,10 +1,8 @@
 import { Link } from "wouter";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, CheckCircle } from "lucide-react";
 import { useState } from "react";
 import { copyToClipboard } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { LottieAnimation } from "@/components";
-import paymentSuccessAnimation from "@/assets/payment-success.json";
 
 export default function TransferSuccessScreen() {
   const [copied, setCopied] = useState(false);
@@ -38,12 +36,8 @@ export default function TransferSuccessScreen() {
         
         {/* Success Animation */}
         <div className="w-32 h-32 mb-12 flex items-center justify-center">
-          <LottieAnimation
-            animationData={paymentSuccessAnimation}
-            width={116}
-            height={116}
-            loop={false}
-            autoplay={true}
+          <CheckCircle 
+            className="w-24 h-24 text-accent" 
             data-testid="animation-success"
           />
         </div>
