@@ -47,6 +47,7 @@ export const wallets = pgTable("wallets", {
   address: varchar("address", { length: 255 }).notNull(),
   privateKey: varchar("private_key", { length: 500 }),
   reservationTime: timestamp("reservation_time"),
+  reserved: varchar("reserved", { length: 50 }), // exchange, topup, voucher, etc.
   status: varchar("status", { length: 50 }),
 });
 

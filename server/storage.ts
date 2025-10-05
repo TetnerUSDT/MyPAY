@@ -17,7 +17,8 @@ export interface IStorage {
   getWalletsByUserId(userId: number): Promise<Wallet[]>;
   createWallet(wallet: InsertWallet): Promise<Wallet>;
   findAvailableWallet(network: string): Promise<Wallet | undefined>;
-  reserveWallet(walletId: number, hours: number): Promise<Wallet | undefined>;
+  reserveWallet(walletId: number, hours: number, reservationType?: string): Promise<Wallet | undefined>;
+  findOrReserveWalletForOperation(userId: number, network: string, operation: string): Promise<Wallet | undefined>;
 
   // Transaction methods
   getTransaction(id: string): Promise<Transaction | undefined>;
@@ -314,16 +315,66 @@ export class DatabaseStorage implements IStorage {
     return wallet || undefined;
   }
 
-  async reserveWallet(walletId: number, hours: number): Promise<Wallet | undefined> {
+  async reserveWallet(walletId: number, hours: number, reservationType?: string): Promise<Wallet | undefined> {
     const reservationTime = new Date();
     reservationTime.setHours(reservationTime.getHours() + hours);
     
+    const updateData: any = { reservationTime };
+    if (reservationType) {
+      updateData.reserved = reservationType;
+    }
+    
     const [wallet] = await db
       .update(wallets)
-      .set({ reservationTime })
+      .set(updateData)
       .where(eq(wallets.id, walletId))
       .returning();
     return wallet || undefined;
+  }
+
+  async findOrReserveWalletForOperation(userId: number, network: string, operation: string): Promise<Wallet | undefined> {
+    const now = new Date();
+    const sixHoursFromNow = new Date(now.getTime() + 6 * 60 * 60 * 1000);
+    
+    // Find existing wallet reserved for this operation by this user
+    // that has more than 6 hours left
+    const existingWallets = await db
+      .select()
+      .from(wallets)
+      .where(
+        and(
+          eq(wallets.idUser, userId),
+          eq(wallets.network, network),
+          eq(wallets.reserved, operation),
+          sql`${wallets.reservationTime} > ${sixHoursFromNow}`
+        )
+      )
+      .orderBy(sql`${wallets.reservationTime} DESC`)
+      .limit(1);
+    
+    if (existingWallets.length > 0) {
+      return existingWallets[0];
+    }
+    
+    // Find an available wallet (not reserved or expired)
+    const availableWallet = await this.findAvailableWallet(network);
+    
+    if (availableWallet) {
+      // Reserve it for 24 hours
+      return await this.reserveWallet(availableWallet.id, 24, operation);
+    }
+    
+    // Create a new wallet and reserve it
+    const newWallet = await this.createWallet({
+      idUser: userId,
+      network,
+      address: `${network}_${userId}_${Date.now()}`, // Mock address
+      reservationTime: new Date(now.getTime() + 24 * 60 * 60 * 1000),
+      reserved: operation,
+      status: "active",
+    });
+    
+    return newWallet;
   }
 
   // Transaction methods
