@@ -65,7 +65,7 @@ export default function PaymentScreen() {
   const updateStatusMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest("PATCH", `/api/exchange/${orderNumber}/status`, {
-        status: "paid"
+        status: "wait-paid"
       });
       return response.json();
     },

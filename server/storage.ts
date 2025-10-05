@@ -636,7 +636,7 @@ export class DatabaseStorage implements IStorage {
   async updateExchangeStatus(id: number, status: string): Promise<any | undefined> {
     const [updatedExchange] = await db
       .update(exchanges)
-      .set({ status: status as 'wait' | 'paid' | 'complete' | 'canceled' | 'dispute' })
+      .set({ status: status as 'wait' | 'wait-paid' | 'paid' | 'complete' | 'canceled' | 'dispute' })
       .where(eq(exchanges.id, id))
       .returning();
     return updatedExchange || undefined;

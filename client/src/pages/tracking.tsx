@@ -21,12 +21,13 @@ interface ExchangeOrder {
   rate: string;
   commission: string;
   timestamp: string;
-  status: 'wait' | 'paid' | 'complete' | 'canceled' | 'dispute';
+  status: 'wait' | 'wait-paid' | 'paid' | 'complete' | 'canceled' | 'dispute';
   walletAddress?: string;
   walletNetwork?: string;
   cardNumber?: string;
   timeExchange?: number;
   cancelReason?: string;
+  paymentHash?: string;
 }
 
 export default function TrackingScreen() {
@@ -72,7 +73,7 @@ export default function TrackingScreen() {
   }, [orderNumber, setLocation]);
 
   const handleCopyTxHash = async () => {
-    const txHash = orderData?.walletAddress || "";
+    const txHash = orderData?.paymentHash || "";
     try {
       await copyToClipboard(txHash);
       setCopied(true);
@@ -107,6 +108,39 @@ export default function TrackingScreen() {
 
   // State 1: Waiting for payment (wait)
   if (orderData.status === "wait") {
+    return (
+      <div className="mobile-screen text-white relative overflow-hidden">
+        <div className="flex flex-col items-center justify-center min-h-screen text-center px-6">
+          <h1 className="text-2xl font-bold mb-4" data-testid="text-title">
+            Ожидание платежа
+          </h1>
+          
+          <div className="text-xl text-yellow-400 font-semibold mb-8" data-testid="text-status">
+            ожидаем оплату
+          </div>
+          
+          {/* Timer */}
+          <div className="inline-flex items-center bg-secondary border border-yellow-400 rounded-lg px-4 py-2 mb-16">
+            <Clock className="w-6 h-6 mr-2 text-yellow-400" />
+            <span className="font-mono text-lg text-yellow-400" data-testid="text-countdown">
+              {formatCountdown(countdown)}
+            </span>
+          </div>
+
+          {/* Waiting Animation */}
+          <div className="w-full max-w-md crypto-card flex items-center justify-center p-8">
+            <Loader2 
+              className="w-40 h-40 text-accent animate-spin"
+              data-testid="animation-waiting"
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // State 2: Waiting for transaction confirmation (wait-paid)
+  if (orderData.status === "wait-paid") {
     return (
       <div className="mobile-screen text-white relative overflow-hidden">
         <div className="flex flex-col items-center justify-center min-h-screen text-center px-6">
@@ -169,7 +203,7 @@ export default function TrackingScreen() {
             
             <div className="bg-secondary rounded-lg p-3 mb-2 relative">
               <div className="font-mono text-xs break-all text-left" data-testid="text-transaction-hash">
-                {orderData.walletAddress || 'Ожидание хеша...'}
+                {orderData.paymentHash || 'Ожидание хеша...'}
               </div>
               <button 
                 className="absolute top-2 right-2 p-1 hover:bg-white/10 rounded"

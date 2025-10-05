@@ -5,7 +5,7 @@ import { z } from "zod";
 
 // Define enums
 export const balanceTypeEnum = pgEnum('balance_type', ['fiat', 'crypto', 'token', 'voucher']);
-export const exchangeStatusEnum = pgEnum('exchange_status', ['wait', 'paid', 'complete', 'canceled', 'dispute']);
+export const exchangeStatusEnum = pgEnum('exchange_status', ['wait', 'wait-paid', 'paid', 'complete', 'canceled', 'dispute']);
 
 export const balances = pgTable("balances", {
   id: serial("id").primaryKey(),
@@ -100,6 +100,7 @@ export const exchanges = pgTable("exchanges", {
   timestamp: timestamp("timestamp").default(sql`CURRENT_TIMESTAMP`),
   status: exchangeStatusEnum("status").notNull().default("wait"),
   cancelReason: text("cancel_reason"),
+  paymentHash: text("payment_hash"),
 });
 
 export const stats = pgTable("stats", {
