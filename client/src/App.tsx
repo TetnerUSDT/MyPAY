@@ -31,9 +31,6 @@ function Router() {
   return (
     <div className="min-h-screen gradient-bg">
       <Switch>
-        {/* Admin routes - dynamically loaded */}
-        <AdminRoutes />
-        
         {/* Public routes - no authentication required */}
         <Route path="/" component={SplashScreen} />
         <Route path="/agreement" component={AgreementScreen} />
@@ -122,6 +119,9 @@ function Router() {
             <HistoryScreen />
           </AuthGuard>
         </Route>
+        
+        {/* Admin routes - loaded last to not interfere with main routes */}
+        <AdminRoutes />
       </Switch>
       
       {showBottomNav && <BottomNavigation />}
