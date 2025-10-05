@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useSearch } from "wouter";
-import { Clock, ArrowDown, Copy, Check, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { Clock, ArrowDown, Copy, Check, Loader2, CheckCircle2, XCircle, X } from "lucide-react";
 import { formatCountdown, copyToClipboard, formatOrderAmount } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
@@ -195,6 +195,18 @@ export default function TrackingScreen() {
   if (orderData.status === "wait") {
     return (
       <div className="mobile-screen text-white relative overflow-hidden">
+        {/* Close button */}
+        <div className="absolute top-6 right-6 z-30">
+          <Link href="/home">
+            <button 
+              className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center hover:bg-black/30 transition-colors"
+              data-testid="button-close"
+            >
+              <X className="w-4 h-4 text-white" />
+            </button>
+          </Link>
+        </div>
+        
         <div className="flex flex-col items-center justify-center min-h-screen text-center px-6">
           <h1 className="text-2xl font-bold mb-4" data-testid="text-title">
             Ожидание платежа
@@ -228,6 +240,18 @@ export default function TrackingScreen() {
   if (orderData.status === "wait-paid") {
     return (
       <div className="mobile-screen text-white relative overflow-hidden">
+        {/* Close button */}
+        <div className="absolute top-6 right-6 z-30">
+          <Link href="/home">
+            <button 
+              className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center hover:bg-black/30 transition-colors"
+              data-testid="button-close"
+            >
+              <X className="w-4 h-4 text-white" />
+            </button>
+          </Link>
+        </div>
+        
         <div className="flex flex-col items-center justify-center min-h-screen text-center px-6">
           <h1 className="text-2xl font-bold mb-4" data-testid="text-title">
             Проверка платежа
@@ -260,7 +284,19 @@ export default function TrackingScreen() {
   // State 2: Processing application (paid)
   if (orderData.status === "paid") {
     return (
-      <div className="mobile-screen text-white">
+      <div className="mobile-screen text-white relative">
+        {/* Close button */}
+        <div className="absolute top-6 right-6 z-30">
+          <Link href="/home">
+            <button 
+              className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center hover:bg-black/30 transition-colors"
+              data-testid="button-close"
+            >
+              <X className="w-4 h-4 text-white" />
+            </button>
+          </Link>
+        </div>
+        
         <div className="flex flex-col items-center justify-center min-h-screen text-center px-6">
           <h1 className="text-2xl font-bold mb-4" data-testid="text-title">
             Выполнение заявки
@@ -350,6 +386,18 @@ export default function TrackingScreen() {
           style={{ position: 'fixed', top: 0, left: 0 }}
         />
         
+        {/* Close button */}
+        <div className="absolute top-6 right-6 z-30">
+          <Link href="/home">
+            <button 
+              className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center hover:bg-black/30 transition-colors"
+              data-testid="button-close"
+            >
+              <X className="w-4 h-4 text-white" />
+            </button>
+          </Link>
+        </div>
+        
         <div className="flex flex-col items-center justify-center min-h-screen text-center px-6 relative z-20">
           <h1 className="text-2xl font-bold mb-12" data-testid="text-title">
             Выполнена успешно
@@ -394,6 +442,18 @@ export default function TrackingScreen() {
   if (orderData.status === "canceled") {
     return (
       <div className="mobile-screen text-white relative">
+        {/* Close button */}
+        <div className="absolute top-6 right-6 z-30">
+          <Link href="/home">
+            <button 
+              className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center hover:bg-black/30 transition-colors"
+              data-testid="button-close"
+            >
+              <X className="w-4 h-4 text-white" />
+            </button>
+          </Link>
+        </div>
+        
         <div className="flex flex-col items-center justify-center min-h-screen text-center px-6 relative z-20">
           <h1 className="text-2xl font-bold mb-12" data-testid="text-title">
             Платеж отменен
@@ -444,6 +504,18 @@ export default function TrackingScreen() {
   if (orderData.status === "dispute") {
     return (
       <div className="mobile-screen text-white relative">
+        {/* Close button */}
+        <div className="absolute top-6 right-6 z-30">
+          <Link href="/home">
+            <button 
+              className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center hover:bg-black/30 transition-colors"
+              data-testid="button-close"
+            >
+              <X className="w-4 h-4 text-white" />
+            </button>
+          </Link>
+        </div>
+        
         <div className="flex flex-col items-center justify-center min-h-screen text-center px-6 relative z-20">
           <h1 className="text-2xl font-bold mb-12" data-testid="text-title">
             Спор открыт
