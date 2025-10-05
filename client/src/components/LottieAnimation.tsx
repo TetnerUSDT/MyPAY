@@ -39,6 +39,16 @@ export const LottieAnimation = ({
     }
   }, [onComplete]);
 
+  if (!animationData) {
+    return (
+      <div 
+        className={`inline-block ${className}`}
+        style={{ width, height }}
+        {...rest}
+      />
+    );
+  }
+
   return (
     <div 
       className={`inline-block ${className}`}
@@ -51,6 +61,9 @@ export const LottieAnimation = ({
         loop={loop}
         autoplay={autoplay}
         style={{ width: '100%', height: '100%' }}
+        rendererSettings={{
+          preserveAspectRatio: 'xMidYMid slice'
+        }}
       />
     </div>
   );

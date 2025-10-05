@@ -1,10 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
-import { Clock, ArrowDown, Copy, Check } from "lucide-react";
+import { Clock, ArrowDown, Copy, Check, Loader2, CheckCircle2 } from "lucide-react";
 import { formatCountdown, copyToClipboard } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { LottieAnimation } from "@/components";
-import paymentSuccessAnimation from "@/assets/payment-success.json";
 
 type WaitState = "checking" | "processing" | "success";
 
@@ -165,13 +163,8 @@ export default function WaitScreen() {
 
           {/* Payment Processing Animation */}
           <div className="w-full max-w-md crypto-card flex items-center justify-center p-8">
-            <LottieAnimation
-              animationData={paymentSuccessAnimation}
-              width={160}
-              height={160}
-              loop={true}
-              autoplay={true}
-              className=""
+            <Loader2 
+              className="w-40 h-40 text-accent animate-spin"
               data-testid="animation-payment-processing"
             />
           </div>
@@ -252,12 +245,8 @@ export default function WaitScreen() {
 
           {/* Processing Animation Small */}
           <div className="w-12 h-12 crypto-card flex items-center justify-center p-1">
-            <LottieAnimation
-              animationData={paymentSuccessAnimation}
-              width={32}
-              height={32}
-              loop={true}
-              autoplay={true}
+            <Loader2 
+              className="w-8 h-8 text-accent animate-spin"
               data-testid="animation-hourglass-small"
             />
           </div>
@@ -283,12 +272,8 @@ export default function WaitScreen() {
         
         {/* Success Animation */}
         <div className="w-32 h-32 mb-12 flex items-center justify-center">
-          <LottieAnimation
-            animationData={paymentSuccessAnimation}
-            width={116}
-            height={116}
-            loop={false}
-            autoplay={true}
+          <CheckCircle2 
+            className="w-32 h-32 text-accent"
             data-testid="animation-success"
           />
         </div>
