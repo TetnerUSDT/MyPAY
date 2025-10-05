@@ -61,6 +61,8 @@ export interface IStorage {
 
   // Fiat balance methods
   getFiatBalances(): Promise<any[]>;
+  getCryptoBalances(): Promise<any[]>;
+  getUserCryptoBalances(userId: number): Promise<any[]>;
   getUserBalance(userId: number, balanceId: number): Promise<any>;
   updateUserDefaultBalance(userId: number, balanceId: number): Promise<User | undefined>;
 
@@ -624,6 +626,39 @@ export class DatabaseStorage implements IStorage {
   // Fiat balance methods
   async getFiatBalances(): Promise<any[]> {
     return await db.select().from(balances).where(eq(balances.type, "fiat"));
+  }
+
+  async getCryptoBalances(): Promise<any[]> {
+    return await db.select().from(balances).where(eq(balances.type, "crypto"));
+  }
+
+  async getUserCryptoBalances(userId: number): Promise<any[]> {
+    const cryptoBalances = await this.getCryptoBalances();
+    
+    const result = await Promise.all(
+      cryptoBalances.map(async (balance) => {
+        const [userBalance] = await db
+          .select()
+          .from(usersBalances)
+          .where(
+            and(
+              eq(usersBalances.idUser, userId),
+              eq(usersBalances.idBalance, balance.id)
+            )
+          );
+
+        return {
+          id: balance.id,
+          title: balance.title,
+          network: balance.network,
+          currency: balance.currency,
+          sum: userBalance?.sum || "0.00",
+          status: userBalance?.status || "inactive"
+        };
+      })
+    );
+
+    return result;
   }
 
   async getUserBalance(userId: number, balanceId: number): Promise<any> {

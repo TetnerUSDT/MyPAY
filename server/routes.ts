@@ -602,6 +602,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get user crypto balances
+  app.get("/api/user/crypto-balances", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const cryptoBalances = await storage.getUserCryptoBalances(req.user!.id);
+      res.json(cryptoBalances);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Get or create user balance
   app.get("/api/user-balance/:balanceId", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {
