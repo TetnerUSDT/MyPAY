@@ -27,8 +27,8 @@ export default function SelectCountryScreen() {
 
   if (isLoading) {
     return (
-      <div className="mobile-screen gradient-bg text-white">
-        <div className="flex flex-col h-full items-center justify-center">
+      <div className="mobile-screen gradient-bg text-white flex items-center justify-center">
+        <div className="flex flex-col items-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
           <p className="mt-4 text-muted-foreground">Загрузка стран...</p>
         </div>
