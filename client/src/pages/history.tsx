@@ -45,7 +45,7 @@ export default function HistoryScreen() {
 
   // Fetch exchange history
   const { data: exchanges, isLoading } = useQuery<ExchangeHistory[]>({
-    queryKey: ['/api/exchanges/history', offset],
+    queryKey: [`/api/exchanges/history?limit=${LIMIT}&offset=${offset}`],
     refetchOnWindowFocus: false,
   });
 
