@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import supportAvatar from "@assets/support_1759681481551.jpg";
+import catImage from "@assets/Image_1758366163369.png";
 
 interface Message {
   id: number;
@@ -153,11 +154,7 @@ export default function SupportScreen() {
   };
 
   const getUserAvatar = () => {
-    if (user?.img) {
-      return user.img;
-    }
-    // Cat placeholder
-    return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512' viewBox='0 0 512 512'%3E%3Cg fill='%2313b601'%3E%3Cpath d='M496.52 129.86C483.09 80.38 431.63 28.92 382.15 15.49 351.82 7.92 311.17.13 256 0c-55.16.14-95.81 7.92-126.14 15.49C80.38 28.93 28.92 80.38 15.49 129.86 7.92 160.19.14 200.84 0 256c.14 55.17 7.92 95.82 15.49 126.15 13.43 49.48 64.89 100.93 114.37 114.37 30.33 7.57 71 15.35 126.14 15.49 55.17-.14 95.82-7.92 126.15-15.49 49.48-13.44 100.94-64.89 114.37-114.37 7.57-30.33 15.35-71 15.49-126.15-.14-55.16-7.92-95.81-15.49-126.14'/%3E%3C/g%3E%3C/svg%3E";
+    return user?.img || catImage;
   };
 
   return (
