@@ -95,6 +95,14 @@ export default function TrackingScreen() {
     setLocation("/home");
   };
 
+  // Format card number with spaces every 4 digits
+  const formatCardNumber = (value: string) => {
+    if (!value) return '';
+    const digits = value.replace(/\D/g, '');
+    const formatted = digits.replace(/(\d{4})(?=\d)/g, '$1 ');
+    return formatted.substring(0, 19);
+  };
+
   // Show loading state
   if (isLoading || !orderData) {
     return (
@@ -237,7 +245,7 @@ export default function TrackingScreen() {
             <div className="text-sm text-muted-foreground mb-2 text-left">На номер карты</div>
             <div className="bg-secondary rounded-lg p-3">
               <span className="font-mono" data-testid="text-card-number">
-                {orderData.cardNumber || 'Загрузка...'}
+                {formatCardNumber(orderData.cardNumber || '') || 'Загрузка...'}
               </span>
             </div>
           </div>
