@@ -3,17 +3,39 @@ import { X, ArrowDown, Copy, ArrowRight, Check } from "lucide-react";
 import { useState, useEffect } from "react";
 import { copyToClipboard } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import QRCodeComponent from "@/components/qr-code";
 
 type NetworkType = "TRC20" | "BEP20" | "TON";
 
+interface ReservedWallet {
+  id: number;
+  idUser: number;
+  network: string;
+  address: string;
+  privateKey: string | null;
+  reservationTime: string | null;
+  reserved: string | null;
+  status: string | null;
+}
+
 export default function TopUpScreen() {
   const [activeNetwork, setActiveNetwork] = useState<NetworkType>("TRC20");
   const [copied, setCopied] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState<string>("");
   const { toast } = useToast();
   const [location] = useLocation();
 
-  // Read network from URL parameters
+  const reserveWalletMutation = useMutation({
+    mutationFn: async (network: string) => {
+      const res = await apiRequest("POST", "/api/wallets/reserve-for-topup", {
+        network
+      });
+      return (await res.json()) as ReservedWallet;
+    }
+  });
+
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const networkParam = urlParams.get('network') as NetworkType;
@@ -22,37 +44,59 @@ export default function TopUpScreen() {
     }
   }, [location]);
 
-  const networkData: Record<NetworkType, { address: string; qrData: string }> = {
-    TRC20: {
-      address: "TW6LqMKykCfsgkMkLxd92HGbp...",
-      qrData: "TW6LqMKykCfsgkMkLxd92HGbp..."
-    },
-    BEP20: {
-      address: "0x1234567890abcdef12345678...",
-      qrData: "0x1234567890abcdef12345678..."
-    },
-    TON: {
-      address: "EQD1234567890abcdef123456...",
-      qrData: "EQD1234567890abcdef123456..."
-    }
-  };
+  useEffect(() => {
+    reserveWalletMutation.mutate(activeNetwork);
+  }, [activeNetwork]);
 
-  const walletAddress = networkData[activeNetwork].address;
-  const qrData = networkData[activeNetwork].qrData;
+  const wallet = reserveWalletMutation.data;
+
+  useEffect(() => {
+    if (!wallet?.reservationTime) return;
+
+    const updateTimer = () => {
+      const now = new Date();
+      const expiryTime = new Date(wallet.reservationTime!);
+      const diff = expiryTime.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        setTimeRemaining("00:00:00");
+        reserveWalletMutation.mutate(activeNetwork);
+        return;
+      }
+
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      setTimeRemaining(
+        `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+      );
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+
+    return () => clearInterval(interval);
+  }, [wallet?.reservationTime, activeNetwork]);
+
+  const walletAddress = wallet?.address || "Loading...";
+  const qrData = wallet?.address || "";
 
   const handleCopyAddress = async () => {
+    if (!wallet?.address) return;
+    
     try {
       await copyToClipboard(walletAddress);
       setCopied(true);
       toast({
-        title: "Copied!",
-        description: "Wallet address copied to clipboard",
+        title: "Скопировано!",
+        description: "Адрес кошелька скопирован в буфер обмена",
       });
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to copy address",
+        title: "Ошибка",
+        description: "Не удалось скопировать адрес",
         variant: "destructive",
       });
     }
@@ -60,13 +104,11 @@ export default function TopUpScreen() {
 
   return (
     <div className="mobile-screen text-white">
-      {/* Content */}
       <div className="mobile-content">
         <h1 className="text-2xl font-bold text-center mb-8" data-testid="text-title">
           Пополнить USDT
         </h1>
         
-        {/* Network Selection */}
         <div className="flex justify-center mb-12">
           <div className="flex bg-secondary rounded-lg p-1">
             {(["TRC20", "BEP20", "TON"] as NetworkType[]).map((network) => (
@@ -86,7 +128,6 @@ export default function TopUpScreen() {
           </div>
         </div>
         
-        {/* QR Code Section */}
         <div className="crypto-card text-center mb-8">
           <div className="flex justify-center mb-4">
             <div className="w-12 h-12 bg-accent rounded-full flex items-center justify-center">
@@ -94,38 +135,51 @@ export default function TopUpScreen() {
             </div>
           </div>
           
-          {/* QR Code */}
-          <div className="qr-code-container mx-auto mb-6 w-48 h-48" data-testid="qr-code-container">
-            <QRCodeComponent value={qrData} size={192} />
-          </div>
-          
-          <div className="text-sm text-muted-foreground mb-2">На адрес кошелька</div>
-          <div className="flex items-center bg-secondary rounded-lg p-3">
-            <span 
-              className="font-mono text-sm flex-1"
-              data-testid="text-wallet-address"
-            >
-              {walletAddress}
-            </span>
-            <button 
-              className="ml-2 p-1 hover:bg-white/10 rounded"
-              onClick={handleCopyAddress}
-              data-testid="button-copy-address"
-            >
-              {copied ? (
-                <Check className="w-4 h-4 text-green-400" />
-              ) : (
-                <Copy className="w-4 h-4 text-accent" />
+          {reserveWalletMutation.isPending ? (
+            <div className="flex justify-center items-center h-48 mb-6">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent"></div>
+            </div>
+          ) : (
+            <>
+              <div className="qr-code-container mx-auto mb-6 w-48 h-48" data-testid="qr-code-container">
+                <QRCodeComponent value={qrData} size={192} />
+              </div>
+              
+              <div className="text-sm text-muted-foreground mb-2">На адрес кошелька</div>
+              <div className="flex items-center bg-secondary rounded-lg p-3 mb-3">
+                <span 
+                  className="font-mono text-sm flex-1 truncate"
+                  data-testid="text-wallet-address"
+                >
+                  {walletAddress}
+                </span>
+                <button 
+                  className="ml-2 p-1 hover:bg-white/10 rounded"
+                  onClick={handleCopyAddress}
+                  data-testid="button-copy-address"
+                >
+                  {copied ? (
+                    <Check className="w-4 h-4 text-green-400" />
+                  ) : (
+                    <Copy className="w-4 h-4 text-accent" />
+                  )}
+                </button>
+              </div>
+              
+              {timeRemaining && (
+                <div className="text-sm text-muted-foreground" data-testid="text-timer">
+                  Адрес действителен {timeRemaining}
+                </div>
               )}
-            </button>
-          </div>
+            </>
+          )}
         </div>
         
-        {/* Continue Button */}
         <Link href="/top-up-success">
           <button 
             className="action-button"
             data-testid="button-continue"
+            disabled={reserveWalletMutation.isPending}
           >
             Далее
             <ArrowRight className="w-5 h-5 ml-2" />
