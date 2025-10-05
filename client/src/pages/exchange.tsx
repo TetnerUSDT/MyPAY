@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { X, ArrowDown, ArrowRight, Settings as SettingsIcon, RefreshCw } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface UserCard {
   id: number;
@@ -35,6 +37,7 @@ export default function ExchangeScreen() {
   const [cardInputMode, setCardInputMode] = useState<'select' | 'manual'>('select');
   const [manualCardInput, setManualCardInput] = useState("");
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
 
   const { data: paymentBalance } = useQuery<Balance>({
     queryKey: ['/api/exchange/payment-balance'],
@@ -131,9 +134,85 @@ export default function ExchangeScreen() {
     setSelectedCard(formatted);
   };
 
-  const handleExchange = () => {
-    // Navigation to payment flow using router
-    setLocation("/payment");
+  // Create exchange mutation
+  const createExchangeMutation = useMutation({
+    mutationFn: async (exchangeData: any) => {
+      const response = await apiRequest("POST", "/api/exchange/create", exchangeData);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      // Navigate to payment page with order number
+      setLocation(`/payment?order=${data.numberOrder}`);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось создать заявку на обмен",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const handleExchange = async () => {
+    // Validate inputs
+    if (!payBalanceId || !receiveBalanceId) {
+      toast({
+        title: "Ошибка",
+        description: "Выберите валюты для обмена",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!payAmount || parseFloat(payAmount) <= 0) {
+      toast({
+        title: "Ошибка",
+        description: "Введите корректную сумму",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedCard) {
+      toast({
+        title: "Ошибка",
+        description: "Выберите или введите карту для получения",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Get network from payment balance
+    const network = paymentBalance?.network;
+    if (!network) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось определить сеть для оплаты",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Get currencies
+    const fromCurrency = paymentBalance?.currency || 'USDT';
+    const toCurrency = receiveBalances.find(b => b.id === receiveBalanceId)?.currency || 'RUB';
+
+    // Calculate rate
+    const rate = receiveAmount && payAmount ? (parseFloat(receiveAmount) / parseFloat(payAmount)).toString() : "0";
+
+    // Create exchange order
+    createExchangeMutation.mutate({
+      fromBalanceId: payBalanceId,
+      toBalanceId: receiveBalanceId,
+      fromCurrency,
+      toCurrency,
+      amountFrom: payAmount,
+      amountTo: receiveAmount,
+      rate,
+      commission: "0.0",
+      cardId: cardInputMode === 'select' && selectedCard ? parseInt(selectedCard) : null,
+      network
+    });
   };
 
   return (
@@ -329,10 +408,11 @@ export default function ExchangeScreen() {
           <button 
             className="action-button"
             onClick={handleExchange}
+            disabled={createExchangeMutation.isPending}
             data-testid="button-continue-payment"
           >
-            Перейти к оплате
-            <ArrowRight className="w-5 h-5 ml-2" />
+            {createExchangeMutation.isPending ? "Создание заявки..." : "Перейти к оплате"}
+            {!createExchangeMutation.isPending && <ArrowRight className="w-5 h-5 ml-2" />}
           </button>
         </div>
       </div>
