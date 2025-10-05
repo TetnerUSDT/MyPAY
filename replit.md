@@ -40,6 +40,7 @@ Key architectural decisions for data modeling:
 - UUID primary keys for security and scalability
 - JSON fields for flexible message storage in support chats
 - Proper foreign key relationships maintaining data integrity
+- Referral system with unique codes (format: 1 uppercase letter A-Z + 9 digits) automatically generated on user creation
 
 ## Authentication and Authorization
 The current implementation uses a simplified authentication model suitable for the prototype phase:
