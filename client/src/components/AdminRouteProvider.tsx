@@ -6,15 +6,11 @@ import AdminDashboard from "@/pages/admin/dashboard";
 import AdminBalances from "@/pages/admin/balances";
 
 export function AdminRoutes() {
-  const [adminPath, setAdminPath] = useState<string | null>(null);
+  const [adminPath, setAdminPath] = useState<string>('admin');
 
   useEffect(() => {
     getAdminPath().then(setAdminPath);
   }, []);
-
-  if (!adminPath) {
-    return null; // or loading indicator
-  }
 
   return (
     <>
