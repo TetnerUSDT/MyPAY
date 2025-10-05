@@ -4,6 +4,7 @@ import { getAdminPath } from "@/lib/adminApi";
 import AdminLogin from "@/pages/admin/login";
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminBalances from "@/pages/admin/balances";
+import AdminExchanges from "@/pages/admin/exchanges";
 
 export function AdminRoutes() {
   const [adminPath, setAdminPath] = useState<string>('admin');
@@ -17,6 +18,7 @@ export function AdminRoutes() {
       <Route path={`/${adminPath}/login`} component={AdminLogin} />
       <Route path={`/${adminPath}/dashboard`} component={AdminDashboard} />
       <Route path={`/${adminPath}/balances`} component={AdminBalances} />
+      <Route path={`/${adminPath}/exchanges`} component={AdminExchanges} />
       <Route path={`/${adminPath}`}>
         {() => {
           window.location.href = `/${adminPath}/login`;
