@@ -1,6 +1,23 @@
-// Get admin URL from env
-export const getAdminPath = () => {
-  return import.meta.env.VITE_ADMIN_URL || 'admin';
+// Get admin URL from server
+let cachedAdminUrl: string | null = null;
+
+export const getAdminPath = async (): Promise<string> => {
+  if (cachedAdminUrl) {
+    return cachedAdminUrl;
+  }
+  
+  try {
+    const response = await fetch('/api/config/admin-url');
+    const data = await response.json();
+    cachedAdminUrl = data.adminUrl;
+    return cachedAdminUrl;
+  } catch (error) {
+    return 'admin'; // fallback
+  }
+};
+
+export const getAdminPathSync = () => {
+  return cachedAdminUrl || 'admin';
 };
 
 // Store admin credentials

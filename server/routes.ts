@@ -91,6 +91,11 @@ const requireApiKey = async (req: AuthenticatedRequest, res: Response, next: Nex
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Public endpoint to get admin URL
+  app.get("/api/config/admin-url", async (req, res) => {
+    res.json({ adminUrl: process.env.ADMIN_URL || 'admin' });
+  });
+
   // Unified authentication endpoint that adapts based on configuration
   app.post("/api/auth/login", async (req, res) => {
     try {

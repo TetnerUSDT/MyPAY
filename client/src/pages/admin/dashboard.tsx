@@ -16,27 +16,31 @@ interface AdminInfo {
 
 export default function AdminDashboard() {
   const [adminInfo, setAdminInfo] = useState<AdminInfo | null>(null);
+  const [adminPath, setAdminPath] = useState<string>('admin');
   const [, setLocation] = useLocation();
-  const adminPath = getAdminPath();
 
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        const path = await getAdminPath();
+        setAdminPath(path);
+        
         const creds = getAdminCredentials();
         if (!creds) {
-          setLocation(`/${adminPath}/login`);
+          setLocation(`/${path}/login`);
           return;
         }
 
         const info = await adminRequest('/auth/check');
         setAdminInfo(info);
       } catch (error) {
-        setLocation(`/${adminPath}/login`);
+        const path = await getAdminPath();
+        setLocation(`/${path}/login`);
       }
     };
 
     checkAuth();
-  }, [adminPath, setLocation]);
+  }, [setLocation]);
 
   const handleLogout = () => {
     clearAdminCredentials();

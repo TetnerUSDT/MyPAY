@@ -22,27 +22,17 @@ import CardsScreen from "@/pages/cards";
 import HistoryScreen from "@/pages/history";
 import BottomNavigation from "@/components/bottom-navigation";
 import { useLocation } from "wouter";
-import AdminLogin from "@/pages/admin/login";
-import AdminDashboard from "@/pages/admin/dashboard";
+import { AdminRoutes } from "@/components/AdminRouteProvider";
 
 function Router() {
   const [location] = useLocation();
   const showBottomNav = ["/home", "/exchange", "/transfer", "/top-up", "/support", "/select-country", "/cards"].includes(location);
-  const adminPath = import.meta.env.VITE_ADMIN_URL || 'admin';
-  const isAdminRoute = location.startsWith(`/${adminPath}`);
 
   return (
     <div className="min-h-screen gradient-bg">
       <Switch>
-        {/* Admin routes - separate authentication */}
-        <Route path={`/${adminPath}/login`} component={AdminLogin} />
-        <Route path={`/${adminPath}/dashboard`} component={AdminDashboard} />
-        <Route path={`/${adminPath}`}>
-          {() => {
-            window.location.href = `/${adminPath}/login`;
-            return null;
-          }}
-        </Route>
+        {/* Admin routes - dynamically loaded */}
+        <AdminRoutes />
         
         {/* Public routes - no authentication required */}
         <Route path="/" component={SplashScreen} />
@@ -134,7 +124,7 @@ function Router() {
         </Route>
       </Switch>
       
-      {showBottomNav && !isAdminRoute && <BottomNavigation />}
+      {showBottomNav && <BottomNavigation />}
     </div>
   );
 }

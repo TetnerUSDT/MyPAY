@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { setAdminCredentials, adminRequest } from "@/lib/adminApi";
+import { setAdminCredentials, adminRequest, getAdminPath } from "@/lib/adminApi";
 import { Lock, User } from "lucide-react";
 
 export default function AdminLogin() {
@@ -31,7 +31,7 @@ export default function AdminLogin() {
         description: "Добро пожаловать в админ панель",
       });
       
-      const adminPath = import.meta.env.VITE_ADMIN_URL || 'admin';
+      const adminPath = await getAdminPath();
       setLocation(`/${adminPath}/dashboard`);
     } catch (error) {
       toast({
