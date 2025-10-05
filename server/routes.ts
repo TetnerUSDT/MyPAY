@@ -698,7 +698,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         amountTo,
         rate,
         commission: commission || "0.0",
-        status: "pending"
+        status: "wait"
       });
 
       // Return exchange details with wallet address
@@ -750,6 +750,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { orderNumber } = req.params;
       const { status } = req.body;
+
+      // Validate status
+      const validStatuses = ['wait', 'paid', 'complete', 'canceled', 'dispute'];
+      if (!status || !validStatuses.includes(status)) {
+        return res.status(400).json({ message: "Invalid status. Must be one of: wait, paid, complete, canceled, dispute" });
+      }
 
       const exchange = await storage.getExchangeByOrderNumber(orderNumber);
       
