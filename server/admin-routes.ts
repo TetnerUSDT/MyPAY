@@ -31,12 +31,18 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
 
   app.post(`/${adminPath}/api/balances`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
+      console.log('Received balance data:', req.body);
       const validatedData = insertBalanceSchema.parse(req.body);
+      console.log('Validated balance data:', validatedData);
       const [newBalance] = await db.insert(balances).values(validatedData).returning();
       res.json(newBalance);
     } catch (error) {
       console.error('Create balance error:', error);
-      res.status(400).json({ message: "Invalid data" });
+      if (error instanceof Error) {
+        res.status(400).json({ message: error.message });
+      } else {
+        res.status(400).json({ message: "Invalid data" });
+      }
     }
   });
 
