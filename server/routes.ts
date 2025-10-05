@@ -752,9 +752,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { status } = req.body;
 
       // Validate status
-      const validStatuses = ['wait', 'paid', 'complete', 'canceled', 'dispute'];
+      const validStatuses = ['wait', 'wait-paid', 'paid', 'complete', 'canceled', 'dispute'];
       if (!status || !validStatuses.includes(status)) {
-        return res.status(400).json({ message: "Invalid status. Must be one of: wait, paid, complete, canceled, dispute" });
+        return res.status(400).json({ message: "Invalid status. Must be one of: wait, wait-paid, paid, complete, canceled, dispute" });
       }
 
       const exchange = await storage.getExchangeByOrderNumber(orderNumber);
