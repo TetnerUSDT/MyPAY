@@ -712,8 +712,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Reserve wallet for 12 hours
-      await storage.reserveWallet(wallet.id, 12);
+      // Reserve wallet for 12 hours for exchange
+      await storage.reserveWallet(wallet.id, 12, "exchange");
 
       // Create exchange order
       const exchange = await storage.createExchange({
