@@ -54,7 +54,7 @@ export const adminRequest = async (endpoint: string, options: RequestInit = {}) 
     throw new Error('Not authenticated');
   }
 
-  const adminPath = getAdminPath();
+  const adminPath = await getAdminPath();
   const url = `/${adminPath}/api${endpoint}`;
   
   const headers = new Headers(options.headers);
