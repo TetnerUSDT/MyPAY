@@ -11,6 +11,7 @@ import SelectCountryScreen from "@/pages/select-country";
 import ExchangeScreen from "@/pages/exchange";
 import TopUpScreen from "@/pages/top-up";
 import WaitScreen from "@/pages/wait";
+import TrackingScreen from "@/pages/tracking";
 import TopUpSuccessScreen from "@/pages/top-up-success";
 import TransferProcessingScreen from "@/pages/transfer-processing";
 import TransferSuccessScreen from "@/pages/transfer-success";
@@ -61,6 +62,12 @@ function Router() {
         <Route path="/wait">
           <AuthGuard requireAgreement={true}>
             <WaitScreen />
+          </AuthGuard>
+        </Route>
+        
+        <Route path="/tracking">
+          <AuthGuard requireAgreement={true}>
+            <TrackingScreen />
           </AuthGuard>
         </Route>
         

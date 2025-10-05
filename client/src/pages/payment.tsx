@@ -70,8 +70,8 @@ export default function PaymentScreen() {
       return response.json();
     },
     onSuccess: () => {
-      // Navigate to waiting page
-      setLocation("/wait");
+      // Navigate to tracking page
+      setLocation(`/tracking?order=${orderNumber}`);
     },
     onError: (error: any) => {
       toast({

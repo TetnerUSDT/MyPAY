@@ -581,6 +581,8 @@ export class DatabaseStorage implements IStorage {
       .select({
         exchange: exchanges,
         savedCardNumber: userCards.numberCard,
+        cardId: userCards.idCard,
+        bankId: userCards.idBank,
       })
       .from(exchanges)
       .leftJoin(userCards, eq(exchanges.idCard, userCards.id))
@@ -588,17 +590,53 @@ export class DatabaseStorage implements IStorage {
     
     if (!result) return undefined;
     
+    // Get time exchange from bank or card
+    let timeExchange = 60; // Default 60 minutes
+    
+    if (result.bankId) {
+      // Try to get time from bank first
+      const [bank] = await db
+        .select()
+        .from(banks)
+        .where(eq(banks.id, result.bankId));
+      
+      if (bank?.timeExchange) {
+        timeExchange = bank.timeExchange;
+      } else if (result.cardId) {
+        // Fallback to card time
+        const [card] = await db
+          .select()
+          .from(cards)
+          .where(eq(cards.id, result.cardId));
+        
+        if (card?.timeExchange) {
+          timeExchange = card.timeExchange;
+        }
+      }
+    } else if (result.cardId) {
+      // No bank, get time from card
+      const [card] = await db
+        .select()
+        .from(cards)
+        .where(eq(cards.id, result.cardId));
+      
+      if (card?.timeExchange) {
+        timeExchange = card.timeExchange;
+      }
+    }
+    
     // Use saved card number if available, otherwise use manual card number
     return {
       ...result.exchange,
-      cardNumber: result.savedCardNumber || result.exchange.manualCardNumber
+      cardNumber: result.savedCardNumber || result.exchange.manualCardNumber,
+      timeExchange
     };
   }
 
   async updateExchangeStatus(id: number, status: string): Promise<any | undefined> {
     const [updatedExchange] = await db
       .update(exchanges)
-      .set({ status })
+      .set({ status: status as 'wait' | 'paid' | 'complete' | 'canceled' | 'dispute' })
       .where(eq(exchanges.id, id))
       .returning();
     return updatedExchange || undefined;

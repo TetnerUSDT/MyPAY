@@ -99,6 +99,7 @@ export const exchanges = pgTable("exchanges", {
   commission: decimal("commission", { precision: 18, scale: 8 }).default("0.0"),
   timestamp: timestamp("timestamp").default(sql`CURRENT_TIMESTAMP`),
   status: exchangeStatusEnum("status").notNull().default("wait"),
+  cancelReason: text("cancel_reason"),
 });
 
 export const stats = pgTable("stats", {
