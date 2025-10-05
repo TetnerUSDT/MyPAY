@@ -632,8 +632,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Missing required fields" });
       }
 
-      // Generate unique order number
-      const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+      // Generate unique short order number (format: OR + last digit of timestamp + 7 random chars)
+      const timestamp = Date.now();
+      const lastDigit = timestamp.toString().slice(-1);
+      const randomChars = Math.random().toString(36).substring(2, 9).toUpperCase();
+      const orderNumber = `OR${lastDigit}${randomChars}`;
 
       // Find or create wallet
       let wallet = await storage.findAvailableWallet(network);

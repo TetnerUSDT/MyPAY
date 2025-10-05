@@ -148,11 +148,6 @@ export default function PaymentScreen() {
   // Format currency with network
   const currencyDisplay = `${orderData.fromCurrency} ${orderData.walletNetwork || ''}`.trim();
 
-  // Shorten order number: ORD-1759664344626-3BCCFYS -> OR73BCCFYS
-  const shortOrderNumber = orderData.numberOrder 
-    ? `${orderData.numberOrder.slice(0, 2)}${orderData.numberOrder.slice(-7)}`
-    : "";
-
   // Format card number with spaces every 4 digits
   const formatCardNumber = (cardNumber: string) => {
     // Remove all non-digit characters
@@ -186,7 +181,7 @@ export default function PaymentScreen() {
         {/* Application Number */}
         <div className="text-center mb-6">
           <div className="text-2xl font-bold text-yellow-400 mb-4" data-testid="text-application-number">
-            {shortOrderNumber}
+            {orderData.numberOrder}
           </div>
           
           {/* Timer */}
