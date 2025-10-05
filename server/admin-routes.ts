@@ -73,13 +73,14 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
   app.get(`/${adminPath}/api/exchanges`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
       const { limit = '50', offset = '0', status } = req.query;
-      let query = db.select().from(exchanges).limit(parseInt(limit as string)).offset(parseInt(offset as string)).orderBy(desc(exchanges.id));
       
+      let results;
       if (status) {
-        query = db.select().from(exchanges).where(eq(exchanges.status, status as any)).limit(parseInt(limit as string)).offset(parseInt(offset as string)).orderBy(desc(exchanges.id));
+        results = await db.select().from(exchanges).where(eq(exchanges.status, status as string)).limit(parseInt(limit as string)).offset(parseInt(offset as string)).orderBy(desc(exchanges.id));
+      } else {
+        results = await db.select().from(exchanges).limit(parseInt(limit as string)).offset(parseInt(offset as string)).orderBy(desc(exchanges.id));
       }
       
-      const results = await query;
       res.json(results);
     } catch (error) {
       console.error('Get exchanges error:', error);
@@ -282,13 +283,14 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
   app.get(`/${adminPath}/api/support`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
       const { status } = req.query;
-      let query = db.select().from(supportChats).orderBy(desc(supportChats.createdAt));
       
+      let chats;
       if (status) {
-        query = db.select().from(supportChats).where(eq(supportChats.status, status as string)).orderBy(desc(supportChats.createdAt));
+        chats = await db.select().from(supportChats).where(eq(supportChats.status, status as string)).orderBy(desc(supportChats.createdAt));
+      } else {
+        chats = await db.select().from(supportChats).orderBy(desc(supportChats.createdAt));
       }
       
-      const chats = await query;
       res.json(chats);
     } catch (error) {
       console.error('Get support chats error:', error);
@@ -310,10 +312,10 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
       const newMessage = {
         sender: 'admin',
         message,
-        timestamp: new Date().toISOString(),
+        timestamp: new Date(),
       };
 
-      const updatedMessages = [...(chat.messages || []), newMessage];
+      const updatedMessages = [...(chat.messages || []), newMessage] as any;
 
       const [updated] = await db.update(supportChats)
         .set({ messages: updatedMessages })
@@ -347,13 +349,14 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
   app.get(`/${adminPath}/api/support/tickets`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
       const { status } = req.query;
-      let query = db.select().from(supportTickets).orderBy(desc(supportTickets.id));
       
+      let tickets;
       if (status) {
-        query = db.select().from(supportTickets).where(eq(supportTickets.status, status as any)).orderBy(desc(supportTickets.id));
+        tickets = await db.select().from(supportTickets).where(eq(supportTickets.status, status as string)).orderBy(desc(supportTickets.id));
+      } else {
+        tickets = await db.select().from(supportTickets).orderBy(desc(supportTickets.id));
       }
       
-      const tickets = await query;
       res.json(tickets);
     } catch (error) {
       console.error('Get support tickets error:', error);
@@ -456,23 +459,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
   // ========== WALLETS MANAGEMENT ==========
   app.get(`/${adminPath}/api/wallets`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
-      const { network, reserved, userId } = req.query;
-      let query = db.select().from(wallets).orderBy(desc(wallets.id));
-      
-      const conditions: any[] = [];
-      if (network) conditions.push(eq(wallets.network, network as string));
-      if (userId) conditions.push(eq(wallets.idUser, parseInt(userId as string)));
-      if (reserved === 'true') {
-        conditions.push(sql`${wallets.reservationTime} > NOW()`);
-      } else if (reserved === 'false') {
-        conditions.push(sql`(${wallets.reservationTime} IS NULL OR ${wallets.reservationTime} <= NOW())`);
-      }
-      
-      if (conditions.length > 0) {
-        query = db.select().from(wallets).where(sql`${conditions.join(' AND ')}`).orderBy(desc(wallets.id));
-      }
-      
-      const allWallets = await query;
+      const allWallets = await db.select().from(wallets).orderBy(desc(wallets.id));
       res.json(allWallets);
     } catch (error) {
       console.error('Get wallets error:', error);

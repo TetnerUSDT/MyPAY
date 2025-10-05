@@ -6,6 +6,22 @@ SwiftX is a cryptocurrency exchange application that allows users to quickly con
 
 Preferred communication style: Simple, everyday language.
 
+# Recent Changes
+
+## Admin Panel Implementation (October 2025)
+Implemented comprehensive admin panel with the following features:
+- **Access Control**: Secret URL-based access using ADMIN_URL, ADMIN_LOGIN, ADMIN_PASSWORD environment secrets
+- **Authentication**: Basic Auth with role-based permissions (super admin)
+- **Management Pages**:
+  - Balances: CRUD operations for fiat/crypto balances
+  - Exchanges: View and edit exchange orders, change statuses, add payment hashes
+  - Cards (Countries): Manage countries with exchange settings (time, commission, linked balances)
+  - Banks: Add banks linked to countries with custom settings
+  - Exchange Rates: Manage currency exchange rates
+  - Support: Real-time chat interface for responding to user support requests
+  - Users: View user information and statistics
+  - Wallets: Monitor wallet statuses and reservations
+
 # System Architecture
 
 ## Frontend Architecture
