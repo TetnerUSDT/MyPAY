@@ -775,6 +775,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get exchange history with pagination
+  app.get("/api/exchanges/history", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const offset = parseInt(req.query.offset as string) || 0;
+
+      const history = await storage.getExchangeHistory(req.user!.id, limit, offset);
+      res.json(history);
+    } catch (error) {
+      console.error('Get exchange history error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

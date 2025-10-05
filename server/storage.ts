@@ -68,6 +68,7 @@ export interface IStorage {
   getExchange(id: number): Promise<any | undefined>;
   getExchangeByOrderNumber(orderNumber: string): Promise<any | undefined>;
   updateExchangeStatus(id: number, status: string): Promise<any | undefined>;
+  getExchangeHistory(userId: number, limit: number, offset: number): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -399,9 +400,7 @@ export class DatabaseStorage implements IStorage {
   async createSupportChat(insertChat: InsertSupportChat): Promise<SupportChat> {
     const [chat] = await db
       .insert(supportChats)
-      .values({
-        ...insertChat,
-      })
+      .values(insertChat)
       .returning();
     return chat;
   }
@@ -509,7 +508,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUserCard(id: string): Promise<void> {
-    await db.delete(userCards).where(eq(userCards.id, id));
+    await db.delete(userCards).where(eq(userCards.id, parseInt(id)));
   }
 
   // Fiat balance methods
@@ -640,6 +639,69 @@ export class DatabaseStorage implements IStorage {
       .where(eq(exchanges.id, id))
       .returning();
     return updatedExchange || undefined;
+  }
+
+  async getExchangeHistory(userId: number, limit: number, offset: number): Promise<any[]> {
+    const { desc } = await import("drizzle-orm");
+    
+    const results = await db
+      .select({
+        exchange: exchanges,
+        savedCardNumber: userCards.numberCard,
+        cardId: userCards.idCard,
+        bankId: userCards.idBank,
+        walletAddress: wallets.address,
+      })
+      .from(exchanges)
+      .leftJoin(userCards, eq(exchanges.idCard, userCards.id))
+      .leftJoin(wallets, eq(exchanges.walletId, wallets.id))
+      .where(eq(exchanges.idUser, userId))
+      .orderBy(desc(exchanges.timestamp))
+      .limit(limit)
+      .offset(offset);
+    
+    // Enrich each result with timeExchange
+    const enrichedResults = await Promise.all(results.map(async (result) => {
+      let timeExchange = 60; // Default 60 minutes
+      
+      if (result.bankId) {
+        const [bank] = await db
+          .select()
+          .from(banks)
+          .where(eq(banks.id, result.bankId));
+        
+        if (bank?.timeExchange) {
+          timeExchange = bank.timeExchange;
+        } else if (result.cardId) {
+          const [card] = await db
+            .select()
+            .from(cards)
+            .where(eq(cards.id, result.cardId));
+          
+          if (card?.timeExchange) {
+            timeExchange = card.timeExchange;
+          }
+        }
+      } else if (result.cardId) {
+        const [card] = await db
+          .select()
+          .from(cards)
+          .where(eq(cards.id, result.cardId));
+        
+        if (card?.timeExchange) {
+          timeExchange = card.timeExchange;
+        }
+      }
+      
+      return {
+        ...result.exchange,
+        cardNumber: result.savedCardNumber || result.exchange.manualCardNumber,
+        walletAddress: result.walletAddress,
+        timeExchange
+      };
+    }));
+    
+    return enrichedResults;
   }
 }
 
