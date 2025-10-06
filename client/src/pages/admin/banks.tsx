@@ -100,6 +100,7 @@ export default function AdminBanks() {
       ...data,
       cardId: parseInt(data.cardId),
       timeExchange: data.timeExchange ? parseInt(data.timeExchange) : null,
+      commission: data.commission && data.commission.trim() !== "" ? data.commission : null,
     };
     
     if (selectedBank) {
