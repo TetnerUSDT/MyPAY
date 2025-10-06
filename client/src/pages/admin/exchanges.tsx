@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { adminRequest } from "@/lib/adminApi";
 import { queryClient } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
-import { Eye, RefreshCw } from "lucide-react";
+import { Eye, RefreshCw, Copy, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 type Exchange = {
@@ -35,6 +35,7 @@ type Exchange = {
 export default function AdminExchanges() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedExchange, setSelectedExchange] = useState<Exchange | null>(null);
+  const [copiedWallet, setCopiedWallet] = useState(false);
   const { toast } = useToast();
 
   const { data: exchanges, isLoading } = useQuery<Exchange[]>({
@@ -83,6 +84,13 @@ export default function AdminExchanges() {
     if (data.paymentHash) updateData.paymentHash = data.paymentHash;
     
     updateMutation.mutate({ id: selectedExchange.id, data: updateData });
+  };
+
+  const copyWalletAddress = (address: string) => {
+    navigator.clipboard.writeText(address);
+    setCopiedWallet(true);
+    toast({ title: "Адрес скопирован" });
+    setTimeout(() => setCopiedWallet(false), 2000);
   };
 
   const statusLabels: Record<string, string> = {
@@ -173,124 +181,164 @@ export default function AdminExchanges() {
           if (!open) {
             setSelectedExchange(null);
             form.reset();
+            setCopiedWallet(false);
           }
         }}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-3xl">
             <DialogHeader>
-              <DialogTitle>Управление обменом #{selectedExchange?.numberOrder}</DialogTitle>
+              <DialogTitle>Обмен #{selectedExchange?.numberOrder}</DialogTitle>
               <DialogDescription>
-                Измените статус или добавьте дополнительную информацию
+                ID: {selectedExchange?.id} • Пользователь: #{selectedExchange?.idUser}
               </DialogDescription>
             </DialogHeader>
+            
             <Form {...form}>
               <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div><strong>ID:</strong> {selectedExchange?.id}</div>
-                  <div><strong>Пользователь:</strong> #{selectedExchange?.idUser}</div>
-                  <div><strong>Направление:</strong> {selectedExchange?.fromCurrency} → {selectedExchange?.toCurrency}</div>
-                  <div><strong>Сумма:</strong> {selectedExchange?.amountFrom} → {selectedExchange?.amountTo}</div>
-                  <div><strong>Курс:</strong> {selectedExchange?.rate}</div>
-                  <div className="col-span-2"><strong>Кошелек:</strong> <span className="font-mono text-sm">{selectedExchange?.walletAddress || '-'}</span></div>
+                {/* Информация об обмене */}
+                <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Направление:</span>
+                      <div className="font-medium">{selectedExchange?.fromCurrency} → {selectedExchange?.toCurrency}</div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Курс:</span>
+                      <div className="font-medium">{selectedExchange?.rate}</div>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-muted-foreground">Сумма:</span>
+                      <div className="font-medium">{selectedExchange?.amountFrom} → {selectedExchange?.amountTo}</div>
+                    </div>
+                  </div>
+                  
+                  {selectedExchange?.walletAddress && (
+                    <div className="pt-2 border-t">
+                      <span className="text-muted-foreground text-sm">Кошелек:</span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <code className="flex-1 bg-background px-3 py-1.5 rounded text-sm font-mono">
+                          {selectedExchange.walletAddress}
+                        </code>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => copyWalletAddress(selectedExchange.walletAddress!)}
+                          data-testid="button-copy-wallet"
+                        >
+                          {copiedWallet ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Управление статусом */}
+                <div className="bg-muted/50 rounded-lg p-4 space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Статус обмена</FormLabel>
+                        <FormControl>
+                          <RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-3 gap-2">
+                            <div className="flex items-center">
+                              <RadioGroupItem value="wait" id="status-wait" className="peer sr-only" />
+                              <Label
+                                htmlFor="status-wait"
+                                className="w-full text-center px-3 py-2 text-sm rounded-md cursor-pointer transition-colors border-2 peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground peer-data-[state=checked]:border-primary"
+                              >
+                                Ожидание
+                              </Label>
+                            </div>
+                            <div className="flex items-center">
+                              <RadioGroupItem value="wait-paid" id="status-wait-paid" className="peer sr-only" />
+                              <Label
+                                htmlFor="status-wait-paid"
+                                className="w-full text-center px-3 py-2 text-sm rounded-md cursor-pointer transition-colors border-2 peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground peer-data-[state=checked]:border-primary"
+                              >
+                                Ожидание оплаты
+                              </Label>
+                            </div>
+                            <div className="flex items-center">
+                              <RadioGroupItem value="paid" id="status-paid" className="peer sr-only" />
+                              <Label
+                                htmlFor="status-paid"
+                                className="w-full text-center px-3 py-2 text-sm rounded-md cursor-pointer transition-colors border-2 peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground peer-data-[state=checked]:border-primary"
+                              >
+                                Оплачено
+                              </Label>
+                            </div>
+                            <div className="flex items-center">
+                              <RadioGroupItem value="complete" id="status-complete" className="peer sr-only" />
+                              <Label
+                                htmlFor="status-complete"
+                                className="w-full text-center px-3 py-2 text-sm rounded-md cursor-pointer transition-colors border-2 peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground peer-data-[state=checked]:border-primary"
+                              >
+                                Завершено
+                              </Label>
+                            </div>
+                            <div className="flex items-center">
+                              <RadioGroupItem value="canceled" id="status-canceled" className="peer sr-only" />
+                              <Label
+                                htmlFor="status-canceled"
+                                className="w-full text-center px-3 py-2 text-sm rounded-md cursor-pointer transition-colors border-2 peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground peer-data-[state=checked]:border-primary"
+                              >
+                                Отменено
+                              </Label>
+                            </div>
+                            <div className="flex items-center">
+                              <RadioGroupItem value="dispute" id="status-dispute" className="peer sr-only" />
+                              <Label
+                                htmlFor="status-dispute"
+                                className="w-full text-center px-3 py-2 text-sm rounded-md cursor-pointer transition-colors border-2 peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground peer-data-[state=checked]:border-primary"
+                              >
+                                Спор
+                              </Label>
+                            </div>
+                          </RadioGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  {/* Хеш транзакции - только для wait-paid */}
+                  {form.watch("status") === "wait-paid" && (
+                    <FormField
+                      control={form.control}
+                      name="paymentHash"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Хеш транзакции</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="0x..." data-testid="input-payment-hash" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                  
+                  {/* Причина отмены - только для canceled */}
+                  {form.watch("status") === "canceled" && (
+                    <FormField
+                      control={form.control}
+                      name="cancelReason"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Причина отмены</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Укажите причину отмены" data-testid="input-cancel-reason" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                 </div>
                 
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Статус</FormLabel>
-                      <FormControl>
-                        <RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-wrap gap-3">
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="wait" id="status-wait" className="peer sr-only" />
-                            <Label
-                              htmlFor="status-wait"
-                              className="px-4 py-2 rounded-full cursor-pointer transition-colors border-2 peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground peer-data-[state=checked]:border-primary"
-                            >
-                              Ожидание
-                            </Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="wait-paid" id="status-wait-paid" className="peer sr-only" />
-                            <Label
-                              htmlFor="status-wait-paid"
-                              className="px-4 py-2 rounded-full cursor-pointer transition-colors border-2 peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground peer-data-[state=checked]:border-primary"
-                            >
-                              Ожидание оплаты
-                            </Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="paid" id="status-paid" className="peer sr-only" />
-                            <Label
-                              htmlFor="status-paid"
-                              className="px-4 py-2 rounded-full cursor-pointer transition-colors border-2 peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground peer-data-[state=checked]:border-primary"
-                            >
-                              Оплачено
-                            </Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="complete" id="status-complete" className="peer sr-only" />
-                            <Label
-                              htmlFor="status-complete"
-                              className="px-4 py-2 rounded-full cursor-pointer transition-colors border-2 peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground peer-data-[state=checked]:border-primary"
-                            >
-                              Завершено
-                            </Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="canceled" id="status-canceled" className="peer sr-only" />
-                            <Label
-                              htmlFor="status-canceled"
-                              className="px-4 py-2 rounded-full cursor-pointer transition-colors border-2 peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground peer-data-[state=checked]:border-primary"
-                            >
-                              Отменено
-                            </Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="dispute" id="status-dispute" className="peer sr-only" />
-                            <Label
-                              htmlFor="status-dispute"
-                              className="px-4 py-2 rounded-full cursor-pointer transition-colors border-2 peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground peer-data-[state=checked]:border-primary"
-                            >
-                              Спор
-                            </Label>
-                          </div>
-                        </RadioGroup>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="paymentHash"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Хеш транзакции</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="0x..." data-testid="input-payment-hash" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="cancelReason"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Причина отмены</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="Опционально" data-testid="input-cancel-reason" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <div className="flex justify-end space-x-2">
+                <div className="flex justify-end space-x-2 pt-2">
                   <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                     Отмена
                   </Button>
