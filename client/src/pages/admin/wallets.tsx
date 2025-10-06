@@ -9,13 +9,13 @@ import { Badge } from "@/components/ui/badge";
 
 type Wallet = {
   id: number;
-  userId: number | null;
-  balanceId: number;
-  walletAddress: string;
-  status: string;
-  reservedUntil: string | null;
-  reservedFor: string | null;
-  createdAt: string;
+  idUser: number;
+  network: string;
+  address: string;
+  privateKey: string | null;
+  reservationTime: string | null;
+  reserved: string | null;
+  status: string | null;
 };
 
 export default function AdminWallets() {
@@ -24,16 +24,19 @@ export default function AdminWallets() {
     queryFn: () => adminRequest('/wallets'),
   });
 
-  const getStatusBadge = (status: string, reservedUntil: string | null) => {
-    if (status === "reserved" && reservedUntil) {
-      const isExpired = new Date(reservedUntil) < new Date();
-      return isExpired ? (
-        <Badge variant="outline">Истекло</Badge>
-      ) : (
-        <Badge variant="secondary">Зарезервирован</Badge>
-      );
+  const getStatusBadge = (status: string | null, reservationTime: string | null) => {
+    if (status === "reserved" || status === "active") {
+      if (reservationTime) {
+        const isExpired = new Date(reservationTime) < new Date();
+        return isExpired ? (
+          <Badge variant="outline">Резерв истек</Badge>
+        ) : (
+          <Badge variant="secondary">Зарезервирован</Badge>
+        );
+      }
+      return <Badge variant="default">Активен</Badge>;
     }
-    return <Badge variant="default">Свободен</Badge>;
+    return <Badge variant="outline">{status || 'Неизвестно'}</Badge>;
   };
 
   return (
@@ -60,31 +63,33 @@ export default function AdminWallets() {
                 <TableRow>
                   <TableHead>ID</TableHead>
                   <TableHead>Адрес кошелька</TableHead>
+                  <TableHead>Сеть</TableHead>
                   <TableHead>Пользователь</TableHead>
-                  <TableHead>Баланс ID</TableHead>
                   <TableHead>Статус</TableHead>
-                  <TableHead>Зарезервирован до</TableHead>
                   <TableHead>Операция</TableHead>
-                  <TableHead>Создан</TableHead>
+                  <TableHead>Зарезервирован до</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {wallets?.map((wallet) => (
                   <TableRow key={wallet.id} data-testid={`row-wallet-${wallet.id}`}>
-                    <TableCell>{wallet.id}</TableCell>
-                    <TableCell className="font-mono text-sm">{wallet.walletAddress}</TableCell>
-                    <TableCell>{wallet.userId ? `#${wallet.userId}` : '-'}</TableCell>
-                    <TableCell>#{wallet.balanceId}</TableCell>
-                    <TableCell>{getStatusBadge(wallet.status, wallet.reservedUntil)}</TableCell>
+                    <TableCell className="font-medium">{wallet.id}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {wallet.address.substring(0, 8)}...{wallet.address.substring(wallet.address.length - 6)}
+                    </TableCell>
                     <TableCell>
-                      {wallet.reservedUntil ? (
-                        <span className={new Date(wallet.reservedUntil) < new Date() ? 'text-muted-foreground' : ''}>
-                          {new Date(wallet.reservedUntil).toLocaleString('ru-RU')}
+                      <Badge variant="outline">{wallet.network}</Badge>
+                    </TableCell>
+                    <TableCell>#{wallet.idUser}</TableCell>
+                    <TableCell>{getStatusBadge(wallet.status, wallet.reservationTime)}</TableCell>
+                    <TableCell>{wallet.reserved || '-'}</TableCell>
+                    <TableCell>
+                      {wallet.reservationTime ? (
+                        <span className={new Date(wallet.reservationTime) < new Date() ? 'text-muted-foreground' : ''}>
+                          {new Date(wallet.reservationTime).toLocaleString('ru-RU')}
                         </span>
                       ) : '-'}
                     </TableCell>
-                    <TableCell>{wallet.reservedFor || '-'}</TableCell>
-                    <TableCell>{new Date(wallet.createdAt).toLocaleString('ru-RU')}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
