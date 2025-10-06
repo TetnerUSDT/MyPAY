@@ -212,7 +212,7 @@ export default function AdminExchanges() {
               <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
                 {/* Информация об обмене */}
                 <div className="bg-muted/50 rounded-lg p-4">
-                  <div className="grid grid-cols-[1fr,auto] gap-4">
+                  <div className="grid grid-cols-[1fr,auto] gap-4 pb-3">
                     {/* Левая колонка - направление и сумма */}
                     <div className="space-y-3">
                       <div className="text-sm">
@@ -226,8 +226,8 @@ export default function AdminExchanges() {
                     </div>
                     
                     {/* Правая колонка - курс */}
-                    <div className="bg-primary/10 border-2 border-primary/20 rounded-lg p-3 flex items-center gap-3 min-w-[200px]">
-                      <div className="bg-primary/20 p-2 rounded-lg">
+                    <div className="bg-primary/10 border-2 border-primary/20 rounded-lg p-2.5 flex items-center gap-2.5 min-w-[200px]">
+                      <div className="bg-primary/20 p-1.5 rounded-lg">
                         <TrendingUp className="h-5 w-5 text-primary" />
                       </div>
                       <div>
