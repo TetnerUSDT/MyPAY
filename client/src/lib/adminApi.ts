@@ -23,20 +23,56 @@ export const getAdminPathSync = () => {
 // Store admin credentials
 let adminCredentials: { username: string; password: string } | null = null;
 
+const safeSetItem = (key: string, value: string) => {
+  try {
+    localStorage.setItem(key, value);
+  } catch (e) {
+    try {
+      sessionStorage.setItem(key, value);
+    } catch (err) {
+      console.warn('Failed to store credentials:', err);
+    }
+  }
+};
+
+const safeGetItem = (key: string): string | null => {
+  try {
+    return localStorage.getItem(key) || sessionStorage.getItem(key);
+  } catch (e) {
+    console.warn('Failed to retrieve credentials:', e);
+    return null;
+  }
+};
+
+const safeRemoveItem = (key: string) => {
+  try {
+    localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
+  } catch (e) {
+    console.warn('Failed to remove credentials:', e);
+  }
+};
+
 export const setAdminCredentials = (username: string, password: string) => {
   adminCredentials = { username, password };
-  localStorage.setItem('admin_credentials', btoa(`${username}:${password}`));
+  safeSetItem('admin_credentials', btoa(`${username}:${password}`));
 };
 
 export const getAdminCredentials = () => {
   if (adminCredentials) return adminCredentials;
   
-  const stored = localStorage.getItem('admin_credentials');
+  const stored = safeGetItem('admin_credentials');
   if (stored) {
-    const decoded = atob(stored);
-    const [username, password] = decoded.split(':');
-    adminCredentials = { username, password };
-    return adminCredentials;
+    try {
+      const decoded = atob(stored);
+      const [username, password] = decoded.split(':');
+      adminCredentials = { username, password };
+      return adminCredentials;
+    } catch (e) {
+      console.warn('Failed to decode credentials:', e);
+      safeRemoveItem('admin_credentials');
+      return null;
+    }
   }
   
   return null;
@@ -44,7 +80,7 @@ export const getAdminCredentials = () => {
 
 export const clearAdminCredentials = () => {
   adminCredentials = null;
-  localStorage.removeItem('admin_credentials');
+  safeRemoveItem('admin_credentials');
 };
 
 // Admin API request helper

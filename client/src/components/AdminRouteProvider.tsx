@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Route } from "wouter";
+import { Route, Redirect } from "wouter";
 import { getAdminPath } from "@/lib/adminApi";
 import AdminLogin from "@/pages/admin/login";
 import AdminDashboard from "@/pages/admin/dashboard";
@@ -32,10 +32,7 @@ export function AdminRoutes() {
       <Route path={`/${adminPath}/users`} component={AdminUsers} />
       <Route path={`/${adminPath}/wallets`} component={AdminWallets} />
       <Route path={`/${adminPath}`}>
-        {() => {
-          window.location.href = `/${adminPath}/login`;
-          return null;
-        }}
+        <Redirect to={`/${adminPath}/login`} />
       </Route>
     </>
   );

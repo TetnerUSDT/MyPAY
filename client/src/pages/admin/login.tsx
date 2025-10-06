@@ -19,11 +19,15 @@ export default function AdminLogin() {
     setLoading(true);
 
     try {
+      console.log('Login: attempting to authenticate');
+      
       // Set credentials first
       setAdminCredentials(username, password);
+      console.log('Login: credentials set');
       
       // Try to authenticate
       await adminRequest('/auth/check');
+      console.log('Login: authentication successful');
       
       // Success - redirect to admin dashboard
       toast({
@@ -32,8 +36,10 @@ export default function AdminLogin() {
       });
       
       const adminPath = await getAdminPath();
+      console.log('Login: redirecting to dashboard', adminPath);
       setLocation(`/${adminPath}/dashboard`);
     } catch (error) {
+      console.error('Login error:', error);
       toast({
         title: "Ошибка входа",
         description: "Неверный логин или пароль",

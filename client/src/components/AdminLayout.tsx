@@ -16,12 +16,19 @@ export function AdminLayout({ children, title, description }: AdminLayoutProps) 
 
   useEffect(() => {
     const init = async () => {
-      const path = await getAdminPath();
-      setAdminPath(path);
-      
-      const creds = getAdminCredentials();
-      if (!creds) {
-        setLocation(`/${path}/login`);
+      try {
+        const path = await getAdminPath();
+        setAdminPath(path);
+        
+        const creds = getAdminCredentials();
+        console.log('AdminLayout: checking credentials', { hasCreds: !!creds, path });
+        
+        if (!creds) {
+          console.log('AdminLayout: no credentials, redirecting to login');
+          setLocation(`/${path}/login`);
+        }
+      } catch (error) {
+        console.error('AdminLayout init error:', error);
       }
     };
     init();
