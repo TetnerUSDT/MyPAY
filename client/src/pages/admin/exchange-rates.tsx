@@ -99,8 +99,8 @@ export default function AdminExchangeRates() {
   const handleSubmit = (data: any) => {
     const payload = {
       ...data,
-      fromBalanceId: data.fromBalanceId ? parseInt(data.fromBalanceId) : null,
-      toBalanceId: data.toBalanceId ? parseInt(data.toBalanceId) : null,
+      fromBalanceId: data.fromBalanceId && data.fromBalanceId !== "none" ? parseInt(data.fromBalanceId) : null,
+      toBalanceId: data.toBalanceId && data.toBalanceId !== "none" ? parseInt(data.toBalanceId) : null,
     };
     
     if (selectedRate) {
@@ -226,7 +226,7 @@ export default function AdminExchangeRates() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">Не выбрано</SelectItem>
+                          <SelectItem value="none">Не выбрано</SelectItem>
                           {balances?.map((balance) => (
                             <SelectItem key={balance.id} value={balance.id.toString()}>
                               {balance.symbol} ({balance.type})
@@ -252,7 +252,7 @@ export default function AdminExchangeRates() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">Не выбрано</SelectItem>
+                          <SelectItem value="none">Не выбрано</SelectItem>
                           {balances?.map((balance) => (
                             <SelectItem key={balance.id} value={balance.id.toString()}>
                               {balance.symbol} ({balance.type})
