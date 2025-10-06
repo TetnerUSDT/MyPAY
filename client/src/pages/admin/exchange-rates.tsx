@@ -25,8 +25,9 @@ type ExchangeRate = {
 
 type Balance = {
   id: number;
+  title: string;
   type: string;
-  symbol: string;
+  currency: string;
 };
 
 export default function AdminExchangeRates() {
@@ -229,7 +230,7 @@ export default function AdminExchangeRates() {
                           <SelectItem value="none">Не выбрано</SelectItem>
                           {balances?.map((balance) => (
                             <SelectItem key={balance.id} value={balance.id.toString()}>
-                              {balance.symbol} ({balance.type})
+                              {balance.title}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -255,7 +256,7 @@ export default function AdminExchangeRates() {
                           <SelectItem value="none">Не выбрано</SelectItem>
                           {balances?.map((balance) => (
                             <SelectItem key={balance.id} value={balance.id.toString()}>
-                              {balance.symbol} ({balance.type})
+                              {balance.title}
                             </SelectItem>
                           ))}
                         </SelectContent>
