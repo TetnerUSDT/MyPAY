@@ -9,13 +9,15 @@ import { Badge } from "@/components/ui/badge";
 
 type User = {
   id: number;
-  username: string;
-  email: string | null;
-  phoneNumber: string | null;
-  telegramId: string | null;
-  referralCode: string;
-  agreedToTerms: boolean;
-  createdAt: string;
+  tgId: string;
+  name: string | null;
+  apiKey: string | null;
+  status: string | null;
+  agreement: number | null;
+  blocked: boolean | null;
+  defaultFiatBalanceId: number | null;
+  idRef: number | null;
+  codeRef: string | null;
 };
 
 export default function AdminUsers() {
@@ -23,6 +25,25 @@ export default function AdminUsers() {
     queryKey: ['/admin/api/users'],
     queryFn: () => adminRequest('/users'),
   });
+
+  const getAgreementBadge = (agreement: number | null) => {
+    return agreement === 1 ? (
+      <Badge variant="default">Принято</Badge>
+    ) : (
+      <Badge variant="outline">Не принято</Badge>
+    );
+  };
+
+  const getStatusBadge = (status: string | null, blocked: boolean | null) => {
+    if (blocked) {
+      return <Badge variant="destructive">Заблокирован</Badge>;
+    }
+    return status === "active" ? (
+      <Badge variant="default">Активен</Badge>
+    ) : (
+      <Badge variant="secondary">{status || 'Неизвестно'}</Badge>
+    );
+  };
 
   return (
     <AdminLayout title="Пользователи" description="Управление пользователями платформы">
@@ -47,32 +68,24 @@ export default function AdminUsers() {
               <TableHeader>
                 <TableRow>
                   <TableHead>ID</TableHead>
-                  <TableHead>Имя пользователя</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Телефон</TableHead>
+                  <TableHead>Имя</TableHead>
                   <TableHead>Telegram ID</TableHead>
                   <TableHead>Реферальный код</TableHead>
+                  <TableHead>Статус</TableHead>
                   <TableHead>Соглашение</TableHead>
-                  <TableHead>Дата регистрации</TableHead>
+                  <TableHead>Реферал от</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {users?.map((user) => (
                   <TableRow key={user.id} data-testid={`row-user-${user.id}`}>
-                    <TableCell>{user.id}</TableCell>
-                    <TableCell className="font-medium">{user.username}</TableCell>
-                    <TableCell>{user.email || '-'}</TableCell>
-                    <TableCell>{user.phoneNumber || '-'}</TableCell>
-                    <TableCell>{user.telegramId || '-'}</TableCell>
-                    <TableCell className="font-mono">{user.referralCode}</TableCell>
-                    <TableCell>
-                      {user.agreedToTerms ? (
-                        <Badge variant="default">Принято</Badge>
-                      ) : (
-                        <Badge variant="outline">Не принято</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>{new Date(user.createdAt).toLocaleString('ru-RU')}</TableCell>
+                    <TableCell className="font-medium">{user.id}</TableCell>
+                    <TableCell>{user.name || '-'}</TableCell>
+                    <TableCell className="font-mono text-sm">{user.tgId}</TableCell>
+                    <TableCell className="font-mono">{user.codeRef || '-'}</TableCell>
+                    <TableCell>{getStatusBadge(user.status, user.blocked)}</TableCell>
+                    <TableCell>{getAgreementBadge(user.agreement)}</TableCell>
+                    <TableCell>{user.idRef ? `#${user.idRef}` : '-'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
