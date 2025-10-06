@@ -2,7 +2,7 @@ import { Express } from "express";
 import { AdminRequest, requireSuperAdmin, requireAdmin, requirePermission } from "./admin-middleware";
 import { IStorage } from "./storage";
 import { db } from "./db";
-import { balances, exchanges, cards, banks, exchangeRates, supportTickets, supportMessages, supportChats, users, wallets, admins } from "@shared/schema";
+import { balances, exchanges, cards, banks, exchangeRates, supportTickets, supportMessages, supportChats, users, wallets, admins, userCards } from "@shared/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { insertBalanceSchema, insertCardSchema, insertBankSchema, insertExchangeRateSchema, insertSupportMessageSchema, insertAdminSchema } from "@shared/schema";
 
@@ -91,9 +91,12 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
           cancelReason: exchanges.cancelReason,
           paymentHash: exchanges.paymentHash,
           walletAddress: wallets.address,
+          cardNumber: userCards.numberCard,
+          manualCardNumber: exchanges.manualCardNumber,
         })
         .from(exchanges)
         .leftJoin(wallets, eq(exchanges.walletId, wallets.id))
+        .leftJoin(userCards, eq(exchanges.idCard, userCards.id))
         .where(eq(exchanges.status, status as string))
         .limit(parseInt(limit as string))
         .offset(parseInt(offset as string))
@@ -114,9 +117,12 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
           cancelReason: exchanges.cancelReason,
           paymentHash: exchanges.paymentHash,
           walletAddress: wallets.address,
+          cardNumber: userCards.numberCard,
+          manualCardNumber: exchanges.manualCardNumber,
         })
         .from(exchanges)
         .leftJoin(wallets, eq(exchanges.walletId, wallets.id))
+        .leftJoin(userCards, eq(exchanges.idCard, userCards.id))
         .limit(parseInt(limit as string))
         .offset(parseInt(offset as string))
         .orderBy(desc(exchanges.id));

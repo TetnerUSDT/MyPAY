@@ -21,6 +21,8 @@ type Exchange = {
   idUser: number;
   walletId: number | null;
   walletAddress: string | null;
+  cardNumber: string | null;
+  manualCardNumber: string | null;
   fromCurrency: string;
   toCurrency: string;
   amountFrom: string;
@@ -227,6 +229,17 @@ export default function AdminExchanges() {
                         >
                           {copiedWallet ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                         </Button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {(selectedExchange?.cardNumber || selectedExchange?.manualCardNumber) && (
+                    <div className="pt-2 border-t">
+                      <span className="text-muted-foreground text-sm">Номер карты получателя:</span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <code className="flex-1 bg-background px-3 py-1.5 rounded text-sm font-mono">
+                          {selectedExchange.cardNumber || selectedExchange.manualCardNumber}
+                        </code>
                       </div>
                     </div>
                   )}
