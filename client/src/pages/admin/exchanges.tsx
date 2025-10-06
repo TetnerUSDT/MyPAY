@@ -20,6 +20,7 @@ type Exchange = {
   numberOrder: string;
   idUser: number;
   walletId: number | null;
+  walletAddress: string | null;
   fromCurrency: string;
   toCurrency: string;
   amountFrom: string;
@@ -189,7 +190,7 @@ export default function AdminExchanges() {
                   <div><strong>Направление:</strong> {selectedExchange?.fromCurrency} → {selectedExchange?.toCurrency}</div>
                   <div><strong>Сумма:</strong> {selectedExchange?.amountFrom} → {selectedExchange?.amountTo}</div>
                   <div><strong>Курс:</strong> {selectedExchange?.rate}</div>
-                  <div><strong>Кошелек:</strong> {selectedExchange?.walletId || '-'}</div>
+                  <div className="col-span-2"><strong>Кошелек:</strong> <span className="font-mono text-sm">{selectedExchange?.walletAddress || '-'}</span></div>
                 </div>
                 
                 <FormField

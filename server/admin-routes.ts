@@ -76,9 +76,50 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
       
       let results;
       if (status) {
-        results = await db.select().from(exchanges).where(eq(exchanges.status, status as string)).limit(parseInt(limit as string)).offset(parseInt(offset as string)).orderBy(desc(exchanges.id));
+        results = await db.select({
+          id: exchanges.id,
+          numberOrder: exchanges.numberOrder,
+          idUser: exchanges.idUser,
+          walletId: exchanges.walletId,
+          fromCurrency: exchanges.fromCurrency,
+          toCurrency: exchanges.toCurrency,
+          amountFrom: exchanges.amountFrom,
+          amountTo: exchanges.amountTo,
+          rate: exchanges.rate,
+          status: exchanges.status,
+          timestamp: exchanges.timestamp,
+          cancelReason: exchanges.cancelReason,
+          paymentHash: exchanges.paymentHash,
+          walletAddress: wallets.address,
+        })
+        .from(exchanges)
+        .leftJoin(wallets, eq(exchanges.walletId, wallets.id))
+        .where(eq(exchanges.status, status as string))
+        .limit(parseInt(limit as string))
+        .offset(parseInt(offset as string))
+        .orderBy(desc(exchanges.id));
       } else {
-        results = await db.select().from(exchanges).limit(parseInt(limit as string)).offset(parseInt(offset as string)).orderBy(desc(exchanges.id));
+        results = await db.select({
+          id: exchanges.id,
+          numberOrder: exchanges.numberOrder,
+          idUser: exchanges.idUser,
+          walletId: exchanges.walletId,
+          fromCurrency: exchanges.fromCurrency,
+          toCurrency: exchanges.toCurrency,
+          amountFrom: exchanges.amountFrom,
+          amountTo: exchanges.amountTo,
+          rate: exchanges.rate,
+          status: exchanges.status,
+          timestamp: exchanges.timestamp,
+          cancelReason: exchanges.cancelReason,
+          paymentHash: exchanges.paymentHash,
+          walletAddress: wallets.address,
+        })
+        .from(exchanges)
+        .leftJoin(wallets, eq(exchanges.walletId, wallets.id))
+        .limit(parseInt(limit as string))
+        .offset(parseInt(offset as string))
+        .orderBy(desc(exchanges.id));
       }
       
       res.json(results);
