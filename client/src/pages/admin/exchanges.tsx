@@ -211,29 +211,28 @@ export default function AdminExchanges() {
             <Form {...form}>
               <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
                 {/* Информация об обмене */}
-                <div className="bg-muted/50 rounded-lg p-4 space-y-3">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="text-sm">
-                      <span className="text-muted-foreground">Направление:</span>
-                      <div className="font-medium mt-1">{selectedExchange?.fromCurrency} → {selectedExchange?.toCurrency}</div>
+                <div className="bg-muted/50 rounded-lg p-4">
+                  <div className="grid grid-cols-[1fr,auto] gap-4">
+                    {/* Левая колонка - направление и сумма */}
+                    <div className="space-y-3">
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Направление:</span>
+                        <div className="font-medium mt-1">{selectedExchange?.fromCurrency} → {selectedExchange?.toCurrency}</div>
+                      </div>
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Сумма:</span>
+                        <div className="font-medium mt-1">{selectedExchange?.amountFrom} → {selectedExchange?.amountTo}</div>
+                      </div>
                     </div>
-                    <div className="text-sm">
-                      <span className="text-muted-foreground">Сумма:</span>
-                      <div className="font-medium mt-1">{selectedExchange?.amountFrom} → {selectedExchange?.amountTo}</div>
-                    </div>
-                  </div>
-                  
-                  {/* Курс - выделенный блок */}
-                  <div className="bg-primary/10 border-2 border-primary/20 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="bg-primary/20 p-2 rounded-lg">
-                          <TrendingUp className="h-5 w-5 text-primary" />
-                        </div>
-                        <div>
-                          <div className="text-xs text-muted-foreground uppercase tracking-wide">Курс обмена</div>
-                          <div className="text-2xl font-bold text-primary mt-1" data-testid="text-exchange-rate">{selectedExchange?.rate}</div>
-                        </div>
+                    
+                    {/* Правая колонка - курс */}
+                    <div className="bg-primary/10 border-2 border-primary/20 rounded-lg p-3 flex items-center gap-3 min-w-[200px]">
+                      <div className="bg-primary/20 p-2 rounded-lg">
+                        <TrendingUp className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground uppercase tracking-wide">Курс</div>
+                        <div className="text-xl font-bold text-primary mt-0.5" data-testid="text-exchange-rate">{selectedExchange?.rate}</div>
                       </div>
                     </div>
                   </div>
