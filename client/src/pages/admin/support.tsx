@@ -12,64 +12,83 @@ import { MessageSquare, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-type SupportChat = {
-  id: string;
-  userId: number | null;
-  transactionId: string | null;
-  messages: { sender: string; message: string; timestamp: string }[];
+type SupportTicket = {
+  id: number;
+  userId: number;
+  exchangeId: number;
   status: string;
+  createdAt: string;
+  updatedAt: string;
+  exchangeNumber?: string;
+};
+
+type SupportMessage = {
+  id: number;
+  ticketId: number;
+  sender: string;
+  message: string;
   createdAt: string;
 };
 
 export default function AdminSupport() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedChat, setSelectedChat] = useState<SupportChat | null>(null);
+  const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [replyMessage, setReplyMessage] = useState("");
   const { toast } = useToast();
 
-  const { data: chats, isLoading } = useQuery<SupportChat[]>({
-    queryKey: ['/admin/api/support'],
-    queryFn: () => adminRequest('/support'),
+  const { data: tickets, isLoading } = useQuery<SupportTicket[]>({
+    queryKey: ['/admin/api/support/tickets'],
+    queryFn: () => adminRequest('/support/tickets'),
+  });
+
+  const { data: messages = [], refetch: refetchMessages } = useQuery<SupportMessage[]>({
+    queryKey: ['/admin/api/support/tickets', selectedTicket?.id, 'messages'],
+    queryFn: () => adminRequest(`/support/tickets/${selectedTicket!.id}/messages`),
+    enabled: !!selectedTicket,
   });
 
   const replyMutation = useMutation({
-    mutationFn: ({ chatId, message }: { chatId: string; message: string }) =>
-      adminRequest(`/support/${chatId}/reply`, { method: 'POST', body: JSON.stringify({ message }) }),
+    mutationFn: ({ ticketId, message }: { ticketId: number; message: string }) =>
+      adminRequest(`/support/tickets/${ticketId}/reply`, { method: 'POST', body: JSON.stringify({ message }) }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/admin/api/support'] });
+      queryClient.invalidateQueries({ queryKey: ['/admin/api/support/tickets'] });
+      refetchMessages();
       toast({ title: "Ответ отправлен" });
       setReplyMessage("");
     },
   });
 
   const closeMutation = useMutation({
-    mutationFn: (chatId: string) =>
-      adminRequest(`/support/${chatId}/close`, { method: 'POST' }),
+    mutationFn: (ticketId: number) =>
+      adminRequest(`/support/tickets/${ticketId}/close`, { method: 'POST' }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/admin/api/support'] });
-      toast({ title: "Чат закрыт" });
+      queryClient.invalidateQueries({ queryKey: ['/admin/api/support/tickets'] });
+      toast({ title: "Тикет закрыт" });
       setIsDialogOpen(false);
-      setSelectedChat(null);
+      setSelectedTicket(null);
     },
   });
 
-  const handleViewChat = (chat: SupportChat) => {
-    setSelectedChat(chat);
+  const handleViewTicket = (ticket: SupportTicket) => {
+    setSelectedTicket(ticket);
     setReplyMessage("");
     setIsDialogOpen(true);
   };
 
   const handleReply = () => {
-    if (!selectedChat || !replyMessage.trim()) return;
-    replyMutation.mutate({ chatId: selectedChat.id, message: replyMessage });
+    if (!selectedTicket || !replyMessage.trim()) return;
+    replyMutation.mutate({ ticketId: selectedTicket.id, message: replyMessage });
   };
 
   const getStatusBadge = (status: string) => {
-    return status === "open" ? (
-      <Badge variant="default">Открыт</Badge>
-    ) : (
-      <Badge variant="outline">Закрыт</Badge>
-    );
+    const statusConfig: Record<string, { variant: "default" | "secondary" | "outline"; label: string }> = {
+      "wait-user": { variant: "secondary", label: "Ожидает пользователя" },
+      "wait-support": { variant: "default", label: "Ожидает поддержку" },
+      "closed": { variant: "outline", label: "Закрыт" },
+    };
+    
+    const config = statusConfig[status] || { variant: "outline" as const, label: status };
+    return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
   return (
@@ -79,7 +98,7 @@ export default function AdminSupport() {
           <h2 className="text-xl font-semibold">Список обращений</h2>
           <Button 
             variant="outline" 
-            onClick={() => queryClient.invalidateQueries({ queryKey: ['/admin/api/support'] })}
+            onClick={() => queryClient.invalidateQueries({ queryKey: ['/admin/api/support/tickets'] })}
             data-testid="button-refresh-support"
           >
             <RefreshCw className="h-4 w-4 mr-2" />
@@ -94,30 +113,30 @@ export default function AdminSupport() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>ID</TableHead>
+                  <TableHead>Тикет</TableHead>
                   <TableHead>Пользователь</TableHead>
-                  <TableHead>Транзакция</TableHead>
-                  <TableHead>Сообщений</TableHead>
+                  <TableHead>Обмен</TableHead>
                   <TableHead>Статус</TableHead>
                   <TableHead>Создан</TableHead>
+                  <TableHead>Обновлен</TableHead>
                   <TableHead>Действия</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {chats?.map((chat) => (
-                  <TableRow key={chat.id} data-testid={`row-support-${chat.id}`}>
-                    <TableCell className="font-mono text-sm">{chat.id.slice(0, 8)}...</TableCell>
-                    <TableCell>{chat.userId ? `#${chat.userId}` : '-'}</TableCell>
-                    <TableCell className="font-mono text-sm">{chat.transactionId ? chat.transactionId.slice(0, 8) + '...' : '-'}</TableCell>
-                    <TableCell>{chat.messages.length}</TableCell>
-                    <TableCell>{getStatusBadge(chat.status)}</TableCell>
-                    <TableCell>{new Date(chat.createdAt).toLocaleString('ru-RU')}</TableCell>
+                {tickets?.map((ticket) => (
+                  <TableRow key={ticket.id} data-testid={`row-support-${ticket.id}`}>
+                    <TableCell className="font-medium">#{ticket.id}</TableCell>
+                    <TableCell>#{ticket.userId}</TableCell>
+                    <TableCell className="font-mono text-sm">{ticket.exchangeNumber || `#${ticket.exchangeId}`}</TableCell>
+                    <TableCell>{getStatusBadge(ticket.status)}</TableCell>
+                    <TableCell>{new Date(ticket.createdAt).toLocaleString('ru-RU')}</TableCell>
+                    <TableCell>{new Date(ticket.updatedAt).toLocaleString('ru-RU')}</TableCell>
                     <TableCell>
                       <Button 
                         size="sm" 
                         variant="outline" 
-                        onClick={() => handleViewChat(chat)}
-                        data-testid={`button-view-chat-${chat.id}`}
+                        onClick={() => handleViewTicket(ticket)}
+                        data-testid={`button-view-ticket-${ticket.id}`}
                       >
                         <MessageSquare className="h-4 w-4" />
                       </Button>
@@ -132,33 +151,36 @@ export default function AdminSupport() {
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
           if (!open) {
-            setSelectedChat(null);
+            setSelectedTicket(null);
             setReplyMessage("");
           }
         }}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Чат поддержки</DialogTitle>
+              <DialogTitle>Тикет #{selectedTicket?.id}</DialogTitle>
               <DialogDescription>
-                Пользователь: {selectedChat?.userId ? `#${selectedChat.userId}` : 'Не указан'}
+                Пользователь: #{selectedTicket?.userId} | Обмен: {selectedTicket?.exchangeNumber || `#${selectedTicket?.exchangeId}`}
               </DialogDescription>
             </DialogHeader>
             
             <ScrollArea className="h-96 border rounded-lg p-4">
               <div className="space-y-4">
-                {selectedChat?.messages.map((msg, idx) => (
+                {messages.map((msg) => (
                   <div 
-                    key={idx} 
-                    className={`flex ${msg.sender === 'admin' ? 'justify-end' : 'justify-start'}`}
+                    key={msg.id} 
+                    className={`flex ${msg.sender === 'support' ? 'justify-end' : 'justify-start'}`}
                   >
                     <div className={`max-w-[80%] rounded-lg p-3 ${
-                      msg.sender === 'admin' 
+                      msg.sender === 'support' 
                         ? 'bg-primary text-primary-foreground' 
                         : 'bg-muted'
                     }`}>
+                      <div className="text-xs font-semibold mb-1 opacity-70">
+                        {msg.sender === 'support' ? 'Поддержка' : 'Пользователь'}
+                      </div>
                       <div className="text-sm">{msg.message}</div>
                       <div className="text-xs opacity-70 mt-1">
-                        {new Date(msg.timestamp).toLocaleString('ru-RU')}
+                        {new Date(msg.createdAt).toLocaleString('ru-RU')}
                       </div>
                     </div>
                   </div>
@@ -166,7 +188,7 @@ export default function AdminSupport() {
               </div>
             </ScrollArea>
 
-            {selectedChat?.status === "open" && (
+            {selectedTicket?.status !== "closed" && (
               <div className="space-y-3">
                 <Textarea
                   value={replyMessage}
@@ -178,10 +200,10 @@ export default function AdminSupport() {
                 <div className="flex justify-between">
                   <Button 
                     variant="outline" 
-                    onClick={() => closeMutation.mutate(selectedChat.id)}
-                    data-testid="button-close-chat"
+                    onClick={() => closeMutation.mutate(selectedTicket.id)}
+                    data-testid="button-close-ticket"
                   >
-                    Закрыть чат
+                    Закрыть тикет
                   </Button>
                   <Button 
                     onClick={handleReply} 
@@ -194,9 +216,9 @@ export default function AdminSupport() {
               </div>
             )}
 
-            {selectedChat?.status === "closed" && (
+            {selectedTicket?.status === "closed" && (
               <div className="text-center text-muted-foreground py-4">
-                Этот чат закрыт
+                Этот тикет закрыт
               </div>
             )}
           </DialogContent>

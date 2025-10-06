@@ -352,9 +352,34 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
       
       let tickets;
       if (status) {
-        tickets = await db.select().from(supportTickets).where(eq(supportTickets.status, status as string)).orderBy(desc(supportTickets.id));
+        tickets = await db
+          .select({
+            id: supportTickets.id,
+            userId: supportTickets.userId,
+            exchangeId: supportTickets.exchangeId,
+            status: supportTickets.status,
+            createdAt: supportTickets.createdAt,
+            updatedAt: supportTickets.updatedAt,
+            exchangeNumber: exchanges.numberOrder,
+          })
+          .from(supportTickets)
+          .leftJoin(exchanges, eq(supportTickets.exchangeId, exchanges.id))
+          .where(eq(supportTickets.status, status as string))
+          .orderBy(desc(supportTickets.id));
       } else {
-        tickets = await db.select().from(supportTickets).orderBy(desc(supportTickets.id));
+        tickets = await db
+          .select({
+            id: supportTickets.id,
+            userId: supportTickets.userId,
+            exchangeId: supportTickets.exchangeId,
+            status: supportTickets.status,
+            createdAt: supportTickets.createdAt,
+            updatedAt: supportTickets.updatedAt,
+            exchangeNumber: exchanges.numberOrder,
+          })
+          .from(supportTickets)
+          .leftJoin(exchanges, eq(supportTickets.exchangeId, exchanges.id))
+          .orderBy(desc(supportTickets.id));
       }
       
       res.json(tickets);
@@ -404,6 +429,38 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
       res.json(updated);
     } catch (error) {
       console.error('Update ticket status error:', error);
+      res.status(400).json({ message: "Invalid data" });
+    }
+  });
+
+  app.post(`/${adminPath}/api/support/tickets/:id/reply`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const { id } = req.params;
+      const validatedData = insertSupportMessageSchema.parse({
+        ticketId: parseInt(id),
+        sender: 'support',
+        message: req.body.message,
+      });
+      
+      const newMessage = await storage.addTicketMessage(validatedData);
+      
+      // Update ticket status to wait-user
+      await storage.updateTicketStatus(parseInt(id), 'wait-user');
+      
+      res.json(newMessage);
+    } catch (error) {
+      console.error('Reply to ticket error:', error);
+      res.status(400).json({ message: "Invalid data" });
+    }
+  });
+
+  app.post(`/${adminPath}/api/support/tickets/:id/close`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const { id } = req.params;
+      const updated = await storage.updateTicketStatus(parseInt(id), 'closed');
+      res.json(updated);
+    } catch (error) {
+      console.error('Close ticket error:', error);
       res.status(400).json({ message: "Invalid data" });
     }
   });
