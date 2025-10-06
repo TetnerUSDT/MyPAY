@@ -237,7 +237,7 @@ export default function AdminExchanges() {
                     <div className="pt-2 border-t">
                       <span className="text-muted-foreground text-sm">Номер карты получателя:</span>
                       <div className="flex items-center gap-2 mt-1">
-                        <code className="flex-1 bg-background px-3 py-1.5 rounded text-sm font-mono">
+                        <code className="flex-1 bg-background px-3 py-1.5 rounded text-sm font-mono" data-testid="text-card-number">
                           {selectedExchange.cardNumber || selectedExchange.manualCardNumber}
                         </code>
                       </div>
