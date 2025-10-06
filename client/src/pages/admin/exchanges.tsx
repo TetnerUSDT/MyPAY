@@ -38,6 +38,7 @@ export default function AdminExchanges() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedExchange, setSelectedExchange] = useState<Exchange | null>(null);
   const [copiedWallet, setCopiedWallet] = useState(false);
+  const [copiedCard, setCopiedCard] = useState(false);
   const { toast } = useToast();
 
   const { data: exchanges, isLoading } = useQuery<Exchange[]>({
@@ -93,6 +94,19 @@ export default function AdminExchanges() {
     setCopiedWallet(true);
     toast({ title: "Адрес скопирован" });
     setTimeout(() => setCopiedWallet(false), 2000);
+  };
+
+  const formatCardNumber = (cardNumber: string) => {
+    const cleaned = cardNumber.replace(/\s/g, '');
+    return cleaned.match(/.{1,4}/g)?.join(' ') || cardNumber;
+  };
+
+  const copyCardNumber = (cardNumber: string) => {
+    const cleaned = cardNumber.replace(/\s/g, '');
+    navigator.clipboard.writeText(cleaned);
+    setCopiedCard(true);
+    toast({ title: "Номер карты скопирован" });
+    setTimeout(() => setCopiedCard(false), 2000);
   };
 
   const statusLabels: Record<string, string> = {
@@ -238,8 +252,17 @@ export default function AdminExchanges() {
                       <span className="text-muted-foreground text-sm">Номер карты получателя:</span>
                       <div className="flex items-center gap-2 mt-1">
                         <code className="flex-1 bg-background px-3 py-1.5 rounded text-sm font-mono" data-testid="text-card-number">
-                          {selectedExchange.cardNumber || selectedExchange.manualCardNumber}
+                          {formatCardNumber(selectedExchange.cardNumber || selectedExchange.manualCardNumber || '')}
                         </code>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => copyCardNumber(selectedExchange.cardNumber || selectedExchange.manualCardNumber || '')}
+                          data-testid="button-copy-card"
+                        >
+                          {copiedCard ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                        </Button>
                       </div>
                     </div>
                   )}
