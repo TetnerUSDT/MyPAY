@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { adminRequest } from "@/lib/adminApi";
@@ -83,16 +84,26 @@ export default function AdminExchanges() {
     updateMutation.mutate({ id: selectedExchange.id, data: updateData });
   };
 
+  const statusLabels: Record<string, string> = {
+    "wait": "Ожидание",
+    "wait-paid": "Ожидание оплаты",
+    "paid": "Оплачено",
+    "complete": "Завершено",
+    "canceled": "Отменено",
+    "dispute": "Спор"
+  };
+
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; label: string }> = {
-      wait: { variant: "outline", label: "Ожидание" },
-      process: { variant: "secondary", label: "В процессе" },
-      success: { variant: "default", label: "Успешно" },
-      canceled: { variant: "destructive", label: "Отменен" },
+    const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+      wait: "outline",
+      "wait-paid": "secondary",
+      paid: "secondary",
+      complete: "default",
+      canceled: "destructive",
+      dispute: "destructive",
     };
     
-    const config = variants[status] || { variant: "outline" as const, label: status };
-    return <Badge variant={config.variant}>{config.label}</Badge>;
+    return <Badge variant={variants[status] || "outline"}>{statusLabels[status] || status}</Badge>;
   };
 
   return (
@@ -187,19 +198,64 @@ export default function AdminExchanges() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Статус</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-exchange-status">
-                            <SelectValue placeholder="Выберите статус" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="wait">Ожидание</SelectItem>
-                          <SelectItem value="process">В процессе</SelectItem>
-                          <SelectItem value="success">Успешно</SelectItem>
-                          <SelectItem value="canceled">Отменен</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-wrap gap-3">
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="wait" id="status-wait" className="peer sr-only" />
+                            <Label
+                              htmlFor="status-wait"
+                              className="px-4 py-2 rounded-full cursor-pointer transition-colors border-2 peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground peer-data-[state=checked]:border-primary"
+                            >
+                              Ожидание
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="wait-paid" id="status-wait-paid" className="peer sr-only" />
+                            <Label
+                              htmlFor="status-wait-paid"
+                              className="px-4 py-2 rounded-full cursor-pointer transition-colors border-2 peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground peer-data-[state=checked]:border-primary"
+                            >
+                              Ожидание оплаты
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="paid" id="status-paid" className="peer sr-only" />
+                            <Label
+                              htmlFor="status-paid"
+                              className="px-4 py-2 rounded-full cursor-pointer transition-colors border-2 peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground peer-data-[state=checked]:border-primary"
+                            >
+                              Оплачено
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="complete" id="status-complete" className="peer sr-only" />
+                            <Label
+                              htmlFor="status-complete"
+                              className="px-4 py-2 rounded-full cursor-pointer transition-colors border-2 peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground peer-data-[state=checked]:border-primary"
+                            >
+                              Завершено
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="canceled" id="status-canceled" className="peer sr-only" />
+                            <Label
+                              htmlFor="status-canceled"
+                              className="px-4 py-2 rounded-full cursor-pointer transition-colors border-2 peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground peer-data-[state=checked]:border-primary"
+                            >
+                              Отменено
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="dispute" id="status-dispute" className="peer sr-only" />
+                            <Label
+                              htmlFor="status-dispute"
+                              className="px-4 py-2 rounded-full cursor-pointer transition-colors border-2 peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground peer-data-[state=checked]:border-primary"
+                            >
+                              Спор
+                            </Label>
+                          </div>
+                        </RadioGroup>
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
