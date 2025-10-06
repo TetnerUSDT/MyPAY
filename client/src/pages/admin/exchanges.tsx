@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { adminRequest } from "@/lib/adminApi";
 import { queryClient } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
-import { Eye, RefreshCw, Copy, Check } from "lucide-react";
+import { Eye, RefreshCw, Copy, Check, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 type Exchange = {
@@ -211,19 +211,30 @@ export default function AdminExchanges() {
             <Form {...form}>
               <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
                 {/* Информация об обмене */}
-                <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                    <div>
+                <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-sm">
                       <span className="text-muted-foreground">Направление:</span>
-                      <div className="font-medium">{selectedExchange?.fromCurrency} → {selectedExchange?.toCurrency}</div>
+                      <div className="font-medium mt-1">{selectedExchange?.fromCurrency} → {selectedExchange?.toCurrency}</div>
                     </div>
-                    <div>
-                      <span className="text-muted-foreground">Курс:</span>
-                      <div className="font-medium">{selectedExchange?.rate}</div>
-                    </div>
-                    <div className="col-span-2">
+                    <div className="text-sm">
                       <span className="text-muted-foreground">Сумма:</span>
-                      <div className="font-medium">{selectedExchange?.amountFrom} → {selectedExchange?.amountTo}</div>
+                      <div className="font-medium mt-1">{selectedExchange?.amountFrom} → {selectedExchange?.amountTo}</div>
+                    </div>
+                  </div>
+                  
+                  {/* Курс - выделенный блок */}
+                  <div className="bg-primary/10 border-2 border-primary/20 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-primary/20 p-2 rounded-lg">
+                          <TrendingUp className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <div className="text-xs text-muted-foreground uppercase tracking-wide">Курс обмена</div>
+                          <div className="text-2xl font-bold text-primary mt-1" data-testid="text-exchange-rate">{selectedExchange?.rate}</div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   
