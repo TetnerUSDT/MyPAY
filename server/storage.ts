@@ -571,7 +571,12 @@ export class DatabaseStorage implements IStorage {
 
   // Bank methods
   async getBanksByCardId(cardId: number): Promise<Bank[]> {
-    return await db.select().from(banks).where(eq(banks.cardId, cardId));
+    return await db.select().from(banks).where(
+      and(
+        eq(banks.cardId, cardId),
+        eq(banks.status, "1")
+      )
+    );
   }
 
   async getBank(id: number): Promise<Bank | undefined> {
