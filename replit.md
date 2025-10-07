@@ -17,19 +17,28 @@ Implemented dual Telegram authentication strategy:
 - **Bot Setup**: Domain must be configured in BotFather using /setdomain command
 - **Production Ready**: Test mode button removed, only Telegram authentication visible in UI
 
+## Database Switching Support (October 2025)
+Added flexible database backend configuration:
+- **Multi-Database Support**: Runtime switching between PostgreSQL and MySQL databases
+- **Configuration**: Use DB_TYPE environment variable ('postgres' or 'mysql', defaults to 'postgres')
+- **Driver Integration**: Automatic selection of appropriate Drizzle ORM adapter based on DB_TYPE
+- **Validation**: Startup validation ensures DB_TYPE is valid and DATABASE_URL is configured
+- **Logging**: Database type displayed in startup logs for verification
+- **Note**: Drizzle migrations remain PostgreSQL-only; MySQL requires manual schema setup
+
 ## Admin Panel Implementation (October 2025)
 Implemented comprehensive admin panel with the following features:
 - **Access Control**: Secret URL-based access using ADMIN_URL, ADMIN_LOGIN, ADMIN_PASSWORD environment secrets
 - **Authentication**: Basic Auth with role-based permissions (super admin)
 - **Management Pages**:
-  - Balances: CRUD operations for fiat/crypto balances
+  - Balances: CRUD operations for fiat/crypto balances (separated system and user balances)
   - Exchanges: View and edit exchange orders, change statuses, add payment hashes
   - Cards (Countries): Manage countries with exchange settings (time, commission, linked balances)
   - Banks: Add banks linked to countries with custom settings
   - Exchange Rates: Manage currency exchange rates
   - Support: Real-time chat interface for responding to user support requests
   - Users: View user information and statistics
-  - Wallets: Monitor wallet statuses and reservations
+  - Wallets: Monitor wallet statuses with filtering by address, network (TON/TRC20/BEP20), operation type (topup/exchange/voucher/personal)
 
 # System Architecture
 
@@ -53,12 +62,13 @@ The server uses **Express.js** with TypeScript in ESM mode, following a clean se
 - **API Design**: RESTful endpoints for transactions, exchange rates, and support chat functionality
 
 ## Data Storage Solutions
-The application uses **PostgreSQL** as the primary database with **Drizzle ORM** for type-safe database operations:
+The application supports **PostgreSQL** (default) and **MySQL** databases with **Drizzle ORM** for type-safe database operations:
 
+- **Database Flexibility**: Runtime switching via DB_TYPE environment variable (postgres/mysql)
 - **Schema Design**: Well-structured tables for users, wallets, transactions, exchange rates, and support chats
 - **Type Safety**: Drizzle-Zod integration provides runtime validation and TypeScript types from database schema
-- **Migration Strategy**: Drizzle Kit handles database migrations and schema changes
-- **Connection**: Uses Neon Database serverless PostgreSQL for cloud deployment
+- **Migration Strategy**: Drizzle Kit handles PostgreSQL migrations; MySQL requires manual schema setup
+- **Connection**: Supports Neon Database serverless PostgreSQL and MySQL connection pools
 
 Key architectural decisions for data modeling:
 - Decimal precision handling for cryptocurrency amounts (18 digits, 8 decimal places)
