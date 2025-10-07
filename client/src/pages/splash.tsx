@@ -121,10 +121,8 @@ export default function SplashScreen() {
   const handleTelegramWidgetAuth = (user: any) => {
     try {
       setAuthError(null);
-      console.log('Telegram Widget Auth Data:', user);
       loginMutation.mutate({ widgetData: user });
     } catch (error) {
-      console.error('Widget auth error:', error);
       setAuthError('Ошибка аутентификации через Telegram');
     }
   };
@@ -192,16 +190,6 @@ export default function SplashScreen() {
                   Продолжить
                 </button>
               )}
-              {import.meta.env.DEV && (
-                <button 
-                  onClick={() => setShowTestMode(true)}
-                  className="w-full px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg transition-colors text-sm"
-                  data-testid="button-switch-test-mode"
-                >
-                  <User className="w-4 h-4 mr-2 inline" />
-                  Тестовый режим
-                </button>
-              )}
             </div>
           ) : showTestMode ? (
             <div className="space-y-4">
@@ -238,45 +226,20 @@ export default function SplashScreen() {
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Browser mode: Show Telegram Login Widget or Test mode */}
-              {import.meta.env.DEV ? (
-                <>
-                  {telegramConfig?.botUsername && (
-                    <div className="flex justify-center" data-testid="telegram-widget-container">
-                      <TelegramLoginButton
-                        botUsername={telegramConfig.botUsername}
-                        onAuth={handleTelegramWidgetAuth}
-                        buttonSize="large"
-                        lang="ru"
-                      />
-                    </div>
-                  )}
-                  <button 
-                    onClick={handleManualStart}
-                    className="w-full px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg transition-colors text-sm"
-                    data-testid="button-start-test"
-                  >
-                    <User className="w-4 h-4 mr-2 inline" />
-                    Тестовый режим
-                  </button>
-                </>
+              {/* Browser mode: Show Telegram Login Widget */}
+              {telegramConfig?.botUsername ? (
+                <div className="flex justify-center" data-testid="telegram-widget-container">
+                  <TelegramLoginButton
+                    botUsername={telegramConfig.botUsername}
+                    onAuth={handleTelegramWidgetAuth}
+                    buttonSize="large"
+                    lang="ru"
+                  />
+                </div>
               ) : (
-                <>
-                  {telegramConfig?.botUsername ? (
-                    <div className="flex justify-center" data-testid="telegram-widget-container">
-                      <TelegramLoginButton
-                        botUsername={telegramConfig.botUsername}
-                        onAuth={handleTelegramWidgetAuth}
-                        buttonSize="large"
-                        lang="ru"
-                      />
-                    </div>
-                  ) : (
-                    <div className="text-sm text-gray-300">
-                      Загрузка...
-                    </div>
-                  )}
-                </>
+                <div className="text-sm text-gray-300">
+                  Загрузка...
+                </div>
               )}
             </div>
           )}
