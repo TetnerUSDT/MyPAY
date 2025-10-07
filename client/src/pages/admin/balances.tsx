@@ -508,6 +508,7 @@ export default function AdminBalances() {
                             <Select 
                               onValueChange={(value) => field.onChange(parseInt(value))} 
                               value={field.value?.toString() || ""}
+                              disabled={!!editingUserBalance}
                             >
                               <FormControl>
                                 <SelectTrigger data-testid="select-user-balance-balance">
@@ -534,7 +535,7 @@ export default function AdminBalances() {
                         <FormItem>
                           <FormLabel>Сумма</FormLabel>
                           <FormControl>
-                            <Input {...field} type="number" step="0.00000001" placeholder="0" data-testid="input-user-balance-sum" />
+                            <Input {...field} value={field.value || ""} type="number" step="0.00000001" placeholder="0" data-testid="input-user-balance-sum" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
