@@ -24,18 +24,18 @@ type Wallet = {
 export default function AdminWallets() {
   const [searchAddress, setSearchAddress] = useState("");
   const [filterNetwork, setFilterNetwork] = useState<string>("all");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterOperation, setFilterOperation] = useState<string>("all");
 
   const buildQueryString = () => {
     const params = new URLSearchParams();
     if (searchAddress) params.append('address', searchAddress);
     if (filterNetwork !== 'all') params.append('network', filterNetwork);
-    if (filterStatus !== 'all') params.append('status', filterStatus);
+    if (filterOperation !== 'all') params.append('operation', filterOperation);
     return params.toString();
   };
 
   const { data: wallets, isLoading } = useQuery<Wallet[]>({
-    queryKey: ['/admin/api/wallets', searchAddress, filterNetwork, filterStatus],
+    queryKey: ['/admin/api/wallets', searchAddress, filterNetwork, filterOperation],
     queryFn: () => {
       const queryString = buildQueryString();
       return adminRequest(`/wallets${queryString ? `?${queryString}` : ''}`);
@@ -60,10 +60,10 @@ export default function AdminWallets() {
   const clearFilters = () => {
     setSearchAddress("");
     setFilterNetwork("all");
-    setFilterStatus("all");
+    setFilterOperation("all");
   };
 
-  const hasActiveFilters = searchAddress || filterNetwork !== 'all' || filterStatus !== 'all';
+  const hasActiveFilters = searchAddress || filterNetwork !== 'all' || filterOperation !== 'all';
 
   return (
     <AdminLayout title="Кошельки" description="Управление кошельками платформы">
@@ -105,15 +105,16 @@ export default function AdminWallets() {
             </SelectContent>
           </Select>
 
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-[180px]" data-testid="select-filter-status">
-              <SelectValue placeholder="Все статусы" />
+          <Select value={filterOperation} onValueChange={setFilterOperation}>
+            <SelectTrigger className="w-[180px]" data-testid="select-filter-operation">
+              <SelectValue placeholder="Тип операции" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Все статусы</SelectItem>
-              <SelectItem value="active">Активен</SelectItem>
-              <SelectItem value="reserved">Зарезервирован</SelectItem>
-              <SelectItem value="expired">Резерв истек</SelectItem>
+              <SelectItem value="all">Все операции</SelectItem>
+              <SelectItem value="topup">Пополнение</SelectItem>
+              <SelectItem value="exchange">Обмен</SelectItem>
+              <SelectItem value="voucher">Ваучер</SelectItem>
+              <SelectItem value="personal">Личный</SelectItem>
             </SelectContent>
           </Select>
 

@@ -630,7 +630,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
   // ========== WALLETS MANAGEMENT ==========
   app.get(`/${adminPath}/api/wallets`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
-      const { address, network, status } = req.query;
+      const { address, network, operation } = req.query;
       
       const conditions = [];
       
@@ -642,18 +642,8 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
         conditions.push(eq(wallets.network, network));
       }
       
-      if (status && typeof status === 'string') {
-        if (status === 'active') {
-          conditions.push(eq(wallets.status, status));
-        } else if (status === 'reserved') {
-          conditions.push(
-            sql`${wallets.status} = 'reserved' AND (${wallets.reservationTime} IS NULL OR ${wallets.reservationTime} >= NOW())`
-          );
-        } else if (status === 'expired') {
-          conditions.push(
-            sql`${wallets.reservationTime} IS NOT NULL AND ${wallets.reservationTime} < NOW()`
-          );
-        }
+      if (operation && typeof operation === 'string') {
+        conditions.push(eq(wallets.reserved, operation));
       }
       
       let allWallets;
