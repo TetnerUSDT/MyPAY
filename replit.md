@@ -8,6 +8,15 @@ Preferred communication style: Simple, everyday language.
 
 # Recent Changes
 
+## Telegram Authentication Implementation (October 2025)
+Implemented dual Telegram authentication strategy:
+- **Telegram Mini App**: Automatic authentication using initData when accessed from Telegram App
+- **Browser Access**: "Login with Telegram" widget for web browser users
+- **Security**: Backend validates Telegram auth data using HMAC-SHA256 with bot token secret
+- **Configuration**: Requires TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_USERNAME environment secrets
+- **Bot Setup**: Domain must be configured in BotFather using /setdomain command
+- **Production Ready**: Test mode button removed, only Telegram authentication visible in UI
+
 ## Admin Panel Implementation (October 2025)
 Implemented comprehensive admin panel with the following features:
 - **Access Control**: Secret URL-based access using ADMIN_URL, ADMIN_LOGIN, ADMIN_PASSWORD environment secrets
