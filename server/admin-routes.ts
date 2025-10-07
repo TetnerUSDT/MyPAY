@@ -630,7 +630,43 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
   // ========== WALLETS MANAGEMENT ==========
   app.get(`/${adminPath}/api/wallets`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
-      const allWallets = await db.select().from(wallets).orderBy(desc(wallets.id));
+      const { address, network, status } = req.query;
+      
+      const conditions = [];
+      
+      if (address && typeof address === 'string') {
+        conditions.push(sql`${wallets.address} ILIKE ${'%' + address + '%'}`);
+      }
+      
+      if (network && typeof network === 'string') {
+        conditions.push(eq(wallets.network, network));
+      }
+      
+      if (status && typeof status === 'string') {
+        if (status === 'active') {
+          conditions.push(eq(wallets.status, status));
+        } else if (status === 'reserved') {
+          conditions.push(
+            sql`${wallets.status} = 'reserved' AND (${wallets.reservationTime} IS NULL OR ${wallets.reservationTime} >= NOW())`
+          );
+        } else if (status === 'expired') {
+          conditions.push(
+            sql`${wallets.reservationTime} IS NOT NULL AND ${wallets.reservationTime} < NOW()`
+          );
+        }
+      }
+      
+      let allWallets;
+      if (conditions.length > 0) {
+        allWallets = await db
+          .select()
+          .from(wallets)
+          .where(sql`${sql.join(conditions, sql` AND `)}`)
+          .orderBy(desc(wallets.id));
+      } else {
+        allWallets = await db.select().from(wallets).orderBy(desc(wallets.id));
+      }
+      
       res.json(allWallets);
     } catch (error) {
       console.error('Get wallets error:', error);
