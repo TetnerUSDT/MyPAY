@@ -121,8 +121,10 @@ export default function SplashScreen() {
   const handleTelegramWidgetAuth = (user: any) => {
     try {
       setAuthError(null);
+      console.log('Telegram Widget Auth Data:', user);
       loginMutation.mutate({ widgetData: user });
     } catch (error) {
+      console.error('Widget auth error:', error);
       setAuthError('Ошибка аутентификации через Telegram');
     }
   };
