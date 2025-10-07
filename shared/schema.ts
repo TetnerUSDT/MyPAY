@@ -44,12 +44,12 @@ export const usersBalances = pgTable("users_balances", {
 
 export const wallets = pgTable("wallets", {
   id: serial("id").primaryKey(),
-  idUser: integer("id_user").notNull().references(() => users.id, { onDelete: "cascade" }),
+  idUser: integer("id_user").references(() => users.id, { onDelete: "cascade" }),
   network: varchar("network", { length: 50 }).notNull(),
   address: varchar("address", { length: 255 }).notNull(),
   privateKey: varchar("private_key", { length: 500 }),
   reservationTime: timestamp("reservation_time"),
-  reserved: varchar("reserved", { length: 50 }), // exchange, topup, voucher, etc.
+  reserved: varchar("reserved", { length: 50 }), // exchange, topup, voucher, personal, etc.
   status: varchar("status", { length: 50 }),
 });
 
