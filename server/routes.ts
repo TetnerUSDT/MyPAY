@@ -143,6 +143,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Unified authentication endpoint that adapts based on configuration
   app.post("/api/auth/login", async (req, res) => {
     try {
+      console.log('Login request body:', JSON.stringify(req.body, null, 2));
       const validatedData = autoLoginSchema.parse(req.body);
       
       let user;
