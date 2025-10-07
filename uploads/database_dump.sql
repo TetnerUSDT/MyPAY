@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 16.9 (63f4182)
+-- Dumped from database version 16.9 (165f042)
 -- Dumped by pg_dump version 16.9
 
 SET statement_timeout = 0;
@@ -17,7 +17,7 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Name: balance_type; Type: TYPE; Schema: public; Owner: neondb_owner
+-- Name: balance_type; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.balance_type AS ENUM (
@@ -28,10 +28,8 @@ CREATE TYPE public.balance_type AS ENUM (
 );
 
 
-ALTER TYPE public.balance_type OWNER TO neondb_owner;
-
 --
--- Name: exchange_status; Type: TYPE; Schema: public; Owner: neondb_owner
+-- Name: exchange_status; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.exchange_status AS ENUM (
@@ -44,10 +42,8 @@ CREATE TYPE public.exchange_status AS ENUM (
 );
 
 
-ALTER TYPE public.exchange_status OWNER TO neondb_owner;
-
 --
--- Name: message_sender; Type: TYPE; Schema: public; Owner: neondb_owner
+-- Name: message_sender; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.message_sender AS ENUM (
@@ -56,10 +52,8 @@ CREATE TYPE public.message_sender AS ENUM (
 );
 
 
-ALTER TYPE public.message_sender OWNER TO neondb_owner;
-
 --
--- Name: support_ticket_status; Type: TYPE; Schema: public; Owner: neondb_owner
+-- Name: support_ticket_status; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.support_ticket_status AS ENUM (
@@ -69,14 +63,12 @@ CREATE TYPE public.support_ticket_status AS ENUM (
 );
 
 
-ALTER TYPE public.support_ticket_status OWNER TO neondb_owner;
-
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
 
 --
--- Name: admins; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: admins; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.admins (
@@ -90,10 +82,8 @@ CREATE TABLE public.admins (
 );
 
 
-ALTER TABLE public.admins OWNER TO neondb_owner;
-
 --
--- Name: admins_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
+-- Name: admins_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.admins_id_seq
@@ -105,17 +95,15 @@ CREATE SEQUENCE public.admins_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.admins_id_seq OWNER TO neondb_owner;
-
 --
--- Name: admins_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: neondb_owner
+-- Name: admins_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.admins_id_seq OWNED BY public.admins.id;
 
 
 --
--- Name: balances; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: balances; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.balances (
@@ -129,10 +117,8 @@ CREATE TABLE public.balances (
 );
 
 
-ALTER TABLE public.balances OWNER TO neondb_owner;
-
 --
--- Name: balances_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
+-- Name: balances_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.balances_id_seq
@@ -144,17 +130,15 @@ CREATE SEQUENCE public.balances_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.balances_id_seq OWNER TO neondb_owner;
-
 --
--- Name: balances_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: neondb_owner
+-- Name: balances_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.balances_id_seq OWNED BY public.balances.id;
 
 
 --
--- Name: banks; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: banks; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.banks (
@@ -167,10 +151,8 @@ CREATE TABLE public.banks (
 );
 
 
-ALTER TABLE public.banks OWNER TO neondb_owner;
-
 --
--- Name: banks_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
+-- Name: banks_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.banks_id_seq
@@ -182,17 +164,15 @@ CREATE SEQUENCE public.banks_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.banks_id_seq OWNER TO neondb_owner;
-
 --
--- Name: banks_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: neondb_owner
+-- Name: banks_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.banks_id_seq OWNED BY public.banks.id;
 
 
 --
--- Name: cards; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: cards; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.cards (
@@ -207,10 +187,8 @@ CREATE TABLE public.cards (
 );
 
 
-ALTER TABLE public.cards OWNER TO neondb_owner;
-
 --
--- Name: cards_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
+-- Name: cards_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.cards_id_seq
@@ -222,17 +200,15 @@ CREATE SEQUENCE public.cards_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.cards_id_seq OWNER TO neondb_owner;
-
 --
--- Name: cards_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: neondb_owner
+-- Name: cards_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.cards_id_seq OWNED BY public.cards.id;
 
 
 --
--- Name: exchange_rates; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: exchange_rates; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.exchange_rates (
@@ -246,10 +222,8 @@ CREATE TABLE public.exchange_rates (
 );
 
 
-ALTER TABLE public.exchange_rates OWNER TO neondb_owner;
-
 --
--- Name: exchanges; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: exchanges; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.exchanges (
@@ -274,10 +248,8 @@ CREATE TABLE public.exchanges (
 );
 
 
-ALTER TABLE public.exchanges OWNER TO neondb_owner;
-
 --
--- Name: exchanges_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
+-- Name: exchanges_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.exchanges_id_seq
@@ -289,17 +261,15 @@ CREATE SEQUENCE public.exchanges_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.exchanges_id_seq OWNER TO neondb_owner;
-
 --
--- Name: exchanges_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: neondb_owner
+-- Name: exchanges_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.exchanges_id_seq OWNED BY public.exchanges.id;
 
 
 --
--- Name: stats; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: stats; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.stats (
@@ -312,10 +282,8 @@ CREATE TABLE public.stats (
 );
 
 
-ALTER TABLE public.stats OWNER TO neondb_owner;
-
 --
--- Name: stats_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
+-- Name: stats_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.stats_id_seq
@@ -327,17 +295,15 @@ CREATE SEQUENCE public.stats_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.stats_id_seq OWNER TO neondb_owner;
-
 --
--- Name: stats_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: neondb_owner
+-- Name: stats_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.stats_id_seq OWNED BY public.stats.id;
 
 
 --
--- Name: support_chats; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: support_chats; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.support_chats (
@@ -350,10 +316,8 @@ CREATE TABLE public.support_chats (
 );
 
 
-ALTER TABLE public.support_chats OWNER TO neondb_owner;
-
 --
--- Name: support_messages; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: support_messages; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.support_messages (
@@ -365,10 +329,8 @@ CREATE TABLE public.support_messages (
 );
 
 
-ALTER TABLE public.support_messages OWNER TO neondb_owner;
-
 --
--- Name: support_messages_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
+-- Name: support_messages_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.support_messages_id_seq
@@ -380,17 +342,15 @@ CREATE SEQUENCE public.support_messages_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.support_messages_id_seq OWNER TO neondb_owner;
-
 --
--- Name: support_messages_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: neondb_owner
+-- Name: support_messages_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.support_messages_id_seq OWNED BY public.support_messages.id;
 
 
 --
--- Name: support_tickets; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: support_tickets; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.support_tickets (
@@ -403,10 +363,8 @@ CREATE TABLE public.support_tickets (
 );
 
 
-ALTER TABLE public.support_tickets OWNER TO neondb_owner;
-
 --
--- Name: support_tickets_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
+-- Name: support_tickets_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.support_tickets_id_seq
@@ -418,17 +376,15 @@ CREATE SEQUENCE public.support_tickets_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.support_tickets_id_seq OWNER TO neondb_owner;
-
 --
--- Name: support_tickets_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: neondb_owner
+-- Name: support_tickets_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.support_tickets_id_seq OWNED BY public.support_tickets.id;
 
 
 --
--- Name: transactions; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: transactions; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.transactions (
@@ -449,10 +405,8 @@ CREATE TABLE public.transactions (
 );
 
 
-ALTER TABLE public.transactions OWNER TO neondb_owner;
-
 --
--- Name: user_cards; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: user_cards; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.user_cards (
@@ -470,10 +424,8 @@ CREATE TABLE public.user_cards (
 );
 
 
-ALTER TABLE public.user_cards OWNER TO neondb_owner;
-
 --
--- Name: user_cards_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
+-- Name: user_cards_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.user_cards_id_seq
@@ -485,17 +437,15 @@ CREATE SEQUENCE public.user_cards_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.user_cards_id_seq OWNER TO neondb_owner;
-
 --
--- Name: user_cards_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: neondb_owner
+-- Name: user_cards_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.user_cards_id_seq OWNED BY public.user_cards.id;
 
 
 --
--- Name: users; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: users; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.users (
@@ -514,10 +464,8 @@ CREATE TABLE public.users (
 );
 
 
-ALTER TABLE public.users OWNER TO neondb_owner;
-
 --
--- Name: users_balances; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: users_balances; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.users_balances (
@@ -529,10 +477,8 @@ CREATE TABLE public.users_balances (
 );
 
 
-ALTER TABLE public.users_balances OWNER TO neondb_owner;
-
 --
--- Name: users_balances_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
+-- Name: users_balances_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.users_balances_id_seq
@@ -544,17 +490,15 @@ CREATE SEQUENCE public.users_balances_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.users_balances_id_seq OWNER TO neondb_owner;
-
 --
--- Name: users_balances_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: neondb_owner
+-- Name: users_balances_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.users_balances_id_seq OWNED BY public.users_balances.id;
 
 
 --
--- Name: users_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
+-- Name: users_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.users_id_seq
@@ -566,22 +510,20 @@ CREATE SEQUENCE public.users_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.users_id_seq OWNER TO neondb_owner;
-
 --
--- Name: users_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: neondb_owner
+-- Name: users_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
 
 
 --
--- Name: wallets; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: wallets; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.wallets (
     id integer NOT NULL,
-    id_user integer NOT NULL,
+    id_user integer,
     network character varying(50) NOT NULL,
     address character varying(255) NOT NULL,
     reservation_time timestamp without time zone,
@@ -591,10 +533,8 @@ CREATE TABLE public.wallets (
 );
 
 
-ALTER TABLE public.wallets OWNER TO neondb_owner;
-
 --
--- Name: wallets_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
+-- Name: wallets_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.wallets_id_seq
@@ -606,101 +546,99 @@ CREATE SEQUENCE public.wallets_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.wallets_id_seq OWNER TO neondb_owner;
-
 --
--- Name: wallets_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: neondb_owner
+-- Name: wallets_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.wallets_id_seq OWNED BY public.wallets.id;
 
 
 --
--- Name: admins id; Type: DEFAULT; Schema: public; Owner: neondb_owner
+-- Name: admins id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.admins ALTER COLUMN id SET DEFAULT nextval('public.admins_id_seq'::regclass);
 
 
 --
--- Name: balances id; Type: DEFAULT; Schema: public; Owner: neondb_owner
+-- Name: balances id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.balances ALTER COLUMN id SET DEFAULT nextval('public.balances_id_seq'::regclass);
 
 
 --
--- Name: banks id; Type: DEFAULT; Schema: public; Owner: neondb_owner
+-- Name: banks id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.banks ALTER COLUMN id SET DEFAULT nextval('public.banks_id_seq'::regclass);
 
 
 --
--- Name: cards id; Type: DEFAULT; Schema: public; Owner: neondb_owner
+-- Name: cards id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.cards ALTER COLUMN id SET DEFAULT nextval('public.cards_id_seq'::regclass);
 
 
 --
--- Name: exchanges id; Type: DEFAULT; Schema: public; Owner: neondb_owner
+-- Name: exchanges id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.exchanges ALTER COLUMN id SET DEFAULT nextval('public.exchanges_id_seq'::regclass);
 
 
 --
--- Name: stats id; Type: DEFAULT; Schema: public; Owner: neondb_owner
+-- Name: stats id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.stats ALTER COLUMN id SET DEFAULT nextval('public.stats_id_seq'::regclass);
 
 
 --
--- Name: support_messages id; Type: DEFAULT; Schema: public; Owner: neondb_owner
+-- Name: support_messages id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.support_messages ALTER COLUMN id SET DEFAULT nextval('public.support_messages_id_seq'::regclass);
 
 
 --
--- Name: support_tickets id; Type: DEFAULT; Schema: public; Owner: neondb_owner
+-- Name: support_tickets id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.support_tickets ALTER COLUMN id SET DEFAULT nextval('public.support_tickets_id_seq'::regclass);
 
 
 --
--- Name: user_cards id; Type: DEFAULT; Schema: public; Owner: neondb_owner
+-- Name: user_cards id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.user_cards ALTER COLUMN id SET DEFAULT nextval('public.user_cards_id_seq'::regclass);
 
 
 --
--- Name: users id; Type: DEFAULT; Schema: public; Owner: neondb_owner
+-- Name: users id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.users ALTER COLUMN id SET DEFAULT nextval('public.users_id_seq'::regclass);
 
 
 --
--- Name: users_balances id; Type: DEFAULT; Schema: public; Owner: neondb_owner
+-- Name: users_balances id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.users_balances ALTER COLUMN id SET DEFAULT nextval('public.users_balances_id_seq'::regclass);
 
 
 --
--- Name: wallets id; Type: DEFAULT; Schema: public; Owner: neondb_owner
+-- Name: wallets id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.wallets ALTER COLUMN id SET DEFAULT nextval('public.wallets_id_seq'::regclass);
 
 
 --
--- Data for Name: admins; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: admins; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.admins (id, username, password_hash, name, permissions, status, created_at) FROM stdin;
@@ -708,7 +646,7 @@ COPY public.admins (id, username, password_hash, name, permissions, status, crea
 
 
 --
--- Data for Name: balances; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: balances; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.balances (id, title, network, currency, rate, type, status) FROM stdin;
@@ -717,11 +655,12 @@ COPY public.balances (id, title, network, currency, rate, type, status) FROM std
 3	USDT TRC20	TRC20	USDT	\N	crypto	1
 4	USDT BEP20	BEP20	USDT	\N	crypto	1
 5	American Dollar	\N	USD	1.00000000	fiat	1
+6	Ton Network	TON	USDT	1.00000000	crypto	1
 \.
 
 
 --
--- Data for Name: banks; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: banks; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.banks (id, card_id, bank_name, time_exchange, commission, status) FROM stdin;
@@ -742,7 +681,7 @@ COPY public.banks (id, card_id, bank_name, time_exchange, commission, status) FR
 
 
 --
--- Data for Name: cards; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: cards; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.cards (id, title, country, lang, time_exchange, commission, id_balance, status) FROM stdin;
@@ -752,7 +691,7 @@ COPY public.cards (id, title, country, lang, time_exchange, commission, id_balan
 
 
 --
--- Data for Name: exchange_rates; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: exchange_rates; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.exchange_rates (id, from_balance_id, to_balance_id, from_currency, to_currency, rate, updated_at) FROM stdin;
@@ -761,7 +700,7 @@ e659aff7-a1c5-4ca7-b22c-ef5d8fa8d20b	4	1	USDT	RUB	81.15000000	2025-10-06 11:04:5
 
 
 --
--- Data for Name: exchanges; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: exchanges; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.exchanges (id, number_order, id_user, id_balance_from, id_balance_to, id_card, from_currency, to_currency, amount_from, amount_to, rate, commission, "timestamp", status, wallet_id, manual_card_number, cancel_reason, payment_hash) FROM stdin;
@@ -782,7 +721,7 @@ COPY public.exchanges (id, number_order, id_user, id_balance_from, id_balance_to
 
 
 --
--- Data for Name: stats; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: stats; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.stats (id, stat_type, id_exchange, sum, "timestamp", id_user) FROM stdin;
@@ -790,7 +729,7 @@ COPY public.stats (id, stat_type, id_exchange, sum, "timestamp", id_user) FROM s
 
 
 --
--- Data for Name: support_chats; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: support_chats; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.support_chats (id, user_id, transaction_id, messages, status, created_at) FROM stdin;
@@ -799,7 +738,7 @@ demo-chat-1	\N	\N	[{"sender":"Elena from support","message":"Hi there! How can I
 
 
 --
--- Data for Name: support_messages; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: support_messages; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.support_messages (id, ticket_id, sender, message, created_at) FROM stdin;
@@ -810,7 +749,7 @@ COPY public.support_messages (id, ticket_id, sender, message, created_at) FROM s
 
 
 --
--- Data for Name: support_tickets; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: support_tickets; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.support_tickets (id, user_id, exchange_id, status, created_at, updated_at) FROM stdin;
@@ -819,7 +758,7 @@ COPY public.support_tickets (id, user_id, exchange_id, status, created_at, updat
 
 
 --
--- Data for Name: transactions; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: transactions; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.transactions (id, order_id, user_id, from_currency, to_currency, from_amount, to_amount, from_address, to_address, card_number, status, tx_hash, created_at, completed_at) FROM stdin;
@@ -831,7 +770,7 @@ bce4e778-8e5f-4452-8427-5285d45a9321	order_1759692842902_3jc1x52zpba	1	USDT	USDT
 
 
 --
--- Data for Name: user_cards; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: user_cards; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.user_cards (id, id_card, id_user, name, first_name, last_name, phone, country, number_card, status, id_bank) FROM stdin;
@@ -841,7 +780,7 @@ COPY public.user_cards (id, id_card, id_user, name, first_name, last_name, phone
 
 
 --
--- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.users (id, tg_id, google, api_key, name, img, status, agreement, blocked, default_fiat_balance_id, id_ref, code_ref) FROM stdin;
@@ -857,132 +796,125 @@ COPY public.users (id, tg_id, google, api_key, name, img, status, agreement, blo
 
 
 --
--- Data for Name: users_balances; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: users_balances; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.users_balances (id, id_balance, id_user, sum, status) FROM stdin;
-1	1	1	0.00000000	active
-2	2	1	0.00000000	active
-3	5	1	0.00000000	active
-4	1	2	0.00000000	active
-5	5	2	0.00000000	active
-6	1	5	0.00000000	active
-7	5	5	0.00000000	active
-8	1	7	0.00000000	active
-9	1	8	0.00000000	active
+10	1	8	0.00000000	active
+9	4	8	10.00000000	active
 \.
 
 
 --
--- Data for Name: wallets; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: wallets; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.wallets (id, id_user, network, address, reservation_time, status, private_key, reserved) FROM stdin;
-4	1	BEP20	0xd85a91d47123af423c1cadcce242eb911e2ab273	2025-10-06 02:31:45.194	active	ceb1fce47431d6f506caad6061e3d857323e990bc10e691f4b0459bfa865b005	\N
-5	1	BEP20	0x5ceb5e2f3cd06fe9446695b274e8f6e03b8360a6	2025-10-06 02:51:37.495	active	2d5ecea0f14231563eea3566155593f2154e6d8b605dd57546f0f0173a578c2d	\N
-6	1	BEP20	0xbe343049c42326f639b7817b7aa15abcccc24410	2025-10-06 02:54:43.79	active	911ab18a6852dbaaf21c4f7204a26252e3694d8c377a5238be76184d1c3cacca	\N
-10	1	TON	EQCUiY-SSUO6AcVHuMtCLoD8IF4y-1OoZBTp7hW0tBFHzE_B	2025-10-06 18:48:00.877	active	8e2d91f615b46d9151af6e358a5df4ff6e03ff7eb943a1c350f85294d39f8120b4e589719ea100afac40a464741a4746c4e8fd692c4b98c184169094bce0411c	topup
-11	1	BEP20	0x1bdef99a56e21ace2fe43bd160b16fd212e59bc8	2025-10-06 18:48:40.222	active	0cb77136b03030da04c47da889eb1b5a967a2583373298b6640f36ff1d750bac	topup
-12	1	BEP20	0x941e52f18baed5cfb809a6a583b85f6d77c46c9a	2025-10-06 07:42:46.895	active	9c45d2ced580f6c85b1aee1a3d19dd56ec18c85046b0abb7ee9900d7a81445a9	\N
-13	1	BEP20	0x5de1f8096858ac4f81e15fdbee5bee6981fa63e4	2025-10-06 07:47:25.886	active	d268934205aaf432e727c1496b8382237836b34b8a11b90998d8fe7f363922f1	\N
-14	1	BEP20	0x2671d3764590c5c97b0735ff6b59ad89c5f261a8	2025-10-06 07:47:48.439	active	c187c566dad1c05f4830d76a98b8097142ec47de86616122daafabccba2d7c51	\N
-15	1	BEP20	0x160c98be7a34d84377a34d56ffb0200a852d6f89	2025-10-06 07:48:41.592	active	ff70a79c14c9593ce0f36f877ed9b88de1e4d5616ea7e41eebc16776744e8b2f	\N
-16	1	BEP20	0x551f274e2f2489cc101d8d3d684868b9f6f47220	2025-10-06 07:49:05.142	active	270b6ffc1a1ad06058090d536219817a4d960be2932a68f4cebb7fefc1d7d7cc	\N
-1	1	BEP20	0x91f1ebf7d7b07fdda6bdadae8aebb0eda2a7e3a8	2025-10-06 22:41:41.301	active	0cb99864638f0fef9d359a3df42339b1cf8b035c2b8643483b5b07469195f978	exchange
-17	5	TRC20	4168cede4ad47415c8453a9148a9a4405a503a8382	2025-10-07 10:47:03.823	active	798aee07d6fa929635bb993ad61a46d29e2919e7841eddbde311dafd84f9b447	topup
-2	1	BEP20	0x6ec215e998f37e36150a80fa12a857a50759ac12	2025-10-07 10:47:07.003	active	a1a0fe1a3170dff1ed5d8662bea73c95aabba26187c66922fe877b63c02f0d6f	topup
-18	5	TON	EQB6Q3Xc2sGXBC6O33UgBA33VYLP7WKcVDxJ-6j5nUCW34m5	2025-10-07 10:47:07.118	active	753c3f91f54935c9382a473f94d48d81059f9ed1171190957a564fb351e58cdda80095a34a4cbb7f09392d87f3015f66e5a299aa8157362cc8d3f08265e92cbc	topup
-3	1	BEP20	0xea4efcfc664ed44a455493a1ba05b079f3d44a2a	2025-10-06 22:57:18.776	active	aac4f949b02e34849eb4640f903ec35bd31ea08e5395235152783da853e0ef54	exchange
+4	8	BEP20	0xd85a91d47123af423c1cadcce242eb911e2ab273	2025-10-08 10:44:45.741	active	ceb1fce47431d6f506caad6061e3d857323e990bc10e691f4b0459bfa865b005	topup
+10	8	TON	EQCUiY-SSUO6AcVHuMtCLoD8IF4y-1OoZBTp7hW0tBFHzE_B	2025-10-08 10:44:51.025	active	8e2d91f615b46d9151af6e358a5df4ff6e03ff7eb943a1c350f85294d39f8120b4e589719ea100afac40a464741a4746c4e8fd692c4b98c184169094bce0411c	topup
+2	\N	BEP20	0x6ec215e998f37e36150a80fa12a857a50759ac12	\N	active	a1a0fe1a3170dff1ed5d8662bea73c95aabba26187c66922fe877b63c02f0d6f	\N
+18	\N	TON	EQB6Q3Xc2sGXBC6O33UgBA33VYLP7WKcVDxJ-6j5nUCW34m5	\N	active	753c3f91f54935c9382a473f94d48d81059f9ed1171190957a564fb351e58cdda80095a34a4cbb7f09392d87f3015f66e5a299aa8157362cc8d3f08265e92cbc	\N
+17	8	TRC20	4168cede4ad47415c8453a9148a9a4405a503a8382	2025-10-08 11:22:19.622	active	798aee07d6fa929635bb993ad61a46d29e2919e7841eddbde311dafd84f9b447	topup
 9	1	TRC20	4107e48f0241ea170d7f8bdf78f5f204399c84948d	2025-10-08 08:16:30.269	active	315d2bfa261d1400087005afe31a3132b3663ba0ca5384820a944dea5f2bb835	topup
+5	\N	BEP20	0x5ceb5e2f3cd06fe9446695b274e8f6e03b8360a6	\N	active	2d5ecea0f14231563eea3566155593f2154e6d8b605dd57546f0f0173a578c2d	\N
+6	\N	BEP20	0xbe343049c42326f639b7817b7aa15abcccc24410	\N	active	911ab18a6852dbaaf21c4f7204a26252e3694d8c377a5238be76184d1c3cacca	\N
+11	\N	BEP20	0x1bdef99a56e21ace2fe43bd160b16fd212e59bc8	\N	active	0cb77136b03030da04c47da889eb1b5a967a2583373298b6640f36ff1d750bac	\N
+12	\N	BEP20	0x941e52f18baed5cfb809a6a583b85f6d77c46c9a	\N	active	9c45d2ced580f6c85b1aee1a3d19dd56ec18c85046b0abb7ee9900d7a81445a9	\N
+13	\N	BEP20	0x5de1f8096858ac4f81e15fdbee5bee6981fa63e4	\N	active	d268934205aaf432e727c1496b8382237836b34b8a11b90998d8fe7f363922f1	\N
+14	\N	BEP20	0x2671d3764590c5c97b0735ff6b59ad89c5f261a8	\N	active	c187c566dad1c05f4830d76a98b8097142ec47de86616122daafabccba2d7c51	\N
+15	\N	BEP20	0x160c98be7a34d84377a34d56ffb0200a852d6f89	\N	active	ff70a79c14c9593ce0f36f877ed9b88de1e4d5616ea7e41eebc16776744e8b2f	\N
+16	\N	BEP20	0x551f274e2f2489cc101d8d3d684868b9f6f47220	\N	active	270b6ffc1a1ad06058090d536219817a4d960be2932a68f4cebb7fefc1d7d7cc	\N
+1	\N	BEP20	0x91f1ebf7d7b07fdda6bdadae8aebb0eda2a7e3a8	\N	active	0cb99864638f0fef9d359a3df42339b1cf8b035c2b8643483b5b07469195f978	\N
+3	\N	BEP20	0xea4efcfc664ed44a455493a1ba05b079f3d44a2a	\N	active	aac4f949b02e34849eb4640f903ec35bd31ea08e5395235152783da853e0ef54	\N
 \.
 
 
 --
--- Name: admins_id_seq; Type: SEQUENCE SET; Schema: public; Owner: neondb_owner
+-- Name: admins_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.admins_id_seq', 1, false);
 
 
 --
--- Name: balances_id_seq; Type: SEQUENCE SET; Schema: public; Owner: neondb_owner
+-- Name: balances_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.balances_id_seq', 5, true);
 
 
 --
--- Name: banks_id_seq; Type: SEQUENCE SET; Schema: public; Owner: neondb_owner
+-- Name: banks_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.banks_id_seq', 13, true);
 
 
 --
--- Name: cards_id_seq; Type: SEQUENCE SET; Schema: public; Owner: neondb_owner
+-- Name: cards_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.cards_id_seq', 2, true);
 
 
 --
--- Name: exchanges_id_seq; Type: SEQUENCE SET; Schema: public; Owner: neondb_owner
+-- Name: exchanges_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.exchanges_id_seq', 13, true);
 
 
 --
--- Name: stats_id_seq; Type: SEQUENCE SET; Schema: public; Owner: neondb_owner
+-- Name: stats_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.stats_id_seq', 1, false);
 
 
 --
--- Name: support_messages_id_seq; Type: SEQUENCE SET; Schema: public; Owner: neondb_owner
+-- Name: support_messages_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.support_messages_id_seq', 3, true);
 
 
 --
--- Name: support_tickets_id_seq; Type: SEQUENCE SET; Schema: public; Owner: neondb_owner
+-- Name: support_tickets_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.support_tickets_id_seq', 1, true);
 
 
 --
--- Name: user_cards_id_seq; Type: SEQUENCE SET; Schema: public; Owner: neondb_owner
+-- Name: user_cards_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.user_cards_id_seq', 3, true);
 
 
 --
--- Name: users_balances_id_seq; Type: SEQUENCE SET; Schema: public; Owner: neondb_owner
+-- Name: users_balances_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.users_balances_id_seq', 9, true);
+SELECT pg_catalog.setval('public.users_balances_id_seq', 10, true);
 
 
 --
--- Name: users_id_seq; Type: SEQUENCE SET; Schema: public; Owner: neondb_owner
+-- Name: users_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.users_id_seq', 8, true);
 
 
 --
--- Name: wallets_id_seq; Type: SEQUENCE SET; Schema: public; Owner: neondb_owner
+-- Name: wallets_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.wallets_id_seq', 18, true);
+SELECT pg_catalog.setval('public.wallets_id_seq', 21, true);
 
 
 --
--- Name: admins admins_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: admins admins_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.admins
@@ -990,7 +922,7 @@ ALTER TABLE ONLY public.admins
 
 
 --
--- Name: admins admins_username_key; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: admins admins_username_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.admins
@@ -998,7 +930,7 @@ ALTER TABLE ONLY public.admins
 
 
 --
--- Name: balances balances_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: balances balances_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.balances
@@ -1006,7 +938,7 @@ ALTER TABLE ONLY public.balances
 
 
 --
--- Name: banks banks_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: banks banks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.banks
@@ -1014,7 +946,7 @@ ALTER TABLE ONLY public.banks
 
 
 --
--- Name: cards cards_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: cards cards_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.cards
@@ -1022,7 +954,7 @@ ALTER TABLE ONLY public.cards
 
 
 --
--- Name: exchange_rates exchange_rates_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: exchange_rates exchange_rates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.exchange_rates
@@ -1030,7 +962,7 @@ ALTER TABLE ONLY public.exchange_rates
 
 
 --
--- Name: exchanges exchanges_number_order_unique; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: exchanges exchanges_number_order_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.exchanges
@@ -1038,7 +970,7 @@ ALTER TABLE ONLY public.exchanges
 
 
 --
--- Name: exchanges exchanges_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: exchanges exchanges_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.exchanges
@@ -1046,7 +978,7 @@ ALTER TABLE ONLY public.exchanges
 
 
 --
--- Name: stats stats_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: stats stats_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.stats
@@ -1054,7 +986,7 @@ ALTER TABLE ONLY public.stats
 
 
 --
--- Name: support_chats support_chats_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: support_chats support_chats_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.support_chats
@@ -1062,7 +994,7 @@ ALTER TABLE ONLY public.support_chats
 
 
 --
--- Name: support_messages support_messages_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: support_messages support_messages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.support_messages
@@ -1070,7 +1002,7 @@ ALTER TABLE ONLY public.support_messages
 
 
 --
--- Name: support_tickets support_tickets_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: support_tickets support_tickets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.support_tickets
@@ -1078,7 +1010,7 @@ ALTER TABLE ONLY public.support_tickets
 
 
 --
--- Name: transactions transactions_order_id_unique; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: transactions transactions_order_id_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.transactions
@@ -1086,7 +1018,7 @@ ALTER TABLE ONLY public.transactions
 
 
 --
--- Name: transactions transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: transactions transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.transactions
@@ -1094,7 +1026,7 @@ ALTER TABLE ONLY public.transactions
 
 
 --
--- Name: user_cards user_cards_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: user_cards user_cards_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.user_cards
@@ -1102,7 +1034,7 @@ ALTER TABLE ONLY public.user_cards
 
 
 --
--- Name: users users_api_key_unique; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: users users_api_key_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.users
@@ -1110,7 +1042,7 @@ ALTER TABLE ONLY public.users
 
 
 --
--- Name: users_balances users_balances_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: users_balances users_balances_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.users_balances
@@ -1118,7 +1050,7 @@ ALTER TABLE ONLY public.users_balances
 
 
 --
--- Name: users users_code_ref_key; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: users users_code_ref_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.users
@@ -1126,7 +1058,7 @@ ALTER TABLE ONLY public.users
 
 
 --
--- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.users
@@ -1134,7 +1066,7 @@ ALTER TABLE ONLY public.users
 
 
 --
--- Name: users users_tg_id_unique; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: users users_tg_id_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.users
@@ -1142,7 +1074,7 @@ ALTER TABLE ONLY public.users
 
 
 --
--- Name: wallets wallets_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: wallets wallets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.wallets
@@ -1150,7 +1082,7 @@ ALTER TABLE ONLY public.wallets
 
 
 --
--- Name: banks banks_card_id_cards_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: banks banks_card_id_cards_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.banks
@@ -1158,7 +1090,7 @@ ALTER TABLE ONLY public.banks
 
 
 --
--- Name: exchange_rates exchange_rates_from_balance_id_balances_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: exchange_rates exchange_rates_from_balance_id_balances_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.exchange_rates
@@ -1166,7 +1098,7 @@ ALTER TABLE ONLY public.exchange_rates
 
 
 --
--- Name: exchange_rates exchange_rates_to_balance_id_balances_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: exchange_rates exchange_rates_to_balance_id_balances_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.exchange_rates
@@ -1174,7 +1106,7 @@ ALTER TABLE ONLY public.exchange_rates
 
 
 --
--- Name: exchanges exchanges_id_balance_from_balances_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: exchanges exchanges_id_balance_from_balances_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.exchanges
@@ -1182,7 +1114,7 @@ ALTER TABLE ONLY public.exchanges
 
 
 --
--- Name: exchanges exchanges_id_balance_to_balances_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: exchanges exchanges_id_balance_to_balances_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.exchanges
@@ -1190,7 +1122,7 @@ ALTER TABLE ONLY public.exchanges
 
 
 --
--- Name: exchanges exchanges_id_card_user_cards_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: exchanges exchanges_id_card_user_cards_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.exchanges
@@ -1198,7 +1130,7 @@ ALTER TABLE ONLY public.exchanges
 
 
 --
--- Name: exchanges exchanges_id_user_users_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: exchanges exchanges_id_user_users_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.exchanges
@@ -1206,7 +1138,7 @@ ALTER TABLE ONLY public.exchanges
 
 
 --
--- Name: exchanges exchanges_wallet_id_wallets_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: exchanges exchanges_wallet_id_wallets_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.exchanges
@@ -1214,7 +1146,7 @@ ALTER TABLE ONLY public.exchanges
 
 
 --
--- Name: stats stats_id_exchange_exchanges_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: stats stats_id_exchange_exchanges_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.stats
@@ -1222,7 +1154,7 @@ ALTER TABLE ONLY public.stats
 
 
 --
--- Name: stats stats_id_user_users_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: stats stats_id_user_users_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.stats
@@ -1230,7 +1162,7 @@ ALTER TABLE ONLY public.stats
 
 
 --
--- Name: support_chats support_chats_transaction_id_transactions_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: support_chats support_chats_transaction_id_transactions_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.support_chats
@@ -1238,7 +1170,7 @@ ALTER TABLE ONLY public.support_chats
 
 
 --
--- Name: support_chats support_chats_user_id_users_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: support_chats support_chats_user_id_users_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.support_chats
@@ -1246,7 +1178,7 @@ ALTER TABLE ONLY public.support_chats
 
 
 --
--- Name: support_messages support_messages_ticket_id_support_tickets_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: support_messages support_messages_ticket_id_support_tickets_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.support_messages
@@ -1254,7 +1186,7 @@ ALTER TABLE ONLY public.support_messages
 
 
 --
--- Name: support_tickets support_tickets_exchange_id_exchanges_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: support_tickets support_tickets_exchange_id_exchanges_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.support_tickets
@@ -1262,7 +1194,7 @@ ALTER TABLE ONLY public.support_tickets
 
 
 --
--- Name: support_tickets support_tickets_user_id_users_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: support_tickets support_tickets_user_id_users_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.support_tickets
@@ -1270,7 +1202,7 @@ ALTER TABLE ONLY public.support_tickets
 
 
 --
--- Name: transactions transactions_user_id_users_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: transactions transactions_user_id_users_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.transactions
@@ -1278,7 +1210,7 @@ ALTER TABLE ONLY public.transactions
 
 
 --
--- Name: user_cards user_cards_id_bank_banks_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: user_cards user_cards_id_bank_banks_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.user_cards
@@ -1286,7 +1218,7 @@ ALTER TABLE ONLY public.user_cards
 
 
 --
--- Name: user_cards user_cards_id_card_cards_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: user_cards user_cards_id_card_cards_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.user_cards
@@ -1294,7 +1226,7 @@ ALTER TABLE ONLY public.user_cards
 
 
 --
--- Name: user_cards user_cards_id_user_users_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: user_cards user_cards_id_user_users_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.user_cards
@@ -1302,7 +1234,7 @@ ALTER TABLE ONLY public.user_cards
 
 
 --
--- Name: users_balances users_balances_id_balance_balances_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: users_balances users_balances_id_balance_balances_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.users_balances
@@ -1310,7 +1242,7 @@ ALTER TABLE ONLY public.users_balances
 
 
 --
--- Name: users_balances users_balances_id_user_users_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: users_balances users_balances_id_user_users_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.users_balances
@@ -1318,7 +1250,7 @@ ALTER TABLE ONLY public.users_balances
 
 
 --
--- Name: users users_default_fiat_balance_id_balances_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: users users_default_fiat_balance_id_balances_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.users
@@ -1326,7 +1258,7 @@ ALTER TABLE ONLY public.users
 
 
 --
--- Name: users users_id_ref_fkey; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: users users_id_ref_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.users
@@ -1334,25 +1266,11 @@ ALTER TABLE ONLY public.users
 
 
 --
--- Name: wallets wallets_id_user_users_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: wallets wallets_id_user_users_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.wallets
     ADD CONSTRAINT wallets_id_user_users_id_fk FOREIGN KEY (id_user) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: DEFAULT PRIVILEGES FOR SEQUENCES; Type: DEFAULT ACL; Schema: public; Owner: cloud_admin
---
-
-ALTER DEFAULT PRIVILEGES FOR ROLE cloud_admin IN SCHEMA public GRANT ALL ON SEQUENCES TO neon_superuser WITH GRANT OPTION;
-
-
---
--- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: public; Owner: cloud_admin
---
-
-ALTER DEFAULT PRIVILEGES FOR ROLE cloud_admin IN SCHEMA public GRANT ALL ON TABLES TO neon_superuser WITH GRANT OPTION;
 
 
 --
