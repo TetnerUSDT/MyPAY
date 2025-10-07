@@ -6,6 +6,7 @@ export interface AppConfig {
     mode: AuthMode;
     telegram: {
       botToken: string;
+      botUsername: string;
       validateInitData: boolean;
     };
     test: {
@@ -26,6 +27,7 @@ export const config: AppConfig = {
     mode: (process.env.AUTH_MODE as AuthMode) || 'test',
     telegram: {
       botToken: process.env.TELEGRAM_BOT_TOKEN || 'dev-mock-token',
+      botUsername: process.env.TELEGRAM_BOT_USERNAME || 'dev_bot',
       validateInitData: process.env.VALIDATE_TELEGRAM_INITDATA !== 'false',
     },
     test: {

@@ -1,9 +1,10 @@
 import { useLocation } from "wouter";
 import { Bitcoin, Loader2, User } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import swiftxCard from "@assets/group (2)_1758368274951.png";
+import TelegramLoginButton from "@/components/TelegramLoginButton";
 
 export default function SplashScreen() {
   const [, setLocation] = useLocation();
@@ -11,6 +12,12 @@ export default function SplashScreen() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [showTestMode, setShowTestMode] = useState(false);
   const [testName, setTestName] = useState('');
+  const [isTelegramEnv, setIsTelegramEnv] = useState(false); // Telegram App environment detection
+  
+  // Fetch Telegram bot username for widget
+  const { data: telegramConfig } = useQuery<{ botUsername: string; authMode: string }>({
+    queryKey: ["/api/config/telegram-bot"],
+  });
   
   // Check existing authentication on mount
   useEffect(() => {
@@ -38,30 +45,41 @@ export default function SplashScreen() {
     checkExistingAuth();
   }, [setLocation]);
 
-  // Initialize Telegram WebApp  
+  // Initialize Telegram WebApp and detect environment
   useEffect(() => {
     // Check if running in Telegram WebApp
     if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
       const tg = (window as any).Telegram.WebApp;
       setTelegramWebApp(tg);
       
-      // Expand WebApp to full height
-      tg.expand();
-      
-      // Set theme
-      tg.setHeaderColor('#1a1a1a');
-      tg.setBackgroundColor('#1a1a1a');
-      
-      // Auto-authenticate if running in Telegram and no existing auth
-      if (tg.initData && !localStorage.getItem('userApiKey')) {
-        handleTelegramAuth(tg.initData);
+      // Check if we have initData (means running inside Telegram App)
+      if (tg.initData) {
+        setIsTelegramEnv(true);
+        
+        // Expand WebApp to full height
+        tg.expand();
+        
+        // Set theme
+        tg.setHeaderColor('#1a1a1a');
+        tg.setBackgroundColor('#1a1a1a');
+        
+        // Auto-authenticate if running in Telegram and no existing auth
+        if (!localStorage.getItem('userApiKey')) {
+          handleTelegramAuth(tg.initData);
+        }
+      } else {
+        // Running in browser (no initData available)
+        setIsTelegramEnv(false);
       }
+    } else {
+      // Not in Telegram environment at all (regular browser)
+      setIsTelegramEnv(false);
     }
   }, []);
   
   // Unified authentication mutation that works with both modes
   const loginMutation = useMutation({
-    mutationFn: async (authData: { initData?: string; name?: string }) => {
+    mutationFn: async (authData: { initData?: string; widgetData?: any; name?: string }) => {
       const response = await apiRequest('POST', '/api/auth/login', authData);
       return response.json();
     },
@@ -97,6 +115,15 @@ export default function SplashScreen() {
     if (testName.trim()) {
       setAuthError(null);
       loginMutation.mutate({ name: testName.trim() });
+    }
+  };
+
+  const handleTelegramWidgetAuth = (user: any) => {
+    try {
+      setAuthError(null);
+      loginMutation.mutate({ widgetData: user });
+    } catch (error) {
+      setAuthError('Ошибка аутентификации через Telegram');
     }
   };
   
@@ -209,26 +236,45 @@ export default function SplashScreen() {
             </div>
           ) : (
             <div className="space-y-4">
+              {/* Browser mode: Show Telegram Login Widget or Test mode */}
               {import.meta.env.DEV ? (
-                <button 
-                  onClick={handleManualStart}
-                  className="action-button w-full"
-                  data-testid="button-start-test"
-                >
-                  <User className="w-5 h-5 mr-2" />
-                  Начать тестирование
-                </button>
+                <>
+                  {telegramConfig?.botUsername && (
+                    <div className="flex justify-center" data-testid="telegram-widget-container">
+                      <TelegramLoginButton
+                        botUsername={telegramConfig.botUsername}
+                        onAuth={handleTelegramWidgetAuth}
+                        buttonSize="large"
+                        lang="ru"
+                      />
+                    </div>
+                  )}
+                  <button 
+                    onClick={handleManualStart}
+                    className="w-full px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg transition-colors text-sm"
+                    data-testid="button-start-test"
+                  >
+                    <User className="w-4 h-4 mr-2 inline" />
+                    Тестовый режим
+                  </button>
+                </>
               ) : (
-                <button 
-                  onClick={() => setLocation('/agreement')}
-                  className="action-button w-full"
-                  data-testid="button-start-agreement"
-                >
-                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                  Перейти к соглашению
-                </button>
+                <>
+                  {telegramConfig?.botUsername ? (
+                    <div className="flex justify-center" data-testid="telegram-widget-container">
+                      <TelegramLoginButton
+                        botUsername={telegramConfig.botUsername}
+                        onAuth={handleTelegramWidgetAuth}
+                        buttonSize="large"
+                        lang="ru"
+                      />
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-300">
+                      Загрузка...
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}

@@ -1,6 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
+import { createHash, createHmac } from "crypto";
 import { validate as validateInitData, parse as parseInitData } from "@telegram-apps/init-data-node";
 import { storage } from "./storage";
 import { insertTransactionSchema, insertSupportChatSchema, insertUserSchema, insertSupportTicketSchema, insertSupportMessageSchema } from "@shared/schema";
@@ -20,20 +21,55 @@ const loginSchema = z.discriminatedUnion("mode", [
   })
 ]);
 
+// Telegram Widget user data schema
+const telegramWidgetUserSchema = z.object({
+  id: z.number(),
+  first_name: z.string(),
+  last_name: z.string().optional(),
+  username: z.string().optional(),
+  photo_url: z.string().optional(),
+  auth_date: z.number(),
+  hash: z.string(),
+});
+
+// Function to validate Telegram Widget data
+function validateTelegramWidget(data: z.infer<typeof telegramWidgetUserSchema>, botToken: string): boolean {
+  const { hash, ...userData } = data;
+  
+  // Create data check string
+  const dataCheckArr = Object.keys(userData)
+    .sort()
+    .map(key => `${key}=${(userData as any)[key]}`)
+    .join('\n');
+  
+  // Create secret key: SHA256(bot_token)
+  const secretKey = createHash('sha256').update(botToken).digest();
+  
+  // Calculate hash: HMAC-SHA256(data_check_string, secret_key)
+  const calculatedHash = createHmac('sha256', secretKey)
+    .update(dataCheckArr)
+    .digest('hex');
+  
+  return calculatedHash === hash;
+}
+
 // Auto-detect login schema based on config
 const autoLoginSchema = z.object({
-  // For telegram mode
+  // For telegram WebApp mode (initData)
   initData: z.string().optional(),
+  // For telegram Widget mode (browser)
+  widgetData: telegramWidgetUserSchema.optional(),
   // For test mode
   name: z.string().optional(),
 }).refine((data) => {
   if (isTestMode()) {
     return data.name && data.name.trim().length > 0;
   } else {
-    return data.initData && data.initData.length > 0;
+    // Telegram mode: either initData or widgetData
+    return (data.initData && data.initData.length > 0) || data.widgetData;
   }
 }, {
-  message: isTestMode() ? "Name is required in test mode" : "InitData is required in telegram mode"
+  message: isTestMode() ? "Name is required in test mode" : "InitData or widgetData is required in telegram mode"
 });
 
 // API Key authentication middleware
@@ -96,6 +132,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ adminUrl: process.env.ADMIN_URL || 'admin' });
   });
 
+  // Public endpoint to get Telegram bot username for widget
+  app.get("/api/config/telegram-bot", async (req, res) => {
+    res.json({ 
+      botUsername: config.auth.telegram.botUsername,
+      authMode: config.auth.mode
+    });
+  });
+
   // Unified authentication endpoint that adapts based on configuration
   app.post("/api/auth/login", async (req, res) => {
     try {
@@ -136,41 +180,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
       } else {
         // Telegram mode authentication
-        const initData = validatedData.initData!;
-        let userData;
+        let tgId: string;
+        let name: string | null;
+        let img: string | null;
         
-        if (isDevelopment() && config.auth.telegram.botToken === 'dev-mock-token') {
-          // Development mode: mock validation
-          console.log('Development mode: Skipping Telegram initData validation');
-          userData = {
-            user: {
-              id: Date.now(), // Mock user ID
-              first_name: 'Dev User',
-              username: 'devuser'
+        if (validatedData.widgetData) {
+          // Telegram Widget authentication (browser)
+          const widgetData = validatedData.widgetData;
+          
+          // Validate widget data
+          if (!isDevelopment() || config.auth.telegram.botToken !== 'dev-mock-token') {
+            const isValid = validateTelegramWidget(widgetData, config.auth.telegram.botToken);
+            if (!isValid) {
+              console.error('Telegram widget validation failed');
+              return res.status(401).json({ message: "Invalid Telegram widget data" });
             }
-          };
-        } else {
-          // Production mode: validate initData
-          if (!config.auth.telegram.validateInitData) {
-            return res.status(501).json({ message: "Telegram validation is disabled" });
           }
           
-          try {
-            validateInitData(initData, config.auth.telegram.botToken);
-            userData = parseInitData(initData);
-          } catch (validationError) {
-            console.error('Telegram initData validation failed:', validationError);
-            return res.status(401).json({ message: "Invalid Telegram data" });
+          tgId = widgetData.id.toString();
+          name = widgetData.first_name || widgetData.username || null;
+          img = widgetData.photo_url || null;
+          
+        } else {
+          // Telegram WebApp authentication (initData)
+          const initData = validatedData.initData!;
+          let userData;
+          
+          if (isDevelopment() && config.auth.telegram.botToken === 'dev-mock-token') {
+            // Development mode: mock validation
+            console.log('Development mode: Skipping Telegram initData validation');
+            userData = {
+              user: {
+                id: Date.now(), // Mock user ID
+                first_name: 'Dev User',
+                username: 'devuser'
+              }
+            };
+          } else {
+            // Production mode: validate initData
+            if (!config.auth.telegram.validateInitData) {
+              return res.status(501).json({ message: "Telegram validation is disabled" });
+            }
+            
+            try {
+              validateInitData(initData, config.auth.telegram.botToken);
+              userData = parseInitData(initData);
+            } catch (validationError) {
+              console.error('Telegram initData validation failed:', validationError);
+              return res.status(401).json({ message: "Invalid Telegram data" });
+            }
           }
+          
+          if (!userData.user) {
+            return res.status(400).json({ message: "Invalid user data" });
+          }
+          
+          tgId = userData.user.id.toString();
+          name = userData.user.first_name || userData.user.username || null;
+          img = userData.user.photo_url || null;
         }
-        
-        if (!userData.user) {
-          return res.status(400).json({ message: "Invalid user data" });
-        }
-        
-        const tgId = userData.user.id.toString();
-        const name = userData.user.first_name || userData.user.username || null;
-        const img = userData.user.photo_url || null;
         
         // Check if user already exists
         user = await storage.getUserByTgId(tgId);
