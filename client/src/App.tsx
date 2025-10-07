@@ -10,7 +10,6 @@ import HomeScreen from "@/pages/home";
 import SelectCountryScreen from "@/pages/select-country";
 import ExchangeScreen from "@/pages/exchange";
 import TopUpScreen from "@/pages/top-up";
-import WaitScreen from "@/pages/wait";
 import TrackingScreen from "@/pages/tracking";
 import TopUpSuccessScreen from "@/pages/top-up-success";
 import TransferProcessingScreen from "@/pages/transfer-processing";
@@ -57,12 +56,6 @@ function Router() {
         <Route path="/top-up">
           <AuthGuard requireAgreement={true}>
             <TopUpScreen />
-          </AuthGuard>
-        </Route>
-        
-        <Route path="/wait">
-          <AuthGuard requireAgreement={true}>
-            <WaitScreen />
           </AuthGuard>
         </Route>
         
