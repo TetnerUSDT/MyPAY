@@ -62,14 +62,17 @@ const autoLoginSchema = z.object({
   // For test mode
   name: z.string().optional(),
 }).refine((data) => {
-  if (isTestMode()) {
-    return data.name && data.name.trim().length > 0;
-  } else {
-    // Telegram mode: either initData or widgetData
-    return (data.initData && data.initData.length > 0) || data.widgetData;
+  // Allow widgetData or initData in any mode (Telegram auth works everywhere)
+  if (data.widgetData || (data.initData && data.initData.length > 0)) {
+    return true;
   }
+  // Test mode fallback: require name
+  if (isTestMode() && data.name && data.name.trim().length > 0) {
+    return true;
+  }
+  return false;
 }, {
-  message: isTestMode() ? "Name is required in test mode" : "InitData or widgetData is required in telegram mode"
+  message: "Either Telegram auth data (initData/widgetData) or test name is required"
 });
 
 // API Key authentication middleware
@@ -149,37 +152,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let user;
       let apiKey;
       
-      if (isTestMode()) {
-        // Test mode authentication
-        if (!config.auth.test.enabled) {
-          return res.status(404).json({ message: "Test authentication is disabled" });
-        }
-        
-        const name = validatedData.name!;
-        
-        // Generate deterministic test tg_id to avoid duplicate users
-        const testTgId = `test_${name.toLowerCase().replace(/\s+/g, '_')}`;
-        
-        // Check if test user already exists
-        user = await storage.getUserByTgId(testTgId);
-        
-        if (!user) {
-          // Create new test user
-          user = await storage.createUser({
-            tgId: testTgId,
-            google: null,
-            name,
-            img: null,
-            status: "active",
-            agreement: 0,
-            blocked: false
-          });
-        }
-        
-        // Generate or reuse API key
-        apiKey = await storage.generateApiKey(user.id);
-        
-      } else {
+      // Check for Telegram authentication first (works in any mode)
+      if (validatedData.widgetData || validatedData.initData) {
         // Telegram mode authentication
         let tgId: string;
         let name: string | null;
@@ -254,6 +228,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // Generate API key
+        apiKey = await storage.generateApiKey(user.id);
+      } else {
+        // Test mode authentication
+        if (!config.auth.test.enabled) {
+          return res.status(404).json({ message: "Test authentication is disabled" });
+        }
+        
+        const name = validatedData.name!;
+        
+        // Generate deterministic test tg_id to avoid duplicate users
+        const testTgId = `test_${name.toLowerCase().replace(/\s+/g, '_')}`;
+        
+        // Check if test user already exists
+        user = await storage.getUserByTgId(testTgId);
+        
+        if (!user) {
+          // Create new test user
+          user = await storage.createUser({
+            tgId: testTgId,
+            google: null,
+            name,
+            img: null,
+            status: "active",
+            agreement: 0,
+            blocked: false
+          });
+        }
+        
+        // Generate or reuse API key
         apiKey = await storage.generateApiKey(user.id);
       }
       
