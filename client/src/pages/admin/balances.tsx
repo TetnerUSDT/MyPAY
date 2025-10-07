@@ -41,6 +41,15 @@ type UserBalance = {
   balanceType: string | null;
 };
 
+type User = {
+  id: number;
+  tgId: string;
+  name: string | null;
+  img: string | null;
+  referralCode: string;
+  countReferrals: number;
+};
+
 const balanceFormSchema = insertBalanceSchema;
 const userBalanceFormSchema = insertUsersBalancesSchema;
 
@@ -61,6 +70,12 @@ export default function AdminBalances() {
   const { data: userBalances, isLoading: isLoadingUserBalances } = useQuery<UserBalance[]>({
     queryKey: ['/admin/api/user-balances'],
     queryFn: () => adminRequest('/user-balances'),
+  });
+
+  // Users Query (for dropdown)
+  const { data: users } = useQuery<User[]>({
+    queryKey: ['/admin/api/users'],
+    queryFn: () => adminRequest('/users?limit=1000'),
   });
 
   // System Balance Form
@@ -462,10 +477,24 @@ export default function AdminBalances() {
                         name="idUser"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>ID пользователя</FormLabel>
-                            <FormControl>
-                              <Input {...field} type="number" onChange={(e) => field.onChange(parseInt(e.target.value))} data-testid="input-user-balance-id-user" />
-                            </FormControl>
+                            <FormLabel>Пользователь</FormLabel>
+                            <Select 
+                              onValueChange={(value) => field.onChange(parseInt(value))} 
+                              value={field.value?.toString() || ""}
+                            >
+                              <FormControl>
+                                <SelectTrigger data-testid="select-user-balance-user">
+                                  <SelectValue placeholder="Выберите пользователя" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {users?.map((user) => (
+                                  <SelectItem key={user.id} value={user.id.toString()}>
+                                    {user.name || user.tgId} (ID: {user.id})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -475,10 +504,24 @@ export default function AdminBalances() {
                         name="idBalance"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>ID баланса</FormLabel>
-                            <FormControl>
-                              <Input {...field} type="number" onChange={(e) => field.onChange(parseInt(e.target.value))} data-testid="input-user-balance-id-balance" />
-                            </FormControl>
+                            <FormLabel>Баланс</FormLabel>
+                            <Select 
+                              onValueChange={(value) => field.onChange(parseInt(value))} 
+                              value={field.value?.toString() || ""}
+                            >
+                              <FormControl>
+                                <SelectTrigger data-testid="select-user-balance-balance">
+                                  <SelectValue placeholder="Выберите баланс" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {balances?.map((balance) => (
+                                  <SelectItem key={balance.id} value={balance.id.toString()}>
+                                    {balance.title} ({balance.currency}{balance.network ? ` - ${balance.network}` : ''})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                             <FormMessage />
                           </FormItem>
                         )}
