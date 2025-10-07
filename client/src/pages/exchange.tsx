@@ -66,6 +66,23 @@ export default function ExchangeScreen() {
     queryKey: ['/api/user-cards']
   });
 
+  const { data: exchangeRate } = useQuery<{
+    rate: number;
+    fromCurrency: string;
+    toCurrency: string;
+    fromNetwork: string;
+    toNetwork: string;
+  }>({
+    queryKey: ['/api/exchange/rate', payBalanceId, receiveBalanceId],
+    queryFn: async () => {
+      if (!payBalanceId || !receiveBalanceId) return null;
+      const response = await fetch(`/api/exchange/rate/${payBalanceId}/${receiveBalanceId}`);
+      if (!response.ok) return null;
+      return response.json();
+    },
+    enabled: !!payBalanceId && !!receiveBalanceId
+  });
+
   useEffect(() => {
     if (paymentBalance) {
       setPayBalanceId(paymentBalance.id);
@@ -320,6 +337,15 @@ export default function ExchangeScreen() {
                 </Select>
               </div>
             </div>
+
+            {/* Exchange Rate Display */}
+            {exchangeRate && (
+              <div className="text-center py-2" data-testid="exchange-rate-display">
+                <span className="text-sm text-primary font-medium">
+                  1 {exchangeRate.fromCurrency}{exchangeRate.fromNetwork ? `.${exchangeRate.fromNetwork}` : ''} = {exchangeRate.rate.toFixed(2)} {exchangeRate.toCurrency}
+                </span>
+              </div>
+            )}
 
             {/* Arrow Down */}
             <div className="flex justify-center" style={{position: 'relative', marginTop: '-20px', marginBottom: '-30px', zIndex: 2}}>

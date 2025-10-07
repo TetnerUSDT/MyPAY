@@ -528,6 +528,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get exchange rate between two balances
+  app.get("/api/exchange/rate/:fromBalanceId/:toBalanceId", async (req, res) => {
+    try {
+      const fromBalanceId = parseInt(req.params.fromBalanceId);
+      const toBalanceId = parseInt(req.params.toBalanceId);
+      
+      const rateData = await storage.getExchangeRateByBalances(fromBalanceId, toBalanceId);
+      if (!rateData) {
+        return res.status(404).json({ message: "Exchange rate not found" });
+      }
+
+      const fromBalance = await storage.getBalance(fromBalanceId);
+      const toBalance = await storage.getBalance(toBalanceId);
+
+      res.json({
+        rate: parseFloat(rateData.rate),
+        fromCurrency: fromBalance?.currency || '',
+        toCurrency: toBalance?.currency || '',
+        fromNetwork: fromBalance?.network || '',
+        toNetwork: toBalance?.network || ''
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Calculate exchange quote
   app.post("/api/exchange/quote", async (req, res) => {
     try {
