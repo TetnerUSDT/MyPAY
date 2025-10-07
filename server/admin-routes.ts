@@ -2,9 +2,9 @@ import { Express } from "express";
 import { AdminRequest, requireSuperAdmin, requireAdmin, requirePermission } from "./admin-middleware";
 import { IStorage } from "./storage";
 import { db } from "./db";
-import { balances, exchanges, cards, banks, exchangeRates, supportTickets, supportMessages, supportChats, users, wallets, admins, userCards } from "@shared/schema";
+import { balances, exchanges, cards, banks, exchangeRates, supportTickets, supportMessages, supportChats, users, wallets, admins, userCards, usersBalances } from "@shared/schema";
 import { eq, desc, sql } from "drizzle-orm";
-import { insertBalanceSchema, insertCardSchema, insertBankSchema, insertExchangeRateSchema, insertSupportMessageSchema, insertAdminSchema } from "@shared/schema";
+import { insertBalanceSchema, insertCardSchema, insertBankSchema, insertExchangeRateSchema, insertSupportMessageSchema, insertAdminSchema, insertUsersBalancesSchema } from "@shared/schema";
 
 export function registerAdminRoutes(app: Express, storage: IStorage) {
   const adminPath = process.env.ADMIN_URL || 'admin';
@@ -65,6 +65,73 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
       res.json({ success: true });
     } catch (error) {
       console.error('Delete balance error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // ========== USER BALANCES MANAGEMENT ==========
+  app.get(`/${adminPath}/api/user-balances`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const userBalancesWithDetails = await db
+        .select({
+          id: usersBalances.id,
+          idUser: usersBalances.idUser,
+          idBalance: usersBalances.idBalance,
+          sum: usersBalances.sum,
+          status: usersBalances.status,
+          userName: users.name,
+          userTgId: users.tgId,
+          balanceTitle: balances.title,
+          balanceNetwork: balances.network,
+          balanceCurrency: balances.currency,
+          balanceType: balances.type,
+        })
+        .from(usersBalances)
+        .leftJoin(users, eq(usersBalances.idUser, users.id))
+        .leftJoin(balances, eq(usersBalances.idBalance, balances.id))
+        .orderBy(desc(usersBalances.id));
+      
+      res.json(userBalancesWithDetails);
+    } catch (error) {
+      console.error('Get user balances error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post(`/${adminPath}/api/user-balances`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const validatedData = insertUsersBalancesSchema.parse(req.body);
+      const [newUserBalance] = await db.insert(usersBalances).values(validatedData).returning();
+      res.json(newUserBalance);
+    } catch (error) {
+      console.error('Create user balance error:', error);
+      if (error instanceof Error) {
+        res.status(400).json({ message: error.message });
+      } else {
+        res.status(400).json({ message: "Invalid data" });
+      }
+    }
+  });
+
+  app.put(`/${adminPath}/api/user-balances/:id`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const { id } = req.params;
+      const validatedData = insertUsersBalancesSchema.parse(req.body);
+      const [updated] = await db.update(usersBalances).set(validatedData).where(eq(usersBalances.id, parseInt(id))).returning();
+      res.json(updated);
+    } catch (error) {
+      console.error('Update user balance error:', error);
+      res.status(400).json({ message: "Invalid data" });
+    }
+  });
+
+  app.delete(`/${adminPath}/api/user-balances/:id`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const { id } = req.params;
+      await db.delete(usersBalances).where(eq(usersBalances.id, parseInt(id)));
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Delete user balance error:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
