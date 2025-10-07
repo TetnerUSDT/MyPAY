@@ -425,7 +425,7 @@ export default function ExchangeScreen() {
         <div className="p-6">
           {/* Exchange Rate Display */}
           {exchangeRate && (
-            <div className="text-center mb-4" data-testid="exchange-rate-display">
+            <div className="text-center mb-4" style={{ marginTop: '-5px' }} data-testid="exchange-rate-display">
               <span className="text-sm text-primary font-medium">
                 1 {exchangeRate.fromCurrency}{exchangeRate.fromNetwork ? `.${exchangeRate.fromNetwork}` : ''} = {exchangeRate.rate.toFixed(2)} {exchangeRate.toCurrency}
               </span>
