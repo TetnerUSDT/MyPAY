@@ -18,13 +18,13 @@ let pool: any;
 if (config.database.type === 'mysql') {
   // MySQL connection
   const poolConnection = mysql.createPool(config.database.url);
-  db = drizzleMysql({ client: poolConnection, schema, mode: 'default' });
+  db = drizzleMysql(poolConnection, { schema, mode: 'default' });
   pool = poolConnection;
 } else {
   // PostgreSQL (Neon) connection
   neonConfig.webSocketConstructor = ws;
   const neonPool = new Pool({ connectionString: config.database.url });
-  db = drizzleNeon({ client: neonPool, schema });
+  db = drizzleNeon(neonPool, { schema });
   pool = neonPool;
 }
 
