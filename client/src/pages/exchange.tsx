@@ -338,15 +338,6 @@ export default function ExchangeScreen() {
               </div>
             </div>
 
-            {/* Exchange Rate Display */}
-            {exchangeRate && (
-              <div className="text-center py-2" data-testid="exchange-rate-display">
-                <span className="text-sm text-primary font-medium">
-                  1 {exchangeRate.fromCurrency}{exchangeRate.fromNetwork ? `.${exchangeRate.fromNetwork}` : ''} = {exchangeRate.rate.toFixed(2)} {exchangeRate.toCurrency}
-                </span>
-              </div>
-            )}
-
             {/* Arrow Down */}
             <div className="flex justify-center" style={{position: 'relative', marginTop: '-20px', marginBottom: '-30px', zIndex: 2}}>
               <div className="w-12 h-12 bg-accent rounded-full flex items-center justify-center border-[6px]" style={{borderColor: '#2a4c3b'}}>
@@ -432,6 +423,15 @@ export default function ExchangeScreen() {
 
         {/* Continue Button */}
         <div className="p-6">
+          {/* Exchange Rate Display */}
+          {exchangeRate && (
+            <div className="text-center mb-4" data-testid="exchange-rate-display">
+              <span className="text-sm text-primary font-medium">
+                1 {exchangeRate.fromCurrency}{exchangeRate.fromNetwork ? `.${exchangeRate.fromNetwork}` : ''} = {exchangeRate.rate.toFixed(2)} {exchangeRate.toCurrency}
+              </span>
+            </div>
+          )}
+          
           <button 
             className="action-button"
             onClick={handleExchange}
