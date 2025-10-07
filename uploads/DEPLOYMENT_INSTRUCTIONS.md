@@ -6,6 +6,7 @@
 - Минимум 2GB RAM
 - Минимум 10GB свободного места на диске
 - Доступ к интернету
+- База данных: PostgreSQL 15+ или MySQL 8.0+
 
 ## 1. Установка зависимостей
 
@@ -27,7 +28,9 @@ node --version  # должно быть v20.x.x
 npm --version   # должно быть v10.x.x или выше
 ```
 
-### 1.3 Установка PostgreSQL 15
+### 1.3 Установка базы данных
+
+#### Вариант A: PostgreSQL 15 (рекомендуется)
 ```bash
 sudo apt install -y postgresql postgresql-contrib
 sudo systemctl start postgresql
@@ -39,14 +42,33 @@ sudo systemctl enable postgresql
 sudo systemctl status postgresql
 ```
 
+#### Вариант B: MySQL 8.0
+```bash
+sudo apt install -y mysql-server
+sudo systemctl start mysql
+sudo systemctl enable mysql
+```
+
+Проверка установки:
+```bash
+sudo systemctl status mysql
+```
+
+Настройка безопасности MySQL:
+```bash
+sudo mysql_secure_installation
+```
+
 ### 1.4 Установка дополнительных утилит
 ```bash
 sudo apt install -y git curl wget build-essential
 ```
 
-## 2. Настройка PostgreSQL
+## 2. Настройка базы данных
 
-### 2.1 Создание пользователя и базы данных
+### Вариант A: Настройка PostgreSQL
+
+#### 2.1 Создание пользователя и базы данных
 ```bash
 # Войти в PostgreSQL
 sudo -u postgres psql
@@ -58,13 +80,36 @@ GRANT ALL PRIVILEGES ON DATABASE swiftx_db TO swiftx_user;
 \q
 ```
 
-### 2.2 Восстановление дампа базы данных
+#### 2.2 Восстановление дампа PostgreSQL
 ```bash
-# Если у вас есть файл database_dump.sql
-psql -U swiftx_user -d swiftx_db -f database_dump.sql
+# Используйте файл postgres_dump.sql
+psql -U swiftx_user -d swiftx_db -f postgres_dump.sql
 
 # Или с использованием переменной DATABASE_URL:
-# psql $DATABASE_URL < database_dump.sql
+# psql $DATABASE_URL < postgres_dump.sql
+```
+
+### Вариант B: Настройка MySQL
+
+#### 2.1 Создание пользователя и базы данных
+```bash
+# Войти в MySQL
+sudo mysql
+
+# В консоли MySQL выполнить:
+CREATE DATABASE swiftx_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'swiftx_user'@'localhost' IDENTIFIED BY 'your_secure_password_here';
+GRANT ALL PRIVILEGES ON swiftx_db.* TO 'swiftx_user'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
+```
+
+#### 2.2 Восстановление дампа MySQL
+```bash
+# Используйте файл mysql_dump.sql
+mysql -u swiftx_user -p swiftx_db < mysql_dump.sql
+
+# При запросе введите пароль пользователя swiftx_user
 ```
 
 ## 3. Настройка проекта
@@ -93,9 +138,10 @@ npm install
 nano .env
 ```
 
-Добавьте следующие переменные окружения:
+#### Для PostgreSQL:
 ```env
-# Database
+# Database Configuration
+DB_TYPE=postgres
 DATABASE_URL=postgresql://swiftx_user:your_secure_password_here@localhost:5432/swiftx_db
 PGHOST=localhost
 PGPORT=5432
@@ -119,11 +165,38 @@ ADMIN_PASSWORD=your_admin_password
 WALLET_API_KEY=your_wallet_api_key
 ```
 
+#### Для MySQL:
+```env
+# Database Configuration
+DB_TYPE=mysql
+DATABASE_URL=mysql://swiftx_user:your_secure_password_here@localhost:3306/swiftx_db
+
+# Environment
+NODE_ENV=production
+
+# Telegram Bot Configuration
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+TELEGRAM_BOT_USERNAME=your_bot_username
+
+# Admin Panel Access
+ADMIN_URL=your_secret_admin_url_path
+ADMIN_LOGIN=your_admin_login
+ADMIN_PASSWORD=your_admin_password
+
+# Wallet API (если используется)
+WALLET_API_KEY=your_wallet_api_key
+```
+
+**Важно:** Переменная `DB_TYPE` определяет тип базы данных (`postgres` или `mysql`). По умолчанию используется `postgres`.
+
 Сохраните файл (Ctrl+O, Enter, Ctrl+X)
 
 ## 4. Настройка базы данных через Drizzle
 
-### 4.1 Применение миграций
+### 4.1 Применение миграций (только для PostgreSQL)
+**Примечание:** Drizzle миграции работают только с PostgreSQL. Для MySQL используйте дамп из файла `mysql_dump.sql`.
+
+#### Для PostgreSQL:
 ```bash
 npm run db:push
 ```
@@ -132,6 +205,9 @@ npm run db:push
 ```bash
 npm run db:push -- --force
 ```
+
+#### Для MySQL:
+Миграции через Drizzle недоступны. Убедитесь, что вы восстановили схему из файла `mysql_dump.sql` на шаге 2.2.
 
 ## 5. Сборка проекта
 
@@ -301,8 +377,10 @@ tail -f /var/log/nginx/error.log
 ## 12. Резервное копирование
 
 ### 12.1 Создание скрипта для бэкапа базы данных
+
+#### Для PostgreSQL:
 ```bash
-nano ~/backup_swiftx.sh
+nano ~/backup_swiftx_postgres.sh
 ```
 
 Добавьте:
@@ -312,17 +390,42 @@ DATE=$(date +%Y%m%d_%H%M%S)
 BACKUP_DIR="/var/backups/swiftx"
 mkdir -p $BACKUP_DIR
 
-pg_dump -U swiftx_user swiftx_db > $BACKUP_DIR/backup_$DATE.sql
+pg_dump -U swiftx_user swiftx_db > $BACKUP_DIR/backup_postgres_$DATE.sql
 
 # Удаление бэкапов старше 7 дней
-find $BACKUP_DIR -name "backup_*.sql" -mtime +7 -delete
+find $BACKUP_DIR -name "backup_postgres_*.sql" -mtime +7 -delete
 
-echo "Backup completed: $BACKUP_DIR/backup_$DATE.sql"
+echo "PostgreSQL Backup completed: $BACKUP_DIR/backup_postgres_$DATE.sql"
 ```
 
 Сделайте скрипт исполняемым:
 ```bash
-chmod +x ~/backup_swiftx.sh
+chmod +x ~/backup_swiftx_postgres.sh
+```
+
+#### Для MySQL:
+```bash
+nano ~/backup_swiftx_mysql.sh
+```
+
+Добавьте:
+```bash
+#!/bin/bash
+DATE=$(date +%Y%m%d_%H%M%S)
+BACKUP_DIR="/var/backups/swiftx"
+mkdir -p $BACKUP_DIR
+
+mysqldump -u swiftx_user -p swiftx_db > $BACKUP_DIR/backup_mysql_$DATE.sql
+
+# Удаление бэкапов старше 7 дней
+find $BACKUP_DIR -name "backup_mysql_*.sql" -mtime +7 -delete
+
+echo "MySQL Backup completed: $BACKUP_DIR/backup_mysql_$DATE.sql"
+```
+
+Сделайте скрипт исполняемым:
+```bash
+chmod +x ~/backup_swiftx_mysql.sh
 ```
 
 ### 12.2 Настройка автоматического бэкапа через cron
@@ -330,9 +433,14 @@ chmod +x ~/backup_swiftx.sh
 crontab -e
 ```
 
-Добавьте строку для ежедневного бэкапа в 2:00 ночи:
+#### Для PostgreSQL:
 ```
-0 2 * * * /home/your_username/backup_swiftx.sh >> /var/log/swiftx_backup.log 2>&1
+0 2 * * * /home/your_username/backup_swiftx_postgres.sh >> /var/log/swiftx_backup.log 2>&1
+```
+
+#### Для MySQL:
+```
+0 2 * * * /home/your_username/backup_swiftx_mysql.sh >> /var/log/swiftx_backup.log 2>&1
 ```
 
 ## 13. Обновление приложения
@@ -371,20 +479,41 @@ free -h        # Память
 ```
 
 ### 14.3 Просмотр логов базы данных
+
+#### PostgreSQL:
 ```bash
 sudo tail -f /var/log/postgresql/postgresql-15-main.log
+```
+
+#### MySQL:
+```bash
+sudo tail -f /var/log/mysql/error.log
 ```
 
 ## Полезные команды для устранения неполадок
 
 ### Проверка подключения к базе данных
+
+#### PostgreSQL:
 ```bash
 psql -U swiftx_user -d swiftx_db -c "SELECT version();"
 ```
 
-### Перезапуск PostgreSQL
+#### MySQL:
+```bash
+mysql -u swiftx_user -p -e "SELECT version();"
+```
+
+### Перезапуск базы данных
+
+#### PostgreSQL:
 ```bash
 sudo systemctl restart postgresql
+```
+
+#### MySQL:
+```bash
+sudo systemctl restart mysql
 ```
 
 ### Очистка логов PM2
@@ -394,8 +523,9 @@ pm2 flush
 
 ### Проверка использования портов
 ```bash
-sudo lsof -i :5000
-sudo lsof -i :5432
+sudo lsof -i :5000        # Приложение
+sudo lsof -i :5432        # PostgreSQL
+sudo lsof -i :3306        # MySQL
 ```
 
 ## Контакты и поддержка
