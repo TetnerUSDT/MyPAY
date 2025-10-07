@@ -207,8 +207,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let userData;
           
           if (isDevelopment() && config.auth.telegram.botToken === 'dev-mock-token') {
-            // Development mode: mock validation
-            console.log('Development mode: Skipping Telegram initData validation');
+            // Development mode ONLY: mock validation when using dev-mock-token
+            console.log('Development mode: Skipping Telegram initData validation (using dev-mock-token)');
             userData = {
               user: {
                 id: Date.now(), // Mock user ID
@@ -217,11 +217,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             };
           } else {
-            // Production mode: validate initData
-            if (!config.auth.telegram.validateInitData) {
-              return res.status(501).json({ message: "Telegram validation is disabled" });
-            }
-            
+            // Production or real bot token: always validate initData
             try {
               validateInitData(initData, config.auth.telegram.botToken);
               userData = parseInitData(initData);
