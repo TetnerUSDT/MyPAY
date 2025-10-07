@@ -17,7 +17,8 @@ export interface IStorage {
   getWalletsByUserId(userId: number): Promise<Wallet[]>;
   createWallet(wallet: InsertWallet): Promise<Wallet>;
   findAvailableWallet(network: string): Promise<Wallet | undefined>;
-  reserveWallet(walletId: number, hours: number, reservationType?: string): Promise<Wallet | undefined>;
+  reserveWallet(walletId: number, hours: number, reservationType?: string, userId?: number): Promise<Wallet | undefined>;
+  releaseExpiredWallets(): Promise<number>;
   findOrReserveWalletForOperation(userId: number, network: string, operation: string): Promise<Wallet | undefined>;
 
   // Transaction methods
@@ -330,6 +331,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async findAvailableWallet(network: string): Promise<Wallet | undefined> {
+    // First, release any expired wallets (except 'personal' ones)
+    await this.releaseExpiredWallets();
+    
     const now = new Date();
     const [wallet] = await db
       .select()
@@ -344,13 +348,16 @@ export class DatabaseStorage implements IStorage {
     return wallet || undefined;
   }
 
-  async reserveWallet(walletId: number, hours: number, reservationType?: string): Promise<Wallet | undefined> {
+  async reserveWallet(walletId: number, hours: number, reservationType?: string, userId?: number): Promise<Wallet | undefined> {
     const reservationTime = new Date();
     reservationTime.setHours(reservationTime.getHours() + hours);
     
     const updateData: any = { reservationTime };
     if (reservationType) {
       updateData.reserved = reservationType;
+    }
+    if (userId !== undefined) {
+      updateData.idUser = userId;
     }
     
     const [wallet] = await db
@@ -359,6 +366,28 @@ export class DatabaseStorage implements IStorage {
       .where(eq(wallets.id, walletId))
       .returning();
     return wallet || undefined;
+  }
+
+  async releaseExpiredWallets(): Promise<number> {
+    const now = new Date();
+    
+    // Release wallets where reservation time has expired
+    // But exclude wallets with reserved='personal' (those are permanently assigned)
+    const result = await db
+      .update(wallets)
+      .set({
+        idUser: null,
+        reservationTime: null,
+        reserved: null,
+      })
+      .where(
+        and(
+          sql`${wallets.reservationTime} < ${now}`,
+          sql`(${wallets.reserved} != 'personal' OR ${wallets.reserved} IS NULL)`
+        )
+      );
+    
+    return result.rowCount || 0;
   }
 
   async createWalletViaAPI(network: string, userId: number): Promise<{ address: string; privateKey: string } | null> {
@@ -435,8 +464,8 @@ export class DatabaseStorage implements IStorage {
     const availableWallet = await this.findAvailableWallet(network);
     
     if (availableWallet) {
-      // Reserve it for 24 hours
-      return await this.reserveWallet(availableWallet.id, 24, operation);
+      // Reserve it for 24 hours and assign to user
+      return await this.reserveWallet(availableWallet.id, 24, operation, userId);
     }
     
     // Create a new wallet via API
