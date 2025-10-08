@@ -8,12 +8,16 @@ import { useEffect, useState } from "react";
 export default function AgreementScreen() {
   const [, setLocation] = useLocation();
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [authCompleted, setAuthCompleted] = useState(false);
   const hasApiKey = !!localStorage.getItem("userApiKey");
   
   // Auto-authenticate if in Telegram Mini App without API key
   useEffect(() => {
     const autoAuth = async () => {
-      if (hasApiKey) return; // Already has API key
+      if (hasApiKey) {
+        setAuthCompleted(true);
+        return; // Already has API key
+      }
       
       // Check if in Telegram Mini App
       if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
@@ -27,8 +31,8 @@ export default function AgreementScreen() {
             
             if (data.apiKey) {
               localStorage.setItem('userApiKey', data.apiKey);
-              // Reload the page to re-fetch user data
-              window.location.reload();
+              setIsAuthenticating(false);
+              setAuthCompleted(true);
             }
           } catch (error) {
             console.error('[Agreement] Auto-auth failed:', error);
@@ -45,10 +49,10 @@ export default function AgreementScreen() {
     autoAuth();
   }, [hasApiKey, setLocation]);
   
-  // Fetch current user to check agreement status (only if API key exists)
+  // Fetch current user to check agreement status (only if auth completed)
   const { data: user, isLoading: userLoading, error } = useQuery<User>({
     queryKey: ["/api/auth/me"],
-    enabled: hasApiKey,
+    enabled: authCompleted,
     retry: false,
   });
   
