@@ -8,6 +8,19 @@ Preferred communication style: Simple, everyday language.
 
 # Recent Changes
 
+## MySQL Migration (October 2025)
+Переключение с PostgreSQL на MySQL из-за проблем с расширениями на production серверах:
+- **Проблема**: PostgreSQL требует расширение `pgcrypto` для генерации UUID, но на многих хостингах нет прав суперпользователя
+- **Решение**: Полная миграция схемы базы данных на MySQL
+  - Все таблицы переписаны с `pgTable` → `mysqlTable`
+  - Замена типов: `serial` → `int AUTO_INCREMENT`, `uuid` → `varchar(36)`
+  - Все ENUM типы обновлены на MySQL формат
+- **Файлы обновлены**: `shared/schema.ts` полностью переписана для MySQL
+- **Дамп базы**: Создан `uploads/mysql_dump.sql` со всеми 15 таблицами и данными
+- **Инструкции**: См. `uploads/MYSQL_MIGRATION.md` для пошаговой миграции
+- **Таблицы**: balances (4 записи), users, users_balances, wallets, cards, banks, user_cards, exchanges, stats, transactions, exchange_rates (2 записи), support_chats, support_tickets, support_messages, admins
+- **Данные сохранены**: Все курсы обмена (USDT→RUB) и валюты (RUB, TRY, USDT TRC20, USDT BEP20)
+
 ## PostgreSQL Driver Fix for Ubuntu/Production Servers (October 2025)
 Fixed critical SSL/WebSocket connection issue when deploying to Ubuntu servers:
 - **Problem**: Application used Neon serverless driver (`@neondatabase/serverless`) with WebSocket for localhost PostgreSQL, causing SSL certificate errors on production
