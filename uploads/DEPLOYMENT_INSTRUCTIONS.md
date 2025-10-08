@@ -130,7 +130,12 @@ cd swiftx
 ### 3.2 Установка npm пакетов
 ```bash
 npm install
+
+# Установите дополнительный пакет для работы с PostgreSQL на localhost
+npm install pg --legacy-peer-deps
 ```
+
+**Примечание:** Пакет `pg` необходим для подключения к обычному PostgreSQL серверу (localhost). Если возникает конфликт версий, используйте флаг `--legacy-peer-deps`.
 
 ### 3.3 Создание файла .env
 Создайте файл `.env` в корне проекта:
@@ -528,12 +533,163 @@ sudo lsof -i :5432        # PostgreSQL
 sudo lsof -i :3306        # MySQL
 ```
 
+## 15. Решение проблем с PostgreSQL подключением (SSL/WebSocket)
+
+### 15.1 Проблема: Ошибка SSL при авторизации
+
+**Симптомы:**
+- Ошибка 500 при попытке авторизации
+- В логах PM2 ошибка: `Error: unable to verify the first certificate` с кодом `UNABLE_TO_VERIFY_LEAF_SIGNATURE`
+- В логах видно: `_url: 'wss://localhost/v2'`
+
+**Причина:**
+Приложение использует serverless драйвер `@neondatabase/serverless` с WebSocket для подключения к локальному PostgreSQL, что вызывает ошибки SSL-сертификата на production сервере.
+
+### 15.2 Решение
+
+#### Шаг 1: Обновите файл `server/db.ts`
+
+Замените содержимое файла на следующий код, который автоматически определяет тип базы данных и использует правильный драйвер:
+
+```typescript
+import { Pool as NeonPool, neonConfig } from '@neondatabase/serverless';
+import { Pool as PgPool } from 'pg';
+import { drizzle as drizzleNeon } from 'drizzle-orm/neon-serverless';
+import { drizzle as drizzlePg } from 'drizzle-orm/node-postgres';
+import { drizzle as drizzleMysql } from 'drizzle-orm/mysql2';
+import mysql from 'mysql2/promise';
+import ws from "ws";
+import * as schema from "@shared/schema";
+import { config } from "./config";
+
+if (!config.database.url) {
+  throw new Error(
+    "DATABASE_URL must be set. Did you forget to provision a database?",
+  );
+}
+
+let db: any;
+let pool: any;
+
+if (config.database.type === 'mysql') {
+  const poolConnection = mysql.createPool(config.database.url);
+  db = drizzleMysql(poolConnection, { schema, mode: 'default' });
+  pool = poolConnection;
+} else {
+  // Определяем тип PostgreSQL по URL
+  const isNeonServerless = config.database.url.includes('neon.tech') || 
+                           config.database.url.includes('neon.database') ||
+                           config.database.url.includes('.replit.dev');
+  
+  if (isNeonServerless) {
+    // Для Neon/Replit используем serverless драйвер с WebSocket
+    neonConfig.webSocketConstructor = ws;
+    const neonPool = new NeonPool({ connectionString: config.database.url });
+    db = drizzleNeon(neonPool, { schema });
+    pool = neonPool;
+  } else {
+    // Для обычного PostgreSQL (localhost) используем стандартный драйвер
+    const pgPool = new PgPool({ 
+      connectionString: config.database.url,
+      ssl: false
+    });
+    db = drizzlePg(pgPool, { schema });
+    pool = pgPool;
+  }
+}
+
+export { db, pool };
+```
+
+#### Шаг 2: Установите необходимый пакет
+
+```bash
+npm install pg --legacy-peer-deps
+```
+
+Если возникает конфликт версий, используйте флаг `--legacy-peer-deps`.
+
+#### Шаг 3: Обновите `ecosystem.config.cjs`
+
+Убедитесь, что PM2 запускает TypeScript напрямую через `tsx`, а не скомпилированный JavaScript:
+
+```javascript
+const fs = require('fs');
+const path = require('path');
+
+const envPath = path.join(__dirname, '.env');
+const envConfig = {};
+
+if (fs.existsSync(envPath)) {
+  const envFile = fs.readFileSync(envPath, 'utf8');
+  envFile.split('\n').forEach(line => {
+    const [key, ...values] = line.split('=');
+    if (key && values.length > 0) {
+      envConfig[key.trim()] = values.join('=').trim();
+    }
+  });
+}
+
+module.exports = {
+  apps: [{
+    name: 'swiftx',
+    script: 'tsx',
+    args: 'server/index.ts',
+    instances: 1,
+    exec_mode: 'fork',
+    env: {
+      ...envConfig,
+      NODE_ENV: 'production',
+      PORT: 10001
+    }
+  }]
+};
+```
+
+#### Шаг 4: Очистите кэш и перезапустите
+
+```bash
+# Очистите кэш
+rm -rf node_modules/.cache
+rm -rf .tsx
+rm -rf dist  # Если используется скомпилированная версия
+
+# Перезапустите приложение
+pm2 delete swiftx
+pm2 start ecosystem.config.cjs
+
+# Проверьте логи
+pm2 logs swiftx --lines 30
+```
+
+### 15.3 Проверка успешного исправления
+
+После перезапуска в логах PM2 должно быть:
+- ✅ Сообщение: `serving on port 10001`
+- ✅ НЕТ ошибок про `wss://localhost/v2`
+- ✅ НЕТ ошибок про `unable to verify the first certificate`
+- ✅ Авторизация работает без ошибки 500
+
+### 15.4 Альтернативное решение (если основное не помогло)
+
+Если проблема сохраняется, добавьте параметр отключения SSL в DATABASE_URL в файле `.env`:
+
+```env
+DATABASE_URL=postgresql://swiftx_db:1234567890@localhost:5432/swiftx_db?sslmode=disable
+```
+
+Перезапустите приложение:
+```bash
+pm2 restart swiftx --update-env
+```
+
 ## Контакты и поддержка
 
 Для получения помощи обратитесь к документации проекта или свяжитесь с командой разработки.
 
 ---
 
-**Версия инструкции:** 1.0  
+**Версия инструкции:** 1.1  
 **Дата:** Октябрь 2025  
+**Последнее обновление:** Октябрь 2025 (добавлено решение проблемы PostgreSQL SSL/WebSocket)  
 **Проект:** SwiftX Cryptocurrency Exchange Platform

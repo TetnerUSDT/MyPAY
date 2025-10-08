@@ -8,6 +8,17 @@ Preferred communication style: Simple, everyday language.
 
 # Recent Changes
 
+## PostgreSQL Driver Fix for Ubuntu/Production Servers (October 2025)
+Fixed critical SSL/WebSocket connection issue when deploying to Ubuntu servers:
+- **Problem**: Application used Neon serverless driver (`@neondatabase/serverless`) with WebSocket for localhost PostgreSQL, causing SSL certificate errors on production
+- **Solution**: Implemented automatic database type detection in `server/db.ts`
+  - **For Neon/Replit serverless**: Uses `@neondatabase/serverless` with WebSocket (detects by URL containing 'neon.tech', 'neon.database', or '.replit.dev')
+  - **For localhost PostgreSQL**: Uses standard `pg` driver without SSL (for Ubuntu/production servers)
+- **Dependencies**: Added `pg` package as additional dependency for localhost support
+- **Configuration**: Updated `ecosystem.config.cjs` to use `tsx` for running TypeScript directly (avoids compilation issues)
+- **Deployment**: Updated `DEPLOYMENT_INSTRUCTIONS.md` with troubleshooting section 15 detailing the fix
+- **Impact**: Resolves "unable to verify the first certificate" error and 500 status on login for Ubuntu deployments
+
 ## Telegram Authentication Implementation (October 2025)
 Implemented dual Telegram authentication strategy:
 - **Telegram Mini App**: Automatic authentication using initData when accessed from Telegram App
