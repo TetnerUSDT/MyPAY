@@ -2,6 +2,7 @@ import { type User, type InsertUser, type Wallet, type InsertWallet, type Transa
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, and, sql, inArray } from "drizzle-orm";
+import { insertAndReturn, updateAndReturn } from "./mysql-helpers";
 
 export interface IStorage {
   // User methods
@@ -280,35 +281,37 @@ export class DatabaseStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const codeRef = await this.generateUniqueReferralCode();
     
-    const [user] = await db
-      .insert(users)
-      .values({
+    const user = await insertAndReturn<User>(
+      db.insert(users).values({
         ...insertUser,
         agreement: insertUser.agreement ?? 0,
         blocked: insertUser.blocked ?? false,
         apiKey: insertUser.apiKey ?? null,
         codeRef,
-      })
-      .returning();
+      }),
+      'users'
+    );
     return user;
   }
 
   async updateUserAgreement(id: number, agreement: number): Promise<User | undefined> {
-    const [user] = await db
-      .update(users)
-      .set({ agreement })
-      .where(eq(users.id, id))
-      .returning();
+    const user = await updateAndReturn<User>(
+      db.update(users).set({ agreement }).where(eq(users.id, id)),
+      'users',
+      'id = ?',
+      [id]
+    );
     return user || undefined;
   }
 
   async generateApiKey(userId: number): Promise<string | undefined> {
     const apiKey = randomUUID();
-    const [user] = await db
-      .update(users)
-      .set({ apiKey })
-      .where(eq(users.id, userId))
-      .returning();
+    const user = await updateAndReturn<User>(
+      db.update(users).set({ apiKey }).where(eq(users.id, userId)),
+      'users',
+      'id = ?',
+      [userId]
+    );
     return user?.apiKey || undefined;
   }
 
@@ -323,10 +326,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createWallet(insertWallet: InsertWallet): Promise<Wallet> {
-    const [wallet] = await db
-      .insert(wallets)
-      .values(insertWallet)
-      .returning();
+    const wallet = await insertAndReturn<Wallet>(
+      db.insert(wallets).values(insertWallet),
+      'wallets'
+    );
     return wallet;
   }
 
@@ -360,11 +363,12 @@ export class DatabaseStorage implements IStorage {
       updateData.idUser = userId;
     }
     
-    const [wallet] = await db
-      .update(wallets)
-      .set(updateData)
-      .where(eq(wallets.id, walletId))
-      .returning();
+    const wallet = await updateAndReturn<Wallet>(
+      db.update(wallets).set(updateData).where(eq(wallets.id, walletId)),
+      'wallets',
+      'id = ?',
+      [walletId]
+    );
     return wallet || undefined;
   }
 
