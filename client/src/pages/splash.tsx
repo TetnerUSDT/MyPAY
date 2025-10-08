@@ -1,5 +1,5 @@
 import { useLocation } from "wouter";
-import { Bitcoin, Loader2, User } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -10,8 +10,6 @@ export default function SplashScreen() {
   const [, setLocation] = useLocation();
   const [telegramWebApp, setTelegramWebApp] = useState<any>(null);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [showTestMode, setShowTestMode] = useState(false);
-  const [testName, setTestName] = useState('');
   const [isTelegramEnv, setIsTelegramEnv] = useState(false); // Telegram App environment detection
   
   // Fetch Telegram bot username for widget
@@ -122,14 +120,6 @@ export default function SplashScreen() {
     }
   };
 
-  const handleTestAuth = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (testName.trim()) {
-      setAuthError(null);
-      loginMutation.mutate({ name: testName.trim() });
-    }
-  };
-
   const handleTelegramWidgetAuth = (user: any) => {
     try {
       setAuthError(null);
@@ -137,11 +127,6 @@ export default function SplashScreen() {
     } catch (error) {
       setAuthError('Ошибка аутентификации через Telegram');
     }
-  };
-  
-  const handleManualStart = () => {
-    // For development or when not in Telegram - redirect to test mode instead
-    setShowTestMode(true);
   };
   
   // If authenticating, show loading
@@ -227,74 +212,19 @@ export default function SplashScreen() {
         )}
         
         <div className="w-full max-w-sm space-y-4">
-          {telegramWebApp && !showTestMode ? (
-            <div className="space-y-4">
-              <p className="text-sm text-gray-300 mb-4">
-                Добро пожаловать в Telegram Mini App!
-              </p>
-              {!telegramWebApp.initData && (
-                <button 
-                  onClick={handleManualStart}
-                  className="action-button w-full"
-                  data-testid="button-start-telegram"
-                >
-                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                  Продолжить
-                </button>
-              )}
-            </div>
-          ) : showTestMode ? (
-            <div className="space-y-4">
-              <p className="text-sm text-gray-300 mb-4">
-                Тестовый вход для разработки
-              </p>
-              <form onSubmit={handleTestAuth} className="space-y-4">
-                <input
-                  type="text"
-                  value={testName}
-                  onChange={(e) => setTestName(e.target.value)}
-                  placeholder="Введите ваше имя"
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                  data-testid="input-test-name"
-                  required
-                />
-                <button 
-                  type="submit"
-                  className="action-button w-full"
-                  data-testid="button-test-login"
-                  disabled={!testName.trim()}
-                >
-                  <User className="w-5 h-5 mr-2" />
-                  Войти в тестовом режиме
-                </button>
-              </form>
-              <button 
-                onClick={() => {setShowTestMode(false); setTestName(''); setAuthError(null);}}
-                className="w-full px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg transition-colors text-sm"
-                data-testid="button-back-to-main"
-              >
-                Назад
-              </button>
+          {/* Browser mode: Show Telegram Login Widget */}
+          {telegramConfig?.botUsername ? (
+            <div className="flex justify-center" data-testid="telegram-widget-container">
+              <TelegramLoginButton
+                botUsername={telegramConfig.botUsername}
+                onAuth={handleTelegramWidgetAuth}
+                buttonSize="large"
+                lang="ru"
+              />
             </div>
           ) : (
-            <div className="space-y-4">
-              {/* Browser mode: Show Telegram Login Widget */}
-              {telegramConfig?.botUsername ? (
-                <div className="flex justify-center" data-testid="telegram-widget-container">
-                  <TelegramLoginButton
-                    botUsername={telegramConfig.botUsername}
-                    onAuth={handleTelegramWidgetAuth}
-                    buttonSize="large"
-                    lang="ru"
-                  />
-                </div>
-              ) : (
-                <div className="text-sm text-gray-300">
-                  Загрузка...
-                </div>
-              )}
+            <div className="text-sm text-gray-300">
+              Загрузка...
             </div>
           )}
         </div>
