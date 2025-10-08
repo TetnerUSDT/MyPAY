@@ -83,26 +83,36 @@ export default function SplashScreen() {
       return response.json();
     },
     onSuccess: (data) => {
-      console.log('[Splash] Auth success:', { user: data.user, hasApiKey: !!data.apiKey, isTelegramEnv });
+      console.log('[Splash] Auth response received:', data);
+      console.log('[Splash] API key exists:', !!data.apiKey);
+      console.log('[Splash] API key value:', data.apiKey ? 'Present' : 'Missing');
+      console.log('[Splash] isTelegramEnv:', isTelegramEnv);
       
       // Store API key for future requests
       if (data.apiKey) {
-        localStorage.setItem('userApiKey', data.apiKey);
-        console.log('[Splash] API key saved to localStorage');
+        try {
+          localStorage.setItem('userApiKey', data.apiKey);
+          const saved = localStorage.getItem('userApiKey');
+          console.log('[Splash] API key saved to localStorage, verification:', saved ? 'Success' : 'Failed');
+        } catch (e) {
+          console.error('[Splash] Failed to save API key to localStorage:', e);
+        }
       } else {
-        console.error('[Splash] No API key in response!');
+        console.error('[Splash] No API key in server response!', data);
       }
       
       // In Telegram Mini App - don't auto redirect, show button instead
       // In browser - auto redirect as before
       if (!isTelegramEnv) {
+        console.log('[Splash] Browser mode, redirecting...');
         if (data.user.agreement === 0) {
           setLocation('/agreement');
         } else {
           setLocation('/home');
         }
+      } else {
+        console.log('[Splash] Telegram Mini App mode, showing button');
       }
-      // If in Telegram Mini App, the UI will show appropriate button
     },
     onError: (error) => {
       setAuthError('Ошибка аутентификации. Попробуйте позже.');
