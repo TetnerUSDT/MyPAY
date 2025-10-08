@@ -19,9 +19,38 @@ export default function SplashScreen() {
     queryKey: ["/api/config/telegram-bot"],
   });
   
-  // Check existing authentication on mount
+  // Initialize and authenticate - combined logic to avoid race conditions
   useEffect(() => {
-    const checkExistingAuth = async () => {
+    const initializeApp = async () => {
+      // Check if running in Telegram WebApp
+      if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
+        const tg = (window as any).Telegram.WebApp;
+        setTelegramWebApp(tg);
+        
+        // Check if we have initData (means running inside Telegram App)
+        if (tg.initData) {
+          setIsTelegramEnv(true);
+          
+          // Expand WebApp to full height
+          tg.expand();
+          
+          // Set theme
+          tg.setHeaderColor('#1a1a1a');
+          tg.setBackgroundColor('#1a1a1a');
+          
+          // Always auto-authenticate in Telegram App to get fresh session
+          handleTelegramAuth(tg.initData);
+          return; // Stop here, wait for auth to complete
+        } else {
+          // Running in browser (no initData available)
+          setIsTelegramEnv(false);
+        }
+      } else {
+        // Not in Telegram environment at all (regular browser)
+        setIsTelegramEnv(false);
+      }
+      
+      // Only check existing auth if NOT in Telegram Mini App
       const existingApiKey = localStorage.getItem('userApiKey');
       if (existingApiKey) {
         try {
@@ -42,39 +71,8 @@ export default function SplashScreen() {
       }
     };
 
-    checkExistingAuth();
+    initializeApp();
   }, [setLocation]);
-
-  // Initialize Telegram WebApp and detect environment
-  useEffect(() => {
-    // Check if running in Telegram WebApp
-    if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
-      const tg = (window as any).Telegram.WebApp;
-      setTelegramWebApp(tg);
-      
-      // Check if we have initData (means running inside Telegram App)
-      if (tg.initData) {
-        setIsTelegramEnv(true);
-        
-        // Expand WebApp to full height
-        tg.expand();
-        
-        // Set theme
-        tg.setHeaderColor('#1a1a1a');
-        tg.setBackgroundColor('#1a1a1a');
-        
-        // Auto-authenticate in Telegram App (always, even if API key exists)
-        // This ensures proper session in Mini App
-        handleTelegramAuth(tg.initData);
-      } else {
-        // Running in browser (no initData available)
-        setIsTelegramEnv(false);
-      }
-    } else {
-      // Not in Telegram environment at all (regular browser)
-      setIsTelegramEnv(false);
-    }
-  }, []);
   
   // Unified authentication mutation that works with both modes
   const loginMutation = useMutation({
