@@ -5,7 +5,7 @@ import { z } from "zod";
 
 // Define enums
 export const balanceTypeEnum = mysqlEnum('balance_type', ['fiat', 'crypto', 'token', 'voucher']);
-export const exchangeStatusEnum = mysqlEnum('exchange_status', ['wait', 'wait-paid', 'paid', 'complete', 'canceled', 'dispute']);
+export const exchangeStatusEnum = mysqlEnum('status', ['wait', 'wait-paid', 'paid', 'complete', 'canceled', 'dispute']);
 export const supportTicketStatusEnum = mysqlEnum('support_ticket_status', ['wait-user', 'wait-support', 'closed']);
 export const messageSenderEnum = mysqlEnum('message_sender', ['user', 'support']);
 
