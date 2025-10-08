@@ -31,3 +31,19 @@ export async function updateAndReturn<T extends any>(
     return row as T;
   }
 }
+
+export async function insertAndReturnTx<T extends any>(
+  query: any,
+  tx: any,
+  tableName: string
+): Promise<T> {
+  if (isMySQL()) {
+    const result = await query;
+    const insertId = result[0].insertId;
+    const [rows] = await tx.execute(`SELECT * FROM ${tableName} WHERE id = ?`, [insertId]);
+    return rows[0] as T;
+  } else {
+    const [row] = await query.returning();
+    return row as T;
+  }
+}

@@ -2,7 +2,7 @@ import { type User, type InsertUser, type Wallet, type InsertWallet, type Transa
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, and, sql, inArray } from "drizzle-orm";
-import { insertAndReturn, updateAndReturn } from "./mysql-helpers";
+import { insertAndReturn, updateAndReturn, insertAndReturnTx } from "./mysql-helpers";
 
 export interface IStorage {
   // User methods
@@ -507,13 +507,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTransaction(insertTransaction: InsertTransaction): Promise<Transaction> {
-    const [transaction] = await db
-      .insert(transactions)
-      .values({
+    const transaction = await insertAndReturn<Transaction>(
+      db.insert(transactions).values({
         ...insertTransaction,
         orderId: `order_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`,
-      })
-      .returning();
+      }),
+      'transactions'
+    );
     return transaction;
   }
 
@@ -521,11 +521,12 @@ export class DatabaseStorage implements IStorage {
     const updateData: any = { status };
     if (txHash) updateData.txHash = txHash;
 
-    const [transaction] = await db
-      .update(transactions)
-      .set(updateData)
-      .where(eq(transactions.id, id))
-      .returning();
+    const transaction = await updateAndReturn<Transaction>(
+      db.update(transactions).set(updateData).where(eq(transactions.id, id)),
+      'transactions',
+      'id = ?',
+      [id]
+    );
     return transaction || undefined;
   }
 
@@ -542,20 +543,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createOrUpdateExchangeRate(insertRate: InsertExchangeRate): Promise<ExchangeRate> {
-    const [rate] = await db
-      .insert(exchangeRates)
-      .values({
-        ...insertRate,
-        updatedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: [exchangeRates.fromCurrency, exchangeRates.toCurrency],
-        set: {
-          rate: insertRate.rate,
+    const rate = await insertAndReturn<ExchangeRate>(
+      db.insert(exchangeRates)
+        .values({
+          ...insertRate,
           updatedAt: new Date(),
-        },
-      })
-      .returning();
+        })
+        .onConflictDoUpdate({
+          target: [exchangeRates.fromCurrency, exchangeRates.toCurrency],
+          set: {
+            rate: insertRate.rate,
+            updatedAt: new Date(),
+          },
+        }),
+      'exchange_rates'
+    );
     return rate;
   }
 
@@ -570,10 +572,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSupportChat(insertChat: InsertSupportChat): Promise<SupportChat> {
-    const [chat] = await db
-      .insert(supportChats)
-      .values(insertChat)
-      .returning();
+    const chat = await insertAndReturn<SupportChat>(
+      db.insert(supportChats).values(insertChat),
+      'support_chats'
+    );
     return chat;
   }
 
@@ -584,11 +586,12 @@ export class DatabaseStorage implements IStorage {
     const messages: { sender: string; message: string; timestamp: Date }[] = Array.isArray(chat.messages) ? [...chat.messages] : [];
     messages.push({ sender, message, timestamp: new Date() });
 
-    const [updatedChat] = await db
-      .update(supportChats)
-      .set({ messages })
-      .where(eq(supportChats.id, chatId))
-      .returning();
+    const updatedChat = await updateAndReturn<SupportChat>(
+      db.update(supportChats).set({ messages }).where(eq(supportChats.id, chatId)),
+      'support_chats',
+      'id = ?',
+      [chatId]
+    );
     return updatedChat || undefined;
   }
 
@@ -618,10 +621,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createBank(insertBank: InsertBank): Promise<Bank> {
-    const [bank] = await db
-      .insert(banks)
-      .values(insertBank)
-      .returning();
+    const bank = await insertAndReturn<Bank>(
+      db.insert(banks).values(insertBank),
+      'banks'
+    );
     return bank;
   }
 
@@ -680,7 +683,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUserCard(card: any): Promise<any> {
-    const [newCard] = await db.insert(userCards).values(card).returning();
+    const newCard = await insertAndReturn<any>(
+      db.insert(userCards).values(card),
+      'user_cards'
+    );
     return newCard;
   }
 
@@ -745,35 +751,36 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Create new user balance if not exists
-    const [newBalance] = await db
-      .insert(usersBalances)
-      .values({
+    const newBalance = await insertAndReturn<any>(
+      db.insert(usersBalances).values({
         idUser: userId,
         idBalance: balanceId,
         sum: "0.0",
         status: "active"
-      })
-      .returning();
+      }),
+      'users_balances'
+    );
 
     return newBalance;
   }
 
   async updateUserDefaultBalance(userId: number, balanceId: number): Promise<User | undefined> {
-    const [updatedUser] = await db
-      .update(users)
-      .set({ defaultFiatBalanceId: balanceId })
-      .where(eq(users.id, userId))
-      .returning();
+    const updatedUser = await updateAndReturn<User>(
+      db.update(users).set({ defaultFiatBalanceId: balanceId }).where(eq(users.id, userId)),
+      'users',
+      'id = ?',
+      [userId]
+    );
 
     return updatedUser;
   }
 
   // Exchange methods
   async createExchange(exchange: any): Promise<any> {
-    const [newExchange] = await db
-      .insert(exchanges)
-      .values(exchange)
-      .returning();
+    const newExchange = await insertAndReturn<any>(
+      db.insert(exchanges).values(exchange),
+      'exchanges'
+    );
     return newExchange;
   }
 
@@ -843,11 +850,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateExchangeStatus(id: number, status: string): Promise<any | undefined> {
-    const [updatedExchange] = await db
-      .update(exchanges)
-      .set({ status: status as 'wait' | 'wait-paid' | 'paid' | 'complete' | 'canceled' | 'dispute' })
-      .where(eq(exchanges.id, id))
-      .returning();
+    const updatedExchange = await updateAndReturn<any>(
+      db.update(exchanges)
+        .set({ status: status as 'wait' | 'wait-paid' | 'paid' | 'complete' | 'canceled' | 'dispute' })
+        .where(eq(exchanges.id, id)),
+      'exchanges',
+      'id = ?',
+      [id]
+    );
     return updatedExchange || undefined;
   }
 
@@ -917,10 +927,11 @@ export class DatabaseStorage implements IStorage {
   // Support ticket methods
   async createSupportTicket(ticket: InsertSupportTicket, initialMessage: string): Promise<SupportTicket> {
     return await db.transaction(async (tx) => {
-      const [newTicket] = await tx
-        .insert(supportTickets)
-        .values(ticket)
-        .returning();
+      const newTicket = await insertAndReturnTx<SupportTicket>(
+        tx.insert(supportTickets).values(ticket),
+        tx,
+        'support_tickets'
+      );
       
       await tx.insert(supportMessages).values({
         ticketId: newTicket.id,
@@ -967,10 +978,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async addTicketMessage(message: InsertSupportMessage): Promise<SupportMessage> {
-    const [newMessage] = await db
-      .insert(supportMessages)
-      .values(message)
-      .returning();
+    const newMessage = await insertAndReturn<SupportMessage>(
+      db.insert(supportMessages).values(message),
+      'support_messages'
+    );
     
     await db
       .update(supportTickets)
@@ -981,11 +992,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateTicketStatus(ticketId: number, status: 'wait-user' | 'wait-support' | 'closed'): Promise<SupportTicket | undefined> {
-    const [updatedTicket] = await db
-      .update(supportTickets)
-      .set({ status, updatedAt: new Date() })
-      .where(eq(supportTickets.id, ticketId))
-      .returning();
+    const updatedTicket = await updateAndReturn<SupportTicket>(
+      db.update(supportTickets).set({ status, updatedAt: new Date() }).where(eq(supportTickets.id, ticketId)),
+      'support_tickets',
+      'id = ?',
+      [ticketId]
+    );
     return updatedTicket || undefined;
   }
 }
