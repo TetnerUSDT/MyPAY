@@ -103,7 +103,7 @@ export default function TopUpScreen() {
   };
 
   return (
-    <div className="mobile-screen text-white">
+    <div className="mobile-screen text-white overflow-y-auto">
       <div className="mobile-content">
         <h1 className="text-2xl font-bold text-center mb-8" data-testid="text-title">
           Пополнить USDT
