@@ -122,7 +122,7 @@ export default function HomeScreen() {
   ];
 
   return (
-    <div className="mobile-screen gradient-bg text-white overflow-y-auto">
+    <div className="mobile-screen gradient-bg text-white overflow-y-auto pb-20">
       <div className="flex flex-col min-h-full">
         {/* Header with Profile */}
         <div className="flex items-center justify-center p-6">

@@ -234,7 +234,7 @@ export default function ExchangeScreen() {
   };
 
   return (
-    <div className="mobile-screen gradient-bg text-white overflow-y-auto">
+    <div className="mobile-screen gradient-bg text-white overflow-y-auto pb-20">
       <div className="flex flex-col min-h-full">
         {/* Header */}
         <div className="flex items-center justify-between p-6">
