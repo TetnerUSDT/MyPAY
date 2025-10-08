@@ -27,8 +27,17 @@ export default function SplashScreen() {
         const tg = (window as any).Telegram.WebApp;
         setTelegramWebApp(tg);
         
+        console.log('🔍 Telegram WebApp detected:', {
+          hasWebApp: !!tg,
+          hasInitData: !!tg.initData,
+          initDataLength: tg.initData?.length || 0,
+          platform: tg.platform,
+          version: tg.version
+        });
+        
         // Check if we have initData (means running inside Telegram App)
-        if (tg.initData) {
+        if (tg.initData && tg.initData.length > 0) {
+          console.log('✅ Running in Telegram Mini App with initData');
           setIsTelegramEnv(true);
           
           // Expand WebApp to full height
@@ -43,10 +52,12 @@ export default function SplashScreen() {
           return; // Stop here, wait for auth to complete
         } else {
           // Running in browser (no initData available)
+          console.log('⚠️ Telegram WebApp detected but NO initData - running in browser mode');
           setIsTelegramEnv(false);
         }
       } else {
         // Not in Telegram environment at all (regular browser)
+        console.log('ℹ️ Regular browser mode (no Telegram WebApp)');
         setIsTelegramEnv(false);
       }
       
