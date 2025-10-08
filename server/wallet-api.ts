@@ -1,7 +1,7 @@
 // External wallet API service for creating crypto wallets
 
-const WALLET_API_URL = 'https://demo.u-api.pro/api/wallet/create';
-const WALLET_API_TOKEN = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiIzbm9kZXNfYXBpIiwic3ViIjoiNzUzNmQ5N2UzMWI2Y2EwZmZhZWUwNjk2OTQ2NjRiYjdmZTNlMTQ1ZTFkOGFlZDAwNzljNjQwYjBiZjBhNGE3YiIsImlhdCI6MTc1OTYwMzUwNX0.hP-1Mj72usja9-8e6f25paIbZtjfU6IaklHCm-uidYE';
+const WALLET_API_URL = process.env.WALLET_API_URL || 'https://demo.u-api.pro/api/wallet/create';
+const WALLET_API_TOKEN = process.env.WALLET_API_KEY || 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiIzbm9kZXNfYXBpIiwic3ViIjoiNzUzNmQ5N2UzMWI2Y2EwZmZhZWUwNjk2OTQ2NjRiYjdmZTNlMTQ1ZTFkOGFlZDAwNzljNjQwYjBiZjBhNGE3YiIsImlhdCI6MTc1OTYwMzUwNX0.hP-1Mj72usja9-8e6f25paIbZtjfU6IaklHCm-uidYE';
 
 // Map network names to API node names
 const NETWORK_TO_NODE: Record<string, string> = {
