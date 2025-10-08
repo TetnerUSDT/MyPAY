@@ -6,9 +6,7 @@ import { balances, exchanges, cards, banks, exchangeRates, supportTickets, suppo
 import { eq, desc, sql } from "drizzle-orm";
 import { insertBalanceSchema, insertCardSchema, insertBankSchema, insertExchangeRateSchema, insertSupportMessageSchema, insertAdminSchema, insertUsersBalancesSchema } from "@shared/schema";
 
-// Helper functions for MySQL/PostgreSQL compatibility
-const isMySQL = process.env.DB_TYPE === 'mysql';
-
+// Helper functions for MySQL compatibility
 function generateUUID(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
@@ -21,30 +19,21 @@ function generateUUID(): string {
   });
 }
 
+// MySQL-only helper functions (we only use MySQL now)
 async function insertAndReturn<T extends any, R>(table: T, values: any): Promise<R> {
-  if (isMySQL) {
-    const result = await db.insert(table).values(values) as any;
-    const insertId = result[0]?.insertId || result?.insertId;
-    if (insertId) {
-      const [inserted] = await db.select().from(table).where(eq((table as any).id, insertId)).limit(1);
-      return inserted as R;
-    }
-    throw new Error('Failed to get inserted record');
-  } else {
-    const [inserted] = await (db.insert(table).values(values) as any).returning();
+  const result = await db.insert(table).values(values) as any;
+  const insertId = result[0]?.insertId || result?.insertId;
+  if (insertId) {
+    const [inserted] = await db.select().from(table).where(eq((table as any).id, insertId)).limit(1);
     return inserted as R;
   }
+  throw new Error('Failed to get inserted record');
 }
 
 async function updateAndReturn<T extends any, R>(table: T, updateData: any, condition: any): Promise<R> {
-  if (isMySQL) {
-    await db.update(table).set(updateData).where(condition);
-    const [updated] = await db.select().from(table).where(condition).limit(1);
-    return updated as R;
-  } else {
-    const [updated] = await (db.update(table).set(updateData).where(condition) as any).returning();
-    return updated as R;
-  }
+  await db.update(table).set(updateData).where(condition);
+  const [updated] = await db.select().from(table).where(condition).limit(1);
+  return updated as R;
 }
 
 export function registerAdminRoutes(app: Express, storage: IStorage) {
@@ -409,7 +398,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
         ...validatedData,
         fromCurrency: fromBalance.currency,
         toCurrency: toBalance.currency,
-        id: isMySQL ? generateUUID() : sql`gen_random_uuid()`,
+        id: generateUUID(),
         updatedAt: new Date(),
       };
       const newRate = await insertAndReturn(exchangeRates, rateData);

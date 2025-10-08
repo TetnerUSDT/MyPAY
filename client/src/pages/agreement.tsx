@@ -67,11 +67,16 @@ export default function AgreementScreen() {
   });
   
   const handleConfirmAgreement = () => {
+    console.log('[Agreement] Confirm clicked, hasApiKey:', hasApiKey);
+    
     // If no API key, redirect to splash for authentication first
     if (!hasApiKey) {
+      console.error('[Agreement] No API key found! Redirecting to splash');
       setLocation("/");
       return;
     }
+    
+    console.log('[Agreement] Sending PATCH /api/auth/agreement');
     updateAgreementMutation.mutate();
   };
   

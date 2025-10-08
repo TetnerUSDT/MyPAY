@@ -83,9 +83,14 @@ export default function SplashScreen() {
       return response.json();
     },
     onSuccess: (data) => {
+      console.log('[Splash] Auth success:', { user: data.user, hasApiKey: !!data.apiKey, isTelegramEnv });
+      
       // Store API key for future requests
       if (data.apiKey) {
         localStorage.setItem('userApiKey', data.apiKey);
+        console.log('[Splash] API key saved to localStorage');
+      } else {
+        console.error('[Splash] No API key in response!');
       }
       
       // In Telegram Mini App - don't auto redirect, show button instead
