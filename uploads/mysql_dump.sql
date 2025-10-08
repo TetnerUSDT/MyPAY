@@ -8,8 +8,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 -- ----------------------------
 -- Table structure for balances
 -- ----------------------------
-DROP TABLE IF EXISTS `balances`;
-CREATE TABLE `balances` (
+CREATE TABLE IF NOT EXISTS `balances` (
   `id` int NOT NULL AUTO_INCREMENT,
   `title` varchar(255) NOT NULL,
   `network` varchar(50) DEFAULT NULL,
@@ -31,8 +30,7 @@ INSERT INTO `balances` VALUES (4, 'USDT BEP20', 'BEP20', 'USDT', NULL, 'crypto',
 -- ----------------------------
 -- Table structure for users
 -- ----------------------------
-DROP TABLE IF EXISTS `users`;
-CREATE TABLE `users` (
+CREATE TABLE IF NOT EXISTS `users` (
   `id` int NOT NULL AUTO_INCREMENT,
   `tg_id` varchar(255) NOT NULL,
   `google` varchar(255) DEFAULT NULL,
@@ -58,8 +56,7 @@ CREATE TABLE `users` (
 -- ----------------------------
 -- Table structure for users_balances
 -- ----------------------------
-DROP TABLE IF EXISTS `users_balances`;
-CREATE TABLE `users_balances` (
+CREATE TABLE IF NOT EXISTS `users_balances` (
   `id` int NOT NULL AUTO_INCREMENT,
   `id_balance` int NOT NULL,
   `id_user` int NOT NULL,
@@ -75,8 +72,7 @@ CREATE TABLE `users_balances` (
 -- ----------------------------
 -- Table structure for wallets
 -- ----------------------------
-DROP TABLE IF EXISTS `wallets`;
-CREATE TABLE `wallets` (
+CREATE TABLE IF NOT EXISTS `wallets` (
   `id` int NOT NULL AUTO_INCREMENT,
   `id_user` int DEFAULT NULL,
   `network` varchar(50) NOT NULL,
@@ -93,8 +89,7 @@ CREATE TABLE `wallets` (
 -- ----------------------------
 -- Table structure for cards
 -- ----------------------------
-DROP TABLE IF EXISTS `cards`;
-CREATE TABLE `cards` (
+CREATE TABLE IF NOT EXISTS `cards` (
   `id` int NOT NULL AUTO_INCREMENT,
   `title` varchar(255) NOT NULL,
   `country` varchar(50) NOT NULL,
@@ -109,8 +104,7 @@ CREATE TABLE `cards` (
 -- ----------------------------
 -- Table structure for banks
 -- ----------------------------
-DROP TABLE IF EXISTS `banks`;
-CREATE TABLE `banks` (
+CREATE TABLE IF NOT EXISTS `banks` (
   `id` int NOT NULL AUTO_INCREMENT,
   `card_id` int NOT NULL,
   `bank_name` varchar(255) NOT NULL,
@@ -125,8 +119,7 @@ CREATE TABLE `banks` (
 -- ----------------------------
 -- Table structure for user_cards
 -- ----------------------------
-DROP TABLE IF EXISTS `user_cards`;
-CREATE TABLE `user_cards` (
+CREATE TABLE IF NOT EXISTS `user_cards` (
   `id` int NOT NULL AUTO_INCREMENT,
   `id_card` int NOT NULL,
   `id_user` int NOT NULL,
@@ -150,8 +143,7 @@ CREATE TABLE `user_cards` (
 -- ----------------------------
 -- Table structure for exchanges
 -- ----------------------------
-DROP TABLE IF EXISTS `exchanges`;
-CREATE TABLE `exchanges` (
+CREATE TABLE IF NOT EXISTS `exchanges` (
   `id` int NOT NULL AUTO_INCREMENT,
   `number_order` varchar(50) NOT NULL,
   `id_user` int NOT NULL,
@@ -187,8 +179,7 @@ CREATE TABLE `exchanges` (
 -- ----------------------------
 -- Table structure for stats
 -- ----------------------------
-DROP TABLE IF EXISTS `stats`;
-CREATE TABLE `stats` (
+CREATE TABLE IF NOT EXISTS `stats` (
   `id` int NOT NULL AUTO_INCREMENT,
   `stat_type` varchar(100) NOT NULL,
   `id_exchange` int NOT NULL,
@@ -205,8 +196,7 @@ CREATE TABLE `stats` (
 -- ----------------------------
 -- Table structure for transactions
 -- ----------------------------
-DROP TABLE IF EXISTS `transactions`;
-CREATE TABLE `transactions` (
+CREATE TABLE IF NOT EXISTS `transactions` (
   `id` varchar(36) NOT NULL,
   `order_id` text NOT NULL,
   `user_id` int DEFAULT NULL,
@@ -229,8 +219,7 @@ CREATE TABLE `transactions` (
 -- ----------------------------
 -- Table structure for exchange_rates
 -- ----------------------------
-DROP TABLE IF EXISTS `exchange_rates`;
-CREATE TABLE `exchange_rates` (
+CREATE TABLE IF NOT EXISTS `exchange_rates` (
   `id` varchar(36) NOT NULL,
   `from_balance_id` int NOT NULL,
   `to_balance_id` int NOT NULL,
@@ -254,8 +243,7 @@ INSERT INTO `exchange_rates` VALUES ('e82b895e-bd18-4182-ad4f-8af5fb16e6c5', 3, 
 -- ----------------------------
 -- Table structure for support_chats
 -- ----------------------------
-DROP TABLE IF EXISTS `support_chats`;
-CREATE TABLE `support_chats` (
+CREATE TABLE IF NOT EXISTS `support_chats` (
   `id` varchar(36) NOT NULL,
   `user_id` int DEFAULT NULL,
   `transaction_id` varchar(36) DEFAULT NULL,
@@ -272,8 +260,7 @@ CREATE TABLE `support_chats` (
 -- ----------------------------
 -- Table structure for support_tickets
 -- ----------------------------
-DROP TABLE IF EXISTS `support_tickets`;
-CREATE TABLE `support_tickets` (
+CREATE TABLE IF NOT EXISTS `support_tickets` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
   `exchange_id` int NOT NULL,
@@ -290,8 +277,7 @@ CREATE TABLE `support_tickets` (
 -- ----------------------------
 -- Table structure for support_messages
 -- ----------------------------
-DROP TABLE IF EXISTS `support_messages`;
-CREATE TABLE `support_messages` (
+CREATE TABLE IF NOT EXISTS `support_messages` (
   `id` int NOT NULL AUTO_INCREMENT,
   `ticket_id` int NOT NULL,
   `sender` enum('user','support') NOT NULL,
@@ -305,8 +291,7 @@ CREATE TABLE `support_messages` (
 -- ----------------------------
 -- Table structure for admins
 -- ----------------------------
-DROP TABLE IF EXISTS `admins`;
-CREATE TABLE `admins` (
+CREATE TABLE IF NOT EXISTS `admins` (
   `id` int NOT NULL AUTO_INCREMENT,
   `username` varchar(100) NOT NULL,
   `password_hash` varchar(255) NOT NULL,
