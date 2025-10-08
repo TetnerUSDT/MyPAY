@@ -6,6 +6,47 @@ import { balances, exchanges, cards, banks, exchangeRates, supportTickets, suppo
 import { eq, desc, sql } from "drizzle-orm";
 import { insertBalanceSchema, insertCardSchema, insertBankSchema, insertExchangeRateSchema, insertSupportMessageSchema, insertAdminSchema, insertUsersBalancesSchema } from "@shared/schema";
 
+// Helper functions for MySQL/PostgreSQL compatibility
+const isMySQL = process.env.DB_TYPE === 'mysql';
+
+function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback UUID v4 generator
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+async function insertAndReturn<T extends any, R>(table: T, values: any): Promise<R> {
+  if (isMySQL) {
+    const result = await db.insert(table).values(values) as any;
+    const insertId = result[0]?.insertId || result?.insertId;
+    if (insertId) {
+      const [inserted] = await db.select().from(table).where(eq((table as any).id, insertId)).limit(1);
+      return inserted as R;
+    }
+    throw new Error('Failed to get inserted record');
+  } else {
+    const [inserted] = await (db.insert(table).values(values) as any).returning();
+    return inserted as R;
+  }
+}
+
+async function updateAndReturn<T extends any, R>(table: T, updateData: any, condition: any): Promise<R> {
+  if (isMySQL) {
+    await db.update(table).set(updateData).where(condition);
+    const [updated] = await db.select().from(table).where(condition).limit(1);
+    return updated as R;
+  } else {
+    const [updated] = await (db.update(table).set(updateData).where(condition) as any).returning();
+    return updated as R;
+  }
+}
+
 export function registerAdminRoutes(app: Express, storage: IStorage) {
   const adminPath = process.env.ADMIN_URL || 'admin';
 
@@ -34,7 +75,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
       console.log('Received balance data:', req.body);
       const validatedData = insertBalanceSchema.parse(req.body);
       console.log('Validated balance data:', validatedData);
-      const [newBalance] = await db.insert(balances).values(validatedData).returning();
+      const newBalance = await insertAndReturn(balances, validatedData);
       res.json(newBalance);
     } catch (error) {
       console.error('Create balance error:', error);
@@ -50,7 +91,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
     try {
       const { id } = req.params;
       const validatedData = insertBalanceSchema.parse(req.body);
-      const [updated] = await db.update(balances).set(validatedData).where(eq(balances.id, parseInt(id))).returning();
+      const updated = await updateAndReturn(balances, validatedData, eq(balances.id, parseInt(id)));
       res.json(updated);
     } catch (error) {
       console.error('Update balance error:', error);
@@ -101,7 +142,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
   app.post(`/${adminPath}/api/user-balances`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
       const validatedData = insertUsersBalancesSchema.parse(req.body);
-      const [newUserBalance] = await db.insert(usersBalances).values(validatedData).returning();
+      const newUserBalance = await insertAndReturn(usersBalances, validatedData);
       res.json(newUserBalance);
     } catch (error) {
       console.error('Create user balance error:', error);
@@ -117,7 +158,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
     try {
       const { id } = req.params;
       const validatedData = insertUsersBalancesSchema.parse(req.body);
-      const [updated] = await db.update(usersBalances).set(validatedData).where(eq(usersBalances.id, parseInt(id))).returning();
+      const updated = await updateAndReturn(usersBalances, validatedData, eq(usersBalances.id, parseInt(id)));
       res.json(updated);
     } catch (error) {
       console.error('Update user balance error:', error);
@@ -233,7 +274,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
       if (cancelReason) updateData.cancelReason = cancelReason;
       if (paymentHash) updateData.paymentHash = paymentHash;
       
-      const [updated] = await db.update(exchanges).set(updateData).where(eq(exchanges.id, parseInt(id))).returning();
+      const updated = await updateAndReturn(exchanges, updateData, eq(exchanges.id, parseInt(id)));
       res.json(updated);
     } catch (error) {
       console.error('Update exchange status error:', error);
@@ -244,7 +285,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
   app.put(`/${adminPath}/api/exchanges/:id`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
       const { id } = req.params;
-      const [updated] = await db.update(exchanges).set(req.body).where(eq(exchanges.id, parseInt(id))).returning();
+      const updated = await updateAndReturn(exchanges, req.body, eq(exchanges.id, parseInt(id)));
       res.json(updated);
     } catch (error) {
       console.error('Update exchange error:', error);
@@ -266,7 +307,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
   app.post(`/${adminPath}/api/cards`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
       const validatedData = insertCardSchema.parse(req.body);
-      const [newCard] = await db.insert(cards).values(validatedData).returning();
+      const newCard = await insertAndReturn(cards, validatedData);
       res.json(newCard);
     } catch (error) {
       console.error('Create card error:', error);
@@ -278,7 +319,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
     try {
       const { id } = req.params;
       const validatedData = insertCardSchema.parse(req.body);
-      const [updated] = await db.update(cards).set(validatedData).where(eq(cards.id, parseInt(id))).returning();
+      const updated = await updateAndReturn(cards, validatedData, eq(cards.id, parseInt(id)));
       res.json(updated);
     } catch (error) {
       console.error('Update card error:', error);
@@ -310,7 +351,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
   app.post(`/${adminPath}/api/banks`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
       const validatedData = insertBankSchema.parse(req.body);
-      const [newBank] = await db.insert(banks).values(validatedData).returning();
+      const newBank = await insertAndReturn(banks, validatedData);
       res.json(newBank);
     } catch (error) {
       console.error('Create bank error:', error);
@@ -322,7 +363,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
     try {
       const { id } = req.params;
       const validatedData = insertBankSchema.parse(req.body);
-      const [updated] = await db.update(banks).set(validatedData).where(eq(banks.id, parseInt(id))).returning();
+      const updated = await updateAndReturn(banks, validatedData, eq(banks.id, parseInt(id)));
       res.json(updated);
     } catch (error) {
       console.error('Update bank error:', error);
@@ -364,13 +405,14 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
         return res.status(400).json({ message: "Балансы не найдены" });
       }
       
-      const [newRate] = await db.insert(exchangeRates).values({
+      const rateData = {
         ...validatedData,
         fromCurrency: fromBalance.currency,
         toCurrency: toBalance.currency,
-        id: sql`gen_random_uuid()`,
+        id: isMySQL ? generateUUID() : sql`gen_random_uuid()`,
         updatedAt: new Date(),
-      } as any).returning();
+      };
+      const newRate = await insertAndReturn(exchangeRates, rateData);
       res.json(newRate);
     } catch (error) {
       console.error('Create exchange rate error:', error);
@@ -391,12 +433,13 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
         return res.status(400).json({ message: "Балансы не найдены" });
       }
       
-      const [updated] = await db.update(exchangeRates).set({
+      const updateData = {
         ...validatedData,
         fromCurrency: fromBalance.currency,
         toCurrency: toBalance.currency,
         updatedAt: new Date(),
-      }).where(eq(exchangeRates.id, id)).returning();
+      };
+      const updated = await updateAndReturn(exchangeRates, updateData, eq(exchangeRates.id, id));
       res.json(updated);
     } catch (error) {
       console.error('Update exchange rate error:', error);
@@ -453,10 +496,11 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
 
       const updatedMessages = [...(chat.messages || []), newMessage] as any;
 
-      const [updated] = await db.update(supportChats)
-        .set({ messages: updatedMessages })
-        .where(eq(supportChats.id, chatId))
-        .returning();
+      const updated = await updateAndReturn(
+        supportChats,
+        { messages: updatedMessages },
+        eq(supportChats.id, chatId)
+      );
 
       res.json(updated);
     } catch (error) {
@@ -469,10 +513,11 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
     try {
       const { chatId } = req.params;
       
-      const [updated] = await db.update(supportChats)
-        .set({ status: 'closed' })
-        .where(eq(supportChats.id, chatId))
-        .returning();
+      const updated = await updateAndReturn(
+        supportChats,
+        { status: 'closed' },
+        eq(supportChats.id, chatId)
+      );
 
       res.json(updated);
     } catch (error) {
@@ -641,7 +686,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
   app.put(`/${adminPath}/api/users/:id`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
       const { id } = req.params;
-      const [updated] = await db.update(users).set(req.body).where(eq(users.id, parseInt(id))).returning();
+      const updated = await updateAndReturn(users, req.body, eq(users.id, parseInt(id)));
       res.json(updated);
     } catch (error) {
       console.error('Update user error:', error);
@@ -705,7 +750,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
   app.put(`/${adminPath}/api/wallets/:id`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
       const { id } = req.params;
-      const [updated] = await db.update(wallets).set(req.body).where(eq(wallets.id, parseInt(id))).returning();
+      const updated = await updateAndReturn(wallets, req.body, eq(wallets.id, parseInt(id)));
       res.json(updated);
     } catch (error) {
       console.error('Update wallet error:', error);
@@ -727,7 +772,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
   app.post(`/${adminPath}/api/admins`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
       const validatedData = insertAdminSchema.parse(req.body);
-      const [newAdmin] = await db.insert(admins).values(validatedData).returning();
+      const newAdmin = await insertAndReturn(admins, validatedData);
       res.json(newAdmin);
     } catch (error) {
       console.error('Create admin error:', error);
@@ -739,7 +784,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
     try {
       const { id } = req.params;
       const validatedData = insertAdminSchema.parse(req.body);
-      const [updated] = await db.update(admins).set(validatedData).where(eq(admins.id, parseInt(id))).returning();
+      const updated = await updateAndReturn(admins, validatedData, eq(admins.id, parseInt(id)));
       res.json(updated);
     } catch (error) {
       console.error('Update admin error:', error);
