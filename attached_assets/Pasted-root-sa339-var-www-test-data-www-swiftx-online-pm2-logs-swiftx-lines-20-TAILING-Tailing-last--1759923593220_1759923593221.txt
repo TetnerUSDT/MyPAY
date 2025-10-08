@@ -1,0 +1,61 @@
+root@sa339:/var/www/test/data/www/swiftx.online# pm2 logs swiftx --lines 20
+[TAILING] Tailing last 20 lines for [swiftx] process (change the value with --lines option)
+/root/.pm2/logs/swiftx-out-4.log last 20 lines:
+4|swiftx   | 🔧 Configuration loaded:
+4|swiftx   |    Auth Mode: telegram
+4|swiftx   |    Environment: production
+4|swiftx   |    Database Type: mysql
+4|swiftx   |    Test Auth: enabled
+4|swiftx   |    Telegram validation: enabled
+4|swiftx   | Balances initialization skipped (table may not exist yet)
+4|swiftx   | Demo chat initialization skipped (table may not exist yet)
+4|swiftx   | 6:35:02 PM [express] serving on port 10001
+4|swiftx   | 🔧 Configuration loaded:
+4|swiftx   |    Auth Mode: telegram
+4|swiftx   |    Environment: production
+4|swiftx   |    Database Type: mysql
+4|swiftx   |    Test Auth: enabled
+4|swiftx   |    Telegram validation: enabled
+4|swiftx   | Balances initialization skipped (table may not exist yet)
+4|swiftx   | Demo chat initialization skipped (table may not exist yet)
+4|swiftx   | 6:35:18 PM [express] serving on port 10001
+4|swiftx   | 6:35:32 PM [express] GET /api/config/telegram-bot 304 in 3ms :: {"botUsername":"swiftx_p2p_bot","aut…
+4|swiftx   | 6:35:37 PM [express] POST /api/auth/login 500 in 23ms :: {"message":"Internal server error"}
+
+/root/.pm2/logs/swiftx-error-4.log last 20 lines:
+4|swiftx   |     at serveStatic (/var/www/test/data/www/swiftx.online/server/vite.ts:74:11)
+4|swiftx   |     at <anonymous> (/var/www/test/data/www/swiftx.online/server/index.ts:65:5)
+4|swiftx   |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|swiftx   | 
+4|swiftx   | Node.js v20.19.2
+4|swiftx   | /var/www/test/data/www/swiftx.online/server/vite.ts:74
+4|swiftx   |     throw new Error(
+4|swiftx   |           ^
+4|swiftx   | 
+4|swiftx   | 
+4|swiftx   | Error: Could not find the build directory: /var/www/test/data/www/swiftx.online/server/public, make sure to build the client first
+4|swiftx   |     at serveStatic (/var/www/test/data/www/swiftx.online/server/vite.ts:74:11)
+4|swiftx   |     at <anonymous> (/var/www/test/data/www/swiftx.online/server/index.ts:65:5)
+4|swiftx   |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|swiftx   | 
+4|swiftx   | Node.js v20.19.2
+4|swiftx   | Auth error: TypeError: db.insert(...).values(...).returning is not a function
+4|swiftx   |     at DatabaseStorage.createUser (/var/www/test/data/www/swiftx.online/server/storage.ts:292:8)
+4|swiftx   |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|swiftx   |     at async <anonymous> (/var/www/test/data/www/swiftx.online/server/routes.ts:218:18)
+
+4|swiftx  | 🔧 Configuration loaded:
+4|swiftx  |    Auth Mode: telegram
+4|swiftx  |    Environment: production
+4|swiftx  |    Database Type: mysql
+4|swiftx  |    Test Auth: enabled
+4|swiftx  |    Telegram validation: enabled
+4|swiftx  | Balances initialization skipped (table may not exist yet)
+4|swiftx  | Demo chat initialization skipped (table may not exist yet)
+4|swiftx  | 6:38:58 PM [express] serving on port 10001
+4|swiftx  | 6:39:23 PM [express] GET /api/config/telegram-bot 304 in 7ms :: {"botUsername":"swiftx_p2p_bot","aut…
+4|swiftx  | Auth error: TypeError: db.insert(...).values(...).returning is not a function
+4|swiftx  |     at DatabaseStorage.createUser (/var/www/test/data/www/swiftx.online/server/storage.ts:292:8)
+4|swiftx  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|swiftx  |     at async <anonymous> (/var/www/test/data/www/swiftx.online/server/routes.ts:218:18)
+4|swiftx  | 6:39:28 PM [express] POST /api/auth/login 500 in 23ms :: {"message":"Internal server error"}
