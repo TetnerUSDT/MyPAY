@@ -15,7 +15,7 @@ export const balances = mysqlTable("balances", {
   network: varchar("network", { length: 50 }),
   currency: varchar("currency", { length: 10 }).notNull(),
   rate: decimal("rate", { precision: 18, scale: 8 }),
-  balanceType: varchar("balance_type", { length: 50 }).notNull().default("fiat"),
+  balanceType: varchar("type", { length: 50 }).notNull().default("fiat"),
   status: varchar("status", { length: 50 }),
 });
 
