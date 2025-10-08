@@ -9,9 +9,12 @@ export default function AgreementScreen() {
   const [, setLocation] = useLocation();
   const hasApiKey = !!localStorage.getItem("userApiKey");
   
+  console.log('[AGREEMENT] Component mounted, hasApiKey:', hasApiKey);
+  
   // If no API key, redirect to splash (Telegram will auto-auth there)
   useEffect(() => {
     if (!hasApiKey) {
+      console.log('[AGREEMENT] No API key, redirecting to /');
       setLocation("/");
     }
   }, [hasApiKey, setLocation]);
@@ -26,9 +29,11 @@ export default function AgreementScreen() {
   // Handle authentication errors
   useEffect(() => {
     if (error && hasApiKey) {
+      console.log('[AGREEMENT] Error loading user:', error);
       const errorMessage = error.message || "";
       // Only clear API key on authentication errors (401/403)
       if (errorMessage.includes("401") || errorMessage.includes("403") || errorMessage.includes("API key")) {
+        console.log('[AGREEMENT] Auth error, clearing API key and redirecting to /');
         localStorage.removeItem("userApiKey");
         setLocation("/");
       }
@@ -39,47 +44,59 @@ export default function AgreementScreen() {
   // Redirect if user already agreed (side-effect moved from render)
   useEffect(() => {
     if (user && user.agreement === 1) {
+      console.log('[AGREEMENT] User already agreed, redirecting to /home');
       setLocation("/home");
+    } else if (user) {
+      console.log('[AGREEMENT] User loaded, agreement status:', user.agreement);
     }
   }, [user, setLocation]);
   
   // Mutation to update agreement
   const updateAgreementMutation = useMutation({
     mutationFn: async () => {
+      console.log('[AGREEMENT] Sending PATCH /api/auth/agreement...');
       const response = await apiRequest("PATCH", "/api/auth/agreement");
-      return response.json();
+      const data = await response.json();
+      console.log('[AGREEMENT] PATCH response:', data);
+      return data;
     },
     onSuccess: async (updatedUser) => {
+      console.log('[AGREEMENT] Update successful, updatedUser:', updatedUser);
       // Update the cache immediately with the returned user data
       queryClient.setQueryData(["/api/auth/me"], updatedUser);
       // Ensure query is invalidated and refetched
       await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       // Redirect to home after successful agreement update
+      console.log('[AGREEMENT] Redirecting to /home');
       setLocation("/home");
     },
     onError: (error) => {
-      console.error("Failed to update agreement:", error);
+      console.error("[AGREEMENT] Failed to update agreement:", error);
       const errorMessage = error.message || "";
       
       // Check if it's an authentication error
       if (errorMessage.includes("401") || errorMessage.includes("403") || errorMessage.includes("API key")) {
         // Clear invalid API key and redirect to splash for re-authentication
+        console.log('[AGREEMENT] Auth error, clearing API key and redirecting to /');
         localStorage.removeItem("userApiKey");
         setLocation("/");
       } else {
         // For other errors, still show error but don't redirect
-        console.error("Agreement update failed:", error);
+        console.error("[AGREEMENT] Agreement update failed:", error);
       }
     },
   });
   
   const handleConfirmAgreement = () => {
+    console.log('[AGREEMENT] Confirm button clicked, hasApiKey:', hasApiKey);
     // If no API key, redirect to splash for authentication first
     if (!hasApiKey) {
+      console.log('[AGREEMENT] No API key, redirecting to /');
       setLocation("/");
       return;
     }
     
+    console.log('[AGREEMENT] Calling mutation...');
     updateAgreementMutation.mutate();
   };
   

@@ -22,6 +22,8 @@ export default function SplashScreen() {
   // Initialize and authenticate - combined logic to avoid race conditions
   useEffect(() => {
     const initializeApp = async () => {
+      console.log('[SPLASH] Initializing app...');
+      
       // Check if running in Telegram WebApp
       if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
         const tg = (window as any).Telegram.WebApp;
@@ -29,6 +31,7 @@ export default function SplashScreen() {
         
         // Check if we have initData (means running inside Telegram App)
         if (tg.initData) {
+          console.log('[SPLASH] Telegram Mini App detected');
           setIsTelegramEnv(true);
           
           // Expand WebApp to full height
@@ -39,33 +42,42 @@ export default function SplashScreen() {
           tg.setBackgroundColor('#1a1a1a');
           
           // Always auto-authenticate in Telegram App to get fresh session
+          console.log('[SPLASH] Starting Telegram auth...');
           handleTelegramAuth(tg.initData);
           return; // Stop here, wait for auth to complete
         } else {
           // Running in browser (no initData available)
+          console.log('[SPLASH] Browser mode (no initData)');
           setIsTelegramEnv(false);
         }
       } else {
         // Not in Telegram environment at all (regular browser)
+        console.log('[SPLASH] Regular browser mode');
         setIsTelegramEnv(false);
       }
       
       // Only check existing auth if NOT in Telegram Mini App
       const existingApiKey = localStorage.getItem('userApiKey');
+      console.log('[SPLASH] Checking existing API key:', existingApiKey ? 'exists' : 'none');
+      
       if (existingApiKey) {
         try {
           const response = await apiRequest('GET', '/api/auth/me');
           const userData = await response.json();
+          console.log('[SPLASH] User data loaded:', userData);
           
           if (userData.agreement === 1) {
+            console.log('[SPLASH] User agreed, redirecting to /home');
             setLocation('/home');
             return;
           } else if (userData.agreement === 0) {
+            console.log('[SPLASH] User needs agreement, redirecting to /agreement');
             setLocation('/agreement'); 
             return;
           }
         } catch (error) {
           // API key is invalid, remove it
+          console.log('[SPLASH] API key invalid, removing');
           localStorage.removeItem('userApiKey');
         }
       }
@@ -77,28 +89,37 @@ export default function SplashScreen() {
   // Unified authentication mutation that works with both modes
   const loginMutation = useMutation({
     mutationFn: async (authData: { initData?: string; widgetData?: any; name?: string }) => {
+      console.log('[SPLASH] Sending POST /api/auth/login...');
       const response = await apiRequest('POST', '/api/auth/login', authData);
-      return response.json();
+      const data = await response.json();
+      console.log('[SPLASH] Login response:', data);
+      return data;
     },
     onSuccess: (data) => {
+      console.log('[SPLASH] Login successful, isTelegramEnv:', isTelegramEnv);
+      
       // Store API key for future requests
       if (data.apiKey) {
+        console.log('[SPLASH] Saving API key to localStorage');
         localStorage.setItem('userApiKey', data.apiKey);
       }
       
       // In Telegram Mini App - don't auto redirect, show button instead
       // In browser - auto redirect as before
       if (!isTelegramEnv) {
+        console.log('[SPLASH] Browser mode, auto-redirecting based on agreement:', data.user.agreement);
         if (data.user.agreement === 0) {
           setLocation('/agreement');
         } else {
           setLocation('/home');
         }
+      } else {
+        console.log('[SPLASH] Telegram Mini App mode, showing button instead of redirecting');
       }
     },
     onError: (error) => {
+      console.error('[SPLASH] Login failed:', error);
       setAuthError('Ошибка аутентификации. Попробуйте позже.');
-      console.error('Auth failed:', error);
     },
   });
   
