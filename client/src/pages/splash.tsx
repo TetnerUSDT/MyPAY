@@ -63,10 +63,9 @@ export default function SplashScreen() {
         tg.setHeaderColor('#1a1a1a');
         tg.setBackgroundColor('#1a1a1a');
         
-        // Auto-authenticate if running in Telegram and no existing auth
-        if (!localStorage.getItem('userApiKey')) {
-          handleTelegramAuth(tg.initData);
-        }
+        // Auto-authenticate in Telegram App (always, even if API key exists)
+        // This ensures proper session in Mini App
+        handleTelegramAuth(tg.initData);
       } else {
         // Running in browser (no initData available)
         setIsTelegramEnv(false);
@@ -89,12 +88,16 @@ export default function SplashScreen() {
         localStorage.setItem('userApiKey', data.apiKey);
       }
       
-      // Check if user needs to agree to terms
-      if (data.user.agreement === 0) {
-        setLocation('/agreement');
-      } else {
-        setLocation('/home');
+      // In Telegram Mini App - don't auto redirect, show button instead
+      // In browser - auto redirect as before
+      if (!isTelegramEnv) {
+        if (data.user.agreement === 0) {
+          setLocation('/agreement');
+        } else {
+          setLocation('/home');
+        }
       }
+      // If in Telegram Mini App, the UI will show appropriate button
     },
     onError: (error) => {
       setAuthError('Ошибка аутентификации. Попробуйте позже.');
@@ -140,6 +143,48 @@ export default function SplashScreen() {
           <Loader2 className="w-12 h-12 mb-6 animate-spin" />
           <h2 className="text-xl font-semibold mb-2">Вход в систему</h2>
           <p className="text-sm text-gray-300">Проверяем ваши данные...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // If authenticated in Telegram Mini App, show button to proceed
+  if (isTelegramEnv && loginMutation.isSuccess && loginMutation.data) {
+    const needsAgreement = loginMutation.data.user.agreement === 0;
+    
+    return (
+      <div className="mobile-screen gradient-bg text-white">
+        <div className="flex flex-col items-center justify-center min-h-screen text-center px-6">
+          {/* Floating cards background effect */}
+          <div className="absolute top-20 left-8 w-32 h-20 glass-effect rounded-xl opacity-50 transform rotate-12"></div>
+          <div className="absolute top-32 right-12 w-24 h-16 glass-effect rounded-xl opacity-40 transform -rotate-6"></div>
+          <div className="absolute bottom-40 left-16 w-28 h-18 glass-effect rounded-xl opacity-30 transform rotate-6"></div>
+          
+          {/* Main card with branding */}
+          <div className="relative z-10 w-full max-w-sm mb-12">
+            <img 
+              src={swiftxCard} 
+              alt="SwiftX Card" 
+              className="w-full h-auto rounded-2xl shadow-2xl"
+              data-testid="swiftx-card"
+            />
+          </div>
+          
+          <h2 className="text-2xl font-bold mb-4">Добро пожаловать!</h2>
+          <p className="text-lg text-gray-300 mb-12">
+            {loginMutation.data.user.name || 'Пользователь'}
+          </p>
+          
+          <button 
+            onClick={() => setLocation(needsAgreement ? '/agreement' : '/home')}
+            className="action-button w-full max-w-sm"
+            data-testid="button-proceed"
+          >
+            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            {needsAgreement ? 'Перейти к соглашению' : 'Перейти в личный кабинет'}
+          </button>
         </div>
       </div>
     );
