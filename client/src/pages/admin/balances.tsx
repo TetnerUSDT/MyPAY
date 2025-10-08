@@ -23,7 +23,7 @@ type Balance = {
   network: string | null;
   currency: string;
   rate: string | null;
-  type: "fiat" | "crypto" | "token" | "voucher";
+  balanceType: "fiat" | "crypto" | "token" | "voucher";
   status: string | null;
 };
 
@@ -85,7 +85,7 @@ export default function AdminBalances() {
       title: "",
       currency: "",
       network: null,
-      type: "fiat",
+      balanceType: "fiat",
       rate: null,
       status: "active",
     },
@@ -199,7 +199,7 @@ export default function AdminBalances() {
       title: balance.title,
       currency: balance.currency,
       network: balance.network || null,
-      type: balance.type,
+      balanceType: balance.balanceType,
       rate: balance.rate || null,
       status: balance.status || "active",
     });
@@ -403,9 +403,9 @@ export default function AdminBalances() {
                       <TableCell>{balance.currency}</TableCell>
                       <TableCell>
                         <span className={`px-2 py-1 rounded text-xs ${
-                          balance.type === 'crypto' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
+                          balance.balanceType === 'crypto' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
                         }`}>
-                          {balance.type}
+                          {balance.balanceType}
                         </span>
                       </TableCell>
                       <TableCell>{balance.network || '-'}</TableCell>

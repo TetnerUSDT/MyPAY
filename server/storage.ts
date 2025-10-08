@@ -703,11 +703,11 @@ export class DatabaseStorage implements IStorage {
 
   // Fiat balance methods
   async getFiatBalances(): Promise<any[]> {
-    return await db.select().from(balances).where(eq(balances.type, "fiat"));
+    return await db.select().from(balances).where(eq(balances.balanceType, "fiat"));
   }
 
   async getCryptoBalances(): Promise<any[]> {
-    return await db.select().from(balances).where(eq(balances.type, "crypto"));
+    return await db.select().from(balances).where(eq(balances.balanceType, "crypto"));
   }
 
   async getUserCryptoBalances(userId: number): Promise<any[]> {
