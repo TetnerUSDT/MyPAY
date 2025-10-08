@@ -3,56 +3,23 @@ import { Check, Loader2 } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { User } from "@shared/schema";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 export default function AgreementScreen() {
   const [, setLocation] = useLocation();
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
-  const [authCompleted, setAuthCompleted] = useState(false);
   const hasApiKey = !!localStorage.getItem("userApiKey");
   
-  // Auto-authenticate if in Telegram Mini App without API key
+  // If no API key, redirect to splash (Telegram will auto-auth there)
   useEffect(() => {
-    const autoAuth = async () => {
-      if (hasApiKey) {
-        setAuthCompleted(true);
-        return; // Already has API key
-      }
-      
-      // Check if in Telegram Mini App
-      if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
-        const tg = (window as any).Telegram.WebApp;
-        if (tg.initData) {
-          setIsAuthenticating(true);
-          
-          try {
-            const response = await apiRequest('POST', '/api/auth/login', { initData: tg.initData });
-            const data = await response.json();
-            
-            if (data.apiKey) {
-              localStorage.setItem('userApiKey', data.apiKey);
-              setIsAuthenticating(false);
-              setAuthCompleted(true);
-            }
-          } catch (error) {
-            console.error('[Agreement] Auto-auth failed:', error);
-            setLocation("/");
-          }
-          return;
-        }
-      }
-      
-      // No initData and no API key - redirect to splash
+    if (!hasApiKey) {
       setLocation("/");
-    };
-    
-    autoAuth();
+    }
   }, [hasApiKey, setLocation]);
   
-  // Fetch current user to check agreement status (only if auth completed)
+  // Fetch current user to check agreement status (only if API key exists)
   const { data: user, isLoading: userLoading, error } = useQuery<User>({
     queryKey: ["/api/auth/me"],
-    enabled: authCompleted,
+    enabled: hasApiKey,
     retry: false,
   });
   
@@ -121,13 +88,13 @@ export default function AgreementScreen() {
     return null;
   }
   
-  // Show loading state if authenticating or fetching user data
-  if (isAuthenticating || (hasApiKey && userLoading)) {
+  // Show loading state if fetching user data
+  if (hasApiKey && userLoading) {
     return (
       <div className="mobile-screen gradient-bg text-white flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin" />
-          <p>{isAuthenticating ? 'Авторизация...' : 'Загрузка...'}</p>
+          <p>Загрузка...</p>
         </div>
       </div>
     );
