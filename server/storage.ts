@@ -306,13 +306,25 @@ export class DatabaseStorage implements IStorage {
 
   async generateApiKey(userId: number): Promise<string | undefined> {
     const apiKey = randomUUID();
+    console.log('[STORAGE] Generating API key for user', userId, ':', apiKey);
+    
     const user = await updateAndReturn<User>(
       db.update(users).set({ apiKey }).where(eq(users.id, userId)),
       'users',
       'id = ?',
       [userId]
     );
-    return user?.apiKey || undefined;
+    
+    console.log('[STORAGE] Updated user after API key generation:', user);
+    
+    if (!user) {
+      console.error('[STORAGE] Failed to retrieve user after API key update!');
+      return undefined;
+    }
+    
+    const returnedKey = user.apiKey || undefined;
+    console.log('[STORAGE] Returning API key:', returnedKey);
+    return returnedKey;
   }
 
   // Wallet methods

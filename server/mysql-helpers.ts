@@ -22,12 +22,25 @@ export async function updateAndReturn<T extends any>(
   tableName: string,
   whereClause: string,
   params: any[]
-): Promise<T> {
+): Promise<T | null> {
   if (isMySQL()) {
     await query;
-    const whereValue = params[0];
-    const rows = await db.execute(sql.raw(`SELECT * FROM ${tableName} WHERE ${whereClause.replace('?', whereValue)}`));
-    return rows[0][0] as T;
+    
+    // Convert params to safe SQL values
+    const safeParams = params.map(p => {
+      if (typeof p === 'string') return `'${p.replace(/'/g, "''")}'`;
+      if (p === null) return 'NULL';
+      return p;
+    });
+    
+    // Replace placeholders with actual values
+    let sqlQuery = `SELECT * FROM ${tableName} WHERE ${whereClause}`;
+    safeParams.forEach(param => {
+      sqlQuery = sqlQuery.replace('?', param.toString());
+    });
+    
+    const rows = await db.execute(sql.raw(sqlQuery));
+    return rows[0]?.[0] as T || null;
   } else {
     const [row] = await query.returning();
     return row as T;
