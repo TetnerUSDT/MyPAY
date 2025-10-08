@@ -41,7 +41,7 @@ CREATE TABLE `users` (
   `img` varchar(255) DEFAULT NULL,
   `status` varchar(50) DEFAULT NULL,
   `agreement` int DEFAULT 0,
-  `blocked` tinyint(1) DEFAULT 0,
+  `blocked` tinyint DEFAULT 0,
   `default_fiat_balance_id` int DEFAULT NULL,
   `id_ref` int DEFAULT NULL,
   `code_ref` varchar(20) DEFAULT NULL,
