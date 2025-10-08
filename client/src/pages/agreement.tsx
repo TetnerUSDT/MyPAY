@@ -3,11 +3,47 @@ import { Check, Loader2 } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { User } from "@shared/schema";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export default function AgreementScreen() {
   const [, setLocation] = useLocation();
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const hasApiKey = !!localStorage.getItem("userApiKey");
+  
+  // Auto-authenticate if in Telegram Mini App without API key
+  useEffect(() => {
+    const autoAuth = async () => {
+      if (hasApiKey) return; // Already has API key
+      
+      // Check if in Telegram Mini App
+      if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
+        const tg = (window as any).Telegram.WebApp;
+        if (tg.initData) {
+          setIsAuthenticating(true);
+          
+          try {
+            const response = await apiRequest('POST', '/api/auth/login', { initData: tg.initData });
+            const data = await response.json();
+            
+            if (data.apiKey) {
+              localStorage.setItem('userApiKey', data.apiKey);
+              // Reload the page to re-fetch user data
+              window.location.reload();
+            }
+          } catch (error) {
+            console.error('[Agreement] Auto-auth failed:', error);
+            setLocation("/");
+          }
+          return;
+        }
+      }
+      
+      // No initData and no API key - redirect to splash
+      setLocation("/");
+    };
+    
+    autoAuth();
+  }, [hasApiKey, setLocation]);
   
   // Fetch current user to check agreement status (only if API key exists)
   const { data: user, isLoading: userLoading, error } = useQuery<User>({
@@ -67,20 +103,12 @@ export default function AgreementScreen() {
   });
   
   const handleConfirmAgreement = () => {
-    const apiKey = localStorage.getItem("userApiKey");
-    console.log('[Agreement] Confirm clicked');
-    console.log('[Agreement] hasApiKey:', hasApiKey);
-    console.log('[Agreement] API key from localStorage:', apiKey);
-    
     // If no API key, redirect to splash for authentication first
     if (!hasApiKey) {
-      console.error('[Agreement] No API key found! Redirecting to splash');
-      alert('API ключ не найден! Перенаправление на авторизацию...');
       setLocation("/");
       return;
     }
     
-    console.log('[Agreement] Sending PATCH /api/auth/agreement with API key');
     updateAgreementMutation.mutate();
   };
   
@@ -89,13 +117,13 @@ export default function AgreementScreen() {
     return null;
   }
   
-  // Show loading state only if we're trying to fetch user data
-  if (hasApiKey && userLoading) {
+  // Show loading state if authenticating or fetching user data
+  if (isAuthenticating || (hasApiKey && userLoading)) {
     return (
       <div className="mobile-screen gradient-bg text-white flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin" />
-          <p>Загрузка...</p>
+          <p>{isAuthenticating ? 'Авторизация...' : 'Загрузка...'}</p>
         </div>
       </div>
     );
