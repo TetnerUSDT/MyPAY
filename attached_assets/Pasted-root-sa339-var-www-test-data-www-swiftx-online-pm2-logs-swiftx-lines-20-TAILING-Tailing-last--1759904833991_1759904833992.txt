@@ -1,0 +1,45 @@
+root@sa339:/var/www/test/data/www/swiftx.online# pm2 logs swiftx --lines 20
+[TAILING] Tailing last 20 lines for [swiftx] process (change the value with --lines option)
+/root/.pm2/logs/swiftx-error-0.log last 20 lines:
+0|swiftx   |     _socket: null,
+0|swiftx   |     _bufferedAmount: 0,
+0|swiftx   |     _isServer: false,
+0|swiftx   |     _redirects: 0,
+0|swiftx   |     _autoPong: true,
+0|swiftx   |     _url: 'wss://localhost/v2',
+0|swiftx   |     _req: null,
+0|swiftx   |     [Symbol(shapeMode)]: false,
+0|swiftx   |     [Symbol(kCapture)]: false
+0|swiftx   |   },
+0|swiftx   |   [Symbol(kType)]: 'error',
+0|swiftx   |   [Symbol(kError)]: Error: unable to verify the first certificate
+0|swiftx   |       at TLSSocket.onConnectSecure (node:_tls_wrap:1677:34)
+0|swiftx   |       at TLSSocket.emit (node:events:524:28)
+0|swiftx   |       at TLSSocket._finishInit (node:_tls_wrap:1076:8)
+0|swiftx   |       at ssl.onhandshakedone (node:_tls_wrap:862:12) {
+0|swiftx   |     code: 'UNABLE_TO_VERIFY_LEAF_SIGNATURE'
+0|swiftx   |   },
+0|swiftx   |   [Symbol(kMessage)]: 'unable to verify the first certificate'
+0|swiftx   | }
+
+/root/.pm2/logs/swiftx-out-0.log last 20 lines:
+0|swiftx   |    Test Auth: enabled
+0|swiftx   |    Telegram validation: enabled
+0|swiftx   | Balances initialization skipped (table may not exist yet)
+0|swiftx   | Exchange rates initialization skipped (table may not exist yet)
+0|swiftx   | Demo chat initialization skipped (table may not exist yet)
+0|swiftx   | Cards initialization skipped (table may not exist yet)
+0|swiftx   | Banks initialization skipped (table may not exist yet)
+0|swiftx   | 1:21:14 PM [express] serving on port 10001
+0|swiftx   | 🔧 Configuration loaded:
+0|swiftx   |    Auth Mode: telegram
+0|swiftx   |    Environment: production
+0|swiftx   |    Database Type: postgres
+0|swiftx   |    Test Auth: enabled
+0|swiftx   |    Telegram validation: enabled
+0|swiftx   | Balances initialization skipped (table may not exist yet)
+0|swiftx   | Exchange rates initialization skipped (table may not exist yet)
+0|swiftx   | Demo chat initialization skipped (table may not exist yet)
+0|swiftx   | Cards initialization skipped (table may not exist yet)
+0|swiftx   | Banks initialization skipped (table may not exist yet)
+0|swiftx   | 1:26:38 PM [express] serving on port 10001
