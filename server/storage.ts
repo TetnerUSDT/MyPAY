@@ -308,7 +308,7 @@ export class DatabaseStorage implements IStorage {
     const apiKey = randomUUID();
     console.log('[STORAGE] Generating API key for user', userId, ':', apiKey);
     
-    const user = await updateAndReturn<User>(
+    const user = await updateAndReturn<any>(
       db.update(users).set({ apiKey }).where(eq(users.id, userId)),
       'users',
       'id = ?',
@@ -322,7 +322,8 @@ export class DatabaseStorage implements IStorage {
       return undefined;
     }
     
-    const returnedKey = user.apiKey || undefined;
+    // MySQL returns snake_case, so check both formats
+    const returnedKey = user.apiKey || user.api_key || undefined;
     console.log('[STORAGE] Returning API key:', returnedKey);
     return returnedKey;
   }
