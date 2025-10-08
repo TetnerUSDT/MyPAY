@@ -67,16 +67,20 @@ export default function AgreementScreen() {
   });
   
   const handleConfirmAgreement = () => {
-    console.log('[Agreement] Confirm clicked, hasApiKey:', hasApiKey);
+    const apiKey = localStorage.getItem("userApiKey");
+    console.log('[Agreement] Confirm clicked');
+    console.log('[Agreement] hasApiKey:', hasApiKey);
+    console.log('[Agreement] API key from localStorage:', apiKey);
     
     // If no API key, redirect to splash for authentication first
     if (!hasApiKey) {
       console.error('[Agreement] No API key found! Redirecting to splash');
+      alert('API ключ не найден! Перенаправление на авторизацию...');
       setLocation("/");
       return;
     }
     
-    console.log('[Agreement] Sending PATCH /api/auth/agreement');
+    console.log('[Agreement] Sending PATCH /api/auth/agreement with API key');
     updateAgreementMutation.mutate();
   };
   
