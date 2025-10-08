@@ -355,8 +355,19 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
   app.post(`/${adminPath}/api/exchange-rates`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
       const validatedData = insertExchangeRateSchema.parse(req.body);
+      
+      // Получаем валюты из связанных балансов
+      const [fromBalance] = await db.select().from(balances).where(eq(balances.id, validatedData.fromBalanceId));
+      const [toBalance] = await db.select().from(balances).where(eq(balances.id, validatedData.toBalanceId));
+      
+      if (!fromBalance || !toBalance) {
+        return res.status(400).json({ message: "Балансы не найдены" });
+      }
+      
       const [newRate] = await db.insert(exchangeRates).values({
         ...validatedData,
+        fromCurrency: fromBalance.currency,
+        toCurrency: toBalance.currency,
         id: sql`gen_random_uuid()`,
         updatedAt: new Date(),
       } as any).returning();
@@ -371,8 +382,19 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
     try {
       const { id } = req.params;
       const validatedData = insertExchangeRateSchema.parse(req.body);
+      
+      // Получаем валюты из связанных балансов
+      const [fromBalance] = await db.select().from(balances).where(eq(balances.id, validatedData.fromBalanceId));
+      const [toBalance] = await db.select().from(balances).where(eq(balances.id, validatedData.toBalanceId));
+      
+      if (!fromBalance || !toBalance) {
+        return res.status(400).json({ message: "Балансы не найдены" });
+      }
+      
       const [updated] = await db.update(exchangeRates).set({
         ...validatedData,
+        fromCurrency: fromBalance.currency,
+        toCurrency: toBalance.currency,
         updatedAt: new Date(),
       }).where(eq(exchangeRates.id, id)).returning();
       res.json(updated);

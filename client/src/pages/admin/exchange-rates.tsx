@@ -49,8 +49,6 @@ export default function AdminExchangeRates() {
     defaultValues: {
       fromBalanceId: "",
       toBalanceId: "",
-      fromCurrency: "",
-      toCurrency: "",
       rate: "",
     },
   });
@@ -90,8 +88,6 @@ export default function AdminExchangeRates() {
     form.reset({
       fromBalanceId: rate.fromBalanceId?.toString() || "",
       toBalanceId: rate.toBalanceId?.toString() || "",
-      fromCurrency: rate.fromCurrency,
-      toCurrency: rate.toCurrency,
       rate: rate.rate,
     });
     setIsDialogOpen(true);
@@ -100,8 +96,9 @@ export default function AdminExchangeRates() {
   const handleSubmit = (data: any) => {
     const payload = {
       ...data,
-      fromBalanceId: data.fromBalanceId && data.fromBalanceId !== "none" ? parseInt(data.fromBalanceId) : null,
-      toBalanceId: data.toBalanceId && data.toBalanceId !== "none" ? parseInt(data.toBalanceId) : null,
+      fromBalanceId: parseInt(data.fromBalanceId),
+      toBalanceId: parseInt(data.toBalanceId),
+      rate: data.rate,
     };
     
     if (selectedRate) {
@@ -174,52 +171,10 @@ export default function AdminExchangeRates() {
               <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
                 <FormField
                   control={form.control}
-                  name="fromCurrency"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Из валюты</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="USDT" data-testid="input-from-currency" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="toCurrency"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>В валюту</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="RUB" data-testid="input-to-currency" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="rate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Курс</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="95.50" data-testid="input-rate" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
                   name="fromBalanceId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Баланс источник (опционально)</FormLabel>
+                      <FormLabel>Из баланса</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger data-testid="select-from-balance">
@@ -227,10 +182,9 @@ export default function AdminExchangeRates() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="none">Не выбрано</SelectItem>
                           {balances?.map((balance) => (
                             <SelectItem key={balance.id} value={balance.id.toString()}>
-                              {balance.title}
+                              {balance.title} ({balance.currency})
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -245,7 +199,7 @@ export default function AdminExchangeRates() {
                   name="toBalanceId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Баланс назначения (опционально)</FormLabel>
+                      <FormLabel>В баланс</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger data-testid="select-to-balance">
@@ -253,14 +207,27 @@ export default function AdminExchangeRates() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="none">Не выбрано</SelectItem>
                           {balances?.map((balance) => (
                             <SelectItem key={balance.id} value={balance.id.toString()}>
-                              {balance.title}
+                              {balance.title} ({balance.currency})
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="rate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Курс</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="95.50" data-testid="input-rate" />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
