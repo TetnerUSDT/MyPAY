@@ -315,10 +315,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
       
-      // Update req.user with new agreement status
-      req.user!.agreement = updatedUser.agreement;
-      
-      res.json(req.user);
+      // Return the updated user object from database
+      res.json(updatedUser);
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
     }
