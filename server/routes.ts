@@ -234,6 +234,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Update username if changed
           await storage.updateUser(user.id, { tgUsername });
           user.tgUsername = tgUsername;
+        } else if (!user.tgUsername && !tgUsername) {
+          // Try to fetch username from Telegram Bot API if not available
+          try {
+            const telegramData = await telegramService.extractUserData(tgId);
+            if (telegramData.tgUsername) {
+              await storage.updateUser(user.id, { 
+                tgUsername: telegramData.tgUsername,
+                name: telegramData.name || user.name,
+                img: telegramData.img || user.img
+              });
+              user.tgUsername = telegramData.tgUsername;
+              user.name = telegramData.name || user.name;
+              user.img = telegramData.img || user.img;
+            }
+          } catch (error) {
+            console.error('Failed to fetch Telegram user data:', error);
+            // Continue without username - not critical
+          }
         }
         
         // Generate API key
