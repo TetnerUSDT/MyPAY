@@ -115,7 +115,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
           balanceTitle: balances.title,
           balanceNetwork: balances.network,
           balanceCurrency: balances.currency,
-          balanceType: balances.type,
+          balanceType: balances.balanceType,
         })
         .from(usersBalances)
         .leftJoin(users, eq(usersBalances.idUser, users.id))
