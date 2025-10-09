@@ -71,8 +71,6 @@ export default function AdminUsers() {
                 <TableRow>
                   <TableHead>ID</TableHead>
                   <TableHead>Имя</TableHead>
-                  <TableHead>Telegram</TableHead>
-                  <TableHead>Telegram ID</TableHead>
                   <TableHead>Реферальный код</TableHead>
                   <TableHead>Статус</TableHead>
                   <TableHead>Соглашение</TableHead>
@@ -93,24 +91,6 @@ export default function AdminUsers() {
                         </button>
                       </UserProfilePopover>
                     </TableCell>
-                    <TableCell>
-                      {user.tgUsername ? (
-                        <a 
-                          href={`https://t.me/${user.tgUsername}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-500 hover:text-blue-700 underline"
-                          data-testid={`link-telegram-${user.id}`}
-                        >
-                          @{user.tgUsername}
-                        </a>
-                      ) : (
-                        <span className="text-gray-400" data-testid={`text-no-username-${user.id}`}>
-                          без контакта
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="font-mono text-sm">{user.tgId}</TableCell>
                     <TableCell className="font-mono">{user.codeRef || '-'}</TableCell>
                     <TableCell>{getStatusBadge(user.status, user.blocked)}</TableCell>
                     <TableCell>{getAgreementBadge(user.agreement)}</TableCell>
