@@ -8,6 +8,7 @@ import { insertTransactionSchema, insertSupportChatSchema, insertUserSchema, ins
 import { config, isTestMode, isTelegramMode, isDevelopment } from "./config";
 import { createWalletViaAPI } from "./wallet-api";
 import { registerAdminRoutes } from "./admin-routes";
+import { telegramService } from "./telegram-service";
 
 // Unified login schema that supports both modes
 const loginSchema = z.discriminatedUnion("mode", [
@@ -1032,6 +1033,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Add ticket message error:', error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Telegram webhook endpoint for bot updates
+  app.post("/api/telegram/webhook", async (req, res) => {
+    try {
+      const update = req.body;
+      
+      // Handle /start command or any message from user
+      if (update.message) {
+        const telegramId = update.message.from.id.toString();
+        const username = update.message.from.username || null;
+        const firstName = update.message.from.first_name || null;
+        
+        // Find user by Telegram ID
+        const user = await storage.getUserByTgId(telegramId);
+        
+        if (user) {
+          // Update user data if username exists and is different
+          if (username && user.tgUsername !== username) {
+            await storage.updateUser(user.id, { 
+              tgUsername: username,
+              name: firstName || user.name 
+            });
+          }
+        }
+      }
+      
+      res.json({ ok: true });
+    } catch (error) {
+      console.error('Telegram webhook error:', error);
+      res.status(500).json({ ok: false });
     }
   });
 
