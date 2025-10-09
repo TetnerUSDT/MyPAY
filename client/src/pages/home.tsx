@@ -61,6 +61,11 @@ export default function HomeScreen() {
     enabled: !!selectedFiatBalanceId,
   });
 
+  // Get user crypto balances
+  const { data: cryptoBalances = [] } = useQuery<any[]>({
+    queryKey: ["/api/user/crypto-balances"],
+  });
+
   // Update default balance mutation
   const updateDefaultBalanceMutation = useMutation({
     mutationFn: async (balanceId: number) => {
@@ -90,29 +95,24 @@ export default function HomeScreen() {
 
   const selectedBalance = fiatBalances.find(b => b.id === selectedFiatBalanceId);
 
-  const wallets = [
-    {
-      id: 1,
-      name: "Tether TRC20",
-      amount: "0.000000",
-      currency: "USDT",
-      icon: tronImage
-    },
-    {
-      id: 2,
-      name: "Tether BEP20",
-      amount: "0.000000", 
-      currency: "USDT",
-      icon: bnbImage
-    },
-    {
-      id: 3,
-      name: "Tether TON",
-      amount: "0.000000",
-      currency: "USDT", 
-      icon: tonImage
-    }
-  ];
+  // Map crypto balances with icons
+  const getNetworkIcon = (network: string) => {
+    if (network?.includes('TRC20')) return tronImage;
+    if (network?.includes('BEP20')) return bnbImage;
+    if (network?.includes('TON')) return tonImage;
+    return tronImage; // default
+  };
+
+  const wallets = cryptoBalances.map(balance => ({
+    id: balance.id,
+    name: balance.title,
+    amount: balance.sum || "0.000000",
+    currency: balance.currency,
+    icon: getNetworkIcon(balance.network),
+    network: balance.network,
+    status: balance.status,
+    isBlocked: balance.status === 'blocked'
+  }));
 
   const actions = [
     { icon: ArrowDownLeft, label: "Пополнить", testId: "action-deposit" },
@@ -254,7 +254,8 @@ export default function HomeScreen() {
             {wallets.map((wallet) => (
               <div 
                 key={wallet.id}
-                className="crypto-card flex items-center justify-between"
+                className={`crypto-card flex items-center justify-between ${wallet.isBlocked ? 'opacity-70' : ''}`}
+                title={wallet.isBlocked ? 'Баланс заблокирован' : ''}
                 data-testid={`wallet-${wallet.id}`}
               >
                 <div className="flex items-center">
@@ -280,17 +281,19 @@ export default function HomeScreen() {
                 
                 {/* Action Buttons */}
                 <div className="flex space-x-2">
-                  <Link href={`/top-up?network=${wallet.name.includes('TRC20') ? 'TRC20' : wallet.name.includes('BEP20') ? 'BEP20' : 'TON'}`}>
+                  <Link href={wallet.isBlocked ? '#' : `/top-up?network=${wallet.network?.includes('TRC20') ? 'TRC20' : wallet.network?.includes('BEP20') ? 'BEP20' : 'TON'}`}>
                     <button 
-                      className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center"
+                      className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={wallet.isBlocked}
                       data-testid={`button-deposit-${wallet.id}`}
                     >
                       <ArrowDownLeft className="w-4 h-4 text-accent-foreground" />
                     </button>
                   </Link>
-                  <Link href={`/transfer?network=${wallet.name.includes('TRC20') ? 'TRC20' : wallet.name.includes('BEP20') ? 'BEP20' : 'TON'}`}>
+                  <Link href={wallet.isBlocked ? '#' : `/transfer?network=${wallet.network?.includes('TRC20') ? 'TRC20' : wallet.network?.includes('BEP20') ? 'BEP20' : 'TON'}`}>
                     <button 
-                      className="w-10 h-10 bg-yellow-400 rounded-lg flex items-center justify-center"
+                      className="w-10 h-10 bg-yellow-400 rounded-lg flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={wallet.isBlocked}
                       data-testid={`button-send-${wallet.id}`}
                     >
                       <ArrowUpRight className="w-4 h-4 text-black" />

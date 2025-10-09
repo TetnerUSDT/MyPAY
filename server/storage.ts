@@ -816,7 +816,7 @@ export class DatabaseStorage implements IStorage {
       [userId]
     );
 
-    return updatedUser;
+    return updatedUser || undefined;
   }
 
   // Exchange methods
@@ -944,7 +944,7 @@ export class DatabaseStorage implements IStorage {
       .offset(offset);
     
     // Enrich each result with timeExchange
-    const enrichedResults = await Promise.all(results.map(async (result) => {
+    const enrichedResults = await Promise.all(results.map(async (result: any) => {
       let timeExchange = 60; // Default 60 minutes
       
       if (result.bankId) {
@@ -990,7 +990,7 @@ export class DatabaseStorage implements IStorage {
 
   // Support ticket methods
   async createSupportTicket(ticket: InsertSupportTicket, initialMessage: string): Promise<SupportTicket> {
-    return await db.transaction(async (tx) => {
+    return await db.transaction(async (tx: any) => {
       const newTicket = await insertAndReturnTx<SupportTicket>(
         tx.insert(supportTickets).values(ticket),
         tx,
