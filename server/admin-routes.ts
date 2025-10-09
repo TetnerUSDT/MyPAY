@@ -5,6 +5,7 @@ import { db } from "./db";
 import { balances, exchanges, cards, banks, exchangeRates, supportTickets, supportMessages, supportChats, users, wallets, admins, userCards, usersBalances } from "@shared/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { insertBalanceSchema, insertCardSchema, insertBankSchema, insertExchangeRateSchema, insertSupportMessageSchema, insertAdminSchema, insertUsersBalancesSchema } from "@shared/schema";
+import { telegramService } from "./telegram-service";
 
 // Helper functions for MySQL compatibility
 function generateUUID(): string {
@@ -680,6 +681,45 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
     } catch (error) {
       console.error('Update user error:', error);
       res.status(400).json({ message: "Invalid data" });
+    }
+  });
+
+  // Get Telegram user info and update database
+  app.get(`/${adminPath}/api/users/:id/telegram-info`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const { id } = req.params;
+      const user = await storage.getUser(parseInt(id));
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Fetch fresh data from Telegram
+      const telegramData = await telegramService.extractUserData(user.tgId);
+      
+      // Update user data if we got new information
+      if (telegramData.tgUsername || telegramData.name || telegramData.img) {
+        await storage.updateUser(user.id, {
+          tgUsername: telegramData.tgUsername || user.tgUsername,
+          name: telegramData.name || user.name,
+          img: telegramData.img || user.img
+        });
+      }
+
+      // Get user photo URL
+      const photoUrl = await telegramService.getUserProfilePhotos(user.tgId);
+
+      res.json({
+        id: user.id,
+        tgId: user.tgId,
+        tgUsername: telegramData.tgUsername || user.tgUsername,
+        name: telegramData.name || user.name,
+        img: photoUrl || telegramData.img || user.img,
+        telegramLink: telegramData.tgUsername ? `https://t.me/${telegramData.tgUsername}` : null
+      });
+    } catch (error) {
+      console.error('Get Telegram user info error:', error);
+      res.status(500).json({ message: "Failed to fetch Telegram data" });
     }
   });
 
