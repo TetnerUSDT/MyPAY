@@ -149,10 +149,6 @@ export default function SplashScreen() {
     return (
       <div className="mobile-screen gradient-bg text-white">
         <div className="flex flex-col items-center justify-center min-h-screen text-center px-6">
-          {/* Floating cards background effect */}
-          <div className="absolute top-20 left-8 w-32 h-20 glass-effect rounded-xl opacity-50 transform rotate-12"></div>
-          <div className="absolute top-32 right-12 w-24 h-16 glass-effect rounded-xl opacity-40 transform -rotate-6"></div>
-          <div className="absolute bottom-40 left-16 w-28 h-18 glass-effect rounded-xl opacity-30 transform rotate-6"></div>
           
           {/* Main card with branding */}
           <div className="relative z-10 w-full max-w-sm mb-12">
@@ -187,10 +183,6 @@ export default function SplashScreen() {
   return (
     <div className="mobile-screen gradient-bg text-white">
       <div className="flex flex-col items-center justify-center min-h-screen text-center px-6 relative">
-        {/* Floating cards background effect */}
-        <div className="absolute top-20 left-8 w-32 h-20 glass-effect rounded-xl opacity-50 transform rotate-12"></div>
-        <div className="absolute top-32 right-12 w-24 h-16 glass-effect rounded-xl opacity-40 transform -rotate-6"></div>
-        <div className="absolute bottom-40 left-16 w-28 h-18 glass-effect rounded-xl opacity-30 transform rotate-6"></div>
         
         {/* Main card with branding */}
         <div className="relative z-10 w-full max-w-sm mb-12">
