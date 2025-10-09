@@ -36,6 +36,7 @@ export default function ExchangeScreen() {
   const [selectedCard, setSelectedCard] = useState("");
   const [cardInputMode, setCardInputMode] = useState<'select' | 'manual'>('select');
   const [manualCardInput, setManualCardInput] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<'blockchain' | 'balance'>('blockchain');
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -64,6 +65,24 @@ export default function ExchangeScreen() {
 
   const { data: userCards = [] } = useQuery<UserCard[]>({
     queryKey: ['/api/user-cards']
+  });
+
+  const { data: userBalance } = useQuery<{ sum: string }>({
+    queryKey: ['/api/user-balance', payBalanceId],
+    queryFn: async () => {
+      if (!payBalanceId) return null;
+      const apiKey = localStorage.getItem("userApiKey");
+      const headers: Record<string, string> = {};
+      if (apiKey) headers['x-api-key'] = apiKey;
+      
+      const response = await fetch(`/api/user-balance/${payBalanceId}`, {
+        headers,
+        credentials: 'include'
+      });
+      if (!response.ok) return { sum: '0' };
+      return response.json();
+    },
+    enabled: !!payBalanceId && paymentMethod === 'balance'
   });
 
   const { data: exchangeRate } = useQuery<{
@@ -190,6 +209,19 @@ export default function ExchangeScreen() {
       return;
     }
 
+    // Check balance if paying from internal wallet
+    if (paymentMethod === 'balance') {
+      const availableBalance = userBalance ? parseFloat(userBalance.sum) : 0;
+      if (parseFloat(payAmount) > availableBalance) {
+        toast({
+          title: "Недостаточно средств",
+          description: `Доступно: ${availableBalance.toFixed(2)} ${paymentBalance?.currency}`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     if (!selectedCard) {
       toast({
         title: "Ошибка",
@@ -229,7 +261,8 @@ export default function ExchangeScreen() {
       commission: "0.0",
       cardId: cardInputMode === 'select' && selectedCard ? parseInt(selectedCard) : null,
       manualCardNumber: cardInputMode === 'manual' ? selectedCard : null,
-      network
+      network,
+      paymentMethod
     });
   };
 
@@ -287,7 +320,33 @@ export default function ExchangeScreen() {
             <div className="space-y-4">
             {/* Pay Amount */}
             <div className="crypto-card">
-              <div className="text-sm text-muted-foreground mb-3">Платите</div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm text-muted-foreground">Платите</div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setPaymentMethod('blockchain')}
+                    className={`px-3 py-1 text-xs rounded transition-all ${
+                      paymentMethod === 'blockchain'
+                        ? 'bg-accent text-accent-foreground'
+                        : 'bg-secondary/50 text-muted-foreground'
+                    }`}
+                    data-testid="button-payment-blockchain"
+                  >
+                    Blockchain
+                  </button>
+                  <button
+                    onClick={() => setPaymentMethod('balance')}
+                    className={`px-3 py-1 text-xs rounded transition-all ${
+                      paymentMethod === 'balance'
+                        ? 'bg-accent text-accent-foreground'
+                        : 'bg-secondary/50 text-muted-foreground'
+                    }`}
+                    data-testid="button-payment-balance"
+                  >
+                    Баланс
+                  </button>
+                </div>
+              </div>
               <div className="flex items-center justify-between">
                 <input
                   type="text"
@@ -300,6 +359,11 @@ export default function ExchangeScreen() {
                   {paymentBalance ? `${paymentBalance.currency}${paymentBalance.network ? `.${paymentBalance.network}` : ''}` : 'Loading...'}
                 </div>
               </div>
+              {paymentMethod === 'balance' && userBalance && (
+                <div className="mt-3 text-sm text-muted-foreground">
+                  Доступно: {parseFloat(userBalance.sum).toFixed(2)} {paymentBalance?.currency}
+                </div>
+              )}
             </div>
 
             {/* Arrow Down */}
