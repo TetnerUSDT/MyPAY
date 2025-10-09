@@ -6,7 +6,7 @@ import { z } from "zod";
 // Define enums
 export const balanceTypeEnum = mysqlEnum('balance_type', ['fiat', 'crypto', 'token', 'voucher']);
 export const exchangeStatusEnum = mysqlEnum('status', ['wait', 'wait-paid', 'paid', 'complete', 'canceled', 'dispute']);
-export const supportTicketStatusEnum = mysqlEnum('support_ticket_status', ['wait-user', 'wait-support', 'closed']);
+export const supportTicketStatusEnum = mysqlEnum('support_status', ['wait-user', 'wait-support', 'closed']);
 export const messageSenderEnum = mysqlEnum('message_sender', ['user', 'support']);
 
 export const balances = mysqlTable("balances", {
@@ -161,7 +161,7 @@ export const supportTickets = mysqlTable("support_tickets", {
   id: int("id").primaryKey().autoincrement(),
   userId: int("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   exchangeId: int("exchange_id").notNull().references(() => exchanges.id, { onDelete: "cascade" }),
-  status: supportTicketStatusEnum.notNull().default("wait-support"),
+  status: varchar("status", { length: 50 }).notNull().default("wait-support"),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
   updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
 });
@@ -169,7 +169,7 @@ export const supportTickets = mysqlTable("support_tickets", {
 export const supportMessages = mysqlTable("support_messages", {
   id: int("id").primaryKey().autoincrement(),
   ticketId: int("ticket_id").notNull().references(() => supportTickets.id, { onDelete: "cascade" }),
-  sender: messageSenderEnum.notNull(),
+  sender: varchar("sender", { length: 20 }).notNull(),
   message: text("message").notNull(),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
