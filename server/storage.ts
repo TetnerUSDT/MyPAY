@@ -799,7 +799,11 @@ export class DatabaseStorage implements IStorage {
       db.insert(exchanges).values(exchange),
       'exchanges'
     );
-    return newExchange;
+    // Add camelCase alias for compatibility
+    return {
+      ...newExchange,
+      numberOrder: newExchange.number_order || newExchange.numberOrder
+    };
   }
 
   async getExchange(id: number): Promise<any | undefined> {
@@ -807,7 +811,14 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(exchanges)
       .where(eq(exchanges.id, id));
-    return exchange || undefined;
+    
+    if (!exchange) return undefined;
+    
+    // Add camelCase alias for compatibility
+    return {
+      ...exchange,
+      numberOrder: exchange.number_order || exchange.numberOrder
+    };
   }
 
   async getExchangeByOrderNumber(orderNumber: string): Promise<any | undefined> {
@@ -862,6 +873,7 @@ export class DatabaseStorage implements IStorage {
     // Use saved card number if available, otherwise use manual card number
     return {
       ...result.exchange,
+      numberOrder: result.exchange.number_order || result.exchange.numberOrder,
       cardNumber: result.savedCardNumber || result.exchange.manualCardNumber,
       timeExchange
     };
@@ -876,7 +888,14 @@ export class DatabaseStorage implements IStorage {
       'id = ?',
       [id]
     );
-    return updatedExchange || undefined;
+    
+    if (!updatedExchange) return undefined;
+    
+    // Add camelCase alias for compatibility
+    return {
+      ...updatedExchange,
+      numberOrder: updatedExchange.number_order || updatedExchange.numberOrder
+    };
   }
 
   async getExchangeHistory(userId: number, limit: number, offset: number): Promise<any[]> {
@@ -933,6 +952,7 @@ export class DatabaseStorage implements IStorage {
       
       return {
         ...result.exchange,
+        numberOrder: result.exchange.number_order || result.exchange.numberOrder,
         cardNumber: result.savedCardNumber || result.exchange.manualCardNumber,
         walletAddress: result.walletAddress,
         timeExchange
