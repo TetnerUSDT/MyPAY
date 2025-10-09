@@ -103,6 +103,7 @@ export const exchanges = mysqlTable("exchanges", {
   amountTo: decimal("amount_to", { precision: 18, scale: 8 }).notNull(),
   rate: decimal("rate", { precision: 18, scale: 8 }).notNull(),
   commission: decimal("commission", { precision: 18, scale: 8 }).default("0.0"),
+  tempBalance: decimal("temp_balance", { precision: 18, scale: 8 }).default("0.0"),
   timestamp: timestamp("timestamp").default(sql`CURRENT_TIMESTAMP`),
   status: exchangeStatusEnum.notNull().default("wait"),
   cancelReason: text("cancel_reason"),
