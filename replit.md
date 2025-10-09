@@ -8,6 +8,24 @@ Preferred communication style: Simple, everyday language.
 
 # Recent Changes
 
+## Telegram User Profile Integration (October 2025)
+Implemented comprehensive Telegram user data management and display:
+- **Bot API Integration**: Created `TelegramService` for fetching user data via Telegram Bot API
+  - `getChat` method for user information (requires prior bot interaction)
+  - `getUserProfilePhotos` for fetching user avatars
+  - Automatic data extraction and database updates
+- **Webhook Endpoint**: `/api/telegram/webhook` for automatic username updates when users interact with bot
+- **Auto-update on Login**: System automatically fetches missing username/avatar via Bot API during authentication
+- **Admin Panel Enhancements**:
+  - User profile popover on name click showing: avatar, name, @username, Telegram link
+  - Displays "без контакта" for users without Telegram username
+  - Real-time data refresh from Telegram on popover open
+  - "Написать" button (placeholder for future messaging feature)
+- **Database**: Added `tg_username` VARCHAR(255) field to users table
+- **Endpoints**: 
+  - `GET /admin/api/users/:id/telegram-info` - Fetch and update user data from Telegram
+  - `POST /api/telegram/webhook` - Handle bot updates and username changes
+
 ## MySQL Migration (October 2025)
 Переключение с PostgreSQL на MySQL из-за проблем с расширениями на production серверах:
 - **Проблема**: PostgreSQL требует расширение `pgcrypto` для генерации UUID, но на многих хостингах нет прав суперпользователя
