@@ -6,6 +6,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { User } from "@shared/schema";
 import { formatBalance } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import catImage from "@assets/Image_1758366163369.png";
 import tronImage from "@assets/tron_1758481649917.png";
 import bnbImage from "@assets/bnb_1758481660380.png";
@@ -122,8 +123,9 @@ export default function HomeScreen() {
   ];
 
   return (
-    <div className="mobile-screen gradient-bg text-white overflow-y-auto pb-20">
-      <div className="flex flex-col min-h-full">
+    <TooltipProvider>
+      <div className="mobile-screen gradient-bg text-white overflow-y-auto pb-20">
+        <div className="flex flex-col min-h-full">
         {/* Header with Profile */}
         <div className="flex items-center justify-center p-6">
           <div className="flex items-center">
@@ -252,55 +254,65 @@ export default function HomeScreen() {
         <div className="flex-1 px-6">
           <div className="space-y-4">
             {wallets.map((wallet) => (
-              <div 
-                key={wallet.id}
-                className={`crypto-card flex items-center justify-between ${wallet.isBlocked ? 'opacity-70' : ''}`}
-                title={wallet.isBlocked ? 'Баланс заблокирован' : ''}
-                data-testid={`wallet-${wallet.id}`}
-              >
-                <div className="flex items-center">
-                  {/* Wallet Icon */}
-                  <div className="w-12 h-12 rounded-full flex items-center justify-center mr-4 overflow-hidden">
-                    <img 
-                      src={wallet.icon} 
-                      alt={wallet.name}
-                      className="w-full h-full object-cover"
-                    />
+              <Tooltip key={wallet.id} delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <div 
+                    className={`crypto-card flex items-center justify-between ${wallet.isBlocked ? 'opacity-70' : ''}`}
+                    data-testid={`wallet-${wallet.id}`}
+                  >
+                    <div className="flex items-center">
+                      {/* Wallet Icon */}
+                      <div className="w-12 h-12 rounded-full flex items-center justify-center mr-4 overflow-hidden">
+                        <img 
+                          src={wallet.icon} 
+                          alt={wallet.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      
+                      {/* Wallet Info */}
+                      <div>
+                        <h3 className="font-semibold text-white" data-testid={`wallet-name-${wallet.id}`}>
+                          {wallet.name}
+                        </h3>
+                        <p className="text-muted-foreground text-sm" data-testid={`wallet-amount-${wallet.id}`}>
+                          {formatBalance(wallet.amount)} {wallet.currency}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Action Buttons */}
+                    <div className="flex space-x-2">
+                      <Link href={wallet.isBlocked ? '#' : `/top-up?network=${wallet.network?.includes('TRC20') ? 'TRC20' : wallet.network?.includes('BEP20') ? 'BEP20' : 'TON'}`}>
+                        <button 
+                          className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={wallet.isBlocked}
+                          data-testid={`button-deposit-${wallet.id}`}
+                        >
+                          <ArrowDownLeft className="w-4 h-4 text-accent-foreground" />
+                        </button>
+                      </Link>
+                      <Link href={wallet.isBlocked ? '#' : `/transfer?network=${wallet.network?.includes('TRC20') ? 'TRC20' : wallet.network?.includes('BEP20') ? 'BEP20' : 'TON'}`}>
+                        <button 
+                          className="w-10 h-10 bg-yellow-400 rounded-lg flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={wallet.isBlocked}
+                          data-testid={`button-send-${wallet.id}`}
+                        >
+                          <ArrowUpRight className="w-4 h-4 text-black" />
+                        </button>
+                      </Link>
+                    </div>
                   </div>
-                  
-                  {/* Wallet Info */}
-                  <div>
-                    <h3 className="font-semibold text-white" data-testid={`wallet-name-${wallet.id}`}>
-                      {wallet.name}
-                    </h3>
-                    <p className="text-muted-foreground text-sm" data-testid={`wallet-amount-${wallet.id}`}>
-                      {wallet.amount} {wallet.currency}
-                    </p>
-                  </div>
-                </div>
-                
-                {/* Action Buttons */}
-                <div className="flex space-x-2">
-                  <Link href={wallet.isBlocked ? '#' : `/top-up?network=${wallet.network?.includes('TRC20') ? 'TRC20' : wallet.network?.includes('BEP20') ? 'BEP20' : 'TON'}`}>
-                    <button 
-                      className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={wallet.isBlocked}
-                      data-testid={`button-deposit-${wallet.id}`}
-                    >
-                      <ArrowDownLeft className="w-4 h-4 text-accent-foreground" />
-                    </button>
-                  </Link>
-                  <Link href={wallet.isBlocked ? '#' : `/transfer?network=${wallet.network?.includes('TRC20') ? 'TRC20' : wallet.network?.includes('BEP20') ? 'BEP20' : 'TON'}`}>
-                    <button 
-                      className="w-10 h-10 bg-yellow-400 rounded-lg flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={wallet.isBlocked}
-                      data-testid={`button-send-${wallet.id}`}
-                    >
-                      <ArrowUpRight className="w-4 h-4 text-black" />
-                    </button>
-                  </Link>
-                </div>
-              </div>
+                </TooltipTrigger>
+                {wallet.isBlocked && (
+                  <TooltipContent 
+                    side="top" 
+                    className="bg-red-900/90 border-red-700 text-white backdrop-blur-sm"
+                  >
+                    <p className="font-medium">🔒 Баланс заблокирован</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
             ))}
           </div>
         </div>
@@ -466,6 +478,7 @@ export default function HomeScreen() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }
