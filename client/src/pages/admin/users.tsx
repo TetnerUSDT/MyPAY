@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 type User = {
   id: number;
   tgId: string;
+  tgUsername: string | null;
   name: string | null;
   apiKey: string | null;
   status: string | null;
@@ -69,6 +70,7 @@ export default function AdminUsers() {
                 <TableRow>
                   <TableHead>ID</TableHead>
                   <TableHead>Имя</TableHead>
+                  <TableHead>Telegram</TableHead>
                   <TableHead>Telegram ID</TableHead>
                   <TableHead>Реферальный код</TableHead>
                   <TableHead>Статус</TableHead>
@@ -81,6 +83,23 @@ export default function AdminUsers() {
                   <TableRow key={user.id} data-testid={`row-user-${user.id}`}>
                     <TableCell className="font-medium">{user.id}</TableCell>
                     <TableCell>{user.name || '-'}</TableCell>
+                    <TableCell>
+                      {user.tgUsername ? (
+                        <a 
+                          href={`https://t.me/${user.tgUsername}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-500 hover:text-blue-700 underline"
+                          data-testid={`link-telegram-${user.id}`}
+                        >
+                          @{user.tgUsername}
+                        </a>
+                      ) : (
+                        <span className="text-gray-400" data-testid={`text-no-username-${user.id}`}>
+                          ID: {user.tgId}
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell className="font-mono text-sm">{user.tgId}</TableCell>
                     <TableCell className="font-mono">{user.codeRef || '-'}</TableCell>
                     <TableCell>{getStatusBadge(user.status, user.blocked)}</TableCell>

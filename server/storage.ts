@@ -10,6 +10,7 @@ export interface IStorage {
   getUserByTgId(tgId: string): Promise<User | undefined>;
   getUserByApiKey(apiKey: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, data: Partial<InsertUser>): Promise<User | undefined>;
   updateUserAgreement(id: number, agreement: number): Promise<User | undefined>;
   generateApiKey(userId: number): Promise<string | undefined>;
 
@@ -292,6 +293,16 @@ export class DatabaseStorage implements IStorage {
       'users'
     );
     return user;
+  }
+
+  async updateUser(id: number, data: Partial<InsertUser>): Promise<User | undefined> {
+    const user = await updateAndReturn<User>(
+      db.update(users).set(data).where(eq(users.id, id)),
+      'users',
+      'id = ?',
+      [id]
+    );
+    return user || undefined;
   }
 
   async updateUserAgreement(id: number, agreement: number): Promise<User | undefined> {

@@ -22,6 +22,7 @@ export const balances = mysqlTable("balances", {
 export const users = mysqlTable("users", {
   id: int("id").primaryKey().autoincrement(),
   tgId: varchar("tg_id", { length: 255 }).notNull().unique(),
+  tgUsername: varchar("tg_username", { length: 255 }),
   google: varchar("google", { length: 255 }),
   apiKey: varchar("api_key", { length: 255 }).unique(),
   name: varchar("name", { length: 255 }),

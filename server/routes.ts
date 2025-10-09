@@ -158,6 +158,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let name: string | null;
         let img: string | null;
         
+        let tgUsername: string | null = null;
+        
         if (validatedData.widgetData) {
           // Telegram Widget authentication (browser)
           const widgetData = validatedData.widgetData;
@@ -174,6 +176,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           tgId = widgetData.id.toString();
           name = widgetData.first_name || widgetData.username || null;
           img = widgetData.photo_url || null;
+          tgUsername = widgetData.username || null;
           
         } else {
           // Telegram WebApp authentication (initData)
@@ -208,6 +211,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           tgId = userData.user.id.toString();
           name = userData.user.first_name || userData.user.username || null;
           img = userData.user.photo_url || null;
+          tgUsername = userData.user.username || null;
         }
         
         // Check if user already exists
@@ -217,6 +221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Create new user
           user = await storage.createUser({
             tgId,
+            tgUsername,
             google: null,
             name,
             img,
@@ -224,6 +229,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             agreement: 0,
             blocked: false
           });
+        } else if (tgUsername && user.tgUsername !== tgUsername) {
+          // Update username if changed
+          await storage.updateUser(user.id, { tgUsername });
+          user.tgUsername = tgUsername;
         }
         
         // Generate API key
