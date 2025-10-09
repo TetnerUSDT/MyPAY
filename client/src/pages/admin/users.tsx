@@ -6,6 +6,7 @@ import { adminRequest } from "@/lib/adminApi";
 import { queryClient } from "@/lib/queryClient";
 import { RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { UserProfilePopover } from "@/components/UserProfilePopover";
 
 type User = {
   id: number;
@@ -82,7 +83,16 @@ export default function AdminUsers() {
                 {users?.map((user) => (
                   <TableRow key={user.id} data-testid={`row-user-${user.id}`}>
                     <TableCell className="font-medium">{user.id}</TableCell>
-                    <TableCell>{user.name || '-'}</TableCell>
+                    <TableCell>
+                      <UserProfilePopover userId={user.id} userName={user.name}>
+                        <button 
+                          className="hover:underline cursor-pointer text-left"
+                          data-testid={`button-user-name-${user.id}`}
+                        >
+                          {user.name || '-'}
+                        </button>
+                      </UserProfilePopover>
+                    </TableCell>
                     <TableCell>
                       {user.tgUsername ? (
                         <a 
