@@ -96,7 +96,7 @@ export default function AdminUsers() {
                         </a>
                       ) : (
                         <span className="text-gray-400" data-testid={`text-no-username-${user.id}`}>
-                          ID: {user.tgId}
+                          без контакта
                         </span>
                       )}
                     </TableCell>
