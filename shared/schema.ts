@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { mysqlTable, text, varchar, decimal, timestamp, json, int, boolean, mysqlEnum } from "drizzle-orm/mysql-core";
+import { mysqlTable, text, varchar, decimal, timestamp, json, int, boolean, mysqlEnum, uniqueIndex } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -41,7 +41,9 @@ export const usersBalances = mysqlTable("users_balances", {
   idUser: int("id_user").notNull().references(() => users.id, { onDelete: "cascade" }),
   sum: decimal("sum", { precision: 18, scale: 8 }).default("0.0"),
   status: varchar("status", { length: 50 }),
-});
+}, (table) => ({
+  userBalanceUnique: uniqueIndex("user_balance_unique").on(table.idUser, table.idBalance)
+}));
 
 export const wallets = mysqlTable("wallets", {
   id: int("id").primaryKey().autoincrement(),

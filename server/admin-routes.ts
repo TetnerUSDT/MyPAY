@@ -134,8 +134,16 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
       const validatedData = insertUsersBalancesSchema.parse(req.body);
       const newUserBalance = await insertAndReturn(usersBalances, validatedData);
       res.json(newUserBalance);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Create user balance error:', error);
+      
+      // Check for duplicate key error (MySQL error code 1062)
+      if (error.code === 'ER_DUP_ENTRY' || error.errno === 1062) {
+        return res.status(400).json({ 
+          message: "У этого пользователя уже есть баланс данного типа. Удалите существующий или измените его." 
+        });
+      }
+      
       if (error instanceof Error) {
         res.status(400).json({ message: error.message });
       } else {
@@ -150,8 +158,16 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
       const validatedData = insertUsersBalancesSchema.parse(req.body);
       const updated = await updateAndReturn(usersBalances, validatedData, eq(usersBalances.id, parseInt(id)));
       res.json(updated);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Update user balance error:', error);
+      
+      // Check for duplicate key error (MySQL error code 1062)
+      if (error.code === 'ER_DUP_ENTRY' || error.errno === 1062) {
+        return res.status(400).json({ 
+          message: "У этого пользователя уже есть баланс данного типа. Выберите другой тип баланса." 
+        });
+      }
+      
       res.status(400).json({ message: "Invalid data" });
     }
   });
