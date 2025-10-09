@@ -32,6 +32,7 @@ type Exchange = {
   timestamp: string;
   cancelReason: string | null;
   paymentHash: string | null;
+  tempBalance: string | null;
 };
 
 export default function AdminExchanges() {
@@ -236,47 +237,63 @@ export default function AdminExchanges() {
                       </div>
                     </div>
                   </div>
-                  
-                  {selectedExchange?.walletAddress && (
-                    <div className="pt-2 border-t">
-                      <span className="text-muted-foreground text-sm">Кошелек:</span>
-                      <div className="flex items-center gap-2 mt-1">
-                        <code className="flex-1 bg-background px-3 py-1.5 rounded text-sm font-mono">
-                          {selectedExchange.walletAddress}
-                        </code>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => copyWalletAddress(selectedExchange.walletAddress!)}
-                          data-testid="button-copy-wallet"
-                        >
-                          {copiedWallet ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {(selectedExchange?.cardNumber || selectedExchange?.manualCardNumber) && (
-                    <div className="pt-2 border-t">
-                      <span className="text-muted-foreground text-sm">Номер карты получателя:</span>
-                      <div className="flex items-center gap-2 mt-1">
-                        <code className="flex-1 bg-background px-3 py-1.5 rounded text-sm font-mono" data-testid="text-card-number">
-                          {formatCardNumber(selectedExchange.cardNumber || selectedExchange.manualCardNumber || '')}
-                        </code>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => copyCardNumber(selectedExchange.cardNumber || selectedExchange.manualCardNumber || '')}
-                          data-testid="button-copy-card"
-                        >
-                          {copiedCard ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
                 </div>
+
+                {/* Блок с деталями платежа */}
+                {(selectedExchange?.walletAddress || selectedExchange?.cardNumber || selectedExchange?.manualCardNumber || (selectedExchange?.tempBalance && parseFloat(selectedExchange.tempBalance) > 0)) && (
+                  <div className="bg-primary/10 border-2 border-primary/20 rounded-lg p-4 space-y-3">
+                    {selectedExchange?.walletAddress && (
+                      <div>
+                        <span className="text-muted-foreground text-sm">Кошелек:</span>
+                        <div className="flex items-center gap-2 mt-1">
+                          <code className="flex-1 bg-background px-3 py-1.5 rounded text-sm font-mono">
+                            {selectedExchange.walletAddress}
+                          </code>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => copyWalletAddress(selectedExchange.walletAddress!)}
+                            data-testid="button-copy-wallet"
+                          >
+                            {copiedWallet ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {(selectedExchange?.cardNumber || selectedExchange?.manualCardNumber) && (
+                      <div>
+                        <span className="text-muted-foreground text-sm">Номер карты получателя:</span>
+                        <div className="flex items-center gap-2 mt-1">
+                          <code className="flex-1 bg-background px-3 py-1.5 rounded text-sm font-mono" data-testid="text-card-number">
+                            {formatCardNumber(selectedExchange.cardNumber || selectedExchange.manualCardNumber || '')}
+                          </code>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => copyCardNumber(selectedExchange.cardNumber || selectedExchange.manualCardNumber || '')}
+                            data-testid="button-copy-card"
+                          >
+                            {copiedCard ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {selectedExchange?.tempBalance && parseFloat(selectedExchange.tempBalance) > 0 && (
+                      <div>
+                        <span className="text-muted-foreground text-sm">Оплата с внутреннего баланса:</span>
+                        <div className="flex items-center gap-2 mt-1">
+                          <code className="flex-1 bg-background px-3 py-1.5 rounded text-sm font-mono font-semibold text-primary" data-testid="text-temp-balance">
+                            {selectedExchange.tempBalance} {selectedExchange.fromCurrency}
+                          </code>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Управление статусом */}
                 <div className="bg-muted/50 rounded-lg p-4 space-y-4">
