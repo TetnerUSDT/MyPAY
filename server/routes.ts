@@ -781,12 +781,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         commission,
         cardId,
         manualCardNumber,
-        network
+        network,
+        paymentMethod = 'blockchain'
       } = req.body;
 
       // Validate required fields
       if (!fromBalanceId || !toBalanceId || !fromCurrency || !toCurrency || !amountFrom || !amountTo || !rate || !network) {
         return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      // If paying from balance, check and deduct funds
+      let tempBalance = 0;
+      if (paymentMethod === 'balance') {
+        const userBalance = await storage.getUserBalance(req.user!.id, fromBalanceId);
+        const availableBalance = parseFloat(userBalance.sum);
+        const requiredAmount = parseFloat(amountFrom);
+
+        if (requiredAmount > availableBalance) {
+          return res.status(400).json({ 
+            message: `Insufficient balance. Available: ${availableBalance} ${fromCurrency}` 
+          });
+        }
+
+        // Deduct from user balance (will be stored in temp_balance)
+        await storage.updateUserBalance(req.user!.id, fromBalanceId, -requiredAmount);
+        tempBalance = requiredAmount;
       }
 
       // Generate unique order number (10 random alphanumeric characters)
@@ -855,14 +874,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         amountTo,
         rate,
         commission: commission || "0.0",
+        tempBalance: tempBalance.toString(),
         status: "wait"
       });
 
-      // Return exchange details with wallet address
+      // Return exchange details with wallet address and payment method
       res.json({
         ...exchange,
         walletAddress: wallet.address,
-        walletNetwork: wallet.network
+        walletNetwork: wallet.network,
+        paymentMethod
       });
     } catch (error) {
       console.error('Create exchange error:', error);
@@ -922,6 +943,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (exchange.idUser !== req.user!.id) {
         return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      // If canceling order and has temp_balance, refund to user
+      if (status === 'canceled' && exchange.tempBalance && parseFloat(exchange.tempBalance) > 0) {
+        const refundAmount = parseFloat(exchange.tempBalance);
+        await storage.updateUserBalance(exchange.idUser, exchange.idBalanceFrom, refundAmount);
+        console.log(`Refunded ${refundAmount} to user ${exchange.idUser} balance ${exchange.idBalanceFrom}`);
       }
 
       const updatedExchange = await storage.updateExchangeStatus(exchange.id, status);
