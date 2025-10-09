@@ -20,6 +20,7 @@ interface ExchangeOrder {
   amountTo: string;
   rate: string;
   commission: string;
+  tempBalance?: string;
   timestamp: string;
   status: string;
   walletAddress?: string;
@@ -203,27 +204,45 @@ export default function PaymentScreen() {
             </div>
           </div>
           
-          {/* Wallet Address */}
-          <div className="text-sm text-muted-foreground mb-2">На адрес кошелька</div>
-          <div className="flex items-center bg-secondary rounded-lg p-3">
-            <span 
-              className="font-mono text-sm flex-1 break-all"
-              data-testid="text-wallet-address"
-            >
-              {displayWalletAddress}
-            </span>
-            <button 
-              className="ml-2 p-1 hover:bg-white/10 rounded"
-              onClick={handleCopyAddress}
-              data-testid="button-copy-address"
-            >
-              {copied ? (
-                <Check className="w-6 h-6 text-green-400" />
-              ) : (
-                <Copy className="w-6 h-6 text-accent" />
-              )}
-            </button>
-          </div>
+          {/* Wallet Address or Internal Payment */}
+          {orderData.tempBalance && parseFloat(orderData.tempBalance) > 0 ? (
+            <>
+              <div className="text-sm text-muted-foreground mb-2">Способ оплаты</div>
+              <div className="flex items-center justify-center bg-secondary rounded-lg p-4">
+                <div className="relative overflow-hidden w-full">
+                  <div 
+                    className="text-accent font-medium whitespace-nowrap animate-marquee"
+                    data-testid="text-internal-payment"
+                  >
+                    Идёт отправка средств с внутреннего кошелька...
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-sm text-muted-foreground mb-2">На адрес кошелька</div>
+              <div className="flex items-center bg-secondary rounded-lg p-3">
+                <span 
+                  className="font-mono text-sm flex-1 break-all"
+                  data-testid="text-wallet-address"
+                >
+                  {displayWalletAddress}
+                </span>
+                <button 
+                  className="ml-2 p-1 hover:bg-white/10 rounded"
+                  onClick={handleCopyAddress}
+                  data-testid="button-copy-address"
+                >
+                  {copied ? (
+                    <Check className="w-6 h-6 text-green-400" />
+                  ) : (
+                    <Copy className="w-6 h-6 text-accent" />
+                  )}
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Arrow Down */}

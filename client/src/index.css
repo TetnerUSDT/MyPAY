@@ -614,4 +614,18 @@
     scrollbar-width: thin;
     scrollbar-color: hsl(84, 76%, 50%) transparent;
   }
+
+  /* Marquee animation for internal wallet payment */
+  @keyframes marquee {
+    0% {
+      transform: translateX(100%);
+    }
+    100% {
+      transform: translateX(-100%);
+    }
+  }
+
+  .animate-marquee {
+    animation: marquee 8s linear infinite;
+  }
 }

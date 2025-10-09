@@ -782,6 +782,32 @@ export class DatabaseStorage implements IStorage {
     return newBalance;
   }
 
+  async updateUserBalance(userId: number, balanceId: number, amount: number): Promise<any> {
+    const { usersBalances } = await import("@shared/schema");
+    const { sql } = await import("drizzle-orm");
+    
+    // Get current balance
+    const currentBalance = await this.getUserBalance(userId, balanceId);
+    const newSum = (parseFloat(currentBalance.sum) + amount).toFixed(8);
+    
+    // Update balance
+    const updatedBalance = await updateAndReturn<any>(
+      db.update(usersBalances)
+        .set({ sum: newSum })
+        .where(
+          and(
+            eq(usersBalances.idUser, userId),
+            eq(usersBalances.idBalance, balanceId)
+          )
+        ),
+      'users_balances',
+      'id_user = ? AND id_balance = ?',
+      [userId, balanceId]
+    );
+    
+    return updatedBalance;
+  }
+
   async updateUserDefaultBalance(userId: number, balanceId: number): Promise<User | undefined> {
     const updatedUser = await updateAndReturn<User>(
       db.update(users).set({ defaultFiatBalanceId: balanceId }).where(eq(users.id, userId)),
