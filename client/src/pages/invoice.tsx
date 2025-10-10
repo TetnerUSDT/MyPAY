@@ -241,7 +241,7 @@ export default function InvoicePage() {
       {/* Invoice Details */}
       <div className="p-4 space-y-4">
         {/* Status Card */}
-        <div className="bg-gradient-to-r from-green-700/40 to-green-800/40 rounded-xl p-6 border border-green-600/30 backdrop-blur-sm">
+        <div className="bg-gradient-to-r from-green-700/70 to-green-800/70 rounded-xl p-6 border border-green-500/50 backdrop-blur-sm">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               {getStatusIcon(invoice.status)}
@@ -273,7 +273,7 @@ export default function InvoicePage() {
         </div>
 
         {/* Order Number */}
-        <div className="bg-gradient-to-r from-green-700/40 to-green-800/40 rounded-xl p-4 border border-green-600/30 backdrop-blur-sm">
+        <div className="bg-gradient-to-r from-green-700/70 to-green-800/70 rounded-xl p-4 border border-green-500/50 backdrop-blur-sm">
           <p className="text-sm text-green-200 mb-2">Номер заказа</p>
           <div className="flex items-center justify-between">
             <p className="text-lg font-mono text-white">{invoice.orderNumber}</p>
@@ -289,7 +289,7 @@ export default function InvoicePage() {
 
         {/* Description */}
         {invoice.description && (
-          <div className="bg-gradient-to-r from-green-700/40 to-green-800/40 rounded-xl p-4 border border-green-600/30 backdrop-blur-sm">
+          <div className="bg-gradient-to-r from-green-700/70 to-green-800/70 rounded-xl p-4 border border-green-500/50 backdrop-blur-sm">
             <p className="text-sm text-green-200 mb-2">Описание</p>
             <p className="text-white">{invoice.description}</p>
           </div>
@@ -297,7 +297,7 @@ export default function InvoicePage() {
 
         {/* Balance Info */}
         {userBalance && canPay && (
-          <div className="bg-gradient-to-r from-green-700/40 to-green-800/40 rounded-xl p-4 border border-green-600/30 backdrop-blur-sm">
+          <div className="bg-gradient-to-r from-green-700/70 to-green-800/70 rounded-xl p-4 border border-green-500/50 backdrop-blur-sm">
             <p className="text-sm text-green-200 mb-2">Ваш баланс</p>
             <p className="text-2xl font-bold text-white">
               {formatBalance(userBalance.sum)} {userBalance.currency}
