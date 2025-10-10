@@ -10,6 +10,7 @@ import { createWalletViaAPI } from "./wallet-api";
 import { registerAdminRoutes } from "./admin-routes";
 import { telegramService } from "./telegram-service";
 import { notificationService } from "./notification-service";
+import { requireSuperAdmin, type AdminRequest } from "./admin-middleware";
 
 // Unified login schema that supports both modes
 const loginSchema = z.discriminatedUnion("mode", [
@@ -143,6 +144,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
       botUsername: config.auth.telegram.botUsername,
       authMode: config.auth.mode
     });
+  });
+
+  // Telegram webhook management endpoints (requires super admin auth)
+  app.post("/api/telegram/webhook/set", requireSuperAdmin, async (req, res) => {
+    try {
+      // Get the Replit domain or use custom webhook URL from request
+      const customWebhookUrl = req.body.webhookUrl;
+      let webhookUrl: string;
+
+      if (customWebhookUrl) {
+        // Use custom URL as-is
+        webhookUrl = customWebhookUrl;
+      } else {
+        // Auto-detect Replit domain
+        const replitDomain = process.env.REPLIT_DEV_DOMAIN || process.env.REPL_SLUG;
+        if (!replitDomain) {
+          return res.status(400).json({ 
+            ok: false, 
+            message: "Не удалось определить домен Replit. Укажите webhookUrl вручную." 
+          });
+        }
+
+        // Construct webhook URL
+        let hostname: string;
+        
+        // Check if domain already contains protocol
+        if (replitDomain.includes('http://') || replitDomain.includes('https://')) {
+          webhookUrl = replitDomain;
+        } else {
+          // Check if domain already looks like a full hostname (contains dot or .repl.co)
+          if (replitDomain.includes('.') || replitDomain.includes('repl.co')) {
+            // Already a full hostname, just add protocol
+            hostname = replitDomain;
+          } else {
+            // Just a slug, construct full hostname: <repl-slug>.<username>.repl.co
+            const username = process.env.REPL_OWNER || 'user';
+            hostname = `${replitDomain}.${username}.repl.co`;
+          }
+          webhookUrl = `https://${hostname}`;
+        }
+
+        // Normalize trailing slash
+        webhookUrl = webhookUrl.replace(/\/$/, '');
+
+        // Add webhook path (only for auto-detected URLs)
+        const webhookPath = req.body.webhookPath || '/api/telegram/webhook';
+        if (!webhookUrl.endsWith(webhookPath)) {
+          webhookUrl = `${webhookUrl}${webhookPath}`;
+        }
+      }
+
+      const result = await telegramService.setWebhook(webhookUrl);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ 
+        ok: false, 
+        message: `Ошибка: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      });
+    }
+  });
+
+  app.get("/api/telegram/webhook/info", requireSuperAdmin, async (req, res) => {
+    try {
+      const result = await telegramService.getWebhookInfo();
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ 
+        ok: false, 
+        message: `Ошибка: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      });
+    }
+  });
+
+  app.delete("/api/telegram/webhook", requireSuperAdmin, async (req, res) => {
+    try {
+      const result = await telegramService.deleteWebhook();
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ 
+        ok: false, 
+        message: `Ошибка: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      });
+    }
   });
 
   // Get user with API key (uses API key header like other endpoints)

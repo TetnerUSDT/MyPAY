@@ -200,6 +200,105 @@ ${data.network ? `🌐 Сеть: ${data.network}` : ''}
     
     return this.sendChannelMessage(message.trim());
   }
+
+  /**
+   * Set Telegram bot webhook
+   */
+  async setWebhook(webhookUrl: string): Promise<{ ok: boolean; message: string }> {
+    try {
+      const response = await fetch(`${this.baseUrl}/setWebhook`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: webhookUrl,
+        }),
+      });
+
+      const data: TelegramApiResponse<any> = await response.json();
+
+      if (data.ok) {
+        console.log(`✅ Webhook set to: ${webhookUrl}`);
+        return {
+          ok: true,
+          message: `Webhook успешно установлен на: ${webhookUrl}`
+        };
+      } else {
+        console.error(`Failed to set webhook:`, data.description);
+        return {
+          ok: false,
+          message: `Ошибка установки webhook: ${data.description}`
+        };
+      }
+    } catch (error) {
+      console.error(`Error setting webhook:`, error);
+      return {
+        ok: false,
+        message: `Ошибка: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+
+  /**
+   * Get current webhook info
+   */
+  async getWebhookInfo(): Promise<{ ok: boolean; info?: any; message?: string }> {
+    try {
+      const response = await fetch(`${this.baseUrl}/getWebhookInfo`);
+      const data: TelegramApiResponse<any> = await response.json();
+
+      if (data.ok && data.result) {
+        return {
+          ok: true,
+          info: data.result
+        };
+      }
+
+      return {
+        ok: false,
+        message: data.description || 'Failed to get webhook info'
+      };
+    } catch (error) {
+      console.error(`Error getting webhook info:`, error);
+      return {
+        ok: false,
+        message: `Ошибка: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+
+  /**
+   * Delete webhook
+   */
+  async deleteWebhook(): Promise<{ ok: boolean; message: string }> {
+    try {
+      const response = await fetch(`${this.baseUrl}/deleteWebhook`, {
+        method: 'POST',
+      });
+
+      const data: TelegramApiResponse<any> = await response.json();
+
+      if (data.ok) {
+        console.log(`✅ Webhook deleted`);
+        return {
+          ok: true,
+          message: 'Webhook успешно удален'
+        };
+      } else {
+        return {
+          ok: false,
+          message: `Ошибка удаления webhook: ${data.description}`
+        };
+      }
+    } catch (error) {
+      console.error(`Error deleting webhook:`, error);
+      return {
+        ok: false,
+        message: `Ошибка: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
 }
 
 export const telegramService = new TelegramService();
