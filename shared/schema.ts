@@ -207,7 +207,7 @@ export const invoices = mysqlTable("invoices", {
 export const notifications = mysqlTable("notifications", {
   id: int("id").primaryKey().autoincrement(),
   userId: int("user_id").references(() => users.id, { onDelete: "cascade" }),
-  type: notificationTypeEnum.notNull().default("info"),
+  type: varchar("type", { length: 20 }).notNull().default("info"),
   title: varchar("title", { length: 255 }).notNull(),
   message: text("message").notNull(),
   imageUrl: varchar("image_url", { length: 500 }),
