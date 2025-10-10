@@ -9,7 +9,6 @@ export const balanceStatusEnum = mysqlEnum('balance_status', ['active', 'frozen'
 export const exchangeStatusEnum = mysqlEnum('status', ['wait', 'wait-paid', 'paid', 'complete', 'canceled', 'dispute']);
 export const supportTicketStatusEnum = mysqlEnum('support_status', ['wait-user', 'wait-support', 'closed']);
 export const messageSenderEnum = mysqlEnum('message_sender', ['user', 'support']);
-export const notificationTypeEnum = mysqlEnum('notification_type', ['info', 'invoice', 'exchange', 'promotion']);
 
 export const balances = mysqlTable("balances", {
   id: int("id").primaryKey().autoincrement(),
