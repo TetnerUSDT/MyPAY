@@ -47,18 +47,11 @@ export function InvoiceNotificationProvider({ children }: InvoiceNotificationPro
         if (response.ok) {
           const invoices = await response.json();
           
-          // Filter out dismissed notifications
-          let dismissedIds: number[] = [];
-          try {
-            const dismissedStr = localStorage.getItem('dismissedNotifications');
-            dismissedIds = dismissedStr ? JSON.parse(dismissedStr) : [];
-          } catch (error) {
-            console.error('[Offline Recovery] Error parsing dismissedNotifications:', error);
-          }
-          
+          // Filter out dismissed invoices (by orderNumber)
           const pendingInvoices = invoices.filter((inv: any) => {
             const isPending = inv.status === 'pending' && new Date(inv.expiresAt) > new Date();
-            const isDismissed = inv.notification?.id && dismissedIds.includes(inv.notification.id);
+            const dismissKey = `dismissed_invoice_${inv.orderNumber}`;
+            const isDismissed = localStorage.getItem(dismissKey) === 'true';
             return isPending && !isDismissed;
           });
           
@@ -79,32 +72,21 @@ export function InvoiceNotificationProvider({ children }: InvoiceNotificationPro
     return () => clearTimeout(timer);
   }, []);
 
-  // Check if notification was dismissed
-  const isNotificationDismissed = (notificationId: number): boolean => {
-    try {
-      const dismissed = localStorage.getItem('dismissedNotifications');
-      if (!dismissed) return false;
-      const dismissedIds = JSON.parse(dismissed);
-      return Array.isArray(dismissedIds) && dismissedIds.includes(notificationId);
-    } catch (error) {
-      console.error('[Invoice Notification] Error parsing dismissedNotifications:', error);
-      return false;
-    }
-  };
-
   // Handle incoming invoice notifications from SSE
   const handleInvoice = (invoiceData: any) => {
     console.log('[Invoice Notification] Received invoice:', invoiceData);
     
     // Don't show bottom sheet on admin pages (when admin and user logged in same browser)
-    if (location.startsWith('/admin')) {
+    // Use window.location.pathname as wouter location might not be initialized yet
+    if (window.location.pathname.startsWith('/admin')) {
       console.log('[Invoice Notification] Skipping notification on admin page');
       return;
     }
     
-    // Check if this notification was previously dismissed
-    if (invoiceData.notification?.id && isNotificationDismissed(invoiceData.notification.id)) {
-      console.log('[Invoice Notification] Skipping dismissed notification:', invoiceData.notification.id);
+    // Check if this invoice was previously dismissed (by orderNumber)
+    const dismissKey = `dismissed_invoice_${invoiceData.orderNumber}`;
+    if (localStorage.getItem(dismissKey) === 'true') {
+      console.log('[Invoice Notification] Skipping dismissed invoice:', invoiceData.orderNumber);
       return;
     }
     
@@ -158,27 +140,22 @@ export function InvoiceNotificationProvider({ children }: InvoiceNotificationPro
 
   const handleViewInvoice = () => {
     if (selectedInvoice) {
+      // Mark invoice as dismissed when user opens it (user already saw the notification)
+      const dismissKey = `dismissed_invoice_${selectedInvoice.orderNumber}`;
+      localStorage.setItem(dismissKey, 'true');
+      console.log('[Invoice Notification] Marked as dismissed (opened):', selectedInvoice.orderNumber);
+      
       navigate(`/invoice/${selectedInvoice.orderNumber}`);
       setDrawerOpen(false);
     }
   };
 
   const handleDismiss = () => {
-    // Save dismissed notification ID to prevent showing again
-    if (selectedInvoice?.notification?.id) {
-      try {
-        const dismissed = localStorage.getItem('dismissedNotifications');
-        const dismissedIds = dismissed ? JSON.parse(dismissed) : [];
-        if (Array.isArray(dismissedIds) && !dismissedIds.includes(selectedInvoice.notification.id)) {
-          dismissedIds.push(selectedInvoice.notification.id);
-          localStorage.setItem('dismissedNotifications', JSON.stringify(dismissedIds));
-          console.log('[Invoice Notification] Dismissed notification:', selectedInvoice.notification.id);
-        }
-      } catch (error) {
-        console.error('[Invoice Notification] Error saving dismissed notification:', error);
-        // Reset to fresh array if corrupted
-        localStorage.setItem('dismissedNotifications', JSON.stringify([selectedInvoice.notification.id]));
-      }
+    // Mark invoice as dismissed to prevent showing again
+    if (selectedInvoice?.orderNumber) {
+      const dismissKey = `dismissed_invoice_${selectedInvoice.orderNumber}`;
+      localStorage.setItem(dismissKey, 'true');
+      console.log('[Invoice Notification] Dismissed invoice:', selectedInvoice.orderNumber);
     }
     setDrawerOpen(false);
   };
