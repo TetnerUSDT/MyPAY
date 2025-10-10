@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
+import { formatBalance } from "@/lib/utils";
 
 interface Notification {
   id: number;
@@ -89,6 +90,14 @@ export default function NotificationsPage() {
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
+  // Format amounts in notification messages
+  const formatMessage = (message: string): string => {
+    // Match patterns like "109.00000000 USDT" and format them
+    return message.replace(/(\d+\.\d+)\s*(USDT|RUB|USD|EUR|TRY)/g, (match, amount, currency) => {
+      return `${formatBalance(amount)} ${currency}`;
+    });
+  };
+
   return (
     <div className="mobile-screen gradient-bg text-white overflow-y-auto pb-20">
       {/* Header */}
@@ -161,7 +170,7 @@ export default function NotificationsPage() {
                   </div>
                   
                   <h3 className="font-semibold text-white mb-1">{notification.title}</h3>
-                  <p className="text-sm text-green-100">{notification.message}</p>
+                  <p className="text-sm text-green-100">{formatMessage(notification.message)}</p>
 
                   {/* Media attachments */}
                   <div className="mt-3 space-y-2">

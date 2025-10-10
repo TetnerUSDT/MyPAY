@@ -264,7 +264,7 @@ export default function InvoicePage() {
           <div className="border-t border-green-600/30 pt-4">
             <p className="text-sm text-green-200 mb-1">Сумма к оплате</p>
             <p className="text-3xl font-bold text-white">
-              {invoice.amount} {invoice.currency}
+              {formatBalance(invoice.amount)} {invoice.currency}
             </p>
             {invoice.network && (
               <p className="text-sm text-green-200 mt-1">Сеть: {invoice.network}</p>
@@ -300,7 +300,7 @@ export default function InvoicePage() {
           <div className="bg-gradient-to-r from-green-700/40 to-green-800/40 rounded-xl p-4 border border-green-600/30 backdrop-blur-sm">
             <p className="text-sm text-green-200 mb-2">Ваш баланс</p>
             <p className="text-2xl font-bold text-white">
-              {userBalance.sum} {userBalance.currency}
+              {formatBalance(userBalance.sum)} {userBalance.currency}
             </p>
           </div>
         )}
@@ -319,7 +319,7 @@ export default function InvoicePage() {
               onClick={() => cancelInvoiceMutation.mutate()}
               disabled={cancelInvoiceMutation.isPending}
               variant="outline"
-              className="w-full border-red-500 text-red-500 hover:bg-red-500/10 font-bold py-6 text-lg"
+              className="w-full border-green-700 text-green-100 hover:bg-green-700/30 hover:text-white hover:border-green-600 transition-colors font-bold py-6 text-lg"
               data-testid="button-cancel-invoice"
             >
               {cancelInvoiceMutation.isPending ? "Отмена..." : "Отменить счет"}

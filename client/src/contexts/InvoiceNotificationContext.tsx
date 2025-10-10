@@ -195,7 +195,7 @@ export function InvoiceNotificationProvider({ children }: InvoiceNotificationPro
                 <div className="flex justify-between items-center">
                   <span className="text-green-200">Сумма:</span>
                   <span className="text-white font-bold text-xl">
-                    {selectedInvoice.amount} {selectedInvoice.currency}
+                    {formatBalance(selectedInvoice.amount)} {selectedInvoice.currency}
                   </span>
                 </div>
                 
