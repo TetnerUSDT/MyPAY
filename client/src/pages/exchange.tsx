@@ -178,7 +178,7 @@ export default function ExchangeScreen() {
     },
     onSuccess: (data) => {
       // Navigate to payment page with order number
-      setLocation(`/payment?order=${data.number_order}`);
+      setLocation(`/payment?order=${data.numberOrder}`);
     },
     onError: (error: any) => {
       toast({
