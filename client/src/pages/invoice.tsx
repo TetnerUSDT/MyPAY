@@ -100,6 +100,29 @@ export default function InvoicePage() {
     },
   });
 
+  // Cancel invoice mutation
+  const cancelInvoiceMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("PATCH", `/api/invoices/${invoice?.id}/cancel`, {});
+    },
+    onSuccess: () => {
+      toast({
+        title: "Отменено",
+        description: "Счет успешно отменен",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      setLocation("/notifications");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось отменить счет",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleCopyOrderNumber = () => {
     if (invoice?.orderNumber) {
       navigator.clipboard.writeText(invoice.orderNumber);
@@ -281,15 +304,26 @@ export default function InvoicePage() {
           </div>
         )}
 
-        {/* Payment Button */}
+        {/* Payment and Cancel Buttons */}
         {canPay && (
-          <Button
-            onClick={() => setShowPaymentDrawer(true)}
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-6 text-lg"
-            data-testid="button-pay-invoice"
-          >
-            Оплатить счет
-          </Button>
+          <div className="space-y-3">
+            <Button
+              onClick={() => setShowPaymentDrawer(true)}
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-6 text-lg"
+              data-testid="button-pay-invoice"
+            >
+              Оплатить счет
+            </Button>
+            <Button
+              onClick={() => cancelInvoiceMutation.mutate()}
+              disabled={cancelInvoiceMutation.isPending}
+              variant="outline"
+              className="w-full border-red-500 text-red-500 hover:bg-red-500/10 font-bold py-6 text-lg"
+              data-testid="button-cancel-invoice"
+            >
+              {cancelInvoiceMutation.isPending ? "Отмена..." : "Отменить счет"}
+            </Button>
+          </div>
         )}
       </div>
 

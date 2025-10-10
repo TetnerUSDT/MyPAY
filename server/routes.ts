@@ -1354,6 +1354,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Cancel invoice endpoint
+  app.patch("/api/invoices/:id/cancel", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const invoiceId = parseInt(req.params.id);
+
+      // Get invoice
+      const invoice = await storage.getInvoice(invoiceId);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+
+      // Verify user owns this invoice
+      if (invoice.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Check if already paid or canceled
+      if (invoice.status === 'paid') {
+        return res.status(400).json({ message: "Cannot cancel paid invoice" });
+      }
+
+      if (invoice.status === 'canceled') {
+        return res.status(400).json({ message: "Invoice already canceled" });
+      }
+
+      // Update invoice status to canceled
+      const updatedInvoice = await storage.updateInvoiceStatus(invoiceId, 'canceled');
+      
+      // Create notification
+      await storage.createNotification({
+        userId: req.user!.id,
+        type: 'invoice',
+        title: 'Счет отменен',
+        message: `Счет ${invoice.orderNumber} был отменен`,
+        invoiceId,
+        isRead: false
+      });
+
+      res.json(updatedInvoice);
+    } catch (error) {
+      console.error('Cancel invoice error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Register admin routes
   registerAdminRoutes(app, storage);
 
