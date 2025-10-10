@@ -908,23 +908,32 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
         throw new Error('Invoice creation failed - no invoice or userId returned');
       }
       
-      // Create notification for user about new invoice
-      const notification = await storage.createNotification({
-        userId: invoice.userId,
-        type: 'invoice',
-        title: 'Новый счет на оплату',
-        message: `Выставлен счет ${invoice.orderNumber} на сумму ${invoice.amount} ${invoice.currency}`,
-        invoiceId: invoice.id,
-        isRead: false
-      });
+      // Don't send notification if admin creates invoice for themselves
+      // (prevents admin from receiving notifications when logged in as user in another tab)
+      const isAdminCreatingForSelf = req.admin && req.admin.userId === invoice.userId;
       
-      // Send real-time push notification via SSE
-      notificationService.notifyInvoice(invoice.userId.toString(), {
-        ...invoice,
-        notification
-      });
-      
-      console.log(`[Invoice] Created invoice ${invoice.orderNumber} for user ${invoice.userId}, SSE notification sent`);
+      if (!isAdminCreatingForSelf) {
+        // Create notification for user about new invoice
+        const notification = await storage.createNotification({
+          userId: invoice.userId,
+          type: 'invoice',
+          title: 'Новый счет на оплату',
+          message: `Выставлен счет ${invoice.orderNumber} на сумму ${invoice.amount} ${invoice.currency}`,
+          invoiceId: invoice.id,
+          redirectTo: `/invoice/${invoice.orderNumber}`,
+          isRead: false
+        });
+        
+        // Send real-time push notification via SSE
+        notificationService.notifyInvoice(invoice.userId.toString(), {
+          ...invoice,
+          notification
+        });
+        
+        console.log(`[Invoice] Created invoice ${invoice.orderNumber} for user ${invoice.userId}, SSE notification sent`);
+      } else {
+        console.log(`[Invoice] Created invoice ${invoice.orderNumber} for user ${invoice.userId} (admin - no notification)`);
+      }
       
       res.json(invoice);
     } catch (error) {

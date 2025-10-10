@@ -122,7 +122,7 @@ function Router() {
           </AuthGuard>
         </Route>
         
-        <Route path="/invoice/:id">
+        <Route path="/invoice/:orderNumber">
           <AuthGuard requireAgreement={true}>
             <InvoiceScreen />
           </AuthGuard>

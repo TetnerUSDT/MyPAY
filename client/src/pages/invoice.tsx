@@ -28,19 +28,19 @@ interface Invoice {
 }
 
 export default function InvoicePage() {
-  const [, params] = useRoute("/invoice/:id");
+  const [, params] = useRoute("/invoice/:orderNumber");
   const [, setLocation] = useLocation();
   const [showPaymentDrawer, setShowPaymentDrawer] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'blockchain' | 'balance'>('balance');
   const [timeRemaining, setTimeRemaining] = useState<string>("");
   const { toast } = useToast();
 
-  const invoiceId = params?.id;
+  const orderNumber = params?.orderNumber;
 
   // Get invoice details
   const { data: invoice, isLoading } = useQuery<Invoice>({
-    queryKey: ["/api/invoices/by-id", invoiceId],
-    enabled: !!invoiceId,
+    queryKey: [`/api/invoices/${orderNumber}`],
+    enabled: !!orderNumber,
   });
 
   // Get user balance
@@ -79,7 +79,7 @@ export default function InvoicePage() {
   // Pay invoice mutation
   const payInvoiceMutation = useMutation({
     mutationFn: async (data: { paymentMethod: 'blockchain' | 'balance'; paymentHash?: string }) => {
-      await apiRequest("PATCH", `/api/invoices/${invoiceId}/pay`, data);
+      await apiRequest("PATCH", `/api/invoices/${invoice?.id}/pay`, data);
     },
     onSuccess: () => {
       toast({

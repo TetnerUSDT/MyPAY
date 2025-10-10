@@ -17,7 +17,7 @@ interface Notification {
   imageUrl?: string;
   videoUrl?: string;
   linkUrl?: string;
-  redirectUrl?: string;
+  redirectTo?: string;
   invoiceId?: number;
   isRead: boolean;
   createdAt: string;
@@ -58,10 +58,8 @@ export default function NotificationsPage() {
       markAsReadMutation.mutate(notification.id);
     }
 
-    if (notification.redirectUrl) {
-      setLocation(notification.redirectUrl);
-    } else if (notification.type === 'invoice' && notification.invoiceId) {
-      setLocation(`/invoice/${notification.invoiceId}`);
+    if (notification.redirectTo) {
+      setLocation(notification.redirectTo);
     }
   };
 
