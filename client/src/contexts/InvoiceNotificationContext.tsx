@@ -6,6 +6,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, Dr
 import { Button } from "@/components/ui/button";
 import { useLocation } from 'wouter';
 import { Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { formatBalance } from '@/lib/utils';
 
 interface InvoiceNotificationContextType {
   openInvoice: (invoiceId: number) => void;
@@ -97,7 +98,7 @@ export function InvoiceNotificationProvider({ children }: InvoiceNotificationPro
     
     toast({
       title: "Новый счет на оплату",
-      description: `Счет ${invoiceData.orderNumber} на сумму ${invoiceData.amount} ${invoiceData.currency}`,
+      description: `Счет ${invoiceData.orderNumber} на сумму ${formatBalance(invoiceData.amount)} ${invoiceData.currency}`,
       duration: 5000,
     });
 

@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
+import { formatBalance } from "@/lib/utils";
 
 interface Invoice {
   id: number;

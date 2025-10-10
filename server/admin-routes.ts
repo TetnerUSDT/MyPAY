@@ -7,6 +7,7 @@ import { eq, desc, sql } from "drizzle-orm";
 import { insertBalanceSchema, insertCardSchema, insertBankSchema, insertExchangeRateSchema, insertSupportMessageSchema, insertAdminSchema, insertUsersBalancesSchema } from "@shared/schema";
 import { telegramService } from "./telegram-service";
 import { notificationService } from "./notification-service";
+import { formatBalance } from "./utils";
 
 // Helper functions for MySQL compatibility
 function generateUUID(): string {
@@ -918,7 +919,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
           userId: invoice.userId,
           type: 'invoice',
           title: 'Новый счет на оплату',
-          message: `Выставлен счет ${invoice.orderNumber} на сумму ${invoice.amount} ${invoice.currency}`,
+          message: `Выставлен счет ${invoice.orderNumber} на сумму ${formatBalance(invoice.amount)} ${invoice.currency}`,
           invoiceId: invoice.id,
           redirectTo: `/invoice/${invoice.orderNumber}`,
           isRead: false

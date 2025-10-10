@@ -5,7 +5,7 @@ import { ArrowLeft, Bell, CheckCheck, ExternalLink, Image as ImageIcon, Video, L
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatDistanceToNow } from "date-fns";
+import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 
 interface Notification {
@@ -156,7 +156,7 @@ export default function NotificationsPage() {
                   <div className="flex items-center gap-2 mb-1">
                     {getTypeBadge(notification.type)}
                     <span className="text-xs text-green-200">
-                      {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true, locale: ru })}
+                      {format(new Date(notification.createdAt), "dd.MM.yyyy 'в' HH:mm", { locale: ru })}
                     </span>
                   </div>
                   
