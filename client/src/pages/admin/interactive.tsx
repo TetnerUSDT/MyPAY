@@ -119,8 +119,8 @@ export default function AdminInteractive() {
   const invoiceForm = useForm({
     resolver: zodResolver(invoiceSchema),
     defaultValues: {
-      userId: undefined,
-      balanceId: undefined,
+      userId: "",
+      balanceId: "",
       amount: "",
       currency: "",
       network: "",
@@ -216,6 +216,9 @@ export default function AdminInteractive() {
   };
 
   const handleInvoiceSubmit = (data: any) => {
+    console.log('Invoice form data:', data);
+    console.log('Form errors:', invoiceForm.formState.errors);
+    
     const selectedBalance = balances?.find((b: any) => b.id === parseInt(data.balanceId));
     
     const payload = {
@@ -227,6 +230,7 @@ export default function AdminInteractive() {
       description: data.description || null,
     };
     
+    console.log('Invoice payload:', payload);
     createInvoiceMutation.mutate(payload);
   };
 
