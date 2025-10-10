@@ -19,6 +19,7 @@ import SellScreen from "@/pages/sell";
 import SupportScreen from "@/pages/support";
 import CardsScreen from "@/pages/cards";
 import HistoryScreen from "@/pages/history";
+import NotificationsScreen from "@/pages/notifications";
 import BottomNavigation from "@/components/bottom-navigation";
 import { useLocation } from "wouter";
 import { AdminRoutes } from "@/components/AdminRouteProvider";
@@ -110,6 +111,12 @@ function Router() {
         <Route path="/history">
           <AuthGuard requireAgreement={true}>
             <HistoryScreen />
+          </AuthGuard>
+        </Route>
+        
+        <Route path="/notifications">
+          <AuthGuard requireAgreement={true}>
+            <NotificationsScreen />
           </AuthGuard>
         </Route>
         
