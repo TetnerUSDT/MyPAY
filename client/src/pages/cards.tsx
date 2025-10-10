@@ -202,7 +202,7 @@ export default function CardsScreen() {
   };
 
   return (
-    <div className="mobile-screen gradient-bg text-white">
+    <div className="mobile-screen gradient-bg text-white pb-24">
       <div className="flex flex-col h-full">
         {/* Title */}
         <div className="text-center pt-8 pb-16">
