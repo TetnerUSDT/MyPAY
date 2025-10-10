@@ -851,6 +851,17 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
   });
 
   // ========== INTERACTIVE (Notifications & Invoices) ==========
+  app.get(`/${adminPath}/api/notifications`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const { notifications } = await import("@shared/schema");
+      const allNotifications = await db.select().from(notifications).orderBy(desc(notifications.createdAt));
+      res.json(allNotifications);
+    } catch (error) {
+      console.error('Get notifications error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.post(`/${adminPath}/api/notifications`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
       const notification = await storage.createNotification(req.body);
