@@ -1214,6 +1214,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/invoices/:id/pay", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const invoiceId = parseInt(req.params.id);
+      const { paymentMethod, paymentHash } = req.body;
+
+      // Get invoice
+      const invoice = await storage.getInvoice(invoiceId);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+
+      // Verify user owns this invoice
+      if (invoice.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Check if already paid
+      if (invoice.status === 'paid') {
+        return res.status(400).json({ message: "Invoice already paid" });
+      }
+
+      // Check if expired
+      if (invoice.expiresAt && new Date(invoice.expiresAt) < new Date()) {
+        return res.status(400).json({ message: "Invoice expired" });
+      }
+
+      // Process payment based on method
+      if (paymentMethod === 'balance') {
+        // Check if user has enough balance
+        const userBalance = await storage.getUserBalance(req.user!.id, invoice.balanceId!);
+        if (!userBalance || parseFloat(userBalance.sum) < parseFloat(invoice.amount)) {
+          return res.status(400).json({ message: "Insufficient balance" });
+        }
+
+        // Deduct balance
+        const newBalance = parseFloat(userBalance.sum) - parseFloat(invoice.amount);
+        await storage.updateUserBalance(userBalance.id, newBalance.toString());
+
+        // Update invoice status
+        const updatedInvoice = await storage.updateInvoiceStatus(invoiceId, 'paid', new Date());
+        
+        // Create notification
+        await storage.createNotification({
+          userId: req.user!.id,
+          type: 'invoice',
+          title: 'Счет оплачен',
+          message: `Счет ${invoice.orderNumber} успешно оплачен`,
+          invoiceId,
+          isRead: false
+        });
+
+        res.json(updatedInvoice);
+      } else if (paymentMethod === 'blockchain') {
+        // For blockchain, just mark as pending for admin verification
+        res.json({ message: "Payment pending admin verification" });
+      } else {
+        res.status(400).json({ message: "Invalid payment method" });
+      }
+    } catch (error) {
+      console.error('Pay invoice error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Register admin routes
   registerAdminRoutes(app, storage);
 
