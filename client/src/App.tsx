@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { PreloaderProvider, RouteChangePreloader, AuthGuard } from "@/components";
+import { InvoiceNotificationProvider } from "@/contexts/InvoiceNotificationContext";
 import SplashScreen from "@/pages/splash";
 import AgreementScreen from "@/pages/agreement";
 import HomeScreen from "@/pages/home";
@@ -141,9 +142,11 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <PreloaderProvider>
         <TooltipProvider>
-          <Toaster />
-          <RouteChangePreloader />
-          <Router />
+          <InvoiceNotificationProvider>
+            <Toaster />
+            <RouteChangePreloader />
+            <Router />
+          </InvoiceNotificationProvider>
         </TooltipProvider>
       </PreloaderProvider>
     </QueryClientProvider>

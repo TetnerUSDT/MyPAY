@@ -6,6 +6,7 @@ import { balances, exchanges, cards, banks, exchangeRates, supportTickets, suppo
 import { eq, desc, sql } from "drizzle-orm";
 import { insertBalanceSchema, insertCardSchema, insertBankSchema, insertExchangeRateSchema, insertSupportMessageSchema, insertAdminSchema, insertUsersBalancesSchema } from "@shared/schema";
 import { telegramService } from "./telegram-service";
+import { notificationService } from "./notification-service";
 
 // Helper functions for MySQL compatibility
 function generateUUID(): string {
@@ -908,7 +909,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
       const invoice = await storage.createInvoice(invoiceData);
       
       // Create notification for user about new invoice
-      await storage.createNotification({
+      const notification = await storage.createNotification({
         userId: invoice.userId,
         type: 'invoice',
         title: 'Новый счет на оплату',
@@ -916,6 +917,14 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
         invoiceId: invoice.id,
         isRead: false
       });
+      
+      // Send real-time push notification via SSE
+      notificationService.notifyInvoice(invoice.userId.toString(), {
+        ...invoice,
+        notification
+      });
+      
+      console.log(`[Invoice] Created invoice ${invoice.orderNumber} for user ${invoice.userId}, SSE notification sent`);
       
       res.json(invoice);
     } catch (error) {

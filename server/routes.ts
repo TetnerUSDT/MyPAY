@@ -9,6 +9,7 @@ import { config, isTestMode, isTelegramMode, isDevelopment } from "./config";
 import { createWalletViaAPI } from "./wallet-api";
 import { registerAdminRoutes } from "./admin-routes";
 import { telegramService } from "./telegram-service";
+import { notificationService } from "./notification-service";
 
 // Unified login schema that supports both modes
 const loginSchema = z.discriminatedUnion("mode", [
@@ -1184,6 +1185,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.markAllNotificationsAsRead(req.user!.id);
       res.json({ success: true });
     } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Endpoint to generate SSE token (requires authentication)
+  app.post("/api/notifications/sse-token", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id.toString();
+      const token = notificationService.generateSSEToken(userId);
+      res.json({ token });
+    } catch (error) {
+      console.error('[SSE] Token generation error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Server-Sent Events endpoint for real-time notifications
+  // Uses one-time tokens for security (no API keys in URL)
+  app.get("/api/notifications/stream", async (req, res) => {
+    try {
+      // Get one-time token from query parameter
+      const token = req.query.token as string;
+      
+      if (!token) {
+        res.status(401).json({ message: "Token required" });
+        return;
+      }
+      
+      // Validate and consume token (one-time use)
+      const userId = notificationService.validateSSEToken(token);
+      
+      if (!userId) {
+        res.status(401).json({ message: "Invalid or expired token" });
+        return;
+      }
+      
+      // Set SSE headers
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+      
+      // Disable compression for SSE
+      res.flushHeaders();
+      
+      console.log(`[SSE] User ${userId} connecting to notification stream`);
+      
+      // Register connection with notification service
+      notificationService.addConnection(userId, res);
+      
+      // Connection will be automatically cleaned up by notificationService on close
+    } catch (error) {
+      console.error('[SSE] Connection error:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
