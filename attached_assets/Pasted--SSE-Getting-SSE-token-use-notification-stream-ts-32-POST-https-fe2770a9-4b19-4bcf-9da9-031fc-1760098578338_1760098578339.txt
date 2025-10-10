@@ -1,0 +1,480 @@
+[SSE] Getting SSE token...
+use-notification-stream.ts:32  POST https://fe2770a9-4b19-4bcf-9da9-031fc437e4d5-00-2hata37zvqqoi.janeway.replit.dev/api/notifications/sse-token 401 (Unauthorized)
+(anonymous) @ use-notification-stream.ts:32
+(anonymous) @ use-notification-stream.ts:71
+(anonymous) @ use-notification-stream.ts:194
+setTimeout
+(anonymous) @ use-notification-stream.ts:193
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=c4329f5c:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=c4329f5c:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=c4329f5c:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=c4329f5c:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=c4329f5c:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=c4329f5c:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=c4329f5c:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19432
+commitRoot @ chunk-RPCDYKBN.js?v=c4329f5c:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=c4329f5c:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18718
+workLoop @ chunk-RPCDYKBN.js?v=c4329f5c:197
+flushWork @ chunk-RPCDYKBN.js?v=c4329f5c:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=c4329f5c:384Understand this error
+use-notification-stream.ts:40 [SSE] Failed to get token: Unauthorized
+(anonymous) @ use-notification-stream.ts:40
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:71
+(anonymous) @ use-notification-stream.ts:194
+setTimeout
+(anonymous) @ use-notification-stream.ts:193
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=c4329f5c:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=c4329f5c:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=c4329f5c:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=c4329f5c:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=c4329f5c:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=c4329f5c:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=c4329f5c:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19432
+commitRoot @ chunk-RPCDYKBN.js?v=c4329f5c:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=c4329f5c:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18718
+workLoop @ chunk-RPCDYKBN.js?v=c4329f5c:197
+flushWork @ chunk-RPCDYKBN.js?v=c4329f5c:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=c4329f5c:384Understand this error
+use-notification-stream.ts:74 [SSE] Failed to get token
+(anonymous) @ use-notification-stream.ts:74
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:194
+setTimeout
+(anonymous) @ use-notification-stream.ts:193
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=c4329f5c:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=c4329f5c:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=c4329f5c:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=c4329f5c:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=c4329f5c:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=c4329f5c:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=c4329f5c:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19432
+commitRoot @ chunk-RPCDYKBN.js?v=c4329f5c:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=c4329f5c:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18718
+workLoop @ chunk-RPCDYKBN.js?v=c4329f5c:197
+flushWork @ chunk-RPCDYKBN.js?v=c4329f5c:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=c4329f5c:384Understand this error
+InvoiceNotificationContext.tsx:42  GET https://fe2770a9-4b19-4bcf-9da9-031fc437e4d5-00-2hata37zvqqoi.janeway.replit.dev/api/invoices 401 (Unauthorized)
+checkPendingInvoices @ InvoiceNotificationContext.tsx:42
+setTimeout
+(anonymous) @ InvoiceNotificationContext.tsx:71
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=c4329f5c:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=c4329f5c:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=c4329f5c:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=c4329f5c:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=c4329f5c:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=c4329f5c:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=c4329f5c:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19432
+commitRoot @ chunk-RPCDYKBN.js?v=c4329f5c:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=c4329f5c:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18718
+workLoop @ chunk-RPCDYKBN.js?v=c4329f5c:197
+flushWork @ chunk-RPCDYKBN.js?v=c4329f5c:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=c4329f5c:384Understand this error
+use-notification-stream.ts:70 [SSE] Getting SSE token...
+use-notification-stream.ts:32  POST https://fe2770a9-4b19-4bcf-9da9-031fc437e4d5-00-2hata37zvqqoi.janeway.replit.dev/api/notifications/sse-token 401 (Unauthorized)
+(anonymous) @ use-notification-stream.ts:32
+(anonymous) @ use-notification-stream.ts:71
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:194
+setTimeout
+(anonymous) @ use-notification-stream.ts:193
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=c4329f5c:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=c4329f5c:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=c4329f5c:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=c4329f5c:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=c4329f5c:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=c4329f5c:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=c4329f5c:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19432
+commitRoot @ chunk-RPCDYKBN.js?v=c4329f5c:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=c4329f5c:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18718
+workLoop @ chunk-RPCDYKBN.js?v=c4329f5c:197
+flushWork @ chunk-RPCDYKBN.js?v=c4329f5c:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=c4329f5c:384Understand this error
+use-notification-stream.ts:40 [SSE] Failed to get token: Unauthorized
+(anonymous) @ use-notification-stream.ts:40
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:71
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:194
+setTimeout
+(anonymous) @ use-notification-stream.ts:193
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=c4329f5c:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=c4329f5c:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=c4329f5c:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=c4329f5c:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=c4329f5c:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=c4329f5c:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=c4329f5c:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19432
+commitRoot @ chunk-RPCDYKBN.js?v=c4329f5c:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=c4329f5c:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18718
+workLoop @ chunk-RPCDYKBN.js?v=c4329f5c:197
+flushWork @ chunk-RPCDYKBN.js?v=c4329f5c:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=c4329f5c:384Understand this error
+use-notification-stream.ts:74 [SSE] Failed to get token
+(anonymous) @ use-notification-stream.ts:74
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:194
+setTimeout
+(anonymous) @ use-notification-stream.ts:193
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=c4329f5c:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=c4329f5c:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=c4329f5c:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=c4329f5c:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=c4329f5c:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=c4329f5c:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=c4329f5c:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19432
+commitRoot @ chunk-RPCDYKBN.js?v=c4329f5c:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=c4329f5c:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18718
+workLoop @ chunk-RPCDYKBN.js?v=c4329f5c:197
+flushWork @ chunk-RPCDYKBN.js?v=c4329f5c:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=c4329f5c:384Understand this error
+use-notification-stream.ts:70 [SSE] Getting SSE token...
+use-notification-stream.ts:32  POST https://fe2770a9-4b19-4bcf-9da9-031fc437e4d5-00-2hata37zvqqoi.janeway.replit.dev/api/notifications/sse-token 401 (Unauthorized)
+(anonymous) @ use-notification-stream.ts:32
+(anonymous) @ use-notification-stream.ts:71
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:194
+setTimeout
+(anonymous) @ use-notification-stream.ts:193
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=c4329f5c:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=c4329f5c:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=c4329f5c:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=c4329f5c:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=c4329f5c:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=c4329f5c:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=c4329f5c:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19432
+commitRoot @ chunk-RPCDYKBN.js?v=c4329f5c:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=c4329f5c:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18718
+workLoop @ chunk-RPCDYKBN.js?v=c4329f5c:197
+flushWork @ chunk-RPCDYKBN.js?v=c4329f5c:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=c4329f5c:384Understand this error
+use-notification-stream.ts:40 [SSE] Failed to get token: Unauthorized
+(anonymous) @ use-notification-stream.ts:40
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:71
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:194
+setTimeout
+(anonymous) @ use-notification-stream.ts:193
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=c4329f5c:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=c4329f5c:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=c4329f5c:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=c4329f5c:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=c4329f5c:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=c4329f5c:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=c4329f5c:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19432
+commitRoot @ chunk-RPCDYKBN.js?v=c4329f5c:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=c4329f5c:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18718
+workLoop @ chunk-RPCDYKBN.js?v=c4329f5c:197
+flushWork @ chunk-RPCDYKBN.js?v=c4329f5c:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=c4329f5c:384Understand this error
+use-notification-stream.ts:74 [SSE] Failed to get token
+(anonymous) @ use-notification-stream.ts:74
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:194
+setTimeout
+(anonymous) @ use-notification-stream.ts:193
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=c4329f5c:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=c4329f5c:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=c4329f5c:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=c4329f5c:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=c4329f5c:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=c4329f5c:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=c4329f5c:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19432
+commitRoot @ chunk-RPCDYKBN.js?v=c4329f5c:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=c4329f5c:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18718
+workLoop @ chunk-RPCDYKBN.js?v=c4329f5c:197
+flushWork @ chunk-RPCDYKBN.js?v=c4329f5c:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=c4329f5c:384Understand this error
+use-notification-stream.ts:70 [SSE] Getting SSE token...
+use-notification-stream.ts:32  POST https://fe2770a9-4b19-4bcf-9da9-031fc437e4d5-00-2hata37zvqqoi.janeway.replit.dev/api/notifications/sse-token 401 (Unauthorized)
+(anonymous) @ use-notification-stream.ts:32
+(anonymous) @ use-notification-stream.ts:71
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:194
+setTimeout
+(anonymous) @ use-notification-stream.ts:193
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=c4329f5c:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=c4329f5c:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=c4329f5c:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=c4329f5c:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=c4329f5c:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=c4329f5c:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=c4329f5c:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19432
+commitRoot @ chunk-RPCDYKBN.js?v=c4329f5c:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=c4329f5c:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18718
+workLoop @ chunk-RPCDYKBN.js?v=c4329f5c:197
+flushWork @ chunk-RPCDYKBN.js?v=c4329f5c:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=c4329f5c:384Understand this error
+use-notification-stream.ts:40 [SSE] Failed to get token: Unauthorized
+(anonymous) @ use-notification-stream.ts:40
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:71
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:194
+setTimeout
+(anonymous) @ use-notification-stream.ts:193
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=c4329f5c:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=c4329f5c:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=c4329f5c:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=c4329f5c:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=c4329f5c:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=c4329f5c:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=c4329f5c:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19432
+commitRoot @ chunk-RPCDYKBN.js?v=c4329f5c:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=c4329f5c:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18718
+workLoop @ chunk-RPCDYKBN.js?v=c4329f5c:197
+flushWork @ chunk-RPCDYKBN.js?v=c4329f5c:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=c4329f5c:384Understand this error
+use-notification-stream.ts:74 [SSE] Failed to get token
+(anonymous) @ use-notification-stream.ts:74
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:194
+setTimeout
+(anonymous) @ use-notification-stream.ts:193
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=c4329f5c:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=c4329f5c:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=c4329f5c:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=c4329f5c:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=c4329f5c:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=c4329f5c:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=c4329f5c:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19432
+commitRoot @ chunk-RPCDYKBN.js?v=c4329f5c:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=c4329f5c:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18718
+workLoop @ chunk-RPCDYKBN.js?v=c4329f5c:197
+flushWork @ chunk-RPCDYKBN.js?v=c4329f5c:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=c4329f5c:384Understand this error
+use-notification-stream.ts:70 [SSE] Getting SSE token...
+use-notification-stream.ts:32  POST https://fe2770a9-4b19-4bcf-9da9-031fc437e4d5-00-2hata37zvqqoi.janeway.replit.dev/api/notifications/sse-token 401 (Unauthorized)
+(anonymous) @ use-notification-stream.ts:32
+(anonymous) @ use-notification-stream.ts:71
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:194
+setTimeout
+(anonymous) @ use-notification-stream.ts:193
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=c4329f5c:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=c4329f5c:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=c4329f5c:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=c4329f5c:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=c4329f5c:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=c4329f5c:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=c4329f5c:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19432
+commitRoot @ chunk-RPCDYKBN.js?v=c4329f5c:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=c4329f5c:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18718
+workLoop @ chunk-RPCDYKBN.js?v=c4329f5c:197
+flushWork @ chunk-RPCDYKBN.js?v=c4329f5c:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=c4329f5c:384Understand this error
+use-notification-stream.ts:40 [SSE] Failed to get token: Unauthorized
+(anonymous) @ use-notification-stream.ts:40
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:71
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:194
+setTimeout
+(anonymous) @ use-notification-stream.ts:193
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=c4329f5c:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=c4329f5c:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=c4329f5c:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=c4329f5c:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=c4329f5c:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=c4329f5c:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=c4329f5c:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19432
+commitRoot @ chunk-RPCDYKBN.js?v=c4329f5c:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=c4329f5c:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18718
+workLoop @ chunk-RPCDYKBN.js?v=c4329f5c:197
+flushWork @ chunk-RPCDYKBN.js?v=c4329f5c:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=c4329f5c:384Understand this error
+use-notification-stream.ts:74 [SSE] Failed to get token
+(anonymous) @ use-notification-stream.ts:74
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:79
+setTimeout
+(anonymous) @ use-notification-stream.ts:77
+await in (anonymous)
+(anonymous) @ use-notification-stream.ts:194
+setTimeout
+(anonymous) @ use-notification-stream.ts:193
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=c4329f5c:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=c4329f5c:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=c4329f5c:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=c4329f5c:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=c4329f5c:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=c4329f5c:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=c4329f5c:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=c4329f5c:19432
+commitRoot @ chunk-RPCDYKBN.js?v=c4329f5c:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=c4329f5c:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=c4329f5c:18718
+workLoop @ chunk-RPCDYKBN.js?v=c4329f5c:197
+flushWork @ chunk-RPCDYKBN.js?v=c4329f5c:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=c4329f5c:384Understand this error

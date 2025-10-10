@@ -23,6 +23,11 @@ export function useNotificationStream(options: UseNotificationStreamOptions = {}
 
   // Function to get SSE token
   const getSSEToken = useCallback(async (): Promise<string | null> => {
+    // Don't get token on admin pages
+    if (window.location.pathname.startsWith('/admin')) {
+      return null;
+    }
+
     const apiKey = localStorage.getItem('userApiKey');
     if (!apiKey) {
       return null;

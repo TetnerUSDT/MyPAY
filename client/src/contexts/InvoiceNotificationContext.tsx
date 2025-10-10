@@ -34,6 +34,11 @@ export function InvoiceNotificationProvider({ children }: InvoiceNotificationPro
 
   // Check for pending invoices on mount (offline recovery)
   useEffect(() => {
+    // Don't check invoices on admin pages
+    if (window.location.pathname.startsWith('/admin')) {
+      return;
+    }
+
     const apiKey = localStorage.getItem('userApiKey');
     if (!apiKey) return;
 
