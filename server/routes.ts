@@ -309,38 +309,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user = await storage.getUserByTgId(tgId);
         
         if (!user) {
-          // Create new user
-          user = await storage.createUser({
-            tgId,
-            tgUsername,
-            google: null,
-            name,
-            img,
-            status: "active",
-            agreement: 0,
-            blocked: false
-          });
-        } else if (tgUsername && user.tgUsername !== tgUsername) {
-          // Update username if changed
-          await storage.updateUser(user.id, { tgUsername });
-          user.tgUsername = tgUsername;
-        } else if (!user.tgUsername && !tgUsername) {
-          // Try to fetch username from Telegram Bot API if not available
+          // Create new user - try to fetch fresh data from Telegram Bot API
           try {
             const telegramData = await telegramService.extractUserData(tgId);
-            if (telegramData.tgUsername) {
-              await storage.updateUser(user.id, { 
-                tgUsername: telegramData.tgUsername,
-                name: telegramData.name || user.name,
-                img: telegramData.img || user.img
-              });
-              user.tgUsername = telegramData.tgUsername;
-              user.name = telegramData.name || user.name;
-              user.img = telegramData.img || user.img;
+            user = await storage.createUser({
+              tgId,
+              tgUsername: telegramData.tgUsername || tgUsername,
+              google: null,
+              name: telegramData.name || name,
+              img: telegramData.img || img,
+              status: "active",
+              agreement: 0,
+              blocked: false
+            });
+          } catch (error) {
+            console.error('Failed to fetch Telegram user data, using provided data:', error);
+            // Fallback to data from initData/widgetData
+            user = await storage.createUser({
+              tgId,
+              tgUsername,
+              google: null,
+              name,
+              img,
+              status: "active",
+              agreement: 0,
+              blocked: false
+            });
+          }
+        } else {
+          // User exists - update their data
+          const updates: any = {};
+          
+          // Update username if changed
+          if (tgUsername && user.tgUsername !== tgUsername) {
+            updates.tgUsername = tgUsername;
+          }
+          
+          // Update name if provided and different
+          if (name && user.name !== name) {
+            updates.name = name;
+          }
+          
+          // Try to fetch and update photo from Telegram Bot API
+          try {
+            const telegramData = await telegramService.extractUserData(tgId);
+            
+            // Update username if different
+            if (telegramData.tgUsername && telegramData.tgUsername !== user.tgUsername) {
+              updates.tgUsername = telegramData.tgUsername;
+            }
+            
+            // Update name if different
+            if (telegramData.name && telegramData.name !== user.name) {
+              updates.name = telegramData.name;
+            }
+            
+            // Update avatar if different
+            if (telegramData.img && telegramData.img !== user.img) {
+              updates.img = telegramData.img;
             }
           } catch (error) {
-            console.error('Failed to fetch Telegram user data:', error);
-            // Continue without username - not critical
+            console.error('Failed to fetch Telegram user data for update:', error);
+            // If Bot API fails, use photo from initData/widgetData if available
+            if (img && img !== user.img) {
+              updates.img = img;
+            }
+          }
+          
+          // Apply updates if any
+          if (Object.keys(updates).length > 0) {
+            await storage.updateUser(user.id, updates);
+            // Update user object with new values
+            user = { ...user, ...updates };
           }
         }
         
