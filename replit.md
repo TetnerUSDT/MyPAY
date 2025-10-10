@@ -13,14 +13,28 @@ Implemented comprehensive notification and billing system for customer engagemen
 - **Database Tables**:
   - `notifications`: User notifications with types (info/invoice/exchange/promotion), support for images/videos/links/redirects
   - `invoices`: Billing system with order tracking, multiple payment methods (blockchain/balance), status management (pending/paid/expired/canceled)
-- **Admin Panel - Interactive Section**: New admin page with tabs for managing:
-  - **Notifications**: Create/delete user notifications with rich media support
-  - **Billing**: Invoice management with status tracking, payment verification, deadline control
+- **Admin Panel - Interactive Section**: New admin page (`/admin/interactive`) with tabs for managing:
+  - **Notifications**: Create/delete user notifications with rich media support (images, videos, links, redirects)
+  - **Billing**: Invoice management with status tracking, payment verification, deadline control, order number generation
+- **User Interface**:
+  - **Notification Badge**: Avatar on home screen shows unread notification count with animated ripple effect
+  - **Notifications Page** (`/notifications`): List view with type badges, media attachments, mark as read functionality
+  - **Invoice Page** (`/invoice/:id`): Detailed invoice view with countdown timer, payment methods selection (balance/blockchain)
+  - **Bottom Sheet Payment**: Drawer component for selecting payment method and confirming invoice payment
 - **API Endpoints**:
   - Admin: `POST /api/notifications`, `DELETE /api/notifications/:id`, `GET /api/invoices`, `POST /api/invoices`, `PATCH /api/invoices/:id/status`
-  - User: `GET /api/notifications`, `PATCH /api/notifications/:id/read`, `GET /api/invoices`, `PATCH /api/invoices/:id/pay`
+  - User: `GET /api/notifications`, `GET /api/notifications/unread-count`, `PATCH /api/notifications/:id/read`, `PATCH /api/notifications/read-all`, `GET /api/invoices`, `GET /api/invoices/:orderNumber`, `PATCH /api/invoices/:id/pay`
+- **Payment Integration**:
+  - Balance payment: Automatic balance deduction, insufficient funds validation
+  - Blockchain payment: Admin verification workflow
+  - Transaction history with notification on successful payment
 - **Migration**: Custom TypeScript migration script (`scripts/migrate-notifications.ts`) for MySQL database
-- **Features**: Automatic notification creation on invoice generation, payment deadline tracking, multi-currency support
+- **Features**: 
+  - Real-time unread count with 30-second auto-refresh
+  - Automatic notification creation on invoice generation
+  - Payment deadline tracking with live countdown timer
+  - Multi-currency support (RUB, USDT, etc.)
+  - Rich media in notifications (images, videos, external links)
 
 ## Telegram User Profile Integration (October 2025)
 Implemented comprehensive Telegram user data management and display:
