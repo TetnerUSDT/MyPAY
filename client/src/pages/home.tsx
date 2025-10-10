@@ -112,7 +112,9 @@ export default function HomeScreen() {
     icon: getNetworkIcon(balance.network),
     network: balance.network,
     status: balance.status,
-    isBlocked: balance.status === 'blocked'
+    balanceStatus: balance.balanceStatus,
+    isBlocked: balance.status === 'blocked',
+    isFrozen: balance.balanceStatus === 'frozen'
   }));
 
   const actions = [
@@ -255,9 +257,13 @@ export default function HomeScreen() {
             {wallets.map((wallet) => (
               <div 
                 key={wallet.id}
-                className={`crypto-card flex items-center justify-between relative ${wallet.isBlocked ? 'opacity-70 cursor-pointer' : ''}`}
+                className={`crypto-card flex items-center justify-between relative ${(wallet.isBlocked || wallet.isFrozen) ? 'opacity-70 cursor-pointer' : ''}`}
                 data-testid={`wallet-${wallet.id}`}
-                onClick={() => wallet.isBlocked && setBlockedBalanceId(wallet.id)}
+                onClick={() => {
+                  if (wallet.isBlocked || wallet.isFrozen) {
+                    setBlockedBalanceId(wallet.id);
+                  }
+                }}
               >
                 <div className="flex items-center">
                   {/* Wallet Icon */}
@@ -282,30 +288,30 @@ export default function HomeScreen() {
                 
                 {/* Action Buttons */}
                 <div className="flex space-x-2">
-                  <Link href={wallet.isBlocked ? '#' : `/top-up?network=${wallet.network?.includes('TRC20') ? 'TRC20' : wallet.network?.includes('BEP20') ? 'BEP20' : 'TON'}`}>
+                  <Link href={(wallet.isBlocked || wallet.isFrozen) ? '#' : `/top-up?network=${wallet.network?.includes('TRC20') ? 'TRC20' : wallet.network?.includes('BEP20') ? 'BEP20' : 'TON'}`}>
                     <button 
                       className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={wallet.isBlocked}
+                      disabled={wallet.isBlocked || wallet.isFrozen}
                       data-testid={`button-deposit-${wallet.id}`}
-                      onClick={(e) => wallet.isBlocked && e.preventDefault()}
+                      onClick={(e) => (wallet.isBlocked || wallet.isFrozen) && e.preventDefault()}
                     >
                       <ArrowDownLeft className="w-4 h-4 text-accent-foreground" />
                     </button>
                   </Link>
-                  <Link href={wallet.isBlocked ? '#' : `/transfer?network=${wallet.network?.includes('TRC20') ? 'TRC20' : wallet.network?.includes('BEP20') ? 'BEP20' : 'TON'}`}>
+                  <Link href={(wallet.isBlocked || wallet.isFrozen) ? '#' : `/transfer?network=${wallet.network?.includes('TRC20') ? 'TRC20' : wallet.network?.includes('BEP20') ? 'BEP20' : 'TON'}`}>
                     <button 
                       className="w-10 h-10 bg-yellow-400 rounded-lg flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={wallet.isBlocked}
+                      disabled={wallet.isBlocked || wallet.isFrozen}
                       data-testid={`button-send-${wallet.id}`}
-                      onClick={(e) => wallet.isBlocked && e.preventDefault()}
+                      onClick={(e) => (wallet.isBlocked || wallet.isFrozen) && e.preventDefault()}
                     >
                       <ArrowUpRight className="w-4 h-4 text-black" />
                     </button>
                   </Link>
                 </div>
 
-                {/* Blocked Overlay */}
-                {wallet.isBlocked && blockedBalanceId === wallet.id && (
+                {/* Blocked/Frozen Overlay */}
+                {(wallet.isBlocked || wallet.isFrozen) && blockedBalanceId === wallet.id && (
                   <div 
                     className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-2xl"
                     onClick={(e) => {
@@ -313,8 +319,8 @@ export default function HomeScreen() {
                       setBlockedBalanceId(null);
                     }}
                   >
-                    <div className="bg-red-900/90 border border-red-700 text-white px-4 py-2 rounded-lg backdrop-blur-sm">
-                      <p className="font-medium">🔒 Баланс заблокирован</p>
+                    <div className={`${wallet.isBlocked ? 'bg-red-900/90 border-red-700' : 'bg-blue-900/90 border-blue-700'} border text-white px-4 py-2 rounded-lg backdrop-blur-sm`}>
+                      <p className="font-medium">{wallet.isBlocked ? '🔒 Баланс заблокирован' : '❄️ Баланс неактивный'}</p>
                     </div>
                   </div>
                 )}

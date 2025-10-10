@@ -724,8 +724,11 @@ export class DatabaseStorage implements IStorage {
   async getUserCryptoBalances(userId: number): Promise<any[]> {
     const cryptoBalances = await this.getCryptoBalances();
     
+    // Filter out hidden balances
+    const visibleBalances = cryptoBalances.filter(balance => balance.status !== 'hidden');
+    
     const result = await Promise.all(
-      cryptoBalances.map(async (balance) => {
+      visibleBalances.map(async (balance) => {
         const [userBalance] = await db
           .select()
           .from(usersBalances)
@@ -742,7 +745,8 @@ export class DatabaseStorage implements IStorage {
           network: balance.network,
           currency: balance.currency,
           sum: userBalance?.sum || "0.00",
-          status: userBalance?.status || "inactive"
+          status: userBalance?.status || "inactive",
+          balanceStatus: balance.status || "active", // Add system balance status
         };
       })
     );
