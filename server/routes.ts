@@ -524,6 +524,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create topup request and notify admin channel
+  app.post("/api/topup/create", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { walletAddress, network } = req.body;
+      
+      if (!walletAddress || !network) {
+        return res.status(400).json({ message: "Wallet address and network are required" });
+      }
+
+      // Send notification to admin channel
+      await telegramService.notifyTopUp({
+        userId: req.user!.id,
+        userName: req.user!.name || `User ${req.user!.id}`,
+        walletAddress,
+        network
+      });
+      
+      res.json({ success: true, message: "Top-up request created" });
+    } catch (error) {
+      console.error("Error creating topup request:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Support chats
   app.post("/api/support/chats", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {
@@ -906,6 +930,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         commission: commission || "0.0",
         tempBalance: tempBalance.toString(),
         status: "wait"
+      });
+
+      // Send notification to admin channel
+      await telegramService.notifyExchange({
+        userId: req.user!.id,
+        userName: req.user!.name || `User ${req.user!.id}`,
+        orderNumber,
+        fromAmount: amountFrom,
+        fromCurrency,
+        toAmount: amountTo,
+        toCurrency,
+        walletAddress: wallet.address,
+        network: wallet.network,
+        paymentMethod
       });
 
       // Return exchange details with wallet address and payment method

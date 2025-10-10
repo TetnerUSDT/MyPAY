@@ -1,4 +1,5 @@
 import { config } from './config';
+import { formatBalance } from './utils';
 
 interface TelegramUser {
   id: number;
@@ -31,10 +32,12 @@ interface TelegramApiResponse<T> {
 export class TelegramService {
   private botToken: string;
   private baseUrl: string;
+  private channelId: string;
 
   constructor() {
     this.botToken = config.auth.telegram.botToken;
     this.baseUrl = `https://api.telegram.org/bot${this.botToken}`;
+    this.channelId = config.auth.telegram.channelId;
   }
 
   /**
@@ -105,6 +108,97 @@ export class TelegramService {
       name: userInfo?.first_name || null,
       img: photoUrl || null,
     };
+  }
+
+  /**
+   * Send message to admin channel
+   */
+  async sendChannelMessage(message: string, parseMode: 'HTML' | 'Markdown' = 'HTML'): Promise<boolean> {
+    try {
+      if (!this.channelId) {
+        console.error('TELEGRAM_CHANNEL_ID is not configured');
+        return false;
+      }
+
+      const response = await fetch(`${this.baseUrl}/sendMessage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chat_id: this.channelId,
+          text: message,
+          parse_mode: parseMode,
+        }),
+      });
+
+      const data: TelegramApiResponse<any> = await response.json();
+
+      if (data.ok) {
+        console.log(`✅ Message sent to channel ${this.channelId}`);
+        return true;
+      } else {
+        console.error(`Failed to send message to channel:`, data.description);
+        return false;
+      }
+    } catch (error) {
+      console.error(`Error sending message to channel:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Send top-up notification to admin channel
+   */
+  async notifyTopUp(data: {
+    userId: number;
+    userName: string;
+    walletAddress: string;
+    network: string;
+  }): Promise<boolean> {
+    const message = `
+🔔 <b>Новая заявка на пополнение</b>
+
+👤 Пользователь: ${data.userName} (ID: ${data.userId})
+💳 Адрес кошелька: <code>${data.walletAddress}</code>
+🌐 Сеть: ${data.network}
+
+⏰ Время: ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}
+`;
+    
+    return this.sendChannelMessage(message.trim());
+  }
+
+  /**
+   * Send exchange notification to admin channel
+   */
+  async notifyExchange(data: {
+    userId: number;
+    userName: string;
+    orderNumber: string;
+    fromAmount: string;
+    fromCurrency: string;
+    toAmount: string;
+    toCurrency: string;
+    walletAddress?: string;
+    network?: string;
+    paymentMethod?: string;
+  }): Promise<boolean> {
+    const message = `
+🔔 <b>Новая заявка на обмен</b>
+
+👤 Пользователь: ${data.userName} (ID: ${data.userId})
+📋 Номер заказа: <code>${data.orderNumber}</code>
+
+💸 Обмен: ${formatBalance(data.fromAmount)} ${data.fromCurrency} → ${formatBalance(data.toAmount)} ${data.toCurrency}
+${data.paymentMethod ? `💳 Способ оплаты: ${data.paymentMethod === 'blockchain' ? 'Blockchain' : 'Баланс'}` : ''}
+${data.walletAddress ? `💳 Адрес: <code>${data.walletAddress}</code>` : ''}
+${data.network ? `🌐 Сеть: ${data.network}` : ''}
+
+⏰ Время: ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}
+`;
+    
+    return this.sendChannelMessage(message.trim());
   }
 }
 

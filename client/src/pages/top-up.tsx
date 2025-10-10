@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import QRCodeComponent from "@/components/qr-code";
+import { Button } from "@/components/ui/button";
 
 type NetworkType = "TRC20" | "BEP20" | "TON";
 
@@ -25,7 +26,7 @@ export default function TopUpScreen() {
   const [copied, setCopied] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<string>("");
   const { toast } = useToast();
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
 
   // Get crypto balances to check status
   const { data: cryptoBalances = [] } = useQuery<any[]>({
@@ -49,6 +50,23 @@ export default function TopUpScreen() {
         network
       });
       return (await res.json()) as ReservedWallet;
+    }
+  });
+
+  const createTopupMutation = useMutation({
+    mutationFn: async (data: { walletAddress: string; network: string }) => {
+      const res = await apiRequest("POST", "/api/topup/create", data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      navigate("/top-up-success");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось создать заявку на пополнение",
+        variant: "destructive",
+      });
     }
   });
 
@@ -198,16 +216,22 @@ export default function TopUpScreen() {
           )}
         </div>
         
-        <Link href="/top-up-success">
-          <button 
-            className="action-button"
-            data-testid="button-continue"
-            disabled={reserveWalletMutation.isPending}
-          >
-            Далее
-            <ArrowRight className="w-5 h-5 ml-2" />
-          </button>
-        </Link>
+        <Button
+          onClick={() => {
+            if (wallet?.address && activeNetwork) {
+              createTopupMutation.mutate({
+                walletAddress: wallet.address,
+                network: activeNetwork
+              });
+            }
+          }}
+          className="action-button w-full"
+          data-testid="button-continue"
+          disabled={reserveWalletMutation.isPending || createTopupMutation.isPending || !wallet?.address}
+        >
+          {createTopupMutation.isPending ? "Отправка..." : "Далее"}
+          <ArrowRight className="w-5 h-5 ml-2" />
+        </Button>
       </div>
     </div>
   );
