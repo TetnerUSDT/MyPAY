@@ -5,6 +5,7 @@ import { z } from "zod";
 
 // Define enums
 export const balanceTypeEnum = mysqlEnum('balance_type', ['fiat', 'crypto', 'token', 'voucher']);
+export const balanceStatusEnum = mysqlEnum('balance_status', ['active', 'frozen', 'hidden']);
 export const exchangeStatusEnum = mysqlEnum('status', ['wait', 'wait-paid', 'paid', 'complete', 'canceled', 'dispute']);
 export const supportTicketStatusEnum = mysqlEnum('support_status', ['wait-user', 'wait-support', 'closed']);
 export const messageSenderEnum = mysqlEnum('message_sender', ['user', 'support']);
@@ -16,7 +17,7 @@ export const balances = mysqlTable("balances", {
   currency: varchar("currency", { length: 10 }).notNull(),
   rate: decimal("rate", { precision: 18, scale: 8 }),
   balanceType: varchar("type", { length: 50 }).notNull().default("fiat"),
-  status: varchar("status", { length: 50 }),
+  status: varchar("status", { length: 50 }).notNull().default("active"),
 });
 
 export const users = mysqlTable("users", {
