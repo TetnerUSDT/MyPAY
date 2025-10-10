@@ -8,6 +8,20 @@ Preferred communication style: Simple, everyday language.
 
 # Recent Changes
 
+## Interactive Customer Engagement System (October 2025)
+Implemented comprehensive notification and billing system for customer engagement:
+- **Database Tables**:
+  - `notifications`: User notifications with types (info/invoice/exchange/promotion), support for images/videos/links/redirects
+  - `invoices`: Billing system with order tracking, multiple payment methods (blockchain/balance), status management (pending/paid/expired/canceled)
+- **Admin Panel - Interactive Section**: New admin page with tabs for managing:
+  - **Notifications**: Create/delete user notifications with rich media support
+  - **Billing**: Invoice management with status tracking, payment verification, deadline control
+- **API Endpoints**:
+  - Admin: `POST /api/notifications`, `DELETE /api/notifications/:id`, `GET /api/invoices`, `POST /api/invoices`, `PATCH /api/invoices/:id/status`
+  - User: `GET /api/notifications`, `PATCH /api/notifications/:id/read`, `GET /api/invoices`, `PATCH /api/invoices/:id/pay`
+- **Migration**: Custom TypeScript migration script (`scripts/migrate-notifications.ts`) for MySQL database
+- **Features**: Automatic notification creation on invoice generation, payment deadline tracking, multi-currency support
+
 ## Telegram User Profile Integration (October 2025)
 Implemented comprehensive Telegram user data management and display:
 - **Bot API Integration**: Created `TelegramService` for fetching user data via Telegram Bot API
