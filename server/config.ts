@@ -9,6 +9,7 @@ export interface AppConfig {
       botToken: string;
       botUsername: string;
       validateInitData: boolean;
+      channelId: string;
     };
     test: {
       enabled: boolean;
@@ -34,6 +35,7 @@ export const config: AppConfig = {
       botToken: process.env.TELEGRAM_BOT_TOKEN || 'dev-mock-token',
       botUsername: process.env.TELEGRAM_BOT_USERNAME || 'dev_bot',
       validateInitData: process.env.VALIDATE_TELEGRAM_INITDATA !== 'false',
+      channelId: process.env.TELEGRAM_CHANNEL_ID || '',
     },
     test: {
       enabled: process.env.ENABLE_TEST_AUTH !== 'false',
