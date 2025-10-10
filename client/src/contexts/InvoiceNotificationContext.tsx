@@ -185,7 +185,7 @@ export function InvoiceNotificationProvider({ children }: InvoiceNotificationPro
           {selectedInvoice && (
             <div className="px-4 py-6 space-y-4">
               {/* Invoice Details */}
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 space-y-3">
+              <div className="backdrop-blur-sm rounded-lg p-4 space-y-3" style={{ backgroundColor: '#174a35' }}>
                 <div className="flex justify-between items-center">
                   <span className="text-green-200">Номер заказа:</span>
                   <span className="text-white font-semibold">{selectedInvoice.orderNumber}</span>
