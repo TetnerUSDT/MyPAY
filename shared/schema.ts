@@ -10,7 +10,6 @@ export const exchangeStatusEnum = mysqlEnum('status', ['wait', 'wait-paid', 'pai
 export const supportTicketStatusEnum = mysqlEnum('support_status', ['wait-user', 'wait-support', 'closed']);
 export const messageSenderEnum = mysqlEnum('message_sender', ['user', 'support']);
 export const notificationTypeEnum = mysqlEnum('notification_type', ['info', 'invoice', 'exchange', 'promotion']);
-export const invoiceStatusEnum = mysqlEnum('invoice_status', ['pending', 'paid', 'expired', 'canceled']);
 
 export const balances = mysqlTable("balances", {
   id: int("id").primaryKey().autoincrement(),
@@ -198,7 +197,7 @@ export const invoices = mysqlTable("invoices", {
   network: varchar("network", { length: 50 }),
   description: text("description"),
   paymentMethod: varchar("payment_method", { length: 20 }),
-  status: invoiceStatusEnum.notNull().default("pending"),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
   expiresAt: timestamp("expires_at"),
   paidAt: timestamp("paid_at"),
   paymentHash: text("payment_hash"),

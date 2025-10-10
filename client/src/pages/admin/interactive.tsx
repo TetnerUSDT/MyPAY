@@ -99,7 +99,7 @@ export default function AdminInteractive() {
   const notificationForm = useForm({
     resolver: zodResolver(notificationSchema),
     defaultValues: {
-      userId: "",
+      userId: "all",
       type: "info" as const,
       title: "",
       message: "",
@@ -114,8 +114,8 @@ export default function AdminInteractive() {
   const invoiceForm = useForm({
     resolver: zodResolver(invoiceSchema),
     defaultValues: {
-      userId: "",
-      balanceId: "",
+      userId: undefined,
+      balanceId: undefined,
       amount: "",
       currency: "",
       network: "",
@@ -182,7 +182,7 @@ export default function AdminInteractive() {
 
   const handleNotificationSubmit = (data: any) => {
     const payload: any = {
-      userId: data.userId ? parseInt(data.userId) : null,
+      userId: (data.userId && data.userId !== 'all') ? parseInt(data.userId) : null,
       type: data.type,
       title: data.title,
       message: data.message,
@@ -232,11 +232,8 @@ export default function AdminInteractive() {
   };
 
   return (
-    <AdminLayout>
+    <AdminLayout title="Интерактив">
       <div className="container mx-auto p-4">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold" data-testid="text-interactive-title">Интерактив</h1>
-        </div>
 
         <Tabs defaultValue="invoices" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
@@ -445,7 +442,7 @@ export default function AdminInteractive() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="">Всем пользователям</SelectItem>
+                                <SelectItem value="all">Всем пользователям</SelectItem>
                                 {users?.map((user: any) => (
                                   <SelectItem key={user.id} value={user.id.toString()}>
                                     {user.name} (ID: {user.id})
