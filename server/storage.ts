@@ -51,6 +51,7 @@ export interface IStorage {
 
   // Balance methods
   getBalance(id: number): Promise<any | undefined>;
+  getBalanceById(id: number): Promise<any | undefined>;
   getBalancesByIds(ids: string): Promise<any[]>;
   getPaymentBalance(): Promise<any | undefined>; // USDT.BEP20
 
@@ -648,6 +649,11 @@ export class DatabaseStorage implements IStorage {
 
   // Balance methods
   async getBalance(id: number): Promise<any | undefined> {
+    const [balance] = await db.select().from(balances).where(eq(balances.id, id));
+    return balance || undefined;
+  }
+
+  async getBalanceById(id: number): Promise<any | undefined> {
     const [balance] = await db.select().from(balances).where(eq(balances.id, id));
     return balance || undefined;
   }

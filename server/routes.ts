@@ -790,6 +790,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Missing required fields" });
       }
 
+      // Check if fromBalance is frozen or hidden
+      const fromBalance = await storage.getBalanceById(fromBalanceId);
+      if (!fromBalance) {
+        return res.status(404).json({ message: "Balance not found" });
+      }
+      if (fromBalance.status === 'frozen') {
+        return res.status(400).json({ message: "Этот баланс временно неактивен" });
+      }
+      if (fromBalance.status === 'hidden') {
+        return res.status(400).json({ message: "Этот баланс недоступен" });
+      }
+
+      // Check if toBalance is frozen or hidden
+      const toBalance = await storage.getBalanceById(toBalanceId);
+      if (!toBalance) {
+        return res.status(404).json({ message: "Balance not found" });
+      }
+      if (toBalance.status === 'frozen') {
+        return res.status(400).json({ message: "Целевой баланс временно неактивен" });
+      }
+      if (toBalance.status === 'hidden') {
+        return res.status(400).json({ message: "Целевой баланс недоступен" });
+      }
+
       // If paying from balance, check and deduct funds
       let tempBalance = 0;
       if (paymentMethod === 'balance') {
