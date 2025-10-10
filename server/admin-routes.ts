@@ -851,7 +851,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
   });
 
   // ========== INTERACTIVE (Notifications & Invoices) ==========
-  app.post(`/${adminPath}/api/notifications`, requireAuth, async (req: AdminRequest, res) => {
+  app.post(`/${adminPath}/api/notifications`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
       const notification = await storage.createNotification(req.body);
       res.json(notification);
@@ -861,7 +861,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
     }
   });
 
-  app.delete(`/${adminPath}/api/notifications/:id`, requireAuth, async (req: AdminRequest, res) => {
+  app.delete(`/${adminPath}/api/notifications/:id`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
       await storage.deleteNotification(parseInt(req.params.id));
       res.json({ success: true });
@@ -871,7 +871,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
     }
   });
 
-  app.get(`/${adminPath}/api/invoices`, requireAuth, async (req: AdminRequest, res) => {
+  app.get(`/${adminPath}/api/invoices`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
       const invoices = await storage.getAllInvoices();
       res.json(invoices);
@@ -881,7 +881,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
     }
   });
 
-  app.post(`/${adminPath}/api/invoices`, requireAuth, async (req: AdminRequest, res) => {
+  app.post(`/${adminPath}/api/invoices`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
       const invoice = await storage.createInvoice(req.body);
       
@@ -902,7 +902,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
     }
   });
 
-  app.patch(`/${adminPath}/api/invoices/:id/status`, requireAuth, async (req: AdminRequest, res) => {
+  app.patch(`/${adminPath}/api/invoices/:id/status`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
       const { id } = req.params;
       const { status, paymentHash } = req.body;

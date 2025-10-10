@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { adminRequest, getAdminCredentials, clearAdminCredentials, getAdminPath } from "@/lib/adminApi";
 import { 
   Users, Wallet, ArrowRightLeft, CreditCard, DollarSign, 
-  MessageSquare, Settings, LogOut, LayoutDashboard, Landmark, TrendingUp
+  MessageSquare, Settings, LogOut, LayoutDashboard, Landmark, TrendingUp, Bell
 } from "lucide-react";
 
 interface AdminInfo {
@@ -53,6 +53,7 @@ export default function AdminDashboard() {
     { icon: CreditCard, title: "Страны", description: "Настройка стран", path: `/${adminPath}/cards` },
     { icon: Landmark, title: "Банки", description: "Управление банками", path: `/${adminPath}/banks` },
     { icon: TrendingUp, title: "Курсы обмена", description: "Настройка курсов", path: `/${adminPath}/exchange-rates` },
+    { icon: Bell, title: "Интерактив", description: "Уведомления и счета", path: `/${adminPath}/interactive` },
     { icon: MessageSquare, title: "Поддержка", description: "Чаты с пользователями", path: `/${adminPath}/support` },
     { icon: Users, title: "Пользователи", description: "Управление пользователями", path: `/${adminPath}/users` },
     { icon: Wallet, title: "Кошельки", description: "Управление кошельками", path: `/${adminPath}/wallets` },

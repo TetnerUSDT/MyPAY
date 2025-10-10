@@ -11,6 +11,7 @@ import AdminExchangeRates from "@/pages/admin/exchange-rates";
 import AdminSupport from "@/pages/admin/support";
 import AdminUsers from "@/pages/admin/users";
 import AdminWallets from "@/pages/admin/wallets";
+import AdminInteractive from "@/pages/admin/interactive";
 
 export function AdminRoutes() {
   const [adminPath, setAdminPath] = useState<string>('admin');
@@ -31,6 +32,7 @@ export function AdminRoutes() {
       <Route path={`/${adminPath}/support`} component={AdminSupport} />
       <Route path={`/${adminPath}/users`} component={AdminUsers} />
       <Route path={`/${adminPath}/wallets`} component={AdminWallets} />
+      <Route path={`/${adminPath}/interactive`} component={AdminInteractive} />
       <Route path={`/${adminPath}`}>
         <Redirect to={`/${adminPath}/login`} />
       </Route>
