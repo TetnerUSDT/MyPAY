@@ -50,6 +50,12 @@ export function useNotificationStream(options: UseNotificationStreamOptions = {}
   }, []);
 
   const connect = useCallback(async () => {
+    // Don't connect on admin pages
+    if (window.location.pathname.startsWith('/admin')) {
+      console.log('[SSE] Skipping connection on admin page');
+      return;
+    }
+
     const apiKey = localStorage.getItem('userApiKey');
     if (!enabled || !apiKey) {
       console.log('[SSE] Connection disabled or no API key', { enabled, hasApiKey: !!apiKey });
@@ -176,6 +182,11 @@ export function useNotificationStream(options: UseNotificationStreamOptions = {}
 
   // Connect on mount, disconnect on unmount
   useEffect(() => {
+    // Don't connect on admin pages
+    if (window.location.pathname.startsWith('/admin')) {
+      return;
+    }
+
     const apiKey = localStorage.getItem('userApiKey');
     if (enabled && apiKey) {
       // Small delay to ensure authentication is fully set up
