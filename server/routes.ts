@@ -1169,7 +1169,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/notifications/:id/read", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
-      const notification = await storage.markNotificationAsRead(id);
+      const notification = await storage.markNotificationAsRead(id, req.user!.id);
       if (!notification) {
         return res.status(404).json({ message: "Notification not found" });
       }

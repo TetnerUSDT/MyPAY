@@ -12,6 +12,7 @@ Preferred communication style: Simple, everyday language.
 Implemented comprehensive notification and billing system for customer engagement:
 - **Database Tables**:
   - `notifications`: User notifications with types (info/invoice/exchange/promotion), support for images/videos/links/redirects
+  - `notification_reads`: Individual read status tracking for broadcast notifications (many-to-many: notifications ↔ users)
   - `invoices`: Billing system with order tracking, multiple payment methods (blockchain/balance), status management (pending/paid/expired/canceled)
 - **Admin Panel - Interactive Section**: New admin page (`/admin/interactive`) with tabs for managing:
   - **Notifications**: Create/delete user notifications with rich media support (images, videos, links, redirects)

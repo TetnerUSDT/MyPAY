@@ -88,7 +88,7 @@ export interface IStorage {
   getUserNotifications(userId: number): Promise<any[]>;
   getUnreadNotificationsCount(userId: number): Promise<number>;
   createNotification(notification: any): Promise<any>;
-  markNotificationAsRead(id: number): Promise<any | undefined>;
+  markNotificationAsRead(notificationId: number, userId: number): Promise<any | undefined>;
   markAllNotificationsAsRead(userId: number): Promise<void>;
   deleteNotification(id: number): Promise<void>;
 
@@ -1094,27 +1094,89 @@ export class DatabaseStorage implements IStorage {
 
   // Notification methods implementation
   async getUserNotifications(userId: number): Promise<any[]> {
-    const { notifications } = await import("@shared/schema");
-    return await db.select().from(notifications).where(
-      or(
-        eq(notifications.userId, userId),
-        isNull(notifications.userId)
+    const { notifications, notificationReads } = await import("@shared/schema");
+    
+    // Get all notifications (personal + broadcast)
+    const allNotifications = await db
+      .select({
+        id: notifications.id,
+        userId: notifications.userId,
+        type: notifications.type,
+        title: notifications.title,
+        message: notifications.message,
+        imageUrl: notifications.imageUrl,
+        videoUrl: notifications.videoUrl,
+        linkUrl: notifications.linkUrl,
+        linkText: notifications.linkText,
+        redirectTo: notifications.redirectTo,
+        invoiceId: notifications.invoiceId,
+        exchangeId: notifications.exchangeId,
+        isRead: notifications.isRead,
+        createdAt: notifications.createdAt,
+        readByUser: notificationReads.id,
+      })
+      .from(notifications)
+      .leftJoin(
+        notificationReads,
+        and(
+          eq(notificationReads.notificationId, notifications.id),
+          eq(notificationReads.userId, userId)
+        )
       )
-    ).orderBy(sql`${notifications.createdAt} DESC`);
-  }
-
-  async getUnreadNotificationsCount(userId: number): Promise<number> {
-    const { notifications } = await import("@shared/schema");
-    const result = await db.select({ count: sql<number>`count(*)` }).from(notifications).where(
-      and(
+      .where(
         or(
           eq(notifications.userId, userId),
           isNull(notifications.userId)
-        ),
-        eq(notifications.isRead, false)
+        )
       )
-    );
-    return result[0]?.count || 0;
+      .orderBy(sql`${notifications.createdAt} DESC`);
+    
+    // Calculate final isRead status:
+    // - For personal notifications (userId != null): use notifications.isRead
+    // - For broadcast notifications (userId = null): check if readByUser exists
+    return allNotifications.map(n => ({
+      ...n,
+      isRead: n.userId !== null ? n.isRead : n.readByUser !== null,
+      readByUser: undefined, // Remove helper field
+    }));
+  }
+
+  async getUnreadNotificationsCount(userId: number): Promise<number> {
+    const { notifications, notificationReads } = await import("@shared/schema");
+    
+    // Count personal unread notifications
+    const personalUnread = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(notifications)
+      .where(
+        and(
+          eq(notifications.userId, userId),
+          eq(notifications.isRead, false)
+        )
+      );
+    
+    // Count broadcast notifications not marked as read by this user
+    const broadcastUnread = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(notifications)
+      .leftJoin(
+        notificationReads,
+        and(
+          eq(notificationReads.notificationId, notifications.id),
+          eq(notificationReads.userId, userId)
+        )
+      )
+      .where(
+        and(
+          isNull(notifications.userId),
+          isNull(notificationReads.id)
+        )
+      );
+    
+    const personalCount = personalUnread[0]?.count || 0;
+    const broadcastCount = broadcastUnread[0]?.count || 0;
+    
+    return personalCount + broadcastCount;
   }
 
   async createNotification(notification: any): Promise<any> {
@@ -1126,25 +1188,83 @@ export class DatabaseStorage implements IStorage {
     return newNotification;
   }
 
-  async markNotificationAsRead(id: number): Promise<any | undefined> {
-    const { notifications } = await import("@shared/schema");
-    const updatedNotification = await updateAndReturn<any>(
-      db.update(notifications).set({ isRead: true }).where(eq(notifications.id, id)),
-      'notifications',
-      'id = ?',
-      [id]
-    );
-    return updatedNotification || undefined;
+  async markNotificationAsRead(notificationId: number, userId: number): Promise<any | undefined> {
+    const { notifications, notificationReads } = await import("@shared/schema");
+    
+    // First, get the notification to check if it's broadcast or personal
+    const [notification] = await db.select().from(notifications).where(eq(notifications.id, notificationId));
+    
+    if (!notification) return undefined;
+    
+    // If personal notification (userId != null), update isRead in notifications table
+    if (notification.userId !== null) {
+      const updatedNotification = await updateAndReturn<any>(
+        db.update(notifications).set({ isRead: true }).where(eq(notifications.id, notificationId)),
+        'notifications',
+        'id = ?',
+        [notificationId]
+      );
+      return updatedNotification || undefined;
+    }
+    
+    // If broadcast notification (userId = null), add entry to notification_reads table
+    // Check if already marked as read by this user
+    const [existing] = await db
+      .select()
+      .from(notificationReads)
+      .where(
+        and(
+          eq(notificationReads.notificationId, notificationId),
+          eq(notificationReads.userId, userId)
+        )
+      );
+    
+    if (!existing) {
+      await db.insert(notificationReads).values({
+        notificationId,
+        userId,
+      });
+    }
+    
+    return notification;
   }
 
   async markAllNotificationsAsRead(userId: number): Promise<void> {
-    const { notifications } = await import("@shared/schema");
-    await db.update(notifications).set({ isRead: true }).where(
-      or(
-        eq(notifications.userId, userId),
-        isNull(notifications.userId)
-      )
-    );
+    const { notifications, notificationReads } = await import("@shared/schema");
+    
+    // Mark all personal notifications as read
+    await db.update(notifications).set({ isRead: true }).where(eq(notifications.userId, userId));
+    
+    // Get all broadcast notifications
+    const broadcastNotifications = await db
+      .select({ id: notifications.id })
+      .from(notifications)
+      .where(isNull(notifications.userId));
+    
+    // Mark all broadcast notifications as read for this user
+    if (broadcastNotifications.length > 0) {
+      const values = broadcastNotifications.map(n => ({
+        notificationId: n.id,
+        userId,
+      }));
+      
+      // Use INSERT IGNORE pattern to avoid duplicates
+      for (const value of values) {
+        const [existing] = await db
+          .select()
+          .from(notificationReads)
+          .where(
+            and(
+              eq(notificationReads.notificationId, value.notificationId),
+              eq(notificationReads.userId, userId)
+            )
+          );
+        
+        if (!existing) {
+          await db.insert(notificationReads).values(value);
+        }
+      }
+    }
   }
 
   async deleteNotification(id: number): Promise<void> {

@@ -220,6 +220,13 @@ export const notifications = mysqlTable("notifications", {
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const notificationReads = mysqlTable("notification_reads", {
+  id: int("id").primaryKey().autoincrement(),
+  notificationId: int("notification_id").notNull().references(() => notifications.id, { onDelete: "cascade" }),
+  userId: int("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  readAt: timestamp("read_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export const insertBalanceSchema = createInsertSchema(balances).omit({ id: true });
 export const insertUsersBalancesSchema = createInsertSchema(usersBalances).omit({ id: true });
@@ -237,6 +244,7 @@ export const insertSupportMessageSchema = createInsertSchema(supportMessages).om
 export const insertAdminSchema = createInsertSchema(admins).omit({ id: true, createdAt: true });
 export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true, createdAt: true, paidAt: true });
 export const insertNotificationSchema = createInsertSchema(notifications).omit({ id: true, createdAt: true });
+export const insertNotificationReadSchema = createInsertSchema(notificationReads).omit({ id: true, readAt: true });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -272,3 +280,5 @@ export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
 export type Invoice = typeof invoices.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
+export type InsertNotificationRead = z.infer<typeof insertNotificationReadSchema>;
+export type NotificationRead = typeof notificationReads.$inferSelect;
