@@ -1,7 +1,7 @@
 import { type User, type InsertUser, type Wallet, type InsertWallet, type Transaction, type InsertTransaction, type ExchangeRate, type InsertExchangeRate, type SupportChat, type InsertSupportChat, type SupportTicket, type InsertSupportTicket, type SupportMessage, type InsertSupportMessage, type Card, type Bank, type InsertBank, users, wallets, transactions, exchangeRates, supportChats, supportTickets, supportMessages, cards, banks, balances, userCards, exchanges, usersBalances } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
-import { eq, and, sql, inArray } from "drizzle-orm";
+import { eq, and, or, isNull, sql, inArray } from "drizzle-orm";
 import { insertAndReturn, updateAndReturn, insertAndReturnTx } from "./mysql-helpers";
 
 export interface IStorage {
@@ -1095,14 +1095,22 @@ export class DatabaseStorage implements IStorage {
   // Notification methods implementation
   async getUserNotifications(userId: number): Promise<any[]> {
     const { notifications } = await import("@shared/schema");
-    return await db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(sql`${notifications.createdAt} DESC`);
+    return await db.select().from(notifications).where(
+      or(
+        eq(notifications.userId, userId),
+        isNull(notifications.userId)
+      )
+    ).orderBy(sql`${notifications.createdAt} DESC`);
   }
 
   async getUnreadNotificationsCount(userId: number): Promise<number> {
     const { notifications } = await import("@shared/schema");
     const result = await db.select({ count: sql<number>`count(*)` }).from(notifications).where(
       and(
-        eq(notifications.userId, userId),
+        or(
+          eq(notifications.userId, userId),
+          isNull(notifications.userId)
+        ),
         eq(notifications.isRead, false)
       )
     );
@@ -1131,7 +1139,12 @@ export class DatabaseStorage implements IStorage {
 
   async markAllNotificationsAsRead(userId: number): Promise<void> {
     const { notifications } = await import("@shared/schema");
-    await db.update(notifications).set({ isRead: true }).where(eq(notifications.userId, userId));
+    await db.update(notifications).set({ isRead: true }).where(
+      or(
+        eq(notifications.userId, userId),
+        isNull(notifications.userId)
+      )
+    );
   }
 
   async deleteNotification(id: number): Promise<void> {

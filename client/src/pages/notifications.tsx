@@ -10,7 +10,7 @@ import { ru } from "date-fns/locale";
 
 interface Notification {
   id: number;
-  userId: number;
+  userId: number | null;
   type: 'info' | 'invoice' | 'exchange' | 'promotion';
   title: string;
   message: string;
