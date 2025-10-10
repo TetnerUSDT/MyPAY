@@ -12,8 +12,8 @@ export async function insertAndReturn<T extends any>(
     console.log(`[MySQL Helper] Insert ID for ${tableName}:`, insertId);
     const rows = await db.execute(sql.raw(`SELECT * FROM ${tableName} WHERE id = ${insertId}`));
     console.log(`[MySQL Helper] Select result for ${tableName}:`, rows);
-    console.log(`[MySQL Helper] Returning row:`, rows[0]);
-    return rows[0] as T;
+    console.log(`[MySQL Helper] Returning row:`, rows[0][0]);
+    return rows[0][0] as T;
   } else {
     const [row] = await query.returning();
     return row as T;
