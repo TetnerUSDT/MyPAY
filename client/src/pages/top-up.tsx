@@ -3,7 +3,7 @@ import { X, ArrowDown, Copy, ArrowRight, Check } from "lucide-react";
 import { useState, useEffect } from "react";
 import { copyToClipboard } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import QRCodeComponent from "@/components/qr-code";
 
@@ -21,11 +21,27 @@ interface ReservedWallet {
 }
 
 export default function TopUpScreen() {
-  const [activeNetwork, setActiveNetwork] = useState<NetworkType>("TRC20");
+  const [activeNetwork, setActiveNetwork] = useState<NetworkType | null>(null);
   const [copied, setCopied] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<string>("");
   const { toast } = useToast();
   const [location] = useLocation();
+
+  // Get crypto balances to check status
+  const { data: cryptoBalances = [] } = useQuery<any[]>({
+    queryKey: ["/api/user/crypto-balances"],
+  });
+
+  // Filter active (not frozen) networks
+  const availableNetworks = cryptoBalances
+    .filter(balance => balance.balanceStatus !== 'frozen')
+    .map(balance => {
+      if (balance.network?.includes('TRC20')) return 'TRC20';
+      if (balance.network?.includes('BEP20')) return 'BEP20';
+      if (balance.network?.includes('TON')) return 'TON';
+      return null;
+    })
+    .filter(Boolean) as NetworkType[];
 
   const reserveWalletMutation = useMutation({
     mutationFn: async (network: string) => {
@@ -39,13 +55,20 @@ export default function TopUpScreen() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const networkParam = urlParams.get('network') as NetworkType;
-    if (networkParam && ['TRC20', 'BEP20', 'TON'].includes(networkParam)) {
+    
+    // Check if network from URL is available (not frozen)
+    if (networkParam && availableNetworks.includes(networkParam)) {
       setActiveNetwork(networkParam);
+    } else if (availableNetworks.length > 0 && !activeNetwork) {
+      // Select first available network as default
+      setActiveNetwork(availableNetworks[0]);
     }
-  }, [location]);
+  }, [location, cryptoBalances]);
 
   useEffect(() => {
-    reserveWalletMutation.mutate(activeNetwork);
+    if (activeNetwork) {
+      reserveWalletMutation.mutate(activeNetwork);
+    }
   }, [activeNetwork]);
 
   const wallet = reserveWalletMutation.data;
@@ -111,7 +134,7 @@ export default function TopUpScreen() {
         
         <div className="flex justify-center mb-12">
           <div className="flex bg-secondary rounded-lg p-1">
-            {(["TRC20", "BEP20", "TON"] as NetworkType[]).map((network) => (
+            {availableNetworks.map((network) => (
               <button
                 key={network}
                 onClick={() => setActiveNetwork(network)}
