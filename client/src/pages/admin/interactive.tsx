@@ -160,15 +160,15 @@ export default function AdminInteractive() {
         'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[Math.floor(Math.random() * 36)]
       ).join('');
       
-      // Set expiration (30 minutes from now)
-      const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+      // Set expiration (30 minutes from now) - keep as Date object for MySQL
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
       
       return adminRequest('/invoices', { 
         method: 'POST', 
         body: JSON.stringify({
           ...data,
           orderNumber,
-          expiresAt,
+          expiresAt: expiresAt.toISOString(), // Convert to ISO string for JSON
           status: 'pending'
         }) 
       });
