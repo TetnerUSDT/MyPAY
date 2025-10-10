@@ -145,6 +145,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Get user with API key (uses session, no API key required)
+  app.get("/api/user", (req: AuthenticatedRequest, res) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    res.json(req.user);
+  });
+
   // Unified authentication endpoint that adapts based on configuration
   app.post("/api/auth/login", async (req, res) => {
     try {

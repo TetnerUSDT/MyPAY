@@ -55,7 +55,7 @@ export function useNotificationStream(options: UseNotificationStreamOptions = {}
 
   const connect = useCallback(async () => {
     if (!enabled || !user?.apiKey) {
-      console.log('[SSE] Connection disabled or no API key');
+      console.log('[SSE] Connection disabled or no API key', { enabled, hasUser: !!user, hasApiKey: !!user?.apiKey });
       return;
     }
 

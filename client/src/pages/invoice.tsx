@@ -6,7 +6,7 @@ import { Link, useRoute, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
-import { formatDistanceToNow } from "date-fns";
+import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 
 interface Invoice {
@@ -208,7 +208,7 @@ export default function InvoicePage() {
           <div>
             <h1 className="text-xl font-bold text-white">Счет #{invoice.orderNumber}</h1>
             <p className="text-xs text-green-200">
-              Создан {formatDistanceToNow(new Date(invoice.createdAt), { addSuffix: true, locale: ru })}
+              Создан {format(new Date(invoice.createdAt), "dd.MM.yyyy 'в' HH:mm", { locale: ru })}
             </p>
           </div>
         </div>
@@ -273,8 +273,8 @@ export default function InvoicePage() {
 
         {/* Balance Info */}
         {userBalance && canPay && (
-          <div className="bg-gradient-to-r from-blue-700/40 to-blue-800/40 rounded-xl p-4 border border-blue-600/30 backdrop-blur-sm">
-            <p className="text-sm text-blue-200 mb-2">Ваш баланс</p>
+          <div className="bg-gradient-to-r from-green-700/40 to-green-800/40 rounded-xl p-4 border border-green-600/30 backdrop-blur-sm">
+            <p className="text-sm text-green-200 mb-2">Ваш баланс</p>
             <p className="text-2xl font-bold text-white">
               {userBalance.sum} {userBalance.currency}
             </p>
