@@ -286,7 +286,14 @@ export default function AdminInteractive() {
                     </DialogDescription>
                   </DialogHeader>
                   <Form {...invoiceForm}>
-                    <form onSubmit={invoiceForm.handleSubmit(handleInvoiceSubmit)} className="space-y-4">
+                    <form onSubmit={invoiceForm.handleSubmit(handleInvoiceSubmit, (errors) => {
+                      console.error('Invoice form validation errors:', errors);
+                      toast({ 
+                        title: "Ошибка валидации", 
+                        description: "Проверьте правильность заполнения всех полей",
+                        variant: "destructive" 
+                      });
+                    })} className="space-y-4">
                       <FormField
                         control={invoiceForm.control}
                         name="userId"
@@ -361,7 +368,17 @@ export default function AdminInteractive() {
                           </FormItem>
                         )}
                       />
-                      <Button type="submit" className="w-full" disabled={createInvoiceMutation.isPending} data-testid="button-submit-invoice">
+                      <Button 
+                        type="submit" 
+                        className="w-full" 
+                        disabled={createInvoiceMutation.isPending}
+                        onClick={() => {
+                          console.log('Submit button clicked');
+                          console.log('Form state:', invoiceForm.getValues());
+                          console.log('Form errors:', invoiceForm.formState.errors);
+                        }}
+                        data-testid="button-submit-invoice"
+                      >
                         {createInvoiceMutation.isPending ? "Создание..." : "Создать счет"}
                       </Button>
                     </form>
