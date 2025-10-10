@@ -849,4 +849,69 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
       res.status(500).json({ message: "Internal server error" });
     }
   });
+
+  // ========== INTERACTIVE (Notifications & Invoices) ==========
+  app.post(`/${adminPath}/api/notifications`, requireAuth, async (req: AdminRequest, res) => {
+    try {
+      const notification = await storage.createNotification(req.body);
+      res.json(notification);
+    } catch (error) {
+      console.error('Create notification error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete(`/${adminPath}/api/notifications/:id`, requireAuth, async (req: AdminRequest, res) => {
+    try {
+      await storage.deleteNotification(parseInt(req.params.id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Delete notification error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get(`/${adminPath}/api/invoices`, requireAuth, async (req: AdminRequest, res) => {
+    try {
+      const invoices = await storage.getAllInvoices();
+      res.json(invoices);
+    } catch (error) {
+      console.error('Get invoices error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post(`/${adminPath}/api/invoices`, requireAuth, async (req: AdminRequest, res) => {
+    try {
+      const invoice = await storage.createInvoice(req.body);
+      
+      // Create notification for user about new invoice
+      await storage.createNotification({
+        userId: invoice.userId,
+        type: 'invoice',
+        title: 'Новый счет на оплату',
+        message: `Выставлен счет ${invoice.orderNumber} на сумму ${invoice.amount} ${invoice.currency}`,
+        invoiceId: invoice.id,
+        isRead: false
+      });
+      
+      res.json(invoice);
+    } catch (error) {
+      console.error('Create invoice error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch(`/${adminPath}/api/invoices/:id/status`, requireAuth, async (req: AdminRequest, res) => {
+    try {
+      const { id } = req.params;
+      const { status, paymentHash } = req.body;
+      const paidAt = status === 'paid' ? new Date() : undefined;
+      const updatedInvoice = await storage.updateInvoiceStatus(parseInt(id), status, paidAt, paymentHash);
+      res.json(updatedInvoice);
+    } catch (error) {
+      console.error('Update invoice status error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
 }

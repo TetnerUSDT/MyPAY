@@ -1138,6 +1138,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Notification endpoints
+  app.get("/api/notifications", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const notifications = await storage.getUserNotifications(req.user!.id);
+      res.json(notifications);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/notifications/unread-count", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const count = await storage.getUnreadNotificationsCount(req.user!.id);
+      res.json({ count });
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/notifications/:id/read", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const notification = await storage.markNotificationAsRead(id);
+      if (!notification) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+      res.json(notification);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/notifications/read-all", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      await storage.markAllNotificationsAsRead(req.user!.id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Invoice endpoints
+  app.get("/api/invoices", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const invoices = await storage.getUserInvoices(req.user!.id);
+      res.json(invoices);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/invoices/:orderNumber", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const invoice = await storage.getInvoiceByOrderNumber(req.params.orderNumber);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      // Verify user owns this invoice
+      if (invoice.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      res.json(invoice);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Register admin routes
   registerAdminRoutes(app, storage);
 
