@@ -83,6 +83,23 @@ export interface IStorage {
   getTicketMessages(ticketId: number): Promise<SupportMessage[]>;
   addTicketMessage(message: InsertSupportMessage): Promise<SupportMessage>;
   updateTicketStatus(ticketId: number, status: 'wait-user' | 'wait-support' | 'closed'): Promise<SupportTicket | undefined>;
+
+  // Notification methods
+  getUserNotifications(userId: number): Promise<any[]>;
+  getUnreadNotificationsCount(userId: number): Promise<number>;
+  createNotification(notification: any): Promise<any>;
+  markNotificationAsRead(id: number): Promise<any | undefined>;
+  markAllNotificationsAsRead(userId: number): Promise<void>;
+  deleteNotification(id: number): Promise<void>;
+
+  // Invoice methods
+  getInvoice(id: number): Promise<any | undefined>;
+  getInvoiceByOrderNumber(orderNumber: string): Promise<any | undefined>;
+  getUserInvoices(userId: number): Promise<any[]>;
+  getAllInvoices(): Promise<any[]>;
+  createInvoice(invoice: any): Promise<any>;
+  updateInvoiceStatus(id: number, status: string, paidAt?: Date, paymentHash?: string): Promise<any | undefined>;
+  getExpiredInvoices(): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1073,6 +1090,110 @@ export class DatabaseStorage implements IStorage {
       [ticketId]
     );
     return updatedTicket || undefined;
+  }
+
+  // Notification methods implementation
+  async getUserNotifications(userId: number): Promise<any[]> {
+    const { notifications } = await import("@shared/schema");
+    return await db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(sql`${notifications.createdAt} DESC`);
+  }
+
+  async getUnreadNotificationsCount(userId: number): Promise<number> {
+    const { notifications } = await import("@shared/schema");
+    const result = await db.select({ count: sql<number>`count(*)` }).from(notifications).where(
+      and(
+        eq(notifications.userId, userId),
+        eq(notifications.isRead, false)
+      )
+    );
+    return result[0]?.count || 0;
+  }
+
+  async createNotification(notification: any): Promise<any> {
+    const { notifications } = await import("@shared/schema");
+    const newNotification = await insertAndReturn<any>(
+      db.insert(notifications).values(notification),
+      'notifications'
+    );
+    return newNotification;
+  }
+
+  async markNotificationAsRead(id: number): Promise<any | undefined> {
+    const { notifications } = await import("@shared/schema");
+    const updatedNotification = await updateAndReturn<any>(
+      db.update(notifications).set({ isRead: true }).where(eq(notifications.id, id)),
+      'notifications',
+      'id = ?',
+      [id]
+    );
+    return updatedNotification || undefined;
+  }
+
+  async markAllNotificationsAsRead(userId: number): Promise<void> {
+    const { notifications } = await import("@shared/schema");
+    await db.update(notifications).set({ isRead: true }).where(eq(notifications.userId, userId));
+  }
+
+  async deleteNotification(id: number): Promise<void> {
+    const { notifications } = await import("@shared/schema");
+    await db.delete(notifications).where(eq(notifications.id, id));
+  }
+
+  // Invoice methods implementation
+  async getInvoice(id: number): Promise<any | undefined> {
+    const { invoices } = await import("@shared/schema");
+    const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
+    return invoice || undefined;
+  }
+
+  async getInvoiceByOrderNumber(orderNumber: string): Promise<any | undefined> {
+    const { invoices } = await import("@shared/schema");
+    const [invoice] = await db.select().from(invoices).where(eq(invoices.orderNumber, orderNumber));
+    return invoice || undefined;
+  }
+
+  async getUserInvoices(userId: number): Promise<any[]> {
+    const { invoices } = await import("@shared/schema");
+    return await db.select().from(invoices).where(eq(invoices.userId, userId)).orderBy(sql`${invoices.createdAt} DESC`);
+  }
+
+  async getAllInvoices(): Promise<any[]> {
+    const { invoices } = await import("@shared/schema");
+    return await db.select().from(invoices).orderBy(sql`${invoices.createdAt} DESC`);
+  }
+
+  async createInvoice(invoice: any): Promise<any> {
+    const { invoices } = await import("@shared/schema");
+    const newInvoice = await insertAndReturn<any>(
+      db.insert(invoices).values(invoice),
+      'invoices'
+    );
+    return newInvoice;
+  }
+
+  async updateInvoiceStatus(id: number, status: string, paidAt?: Date, paymentHash?: string): Promise<any | undefined> {
+    const { invoices } = await import("@shared/schema");
+    const updateData: any = { status };
+    if (paidAt) updateData.paidAt = paidAt;
+    if (paymentHash) updateData.paymentHash = paymentHash;
+    
+    const updatedInvoice = await updateAndReturn<any>(
+      db.update(invoices).set(updateData).where(eq(invoices.id, id)),
+      'invoices',
+      'id = ?',
+      [id]
+    );
+    return updatedInvoice || undefined;
+  }
+
+  async getExpiredInvoices(): Promise<any[]> {
+    const { invoices } = await import("@shared/schema");
+    return await db.select().from(invoices).where(
+      and(
+        eq(invoices.status, 'pending'),
+        sql`${invoices.expiresAt} < NOW()`
+      )
+    );
   }
 }
 
