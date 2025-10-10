@@ -9,6 +9,8 @@ export const balanceStatusEnum = mysqlEnum('balance_status', ['active', 'frozen'
 export const exchangeStatusEnum = mysqlEnum('status', ['wait', 'wait-paid', 'paid', 'complete', 'canceled', 'dispute']);
 export const supportTicketStatusEnum = mysqlEnum('support_status', ['wait-user', 'wait-support', 'closed']);
 export const messageSenderEnum = mysqlEnum('message_sender', ['user', 'support']);
+export const notificationTypeEnum = mysqlEnum('notification_type', ['info', 'invoice', 'exchange', 'promotion']);
+export const invoiceStatusEnum = mysqlEnum('invoice_status', ['pending', 'paid', 'expired', 'canceled']);
 
 export const balances = mysqlTable("balances", {
   id: int("id").primaryKey().autoincrement(),
@@ -185,6 +187,41 @@ export const admins = mysqlTable("admins", {
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const invoices = mysqlTable("invoices", {
+  id: int("id").primaryKey().autoincrement(),
+  orderNumber: varchar("order_number", { length: 50 }).notNull().unique(),
+  userId: int("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  walletId: int("wallet_id").references(() => wallets.id, { onDelete: "set null" }),
+  balanceId: int("balance_id").references(() => balances.id, { onDelete: "set null" }),
+  amount: decimal("amount", { precision: 18, scale: 8 }).notNull(),
+  currency: varchar("currency", { length: 10 }).notNull(),
+  network: varchar("network", { length: 50 }),
+  description: text("description"),
+  paymentMethod: varchar("payment_method", { length: 20 }),
+  status: invoiceStatusEnum.notNull().default("pending"),
+  expiresAt: timestamp("expires_at"),
+  paidAt: timestamp("paid_at"),
+  paymentHash: text("payment_hash"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const notifications = mysqlTable("notifications", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: int("user_id").references(() => users.id, { onDelete: "cascade" }),
+  type: notificationTypeEnum.notNull().default("info"),
+  title: varchar("title", { length: 255 }).notNull(),
+  message: text("message").notNull(),
+  imageUrl: varchar("image_url", { length: 500 }),
+  videoUrl: varchar("video_url", { length: 500 }),
+  linkUrl: varchar("link_url", { length: 500 }),
+  linkText: varchar("link_text", { length: 100 }),
+  redirectTo: varchar("redirect_to", { length: 255 }),
+  invoiceId: int("invoice_id").references(() => invoices.id, { onDelete: "set null" }),
+  exchangeId: int("exchange_id").references(() => exchanges.id, { onDelete: "set null" }),
+  isRead: boolean("is_read").default(false),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export const insertBalanceSchema = createInsertSchema(balances).omit({ id: true });
 export const insertUsersBalancesSchema = createInsertSchema(usersBalances).omit({ id: true });
@@ -200,6 +237,8 @@ export const insertSupportChatSchema = createInsertSchema(supportChats).omit({ i
 export const insertSupportTicketSchema = createInsertSchema(supportTickets).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSupportMessageSchema = createInsertSchema(supportMessages).omit({ id: true, createdAt: true });
 export const insertAdminSchema = createInsertSchema(admins).omit({ id: true, createdAt: true });
+export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true, createdAt: true, paidAt: true });
+export const insertNotificationSchema = createInsertSchema(notifications).omit({ id: true, createdAt: true });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -231,3 +270,7 @@ export type InsertSupportMessage = z.infer<typeof insertSupportMessageSchema>;
 export type SupportMessage = typeof supportMessages.$inferSelect;
 export type InsertAdmin = z.infer<typeof insertAdminSchema>;
 export type Admin = typeof admins.$inferSelect;
+export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
+export type Invoice = typeof invoices.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Notification = typeof notifications.$inferSelect;
