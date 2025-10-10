@@ -69,7 +69,7 @@ const invoiceSchema = z.object({
   userId: z.string().min(1, "Обязательное поле"),
   balanceId: z.string().min(1, "Обязательное поле"),
   amount: z.string().min(1, "Обязательное поле"),
-  currency: z.string().min(1, "Обязательное поле"),
+  currency: z.string().optional(),
   network: z.string().optional(),
   description: z.string().optional(),
   expiresAt: z.string().optional(),
