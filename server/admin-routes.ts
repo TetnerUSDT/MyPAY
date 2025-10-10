@@ -894,13 +894,17 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
 
   app.post(`/${adminPath}/api/invoices`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
+      console.log('Received invoice data:', req.body);
       const invoiceData = { ...req.body };
       
       // Convert expiresAt from ISO string to Date object for MySQL
       if (invoiceData.expiresAt) {
+        console.log('expiresAt before conversion:', invoiceData.expiresAt, typeof invoiceData.expiresAt);
         invoiceData.expiresAt = new Date(invoiceData.expiresAt);
+        console.log('expiresAt after conversion:', invoiceData.expiresAt, typeof invoiceData.expiresAt);
       }
       
+      console.log('Final invoice data to insert:', invoiceData);
       const invoice = await storage.createInvoice(invoiceData);
       
       // Create notification for user about new invoice
