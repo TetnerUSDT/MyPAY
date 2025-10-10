@@ -67,6 +67,12 @@ export default function HomeScreen() {
     queryKey: ["/api/user/crypto-balances"],
   });
 
+  // Get unread notifications count
+  const { data: unreadCount } = useQuery<{ count: number }>({
+    queryKey: ["/api/notifications/unread-count"],
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+
   // Update default balance mutation
   const updateDefaultBalanceMutation = useMutation({
     mutationFn: async (balanceId: number) => {
@@ -141,14 +147,28 @@ export default function HomeScreen() {
             </Link>
             
             {/* Profile Avatar */}
-            <div className="w-16 h-16 rounded-full overflow-hidden">
-              <img 
-                src={user?.img || catImage} 
-                alt="Profile Avatar" 
-                className="w-full h-full object-cover"
-                data-testid="profile-avatar"
-              />
-            </div>
+            <Link href="/notifications">
+              <div className="relative">
+                <div className="w-16 h-16 rounded-full overflow-hidden">
+                  <img 
+                    src={user?.img || catImage} 
+                    alt="Profile Avatar" 
+                    className="w-full h-full object-cover"
+                    data-testid="profile-avatar"
+                  />
+                </div>
+                {unreadCount && unreadCount.count > 0 && (
+                  <>
+                    {/* Ripple animation */}
+                    <div className="absolute inset-0 rounded-full animate-ping bg-red-500/50" />
+                    {/* Badge */}
+                    <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center z-10" data-testid="notification-badge">
+                      {unreadCount.count > 9 ? '9+' : unreadCount.count}
+                    </div>
+                  </>
+                )}
+              </div>
+            </Link>
           </div>
           
             {/* Settings Icon */}

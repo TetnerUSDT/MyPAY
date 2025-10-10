@@ -1157,6 +1157,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/notifications/unread-count", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const count = await storage.getUnreadNotificationsCount(req.user!.id);
+      res.json({ count });
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.patch("/api/notifications/:id/read", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
