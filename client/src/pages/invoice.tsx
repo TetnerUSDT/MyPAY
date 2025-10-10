@@ -285,7 +285,7 @@ export default function InvoicePage() {
         {canPay && (
           <Button
             onClick={() => setShowPaymentDrawer(true)}
-            className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-6 text-lg"
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-6 text-lg"
             data-testid="button-pay-invoice"
           >
             Оплатить счет
@@ -310,7 +310,7 @@ export default function InvoicePage() {
                 onClick={() => setSelectedPaymentMethod('balance')}
                 className={`w-full p-4 rounded-xl border-2 transition-all ${
                   selectedPaymentMethod === 'balance'
-                    ? 'border-yellow-400 bg-yellow-400/20'
+                    ? 'border-green-400 bg-green-400/20'
                     : 'border-green-600/30 bg-green-700/40'
                 }`}
                 data-testid="payment-method-balance"
@@ -323,7 +323,7 @@ export default function InvoicePage() {
                     </p>
                   </div>
                   {selectedPaymentMethod === 'balance' && (
-                    <CheckCircle2 className="w-6 h-6 text-yellow-400" />
+                    <CheckCircle2 className="w-6 h-6 text-green-400" />
                   )}
                 </div>
               </button>
@@ -335,7 +335,7 @@ export default function InvoicePage() {
                 onClick={() => setSelectedPaymentMethod('blockchain')}
                 className={`w-full p-4 rounded-xl border-2 transition-all ${
                   selectedPaymentMethod === 'blockchain'
-                    ? 'border-yellow-400 bg-yellow-400/20'
+                    ? 'border-green-400 bg-green-400/20'
                     : 'border-green-600/30 bg-green-700/40'
                 }`}
                 data-testid="payment-method-blockchain"
@@ -348,7 +348,7 @@ export default function InvoicePage() {
                     </p>
                   </div>
                   {selectedPaymentMethod === 'blockchain' && (
-                    <CheckCircle2 className="w-6 h-6 text-yellow-400" />
+                    <CheckCircle2 className="w-6 h-6 text-green-400" />
                   )}
                 </div>
               </button>
@@ -358,7 +358,7 @@ export default function InvoicePage() {
             <Button
               onClick={handlePayment}
               disabled={payInvoiceMutation.isPending}
-              className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-6 text-lg"
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-6 text-lg"
               data-testid="button-confirm-payment"
             >
               {payInvoiceMutation.isPending ? "Обработка..." : "Подтвердить оплату"}
