@@ -81,6 +81,11 @@ export default function AdminInteractive() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const { toast } = useToast();
 
+  const { data: notifications, isLoading: notificationsLoading } = useQuery<Notification[]>({
+    queryKey: ['/admin/api/notifications'],
+    queryFn: () => adminRequest('/notifications'),
+  });
+
   const { data: invoices, isLoading: invoicesLoading } = useQuery<Invoice[]>({
     queryKey: ['/admin/api/invoices'],
     queryFn: () => adminRequest('/invoices'),
@@ -127,9 +132,21 @@ export default function AdminInteractive() {
   const createNotificationMutation = useMutation({
     mutationFn: (data: any) => adminRequest('/notifications', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/admin/api/notifications'] });
       toast({ title: "Уведомление создано" });
       setIsNotificationDialogOpen(false);
       notificationForm.reset();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Ошибка", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteNotificationMutation = useMutation({
+    mutationFn: (id: number) => adminRequest(`/notifications/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/admin/api/notifications'] });
+      toast({ title: "Уведомление удалено" });
     },
     onError: (error: Error) => {
       toast({ title: "Ошибка", description: error.message, variant: "destructive" });
@@ -537,12 +554,66 @@ export default function AdminInteractive() {
               </Dialog>
             </div>
 
-            <div className="bg-muted/30 border rounded-lg p-6 text-center">
-              <Bell className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
-              <h3 className="text-lg font-semibold mb-2">Уведомления отправляются мгновенно</h3>
-              <p className="text-muted-foreground">
-                Пользователи увидят уведомление на своей аватарке с анимацией и счетчиком
-              </p>
+            <div className="border rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Получатель</TableHead>
+                    <TableHead>Тип</TableHead>
+                    <TableHead>Заголовок</TableHead>
+                    <TableHead>Сообщение</TableHead>
+                    <TableHead>Создано</TableHead>
+                    <TableHead>Действия</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {notificationsLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center">Загрузка...</TableCell>
+                    </TableRow>
+                  ) : notifications?.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center">
+                        <div className="py-8">
+                          <Bell className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                          <h3 className="text-lg font-semibold mb-2">Уведомления отправляются мгновенно</h3>
+                          <p className="text-muted-foreground">
+                            Пользователи увидят уведомление на своей аватарке с анимацией и счетчиком
+                          </p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    notifications?.map((notification) => (
+                      <TableRow key={notification.id} data-testid={`row-notification-${notification.id}`}>
+                        <TableCell>{notification.id}</TableCell>
+                        <TableCell>
+                          {notification.userId ? `ID: ${notification.userId}` : "Все пользователи"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={notification.type === 'promotion' ? 'default' : 'secondary'}>
+                            {notification.type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="max-w-[200px] truncate">{notification.title}</TableCell>
+                        <TableCell className="max-w-[300px] truncate">{notification.message}</TableCell>
+                        <TableCell>{new Date(notification.createdAt).toLocaleString('ru-RU')}</TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => deleteNotificationMutation.mutate(notification.id)}
+                            data-testid={`button-delete-notification-${notification.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
             </div>
           </TabsContent>
         </Tabs>
