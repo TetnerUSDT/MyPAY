@@ -357,9 +357,18 @@ export default function AdminBalances() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Статус</FormLabel>
-                          <FormControl>
-                            <Input {...field} value={field.value || ""} placeholder="active" data-testid="input-system-balance-status" />
-                          </FormControl>
+                          <Select onValueChange={field.onChange} value={field.value || "active"}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-system-balance-status">
+                                <SelectValue placeholder="Выберите статус" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="active">Активный</SelectItem>
+                              <SelectItem value="frozen">Неактивный (Frozen)</SelectItem>
+                              <SelectItem value="hidden">Скрыт (Hidden)</SelectItem>
+                            </SelectContent>
+                          </Select>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -412,9 +421,15 @@ export default function AdminBalances() {
                       <TableCell>{balance.rate || '-'}</TableCell>
                       <TableCell>
                         <span className={`px-2 py-1 rounded text-xs ${
-                          balance.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                          balance.status === 'active' ? 'bg-green-100 text-green-800' : 
+                          balance.status === 'frozen' ? 'bg-blue-100 text-blue-800' : 
+                          balance.status === 'hidden' ? 'bg-gray-100 text-gray-800' : 
+                          'bg-gray-100 text-gray-800'
                         }`}>
-                          {balance.status || '-'}
+                          {balance.status === 'active' ? 'Активный' : 
+                           balance.status === 'frozen' ? 'Неактивный' : 
+                           balance.status === 'hidden' ? 'Скрыт' : 
+                           balance.status || '-'}
                         </span>
                       </TableCell>
                       <TableCell>
