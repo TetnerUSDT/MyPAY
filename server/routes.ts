@@ -1252,6 +1252,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get invoice by ID (for direct links from notifications)
+  app.get("/api/invoices/by-id/:id", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const invoice = await storage.getInvoice(parseInt(req.params.id));
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      // Verify user owns this invoice
+      if (invoice.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      res.json(invoice);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.get("/api/invoices/:orderNumber", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {
       const invoice = await storage.getInvoiceByOrderNumber(req.params.orderNumber);

@@ -27,7 +27,7 @@ export function useNotificationStream(options: UseNotificationStreamOptions = {}
   });
 
   // Function to get SSE token
-  const getSSEToken = async (): Promise<string | null> => {
+  const getSSEToken = useCallback(async (): Promise<string | null> => {
     if (!user?.apiKey) {
       return null;
     }
@@ -51,7 +51,7 @@ export function useNotificationStream(options: UseNotificationStreamOptions = {}
       console.error('[SSE] Error getting token:', error);
       return null;
     }
-  };
+  }, [user?.apiKey]);
 
   const connect = useCallback(async () => {
     if (!enabled || !user?.apiKey) {

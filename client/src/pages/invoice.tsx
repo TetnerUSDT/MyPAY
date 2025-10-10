@@ -39,7 +39,7 @@ export default function InvoicePage() {
 
   // Get invoice details
   const { data: invoice, isLoading } = useQuery<Invoice>({
-    queryKey: ["/api/invoices", invoiceId],
+    queryKey: ["/api/invoices/by-id", invoiceId],
     enabled: !!invoiceId,
   });
 
