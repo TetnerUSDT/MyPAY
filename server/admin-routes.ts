@@ -895,22 +895,14 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
 
   app.post(`/${adminPath}/api/invoices`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
-      console.log('Received invoice data:', req.body);
       const invoiceData = { ...req.body };
       
       // Convert expiresAt from ISO string to Date object for MySQL
       if (invoiceData.expiresAt) {
-        console.log('expiresAt before conversion:', invoiceData.expiresAt, typeof invoiceData.expiresAt);
         invoiceData.expiresAt = new Date(invoiceData.expiresAt);
-        console.log('expiresAt after conversion:', invoiceData.expiresAt, typeof invoiceData.expiresAt);
       }
       
-      console.log('Final invoice data to insert:', invoiceData);
       const invoice = await storage.createInvoice(invoiceData);
-      console.log('Created invoice result:', invoice);
-      console.log('Invoice type:', typeof invoice);
-      console.log('Invoice keys:', invoice ? Object.keys(invoice) : 'null/undefined');
-      console.log('Invoice userId:', invoice?.userId);
       
       if (!invoice || !invoice.userId) {
         throw new Error('Invoice creation failed - no invoice or userId returned');

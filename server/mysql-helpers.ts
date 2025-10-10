@@ -2,6 +2,22 @@ import { db } from './db';
 import { isMySQL } from './config';
 import { sql } from 'drizzle-orm';
 
+// Convert snake_case keys to camelCase
+function snakeToCamel(obj: any): any {
+  if (!obj || typeof obj !== 'object') return obj;
+  
+  if (Array.isArray(obj)) {
+    return obj.map(snakeToCamel);
+  }
+  
+  const camelObj: any = {};
+  for (const key in obj) {
+    const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    camelObj[camelKey] = snakeToCamel(obj[key]);
+  }
+  return camelObj;
+}
+
 export async function insertAndReturn<T extends any>(
   query: any,
   tableName: string
@@ -9,11 +25,10 @@ export async function insertAndReturn<T extends any>(
   if (isMySQL()) {
     const result = await query;
     const insertId = result[0].insertId;
-    console.log(`[MySQL Helper] Insert ID for ${tableName}:`, insertId);
     const rows = await db.execute(sql.raw(`SELECT * FROM ${tableName} WHERE id = ${insertId}`));
-    console.log(`[MySQL Helper] Select result for ${tableName}:`, rows);
-    console.log(`[MySQL Helper] Returning row:`, rows[0][0]);
-    return rows[0][0] as T;
+    const row = rows[0][0];
+    // Convert snake_case to camelCase for consistency
+    return snakeToCamel(row) as T;
   } else {
     const [row] = await query.returning();
     return row as T;
@@ -43,7 +58,9 @@ export async function updateAndReturn<T extends any>(
     });
     
     const rows = await db.execute(sql.raw(sqlQuery));
-    return rows[0]?.[0] as T || null;
+    const row = rows[0]?.[0];
+    // Convert snake_case to camelCase for consistency
+    return row ? snakeToCamel(row) as T : null;
   } else {
     const [row] = await query.returning();
     return row as T;
@@ -59,7 +76,9 @@ export async function insertAndReturnTx<T extends any>(
     const result = await query;
     const insertId = result[0].insertId;
     const rows = await tx.execute(sql.raw(`SELECT * FROM ${tableName} WHERE id = ${insertId}`));
-    return rows[0][0] as T;
+    const row = rows[0][0];
+    // Convert snake_case to camelCase for consistency
+    return snakeToCamel(row) as T;
   } else {
     const [row] = await query.returning();
     return row as T;
