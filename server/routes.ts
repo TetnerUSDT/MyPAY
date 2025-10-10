@@ -145,11 +145,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  // Get user with API key (uses session, no API key required)
-  app.get("/api/user", (req: AuthenticatedRequest, res) => {
-    if (!req.user) {
-      return res.status(401).json({ message: "Not authenticated" });
-    }
+  // Get user with API key (uses API key header like other endpoints)
+  app.get("/api/user", requireApiKey, (req: AuthenticatedRequest, res) => {
     res.json(req.user);
   });
 

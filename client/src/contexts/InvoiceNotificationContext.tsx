@@ -32,18 +32,16 @@ export function InvoiceNotificationProvider({ children }: InvoiceNotificationPro
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Get user data for API key
-  const { data: user } = useQuery({ queryKey: ['/api/user'] });
-
   // Check for pending invoices on mount (offline recovery)
   useEffect(() => {
-    if (!user?.apiKey) return;
+    const apiKey = localStorage.getItem('userApiKey');
+    if (!apiKey) return;
 
     const checkPendingInvoices = async () => {
       try {
         const response = await fetch('/api/invoices', {
           headers: {
-            'X-Api-Key': user.apiKey
+            'X-Api-Key': apiKey
           }
         });
         if (response.ok) {
@@ -67,7 +65,7 @@ export function InvoiceNotificationProvider({ children }: InvoiceNotificationPro
     // Check after a short delay to ensure app is initialized
     const timer = setTimeout(checkPendingInvoices, 2000);
     return () => clearTimeout(timer);
-  }, [user?.apiKey]);
+  }, []);
 
   // Handle incoming invoice notifications from SSE
   const handleInvoice = (invoiceData: any) => {
@@ -91,7 +89,8 @@ export function InvoiceNotificationProvider({ children }: InvoiceNotificationPro
   });
 
   const openInvoice = (invoiceId: number) => {
-    if (!user?.apiKey) {
+    const apiKey = localStorage.getItem('userApiKey');
+    if (!apiKey) {
       console.error('[Invoice] No API key available');
       return;
     }
@@ -99,7 +98,7 @@ export function InvoiceNotificationProvider({ children }: InvoiceNotificationPro
     // Fetch invoice details and open drawer
     fetch(`/api/invoices`, {
       headers: {
-        'X-Api-Key': user.apiKey
+        'X-Api-Key': apiKey
       }
     })
       .then(res => res.json())

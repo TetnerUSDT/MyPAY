@@ -21,14 +21,10 @@ export function useNotificationStream(options: UseNotificationStreamOptions = {}
   const RECONNECT_DELAY = 3000; // 3 seconds
   const RECONNECT_MAX_DELAY = 30000; // 30 seconds max
 
-  // Get API key from user data
-  const { data: user } = useQuery({
-    queryKey: ['/api/user']
-  });
-
   // Function to get SSE token
   const getSSEToken = useCallback(async (): Promise<string | null> => {
-    if (!user?.apiKey) {
+    const apiKey = localStorage.getItem('userApiKey');
+    if (!apiKey) {
       return null;
     }
 
@@ -36,7 +32,7 @@ export function useNotificationStream(options: UseNotificationStreamOptions = {}
       const response = await fetch('/api/notifications/sse-token', {
         method: 'POST',
         headers: {
-          'X-Api-Key': user.apiKey
+          'X-Api-Key': apiKey
         }
       });
 
@@ -51,11 +47,12 @@ export function useNotificationStream(options: UseNotificationStreamOptions = {}
       console.error('[SSE] Error getting token:', error);
       return null;
     }
-  }, [user?.apiKey]);
+  }, []);
 
   const connect = useCallback(async () => {
-    if (!enabled || !user?.apiKey) {
-      console.log('[SSE] Connection disabled or no API key', { enabled, hasUser: !!user, hasApiKey: !!user?.apiKey });
+    const apiKey = localStorage.getItem('userApiKey');
+    if (!enabled || !apiKey) {
+      console.log('[SSE] Connection disabled or no API key', { enabled, hasApiKey: !!apiKey });
       return;
     }
 
@@ -157,7 +154,7 @@ export function useNotificationStream(options: UseNotificationStreamOptions = {}
         connect();
       }, delay);
     };
-  }, [enabled, user?.apiKey, onInvoice, onNotification, getSSEToken]);
+  }, [enabled, onInvoice, onNotification, getSSEToken]);
 
   const disconnect = useCallback(() => {
     console.log('[SSE] Disconnecting from notification stream');
@@ -179,7 +176,8 @@ export function useNotificationStream(options: UseNotificationStreamOptions = {}
 
   // Connect on mount, disconnect on unmount
   useEffect(() => {
-    if (enabled && user?.apiKey) {
+    const apiKey = localStorage.getItem('userApiKey');
+    if (enabled && apiKey) {
       // Small delay to ensure authentication is fully set up
       const timer = setTimeout(() => {
         connect();
@@ -190,7 +188,7 @@ export function useNotificationStream(options: UseNotificationStreamOptions = {}
         disconnect();
       };
     }
-  }, [enabled, user?.apiKey, connect, disconnect]);
+  }, [enabled, connect, disconnect]);
 
   // Reconnect when browser comes back online
   useEffect(() => {
