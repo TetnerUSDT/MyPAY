@@ -95,7 +95,7 @@ export default function SettingsScreen() {
           <div className="flex-1">
             {/* Username row */}
             <h2 className="text-lg font-semibold text-white mb-2" data-testid="text-settings-username">
-              @{user?.tgUsername || "username_telegram"}
+              {user?.tgUsername ? `@${user.tgUsername}` : user?.name || "User"}
             </h2>
             
             {/* Trust row - compact */}
