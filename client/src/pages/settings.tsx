@@ -191,14 +191,14 @@ export default function SettingsScreen() {
           className="w-full bg-gradient-to-r from-green-700/60 to-green-800/60 rounded-xl p-4 border border-green-500/40 backdrop-blur-sm hover:from-green-700/70 hover:to-green-800/70 transition-all"
           data-testid="button-loyalty-settings"
         >
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center">
-              <Users className="w-6 h-6 text-accent" />
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center">
+                <Users className="w-9 h-9 text-accent" />
+              </div>
+              <h3 className="text-white font-semibold">Программа лояльности</h3>
             </div>
-            <div className="flex-1 text-left">
-              <h3 className="text-white font-semibold mb-1">Программа лояльности</h3>
-              <p className="text-green-200 text-sm">Зарабатывай приглашая друзей</p>
-            </div>
+            <p className="text-green-200 text-sm w-full text-left">Зарабатывай приглашая друзей</p>
           </div>
         </button>
 
@@ -208,15 +208,17 @@ export default function SettingsScreen() {
           className="w-full bg-gradient-to-r from-green-700/60 to-green-800/60 rounded-xl p-4 border border-green-500/40 backdrop-blur-sm hover:from-green-700/70 hover:to-green-800/70 transition-all"
           data-testid="button-security-settings"
         >
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center">
-              <Shield className="w-6 h-6 text-accent" />
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center">
+                  <Shield className="w-9 h-9 text-accent" />
+                </div>
+                <h3 className="text-white font-semibold">Безопасность</h3>
+              </div>
+              <span className="text-sm text-accent font-medium">Средний уровень</span>
             </div>
-            <div className="flex-1 text-left">
-              <h3 className="text-white font-semibold mb-1">Безопасность</h3>
-              <p className="text-green-200 text-sm">Повышайте безопасность аккаунта</p>
-            </div>
-            <span className="text-sm text-accent font-medium">Средний уровень</span>
+            <p className="text-green-200 text-sm w-full text-left">Повышайте безопасность аккаунта</p>
           </div>
         </button>
 
@@ -226,15 +228,17 @@ export default function SettingsScreen() {
           className="w-full bg-gradient-to-r from-green-700/60 to-green-800/60 rounded-xl p-4 border border-green-500/40 backdrop-blur-sm hover:from-green-700/70 hover:to-green-800/70 transition-all"
           data-testid="button-language-settings"
         >
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center">
-              <Globe className="w-6 h-6 text-accent" />
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center">
+                  <Globe className="w-9 h-9 text-accent" />
+                </div>
+                <h3 className="text-white font-semibold">Языки</h3>
+              </div>
+              <span className="text-sm text-accent font-medium">Русский</span>
             </div>
-            <div className="flex-1 text-left">
-              <h3 className="text-white font-semibold mb-1">Языки</h3>
-              <p className="text-green-200 text-sm">Выберите язык для смены</p>
-            </div>
-            <span className="text-sm text-accent font-medium">Русский</span>
+            <p className="text-green-200 text-sm w-full text-left">Выберите язык для смены</p>
           </div>
         </button>
 
@@ -244,14 +248,14 @@ export default function SettingsScreen() {
           className="w-full bg-gradient-to-r from-green-700/60 to-green-800/60 rounded-xl p-4 border border-green-500/40 backdrop-blur-sm hover:from-green-700/70 hover:to-green-800/70 transition-all"
           data-testid="button-devices-settings"
         >
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center">
-              <Smartphone className="w-6 h-6 text-accent" />
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center">
+                <Smartphone className="w-9 h-9 text-accent" />
+              </div>
+              <h3 className="text-white font-semibold">Устройства</h3>
             </div>
-            <div className="flex-1 text-left">
-              <h3 className="text-white font-semibold mb-1">Устройства</h3>
-              <p className="text-green-200 text-sm">Проверяйте активные сессии</p>
-            </div>
+            <p className="text-green-200 text-sm w-full text-left">Проверяйте активные сессии</p>
           </div>
         </button>
       </div>
