@@ -30,7 +30,7 @@ import { AdminRoutes } from "@/components/AdminRouteProvider";
 
 function Router() {
   const [location] = useLocation();
-  const showBottomNav = ["/home", "/exchange", "/transfer", "/top-up", "/support", "/select-country", "/cards"].includes(location);
+  const showBottomNav = ["/home", "/exchange", "/transfer", "/top-up", "/support", "/select-country", "/cards", "/loyalty"].includes(location);
 
   return (
     <div className="min-h-screen gradient-bg">
