@@ -125,9 +125,9 @@ export default function LoyaltyPage() {
 
             {/* Commission Info */}
             <div className="text-center space-y-2">
-              <h2 className="text-3xl font-bold">Зарабатывай до 30% комиссии</h2>
+              <h2 className="text-3xl font-bold">Зарабатывай до 30%</h2>
               <p className="text-green-200 text-lg">
-                Приглашай друзей в SwiftX и получай комиссию от их платежей по QR коду
+                Пригласи друзей в SwiftX и зарабатывай
               </p>
             </div>
 
