@@ -174,7 +174,7 @@ export default function LoyaltyPage() {
               {/* Share Button */}
               <Button
                 onClick={handleShareLink}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-6 text-lg font-semibold"
+                className="w-full bg-accent hover:bg-accent/90 text-secondary py-6 text-lg font-semibold"
                 data-testid="button-share-link"
               >
                 <Share2 className="w-6 h-6 mr-2" />
