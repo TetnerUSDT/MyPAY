@@ -1,9 +1,14 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Users, Shield, Globe, Smartphone, HelpCircle, Phone, Mail } from "lucide-react";
+import { Users, Shield, Globe, Smartphone, HelpCircle, Phone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import BottomNavigation from "@/components/bottom-navigation";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import PhoneInput from 'react-phone-number-input';
+import 'react-phone-number-input/style.css';
+import { queryClient, apiRequest } from "@/lib/queryClient";
 
 interface User {
   id: number;
@@ -12,7 +17,6 @@ interface User {
   img: string | null;
   trust: number;
   phone: string | null;
-  email: string | null;
 }
 
 export default function SettingsScreen() {
@@ -28,18 +32,45 @@ export default function SettingsScreen() {
     refetchInterval: 30000,
   });
 
+  const [isPhoneDialogOpen, setIsPhoneDialogOpen] = useState(false);
+  const [phoneValue, setPhoneValue] = useState<string>("");
+
   const handlePhoneClick = () => {
-    toast({
-      title: "Добавление телефона",
-      description: "Функция будет доступна в ближайшее время",
-    });
+    setIsPhoneDialogOpen(true);
   };
 
-  const handleEmailClick = () => {
-    toast({
-      title: "Добавление email",
-      description: "Функция будет доступна в ближайшее время",
-    });
+  const updatePhoneMutation = useMutation({
+    mutationFn: async (phone: string) => {
+      return await apiRequest("PATCH", "/api/user/phone", { phone });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+      setIsPhoneDialogOpen(false);
+      setPhoneValue("");
+      toast({
+        title: "Успешно!",
+        description: "Телефон успешно сохранен",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось сохранить телефон",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSavePhone = () => {
+    if (!phoneValue) {
+      toast({
+        title: "Ошибка",
+        description: "Введите номер телефона",
+        variant: "destructive",
+      });
+      return;
+    }
+    updatePhoneMutation.mutate(phoneValue);
   };
 
   const handleLoyaltyClick = () => {
@@ -124,46 +155,27 @@ export default function SettingsScreen() {
             </div>
           </div>
 
-          {/* Right: Phone and Email block with border - 25% width */}
+          {/* Right: Phone block with border - 25% width */}
           <div className="flex-[1] border border-green-500/40 rounded-lg p-2">
             <div className="flex flex-col gap-2">
-              {/* Phone row */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-green-200" />
-                  <span className="text-green-200 text-sm font-medium">Телефон</span>
-                </div>
-                {user?.phone ? (
-                  <span className="text-white text-sm" data-testid="text-phone-number">{user.phone}</span>
-                ) : (
-                  <button 
-                    onClick={handlePhoneClick}
-                    className="text-accent text-xs px-2 py-1 border border-accent rounded-lg hover:bg-accent/10 transition-colors"
-                    data-testid="button-add-phone"
-                  >
-                    +
-                  </button>
-                )}
+              {/* Phone label row */}
+              <div className="flex items-center gap-2">
+                <Phone className="w-4 h-4 text-green-200" />
+                <span className="text-green-200 text-sm font-medium">Телефон</span>
               </div>
               
-              {/* Email row */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-green-200" />
-                  <span className="text-green-200 text-sm font-medium">Email</span>
-                </div>
-                {user?.email ? (
-                  <span className="text-white text-sm" data-testid="text-email-value">{user.email}</span>
-                ) : (
-                  <button 
-                    onClick={handleEmailClick}
-                    className="text-accent text-xs px-2 py-1 border border-accent rounded-lg hover:bg-accent/10 transition-colors"
-                    data-testid="button-add-email"
-                  >
-                    +
-                  </button>
-                )}
-              </div>
+              {/* Phone value or add button row */}
+              {user?.phone ? (
+                <span className="text-white text-sm" data-testid="text-phone-number">{user.phone}</span>
+              ) : (
+                <button 
+                  onClick={handlePhoneClick}
+                  className="w-full text-accent text-sm py-1 border border-accent rounded-lg hover:bg-accent/10 transition-colors"
+                  data-testid="button-add-phone"
+                >
+                  Добавить
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -238,6 +250,49 @@ export default function SettingsScreen() {
           </div>
         </button>
       </div>
+
+      {/* Phone Input Dialog */}
+      <Dialog open={isPhoneDialogOpen} onOpenChange={setIsPhoneDialogOpen}>
+        <DialogContent className="sm:max-w-md bg-gradient-to-br from-green-800 to-green-900 border-green-600/50 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-white">Добавить номер телефона</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm text-green-200">Номер телефона</label>
+              <PhoneInput
+                international
+                defaultCountry="RU"
+                value={phoneValue}
+                onChange={(value) => setPhoneValue(value || "")}
+                className="phone-input-custom"
+                placeholder="Введите номер телефона"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsPhoneDialogOpen(false);
+                setPhoneValue("");
+              }}
+              className="border-green-500/50 text-white hover:bg-green-800/50"
+            >
+              Отмена
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSavePhone}
+              disabled={updatePhoneMutation.isPending}
+              className="bg-accent hover:bg-accent/90 text-secondary"
+            >
+              {updatePhoneMutation.isPending ? "Сохранение..." : "Сохранить"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Bottom Navigation */}
       <BottomNavigation />

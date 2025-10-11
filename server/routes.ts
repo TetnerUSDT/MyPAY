@@ -921,6 +921,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update user phone number
+  app.patch("/api/user/phone", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { phone } = req.body;
+      
+      if (!phone || typeof phone !== 'string') {
+        return res.status(400).json({ message: "Phone number is required" });
+      }
+      
+      const updatedUser = await storage.updateUserPhone(req.user!.id, phone);
+      
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.json(updatedUser);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Create exchange order with wallet reservation
   app.post("/api/exchange/create", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {

@@ -69,6 +69,7 @@ export interface IStorage {
   getUserCryptoBalances(userId: number): Promise<any[]>;
   getUserBalance(userId: number, balanceId: number): Promise<any>;
   updateUserDefaultBalance(userId: number, balanceId: number): Promise<User | undefined>;
+  updateUserPhone(userId: number, phone: string): Promise<User | undefined>;
 
   // Exchange methods
   createExchange(exchange: any): Promise<any>;
@@ -838,6 +839,17 @@ export class DatabaseStorage implements IStorage {
   async updateUserDefaultBalance(userId: number, balanceId: number): Promise<User | undefined> {
     const updatedUser = await updateAndReturn<User>(
       db.update(users).set({ defaultFiatBalanceId: balanceId }).where(eq(users.id, userId)),
+      'users',
+      'id = ?',
+      [userId]
+    );
+
+    return updatedUser || undefined;
+  }
+
+  async updateUserPhone(userId: number, phone: string): Promise<User | undefined> {
+    const updatedUser = await updateAndReturn<User>(
+      db.update(users).set({ phone }).where(eq(users.id, userId)),
       'users',
       'id = ?',
       [userId]

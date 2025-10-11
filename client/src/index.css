@@ -120,6 +120,43 @@
     background: hsl(0, 70%, 60%); 
   }
 
+  /* Phone Input Custom Styles */
+  .phone-input-custom {
+    width: 100%;
+  }
+
+  .phone-input-custom .PhoneInputInput {
+    background: hsl(155, 20%, 25%);
+    border: 1px solid hsl(155, 20%, 30%);
+    border-radius: 0.5rem;
+    padding: 0.5rem 1rem;
+    color: white;
+    font-size: 0.875rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .phone-input-custom .PhoneInputInput:focus {
+    border-color: hsl(84, 76%, 50%);
+    box-shadow: 0 0 0 2px hsla(84, 76%, 50%, 0.2);
+  }
+
+  .phone-input-custom .PhoneInputCountry {
+    margin-right: 0.5rem;
+  }
+
+  .phone-input-custom .PhoneInputCountrySelect {
+    background: hsl(155, 20%, 25%);
+    border: 1px solid hsl(155, 20%, 30%);
+    border-radius: 0.5rem;
+    padding: 0.25rem;
+    color: white;
+  }
+
+  .phone-input-custom .PhoneInputCountrySelectArrow {
+    color: hsl(84, 76%, 50%);
+  }
+
   .chat-bubble {
     background: white;
     color: #333;
