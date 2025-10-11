@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { ArrowLeft, Phone, Users, Shield, Globe, Smartphone, HelpCircle } from "lucide-react";
+import { Phone, Users, Shield, Globe, Smartphone, HelpCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface User {
@@ -15,7 +15,6 @@ interface User {
 
 export default function SettingsScreen() {
   const { toast } = useToast();
-  const [showPhoneDialog, setShowPhoneDialog] = useState(false);
 
   const { data: user } = useQuery<User>({
     queryKey: ['/api/auth/me']
@@ -63,25 +62,20 @@ export default function SettingsScreen() {
   };
 
   return (
-    <div className="mobile-screen gradient-bg text-white pb-20">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-gradient-to-r from-green-700/95 to-green-800/95 backdrop-blur-sm border-b border-green-600/30">
-        <div className="flex items-center gap-3 p-4">
-          <Link href="/home">
-            <button className="w-10 h-10 rounded-full bg-black/20 flex items-center justify-center" data-testid="button-back-settings">
-              <ArrowLeft className="w-5 h-5 text-white" />
-            </button>
-          </Link>
-          <h1 className="text-xl font-bold text-white">Настройки</h1>
-        </div>
+    <div className="mobile-screen gradient-bg text-white pb-24">
+      {/* Title */}
+      <div className="text-center pt-8 pb-6">
+        <h1 className="text-xl font-semibold" data-testid="text-settings-title">
+          Настройки
+        </h1>
       </div>
 
-      <div className="p-4 space-y-4">
-        {/* User Profile Header */}
-        <div className="bg-gradient-to-r from-green-700/70 to-green-800/70 rounded-xl p-6 border border-green-500/50 backdrop-blur-sm">
-          <div className="flex items-center gap-4 mb-4">
-            {/* Avatar with notification badge */}
-            <div className="relative">
+      <div className="px-4 space-y-4">
+        {/* Compact User Profile Header */}
+        <div className="flex items-center gap-4 mb-6">
+          {/* Avatar with notification badge and link */}
+          <Link href="/notifications">
+            <div className="relative cursor-pointer">
               <div className="w-20 h-20 rounded-full overflow-hidden">
                 {user?.img ? (
                   <img 
@@ -109,31 +103,31 @@ export default function SettingsScreen() {
                 </>
               )}
             </div>
+          </Link>
 
-            {/* Username */}
-            <div className="flex-1">
-              <h2 className="text-xl font-bold text-white" data-testid="text-settings-username">
-                @{user?.tgUsername || "username"}
-              </h2>
-            </div>
+          {/* Username and Trust inline */}
+          <div className="flex-1 flex items-center gap-3">
+            <h2 className="text-lg font-semibold text-white" data-testid="text-settings-username">
+              @{user?.tgUsername || "username"}
+            </h2>
           </div>
+        </div>
 
-          {/* Trust Rating */}
-          <div className="flex items-center gap-3">
-            <span className="text-green-200 font-medium">Trust</span>
-            <div className="flex-1 bg-green-900/50 border border-green-500/50 rounded-lg px-4 py-2">
-              <p className="text-center text-2xl font-bold text-accent" data-testid="text-trust-value">
-                {user?.trust || 0}
-              </p>
-            </div>
-            <button 
-              className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center"
-              onClick={() => toast({ title: "Trust Rating", description: "Рейтинг доверия основан на вашей активности" })}
-              data-testid="button-trust-info"
-            >
-              <HelpCircle className="w-5 h-5 text-accent" />
-            </button>
+        {/* Trust Rating */}
+        <div className="flex items-center gap-3 mb-4">
+          <span className="text-green-200 font-medium">Trust</span>
+          <div className="flex-1 bg-green-900/50 border border-green-500/50 rounded-lg px-4 py-2">
+            <p className="text-center text-2xl font-bold text-accent" data-testid="text-trust-value">
+              {user?.trust || 0}
+            </p>
           </div>
+          <button 
+            className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center"
+            onClick={() => toast({ title: "Trust Rating", description: "Рейтинг доверия основан на вашей активности" })}
+            data-testid="button-trust-info"
+          >
+            <HelpCircle className="w-5 h-5 text-accent" />
+          </button>
         </div>
 
         {/* Phone Section */}
@@ -153,7 +147,7 @@ export default function SettingsScreen() {
               </p>
             </div>
             {!user?.phone && (
-              <div className="px-4 py-2 bg-accent/20 rounded-lg border border-accent/30">
+              <div className="px-4 py-2 rounded-lg border-2 border-accent">
                 <span className="text-accent font-medium">Указать</span>
               </div>
             )}
@@ -188,12 +182,10 @@ export default function SettingsScreen() {
               <Shield className="w-6 h-6 text-accent" />
             </div>
             <div className="flex-1 text-left">
-              <h3 className="text-white font-semibold mb-1 flex items-center gap-2">
-                Безопасность
-                <span className="text-xs text-accent bg-accent/20 px-2 py-0.5 rounded">Средний уровень</span>
-              </h3>
+              <h3 className="text-white font-semibold mb-1">Безопасность</h3>
               <p className="text-green-200 text-sm">Повышайте безопасность аккаунта</p>
             </div>
+            <span className="text-sm text-accent font-medium">Средний уровень</span>
           </div>
         </button>
 
@@ -208,12 +200,10 @@ export default function SettingsScreen() {
               <Globe className="w-6 h-6 text-accent" />
             </div>
             <div className="flex-1 text-left">
-              <h3 className="text-white font-semibold mb-1 flex items-center gap-2">
-                Языки
-                <span className="text-sm text-accent">Русский</span>
-              </h3>
+              <h3 className="text-white font-semibold mb-1">Языки</h3>
               <p className="text-green-200 text-sm">Выберите язык для смены</p>
             </div>
+            <span className="text-sm text-accent font-medium">Русский</span>
           </div>
         </button>
 
