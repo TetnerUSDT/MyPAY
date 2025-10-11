@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Phone, Users, Shield, Globe, Smartphone, HelpCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import BottomNavigation from "@/components/bottom-navigation";
 
 interface User {
   id: number;
@@ -71,7 +72,7 @@ export default function SettingsScreen() {
       </div>
 
       <div className="px-4 space-y-4">
-        {/* Compact User Profile Header */}
+        {/* Compact User Profile Header - Avatar left, Username and Trust right */}
         <div className="flex items-center gap-4 mb-6">
           {/* Avatar with notification badge and link */}
           <Link href="/notifications">
@@ -105,29 +106,30 @@ export default function SettingsScreen() {
             </div>
           </Link>
 
-          {/* Username and Trust inline */}
-          <div className="flex-1 flex items-center gap-3">
-            <h2 className="text-lg font-semibold text-white" data-testid="text-settings-username">
+          {/* Username and Trust - 2 rows on the right */}
+          <div className="flex-1">
+            {/* Username row */}
+            <h2 className="text-lg font-semibold text-white mb-2" data-testid="text-settings-username">
               @{user?.tgUsername || "username"}
             </h2>
+            
+            {/* Trust row - compact */}
+            <div className="flex items-center gap-2">
+              <span className="text-green-200 text-sm font-medium">Trust</span>
+              <div className="bg-green-900/50 border border-green-500/50 rounded-lg px-3 py-1">
+                <span className="text-lg font-bold text-accent" data-testid="text-trust-value">
+                  {user?.trust || 0}
+                </span>
+              </div>
+              <button 
+                className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center"
+                onClick={() => toast({ title: "Trust Rating", description: "Рейтинг доверия основан на вашей активности" })}
+                data-testid="button-trust-info"
+              >
+                <HelpCircle className="w-4 h-4 text-accent" />
+              </button>
+            </div>
           </div>
-        </div>
-
-        {/* Trust Rating */}
-        <div className="flex items-center gap-3 mb-4">
-          <span className="text-green-200 font-medium">Trust</span>
-          <div className="flex-1 bg-green-900/50 border border-green-500/50 rounded-lg px-4 py-2">
-            <p className="text-center text-2xl font-bold text-accent" data-testid="text-trust-value">
-              {user?.trust || 0}
-            </p>
-          </div>
-          <button 
-            className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center"
-            onClick={() => toast({ title: "Trust Rating", description: "Рейтинг доверия основан на вашей активности" })}
-            data-testid="button-trust-info"
-          >
-            <HelpCircle className="w-5 h-5 text-accent" />
-          </button>
         </div>
 
         {/* Phone Section */}
@@ -224,6 +226,9 @@ export default function SettingsScreen() {
           </div>
         </button>
       </div>
+
+      {/* Bottom Navigation */}
+      <BottomNavigation />
     </div>
   );
 }
