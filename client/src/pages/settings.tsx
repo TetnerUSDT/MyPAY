@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Users, Shield, Globe, Smartphone, HelpCircle } from "lucide-react";
+import { Users, Shield, Globe, Smartphone, HelpCircle, Phone, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import BottomNavigation from "@/components/bottom-navigation";
 
@@ -12,6 +12,7 @@ interface User {
   img: string | null;
   trust: number;
   phone: string | null;
+  email: string | null;
 }
 
 export default function SettingsScreen() {
@@ -30,6 +31,13 @@ export default function SettingsScreen() {
   const handlePhoneClick = () => {
     toast({
       title: "Добавление телефона",
+      description: "Функция будет доступна в ближайшее время",
+    });
+  };
+
+  const handleEmailClick = () => {
+    toast({
+      title: "Добавление email",
       description: "Функция будет доступна в ближайшее время",
     });
   };
@@ -65,9 +73,9 @@ export default function SettingsScreen() {
   return (
     <div className="mobile-screen gradient-bg text-white pb-24">
       <div className="px-4 pt-8 space-y-4">
-        {/* Compact User Profile Header - Avatar left, Username and Trust right */}
+        {/* Compact User Profile Header - Avatar left, Username/Trust middle, Phone/Email right */}
         <div className="flex items-center gap-4 mb-6">
-          {/* Avatar with notification badge and link - точная копия с главной */}
+          {/* Avatar with notification badge and link */}
           <Link href="/notifications">
             <div className="relative">
               <div className="w-16 h-16 rounded-full overflow-hidden">
@@ -91,7 +99,7 @@ export default function SettingsScreen() {
             </div>
           </Link>
 
-          {/* Username, Trust and Phone - 3 rows on the right */}
+          {/* Middle: Username and Trust */}
           <div className="flex-1">
             {/* Username row */}
             <h2 className="text-lg font-semibold text-white mb-2" data-testid="text-settings-username">
@@ -99,7 +107,7 @@ export default function SettingsScreen() {
             </h2>
             
             {/* Trust row - compact */}
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2">
               <span className="text-green-200 text-sm font-medium">Trust</span>
               <div className="bg-green-900/50 border border-green-500/50 rounded-lg px-3 py-1">
                 <span className="text-lg font-bold text-accent" data-testid="text-trust-value">
@@ -114,9 +122,13 @@ export default function SettingsScreen() {
                 <HelpCircle className="w-4 h-4 text-accent" />
               </button>
             </div>
-            
-            {/* Phone row - compact */}
+          </div>
+
+          {/* Right: Phone and Email */}
+          <div className="flex flex-col gap-2">
+            {/* Phone row */}
             <div className="flex items-center gap-2">
+              <Phone className="w-4 h-4 text-green-200" />
               <span className="text-green-200 text-sm font-medium">Телефон</span>
               {user?.phone ? (
                 <span className="text-white text-sm" data-testid="text-phone-number">{user.phone}</span>
@@ -125,6 +137,23 @@ export default function SettingsScreen() {
                   onClick={handlePhoneClick}
                   className="text-accent text-xs px-3 py-1 border border-accent rounded-lg hover:bg-accent/10 transition-colors"
                   data-testid="button-add-phone"
+                >
+                  добавить
+                </button>
+              )}
+            </div>
+            
+            {/* Email row */}
+            <div className="flex items-center gap-2">
+              <Mail className="w-4 h-4 text-green-200" />
+              <span className="text-green-200 text-sm font-medium">Email</span>
+              {user?.email ? (
+                <span className="text-white text-sm" data-testid="text-email-value">{user.email}</span>
+              ) : (
+                <button 
+                  onClick={handleEmailClick}
+                  className="text-accent text-xs px-3 py-1 border border-accent rounded-lg hover:bg-accent/10 transition-colors"
+                  data-testid="button-add-email"
                 >
                   добавить
                 </button>
