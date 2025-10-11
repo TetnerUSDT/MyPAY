@@ -196,8 +196,8 @@ export default function SettingsScreen() {
               <Users className="w-9 h-9 text-accent" />
             </div>
             <div className="flex-1 flex flex-col gap-1">
-              <h3 className="text-white font-semibold">Программа лояльности</h3>
-              <p className="text-green-200 text-sm w-full">Зарабатывай приглашая друзей</p>
+              <h3 className="text-white font-semibold text-left">Программа лояльности</h3>
+              <p className="text-green-200 text-sm text-left">Зарабатывай приглашая друзей</p>
             </div>
           </div>
         </button>
@@ -214,10 +214,10 @@ export default function SettingsScreen() {
             </div>
             <div className="flex-1 flex flex-col gap-1">
               <div className="flex items-center justify-between w-full">
-                <h3 className="text-white font-semibold">Безопасность</h3>
-                <span className="text-sm text-accent font-medium">Средний уровень</span>
+                <h3 className="text-white font-semibold text-left">Безопасность</h3>
+                <span className="text-sm text-accent font-medium text-right">Средний уровень</span>
               </div>
-              <p className="text-green-200 text-sm w-full">Повышайте безопасность аккаунта</p>
+              <p className="text-green-200 text-sm text-left">Повышайте безопасность аккаунта</p>
             </div>
           </div>
         </button>
@@ -234,10 +234,10 @@ export default function SettingsScreen() {
             </div>
             <div className="flex-1 flex flex-col gap-1">
               <div className="flex items-center justify-between w-full">
-                <h3 className="text-white font-semibold">Языки</h3>
-                <span className="text-sm text-accent font-medium">Русский</span>
+                <h3 className="text-white font-semibold text-left">Языки</h3>
+                <span className="text-sm text-accent font-medium text-right">Русский</span>
               </div>
-              <p className="text-green-200 text-sm w-full">Выберите язык для смены</p>
+              <p className="text-green-200 text-sm text-left">Выберите язык для смены</p>
             </div>
           </div>
         </button>
@@ -253,8 +253,8 @@ export default function SettingsScreen() {
               <Smartphone className="w-9 h-9 text-accent" />
             </div>
             <div className="flex-1 flex flex-col gap-1">
-              <h3 className="text-white font-semibold">Устройства</h3>
-              <p className="text-green-200 text-sm w-full">Проверяйте активные сессии</p>
+              <h3 className="text-white font-semibold text-left">Устройства</h3>
+              <p className="text-green-200 text-sm text-left">Проверяйте активные сессии</p>
             </div>
           </div>
         </button>
