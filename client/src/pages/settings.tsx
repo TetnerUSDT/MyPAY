@@ -43,9 +43,12 @@ export default function SettingsScreen() {
     mutationFn: async (phone: string) => {
       return await apiRequest("PATCH", "/api/user/phone", { phone });
     },
-    onSuccess: () => {
-      // Force refetch to avoid 304 caching issue
-      queryClient.refetchQueries({ queryKey: ['/api/auth/me'], type: 'active' });
+    onSuccess: (data, phone) => {
+      // Directly update the cache with new phone number
+      queryClient.setQueryData(['/api/auth/me'], (oldData: User | undefined) => {
+        if (!oldData) return oldData;
+        return { ...oldData, phone };
+      });
       setIsPhoneDialogOpen(false);
       setPhoneValue("");
       toast({
@@ -106,7 +109,7 @@ export default function SettingsScreen() {
     <div className="mobile-screen gradient-bg text-white pb-24">
       <div className="px-4 pt-8 space-y-4">
         {/* Compact User Profile Header - Avatar left, Username/Trust middle (75%), Phone/Email right (25%) */}
-        <div className="flex items-center gap-4 mb-6">
+        <div className="flex items-center gap-4">
           {/* Avatar with notification badge and link */}
           <Link href="/notifications">
             <div className="relative">
