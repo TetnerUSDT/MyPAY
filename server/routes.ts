@@ -89,6 +89,9 @@ interface AuthenticatedRequest extends Request {
     status: string | null;
     blocked: boolean | null;
     defaultFiatBalanceId: number | null;
+    phone: string | null;
+    trust: number | null;
+    tgUsername: string | null;
   };
 }
 
@@ -123,7 +126,10 @@ const requireApiKey = async (req: AuthenticatedRequest, res: Response, next: Nex
       agreement: user.agreement,
       status: user.status,
       blocked: user.blocked,
-      defaultFiatBalanceId: user.defaultFiatBalanceId
+      defaultFiatBalanceId: user.defaultFiatBalanceId,
+      phone: user.phone,
+      trust: user.trust,
+      tgUsername: user.tgUsername
     };
     
     next();
