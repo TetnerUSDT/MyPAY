@@ -104,7 +104,7 @@ export default function NotificationsPage() {
       <div className="sticky top-0 z-10 bg-gradient-to-r from-green-700/95 to-green-800/95 backdrop-blur-sm border-b border-green-600/30">
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-3">
-            <Link href="/">
+            <Link href="/home">
               <button className="w-10 h-10 rounded-full bg-black/20 flex items-center justify-center" data-testid="button-back">
                 <ArrowLeft className="w-5 h-5 text-white" />
               </button>
