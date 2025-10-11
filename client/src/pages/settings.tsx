@@ -21,10 +21,10 @@ export default function SettingsScreen() {
     queryKey: ['/api/auth/me']
   });
 
-  const { data: unreadCount = 0 } = useQuery<number>({
-    queryKey: ['/api/notifications/unread-count'],
-    select: (data: any) => data?.count || 0,
-    refetchInterval: 30000
+  // Get unread notifications count
+  const { data: unreadCount } = useQuery<{ count: number }>({
+    queryKey: ["/api/notifications/unread-count"],
+    refetchInterval: 30000,
   });
 
   const handlePhoneClick = () => {
@@ -74,32 +74,24 @@ export default function SettingsScreen() {
       <div className="px-4 space-y-4">
         {/* Compact User Profile Header - Avatar left, Username and Trust right */}
         <div className="flex items-center gap-4 mb-6">
-          {/* Avatar with notification badge and link */}
+          {/* Avatar with notification badge and link - точная копия с главной */}
           <Link href="/notifications">
-            <div className="relative cursor-pointer">
-              <div className="w-20 h-20 rounded-full overflow-hidden">
-                {user?.img ? (
-                  <img 
-                    src={user.img} 
-                    alt={user.name || "User"} 
-                    className="w-full h-full object-cover"
-                    data-testid="img-user-avatar-settings"
-                  />
-                ) : (
-                  <div className="w-full h-full rounded-full bg-accent flex items-center justify-center text-2xl font-bold">
-                    {user?.name?.[0]?.toUpperCase() || "U"}
-                  </div>
-                )}
+            <div className="relative">
+              <div className="w-16 h-16 rounded-full overflow-hidden">
+                <img 
+                  src={user?.img || ""} 
+                  alt="Profile Avatar" 
+                  className="w-full h-full object-cover"
+                  data-testid="profile-avatar"
+                />
               </div>
-              
-              {/* Ripple animation and notification badge */}
-              {unreadCount > 0 && (
+              {unreadCount && unreadCount.count > 0 && (
                 <>
-                  {/* Ripple animation on avatar */}
-                  <div className="absolute inset-0 rounded-full animate-ping bg-accent/50" />
+                  {/* Ripple animation */}
+                  <div className="absolute inset-0 rounded-full animate-ping bg-red-500/50" />
                   {/* Badge */}
-                  <div className="absolute -top-1 -right-1 bg-accent text-secondary font-bold rounded-full w-6 h-6 flex items-center justify-center text-xs border-2 border-secondary z-10" data-testid="notification-badge-settings">
-                    {unreadCount > 9 ? '9+' : unreadCount}
+                  <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center z-10" data-testid="notification-badge">
+                    {unreadCount.count > 9 ? '9+' : unreadCount.count}
                   </div>
                 </>
               )}
