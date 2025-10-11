@@ -73,7 +73,7 @@ export default function SettingsScreen() {
   return (
     <div className="mobile-screen gradient-bg text-white pb-24">
       <div className="px-4 pt-8 space-y-4">
-        {/* Compact User Profile Header - Avatar left, Username/Trust middle, Phone/Email right */}
+        {/* Compact User Profile Header - Avatar left, Username/Trust middle (75%), Phone/Email right (25%) */}
         <div className="flex items-center gap-4 mb-6">
           {/* Avatar with notification badge and link */}
           <Link href="/notifications">
@@ -99,8 +99,8 @@ export default function SettingsScreen() {
             </div>
           </Link>
 
-          {/* Middle: Username and Trust */}
-          <div className="flex-1">
+          {/* Middle: Username and Trust - 75% width */}
+          <div className="flex-[3]">
             {/* Username row */}
             <h2 className="text-lg font-semibold text-white mb-2" data-testid="text-settings-username">
               {user?.name || "User"}
@@ -124,44 +124,46 @@ export default function SettingsScreen() {
             </div>
           </div>
 
-          {/* Right: Phone and Email */}
-          <div className="flex flex-col gap-2 min-w-[200px]">
-            {/* Phone row */}
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-green-200" />
-                <span className="text-green-200 text-sm font-medium">Телефон</span>
+          {/* Right: Phone and Email block with border - 25% width */}
+          <div className="flex-[1] border border-green-500/40 rounded-lg p-2">
+            <div className="flex flex-col gap-2">
+              {/* Phone row */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-green-200" />
+                  <span className="text-green-200 text-sm font-medium">Телефон</span>
+                </div>
+                {user?.phone ? (
+                  <span className="text-white text-sm" data-testid="text-phone-number">{user.phone}</span>
+                ) : (
+                  <button 
+                    onClick={handlePhoneClick}
+                    className="text-accent text-xs px-2 py-1 border border-accent rounded-lg hover:bg-accent/10 transition-colors"
+                    data-testid="button-add-phone"
+                  >
+                    +
+                  </button>
+                )}
               </div>
-              {user?.phone ? (
-                <span className="text-white text-sm" data-testid="text-phone-number">{user.phone}</span>
-              ) : (
-                <button 
-                  onClick={handlePhoneClick}
-                  className="text-accent text-xs px-3 py-1 border border-accent rounded-lg hover:bg-accent/10 transition-colors"
-                  data-testid="button-add-phone"
-                >
-                  добавить
-                </button>
-              )}
-            </div>
-            
-            {/* Email row */}
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Mail className="w-4 h-4 text-green-200" />
-                <span className="text-green-200 text-sm font-medium">Email</span>
+              
+              {/* Email row */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-green-200" />
+                  <span className="text-green-200 text-sm font-medium">Email</span>
+                </div>
+                {user?.email ? (
+                  <span className="text-white text-sm" data-testid="text-email-value">{user.email}</span>
+                ) : (
+                  <button 
+                    onClick={handleEmailClick}
+                    className="text-accent text-xs px-2 py-1 border border-accent rounded-lg hover:bg-accent/10 transition-colors"
+                    data-testid="button-add-email"
+                  >
+                    +
+                  </button>
+                )}
               </div>
-              {user?.email ? (
-                <span className="text-white text-sm" data-testid="text-email-value">{user.email}</span>
-              ) : (
-                <button 
-                  onClick={handleEmailClick}
-                  className="text-accent text-xs px-3 py-1 border border-accent rounded-lg hover:bg-accent/10 transition-colors"
-                  data-testid="button-add-email"
-                >
-                  добавить
-                </button>
-              )}
             </div>
           </div>
         </div>
