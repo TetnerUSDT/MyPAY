@@ -22,6 +22,7 @@ import CardsScreen from "@/pages/cards";
 import HistoryScreen from "@/pages/history";
 import NotificationsScreen from "@/pages/notifications";
 import InvoiceScreen from "@/pages/invoice";
+import SettingsScreen from "@/pages/settings";
 import BottomNavigation from "@/components/bottom-navigation";
 import { useLocation } from "wouter";
 import { AdminRoutes } from "@/components/AdminRouteProvider";
@@ -125,6 +126,12 @@ function Router() {
         <Route path="/invoice/:orderNumber">
           <AuthGuard requireAgreement={true}>
             <InvoiceScreen />
+          </AuthGuard>
+        </Route>
+        
+        <Route path="/settings">
+          <AuthGuard requireAgreement={true}>
+            <SettingsScreen />
           </AuthGuard>
         </Route>
         

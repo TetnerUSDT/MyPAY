@@ -34,6 +34,8 @@ export const users = mysqlTable("users", {
   defaultFiatBalanceId: int("default_fiat_balance_id").references(() => balances.id, { onDelete: "set null" }),
   idRef: int("id_ref").references(() => users.id, { onDelete: "set null" }),
   codeRef: varchar("code_ref", { length: 20 }).unique(),
+  trust: int("trust").default(0),
+  phone: varchar("phone", { length: 20 }),
 });
 
 export const usersBalances = mysqlTable("users_balances", {
