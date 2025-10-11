@@ -156,7 +156,7 @@ export default function SettingsScreen() {
           </div>
 
           {/* Right: Phone block with border - 25% width */}
-          <div className="flex-[1] border border-green-500/40 rounded-lg p-2">
+          <div className="flex-[1] border border-green-500/40 rounded-lg" style={{ padding: '0.8rem 1.0rem' }}>
             <div className="flex flex-col gap-2">
               {/* Phone label row */}
               <div className="flex items-center gap-2">
@@ -170,7 +170,8 @@ export default function SettingsScreen() {
               ) : (
                 <button 
                   onClick={handlePhoneClick}
-                  className="w-full text-accent text-sm py-1 border border-accent rounded-lg hover:bg-accent/10 transition-colors"
+                  className="w-full text-accent text-sm py-1 border border-accent hover:bg-accent/10 transition-colors"
+                  style={{ borderRadius: '0.5rem' }}
                   data-testid="button-add-phone"
                 >
                   Добавить
@@ -270,23 +271,12 @@ export default function SettingsScreen() {
               />
             </div>
           </div>
-          <DialogFooter className="gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setIsPhoneDialogOpen(false);
-                setPhoneValue("");
-              }}
-              className="border-green-500/50 text-white hover:bg-green-800/50"
-            >
-              Отмена
-            </Button>
+          <DialogFooter>
             <Button
               type="button"
               onClick={handleSavePhone}
               disabled={updatePhoneMutation.isPending}
-              className="bg-accent hover:bg-accent/90 text-secondary"
+              className="w-full bg-accent hover:bg-accent/90 text-secondary"
             >
               {updatePhoneMutation.isPending ? "Сохранение..." : "Сохранить"}
             </Button>
