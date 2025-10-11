@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { ArrowLeft, Copy, Share2, Users } from "lucide-react";
+import { X, Copy, Share2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -75,23 +75,21 @@ export default function LoyaltyPage() {
   return (
     <div className="mobile-screen gradient-bg text-white pb-24">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-gradient-to-r from-green-800/95 to-green-900/95 backdrop-blur-sm border-b border-green-500/20">
-        <div className="flex items-center gap-4 px-4 py-4">
-          <Link href="/settings">
-            <Button 
-              variant="ghost" 
-              size="icon"
-              className="text-white hover:bg-white/10"
-              data-testid="button-back-to-settings"
-            >
-              <ArrowLeft className="w-6 h-6" />
-            </Button>
-          </Link>
-          <h1 className="text-xl font-bold">Программа лояльности</h1>
-        </div>
+      <div className="flex items-center justify-between p-6">
+        <h1 className="text-xl font-semibold" data-testid="text-loyalty-title">
+          Программа лояльности
+        </h1>
+        <Link href="/settings">
+          <button 
+            className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center"
+            data-testid="button-close"
+          >
+            <X className="w-4 h-4 text-white" />
+          </button>
+        </Link>
       </div>
 
-      <div className="px-4 pt-6">
+      <div className="px-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2 bg-green-800/60 border border-green-500/40">
             <TabsTrigger 
