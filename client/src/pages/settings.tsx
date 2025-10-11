@@ -125,11 +125,13 @@ export default function SettingsScreen() {
           </div>
 
           {/* Right: Phone and Email */}
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 min-w-[200px]">
             {/* Phone row */}
-            <div className="flex items-center gap-2">
-              <Phone className="w-4 h-4 text-green-200" />
-              <span className="text-green-200 text-sm font-medium">Телефон</span>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Phone className="w-4 h-4 text-green-200" />
+                <span className="text-green-200 text-sm font-medium">Телефон</span>
+              </div>
               {user?.phone ? (
                 <span className="text-white text-sm" data-testid="text-phone-number">{user.phone}</span>
               ) : (
@@ -144,9 +146,11 @@ export default function SettingsScreen() {
             </div>
             
             {/* Email row */}
-            <div className="flex items-center gap-2">
-              <Mail className="w-4 h-4 text-green-200" />
-              <span className="text-green-200 text-sm font-medium">Email</span>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Mail className="w-4 h-4 text-green-200" />
+                <span className="text-green-200 text-sm font-medium">Email</span>
+              </div>
               {user?.email ? (
                 <span className="text-white text-sm" data-testid="text-email-value">{user.email}</span>
               ) : (
