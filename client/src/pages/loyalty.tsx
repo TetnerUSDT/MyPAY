@@ -5,7 +5,8 @@ import { ArrowLeft, Copy, Share2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import loyaltyImage from "@assets/image_1760208738854.png";
+import { LottieAnimation } from "@/components/LottieAnimation";
+import shareAnimation from "@/assets/Share_1760211406270.json";
 
 interface User {
   id: number;
@@ -110,12 +111,15 @@ export default function LoyaltyPage() {
           </TabsList>
 
           <TabsContent value="link" className="space-y-6 mt-6">
-            {/* Hero Image */}
+            {/* Hero Animation */}
             <div className="flex justify-center">
-              <img 
-                src={loyaltyImage} 
-                alt="Loyalty Program" 
-                className="w-full max-w-md rounded-2xl"
+              <LottieAnimation
+                animationData={shareAnimation}
+                width="100%"
+                height={300}
+                loop={true}
+                autoplay={true}
+                className="max-w-md"
               />
             </div>
 
