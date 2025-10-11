@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Users, Shield, Globe, Smartphone, HelpCircle, Phone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import BottomNavigation from "@/components/bottom-navigation";
@@ -21,6 +21,7 @@ interface User {
 
 export default function SettingsScreen() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   const { data: user } = useQuery<User>({
     queryKey: ['/api/auth/me']
@@ -78,7 +79,7 @@ export default function SettingsScreen() {
   };
 
   const handleLoyaltyClick = () => {
-    window.location.href = "/loyalty";
+    setLocation("/loyalty");
   };
 
   const handleSecurityClick = () => {
