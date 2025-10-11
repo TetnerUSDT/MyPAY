@@ -64,7 +64,14 @@ export default function SettingsScreen() {
 
   return (
     <div className="mobile-screen gradient-bg text-white pb-24">
-      <div className="px-4 pt-8 space-y-4">
+      {/* Title */}
+      <div className="text-center pt-8 pb-6">
+        <h1 className="text-xl font-semibold" data-testid="text-settings-title">
+          Настройки
+        </h1>
+      </div>
+
+      <div className="px-4 space-y-4">
         {/* Compact User Profile Header - Avatar left, Username and Trust right */}
         <div className="flex items-center gap-4 mb-6">
           {/* Avatar with notification badge and link - точная копия с главной */}
@@ -95,7 +102,7 @@ export default function SettingsScreen() {
           <div className="flex-1">
             {/* Username row */}
             <h2 className="text-lg font-semibold text-white mb-2" data-testid="text-settings-username">
-              {user?.tgUsername ? `@${user.tgUsername}` : user?.name || "User"}
+              @{user?.tgUsername || "username"}
             </h2>
             
             {/* Trust row - compact */}
@@ -134,7 +141,7 @@ export default function SettingsScreen() {
               </p>
             </div>
             {!user?.phone && (
-              <div className="px-4 py-2 rounded-lg border border-accent">
+              <div className="px-4 py-2 rounded-lg border-2 border-accent">
                 <span className="text-accent font-medium">Указать</span>
               </div>
             )}
