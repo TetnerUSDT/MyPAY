@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Phone, Users, Shield, Globe, Smartphone, HelpCircle } from "lucide-react";
+import { Users, Shield, Globe, Smartphone, HelpCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import BottomNavigation from "@/components/bottom-navigation";
 
@@ -91,7 +91,7 @@ export default function SettingsScreen() {
             </div>
           </Link>
 
-          {/* Username and Trust - 2 rows on the right */}
+          {/* Username, Trust and Phone - 3 rows on the right */}
           <div className="flex-1">
             {/* Username row */}
             <h2 className="text-lg font-semibold text-white mb-2" data-testid="text-settings-username">
@@ -99,7 +99,7 @@ export default function SettingsScreen() {
             </h2>
             
             {/* Trust row - compact */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mb-1">
               <span className="text-green-200 text-sm font-medium">Trust</span>
               <div className="bg-green-900/50 border border-green-500/50 rounded-lg px-3 py-1">
                 <span className="text-lg font-bold text-accent" data-testid="text-trust-value">
@@ -114,32 +114,24 @@ export default function SettingsScreen() {
                 <HelpCircle className="w-4 h-4 text-accent" />
               </button>
             </div>
+            
+            {/* Phone row - compact */}
+            <div className="flex items-center gap-2">
+              <span className="text-green-200 text-sm font-medium">Телефон</span>
+              {user?.phone ? (
+                <span className="text-white text-sm" data-testid="text-phone-number">{user.phone}</span>
+              ) : (
+                <button 
+                  onClick={handlePhoneClick}
+                  className="text-accent text-xs px-3 py-1 border border-accent rounded-lg hover:bg-accent/10 transition-colors"
+                  data-testid="button-add-phone"
+                >
+                  добавить
+                </button>
+              )}
+            </div>
           </div>
         </div>
-
-        {/* Phone Section */}
-        <button
-          onClick={handlePhoneClick}
-          className="w-full bg-gradient-to-r from-green-700/60 to-green-800/60 rounded-xl p-4 border border-green-500/40 backdrop-blur-sm hover:from-green-700/70 hover:to-green-800/70 transition-all"
-          data-testid="button-phone-settings"
-        >
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center">
-              <Phone className="w-6 h-6 text-accent" />
-            </div>
-            <div className="flex-1 text-left">
-              <h3 className="text-white font-semibold mb-1">Телефон</h3>
-              <p className="text-green-200 text-sm">
-                {user?.phone || "Не указан"}
-              </p>
-            </div>
-            {!user?.phone && (
-              <div className="px-4 py-2 rounded-lg border border-accent">
-                <span className="text-accent font-medium">Указать</span>
-              </div>
-            )}
-          </div>
-        </button>
 
         {/* Loyalty Program */}
         <button
