@@ -311,6 +311,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           tgUsername = userData.user.username || null;
         }
         
+        // Extract referral code from start_param (for initData only)
+        let referrerId: number | null = null;
+        if (validatedData.initData) {
+          const initData = validatedData.initData;
+          const userData = parseInitData(initData);
+          const startParam = (userData as any).start_param || (userData as any).startParam;
+          
+          if (startParam) {
+            console.log('Referral code from start_param:', startParam);
+            const referrer = await storage.getUserByReferralCode(startParam);
+            if (referrer) {
+              referrerId = referrer.id;
+              console.log('Found referrer:', referrer.id, referrer.name);
+            }
+          }
+        }
+        
         // Check if user already exists
         user = await storage.getUserByTgId(tgId);
         
@@ -326,7 +343,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               img: telegramData.img || img,
               status: "active",
               agreement: 0,
-              blocked: false
+              blocked: false,
+              idRef: referrerId || undefined
             });
           } catch (error) {
             console.error('Failed to fetch Telegram user data, using provided data:', error);
@@ -339,7 +357,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               img,
               status: "active",
               agreement: 0,
-              blocked: false
+              blocked: false,
+              idRef: referrerId || undefined
             });
           }
         } else {
