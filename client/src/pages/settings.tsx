@@ -44,7 +44,8 @@ export default function SettingsScreen() {
       return await apiRequest("PATCH", "/api/user/phone", { phone });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+      // Force refetch to avoid 304 caching issue
+      queryClient.refetchQueries({ queryKey: ['/api/auth/me'], type: 'active' });
       setIsPhoneDialogOpen(false);
       setPhoneValue("");
       toast({
