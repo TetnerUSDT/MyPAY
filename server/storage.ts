@@ -9,6 +9,8 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByTgId(tgId: string): Promise<User | undefined>;
   getUserByApiKey(apiKey: string): Promise<User | undefined>;
+  getUserByReferralCode(code: string): Promise<User | undefined>;
+  getUserReferrals(userId: number): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, data: Partial<InsertUser>): Promise<User | undefined>;
   updateUserAgreement(id: number, agreement: number): Promise<User | undefined>;
@@ -272,6 +274,16 @@ export class DatabaseStorage implements IStorage {
   async getUserByApiKey(apiKey: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.apiKey, apiKey));
     return user || undefined;
+  }
+
+  async getUserByReferralCode(code: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.codeRef, code));
+    return user || undefined;
+  }
+
+  async getUserReferrals(userId: number): Promise<User[]> {
+    const referrals = await db.select().from(users).where(eq(users.idRef, userId));
+    return referrals;
   }
 
   private generateReferralCode(): string {

@@ -948,6 +948,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get user referrals
+  app.get("/api/referrals", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const referrals = await storage.getUserReferrals(req.user!.id);
+      res.json(referrals);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Create exchange order with wallet reservation
   app.post("/api/exchange/create", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {
