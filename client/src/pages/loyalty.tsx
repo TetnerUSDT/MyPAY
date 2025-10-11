@@ -156,7 +156,7 @@ export default function LoyaltyPage() {
               <div className="space-y-2">
                 <label className="text-sm text-green-200">Реферальная ссылка</label>
                 <div className="flex items-center gap-2 bg-white/90 rounded-lg p-4">
-                  <span className="flex-1 text-secondary text-sm truncate" data-testid="text-referral-link">
+                  <span className="flex-1 text-secondary text-lg font-semibold truncate" data-testid="text-referral-link">
                     {referralLink || "Загрузка..."}
                   </span>
                   <Button
