@@ -78,10 +78,7 @@ export default function SettingsScreen() {
   };
 
   const handleLoyaltyClick = () => {
-    toast({
-      title: "Программа лояльности",
-      description: "Зарабатывайте приглашая друзей",
-    });
+    window.location.href = "/loyalty";
   };
 
   const handleSecurityClick = () => {
