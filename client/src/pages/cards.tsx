@@ -317,7 +317,7 @@ export default function CardsScreen() {
 
       {/* Add Card Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="mobile-screen bg-secondary border-none text-white">
+        <DialogContent className="mobile-screen bg-secondary border-none text-white max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-white">Добавление карты</DialogTitle>
           </DialogHeader>
