@@ -151,7 +151,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ 
       botUsername: config.auth.telegram.botUsername,
       authMode: config.auth.mode,
-      botUrl: process.env.TELEGRAM_BOT_URL || "https://t.me/swiftx_p2p_test_bot/test"
+      botUrl: process.env.TELEGRAM_BOT_URL || ""
     });
   });
 

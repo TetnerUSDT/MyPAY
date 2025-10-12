@@ -40,8 +40,8 @@ export default function LoyaltyPage() {
     queryKey: ['/api/config/telegram-bot'],
   });
 
-  const botUrl = botConfig?.botUrl || "https://t.me/swiftx_p2p_test_bot/test";
-  const referralLink = user?.codeRef ? `${botUrl}?startapp=${user.codeRef}` : "";
+  const botUrl = botConfig?.botUrl || "";
+  const referralLink = user?.codeRef && botUrl ? `${botUrl}?startapp=${user.codeRef}` : "";
 
   const handleCopyCode = () => {
     if (user?.codeRef) {
