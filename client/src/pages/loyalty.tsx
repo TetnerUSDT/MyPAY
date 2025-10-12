@@ -28,7 +28,7 @@ export default function LoyaltyPage() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("link");
 
-  const { data: user } = useQuery<User>({
+  const { data: user, isLoading: userLoading } = useQuery<User>({
     queryKey: ['/api/auth/me'],
   });
 
@@ -36,12 +36,13 @@ export default function LoyaltyPage() {
     queryKey: ['/api/referrals'],
   });
 
-  const { data: botConfig } = useQuery<{ botUrl: string }>({
+  const { data: botConfig, isLoading: botConfigLoading } = useQuery<{ botUrl: string }>({
     queryKey: ['/api/config/telegram-bot'],
   });
 
   const botUrl = botConfig?.botUrl || "";
   const referralLink = user?.codeRef && botUrl ? `${botUrl}?startapp=${user.codeRef}` : "";
+  const isLoadingLink = userLoading || botConfigLoading;
 
   const handleCopyCode = () => {
     if (user?.codeRef) {
@@ -159,13 +160,14 @@ export default function LoyaltyPage() {
                 <label className="text-sm text-green-200">Реферальная ссылка</label>
                 <div className="flex items-center gap-2 bg-white/90 rounded-lg py-2 px-4">
                   <span className="flex-1 text-secondary text-lg font-semibold truncate" data-testid="text-referral-link">
-                    {referralLink || "Загрузка..."}
+                    {isLoadingLink ? "Загрузка..." : referralLink || "URL бота не настроен"}
                   </span>
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={handleCopyLink}
-                    className="text-secondary hover:bg-secondary/10"
+                    disabled={!referralLink || isLoadingLink}
+                    className="text-secondary hover:bg-secondary/10 disabled:opacity-50"
                     data-testid="button-copy-link"
                   >
                     <Copy className="w-5 h-5" />
@@ -176,7 +178,8 @@ export default function LoyaltyPage() {
               {/* Share Button */}
               <Button
                 onClick={handleShareLink}
-                className="w-full bg-accent hover:bg-accent/90 text-secondary py-6 text-lg font-semibold"
+                disabled={!referralLink || isLoadingLink}
+                className="w-full bg-accent hover:bg-accent/90 text-secondary py-6 text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 data-testid="button-share-link"
               >
                 <Share2 className="w-6 h-6 mr-2" />
