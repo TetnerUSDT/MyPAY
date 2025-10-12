@@ -150,7 +150,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/config/telegram-bot", async (req, res) => {
     res.json({ 
       botUsername: config.auth.telegram.botUsername,
-      authMode: config.auth.mode
+      authMode: config.auth.mode,
+      botUrl: process.env.VITE_TELEGRAM_BOT_URL || "https://t.me/swiftx_p2p_test_bot/test"
     });
   });
 

@@ -36,7 +36,11 @@ export default function LoyaltyPage() {
     queryKey: ['/api/referrals'],
   });
 
-  const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || "https://t.me/swiftx_p2p_test_bot/test";
+  const { data: botConfig } = useQuery<{ botUrl: string }>({
+    queryKey: ['/api/config/telegram-bot'],
+  });
+
+  const botUrl = botConfig?.botUrl || "https://t.me/swiftx_p2p_test_bot/test";
   const referralLink = user?.codeRef ? `${botUrl}?startapp=${user.codeRef}` : "";
 
   const handleCopyCode = () => {
