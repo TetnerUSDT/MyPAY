@@ -186,7 +186,7 @@ export default function SettingsScreen() {
         {/* Loyalty Program */}
         <button
           onClick={handleLoyaltyClick}
-          className="w-full bg-gradient-to-r from-green-700/60 to-green-800/60 rounded-xl p-4 border border-green-500/40 backdrop-blur-sm hover:from-green-700/70 hover:to-green-800/70 transition-all"
+          className="w-full crypto-card hover:opacity-90 transition-all"
           data-testid="button-loyalty-settings"
         >
           <div className="flex items-start gap-4">
@@ -203,7 +203,7 @@ export default function SettingsScreen() {
         {/* Security */}
         <button
           onClick={handleSecurityClick}
-          className="w-full bg-gradient-to-r from-green-700/60 to-green-800/60 rounded-xl p-4 border border-green-500/40 backdrop-blur-sm hover:from-green-700/70 hover:to-green-800/70 transition-all"
+          className="w-full crypto-card hover:opacity-90 transition-all"
           data-testid="button-security-settings"
         >
           <div className="flex items-start gap-4">
@@ -223,7 +223,7 @@ export default function SettingsScreen() {
         {/* Languages */}
         <button
           onClick={handleLanguageClick}
-          className="w-full bg-gradient-to-r from-green-700/60 to-green-800/60 rounded-xl p-4 border border-green-500/40 backdrop-blur-sm hover:from-green-700/70 hover:to-green-800/70 transition-all"
+          className="w-full crypto-card hover:opacity-90 transition-all"
           data-testid="button-language-settings"
         >
           <div className="flex items-start gap-4">
@@ -243,7 +243,7 @@ export default function SettingsScreen() {
         {/* Devices */}
         <button
           onClick={handleDevicesClick}
-          className="w-full bg-gradient-to-r from-green-700/60 to-green-800/60 rounded-xl p-4 border border-green-500/40 backdrop-blur-sm hover:from-green-700/70 hover:to-green-800/70 transition-all"
+          className="w-full crypto-card hover:opacity-90 transition-all"
           data-testid="button-devices-settings"
         >
           <div className="flex items-start gap-4">
