@@ -1,9 +1,13 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useSearch } from "wouter";
-import { X, ArrowDown, ArrowRight, Settings as SettingsIcon, RefreshCw } from "lucide-react";
+import { X, ArrowDown, ArrowRight, Settings as SettingsIcon, RefreshCw, CreditCard } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 interface UserCard {
@@ -24,6 +28,26 @@ interface Balance {
   network?: string;
 }
 
+interface CountryCard {
+  id: number;
+  title: string;
+  country: string;
+  lang: string | null;
+  timeExchange: number;
+  commission: string;
+  idBalance: string | null;
+  status: string | null;
+}
+
+interface Bank {
+  id: number;
+  cardId: number;
+  bankName: string;
+  timeExchange: number | null;
+  commission: string | null;
+  status: string | null;
+}
+
 export default function ExchangeScreen() {
   const searchParams = new URLSearchParams(useSearch());
   const selectedCountryId = searchParams.get('country');
@@ -34,11 +58,23 @@ export default function ExchangeScreen() {
   const [payBalanceId, setPayBalanceId] = useState<number | null>(null);
   const [receiveBalanceId, setReceiveBalanceId] = useState<number | null>(null);
   const [selectedCard, setSelectedCard] = useState("");
-  const [cardInputMode, setCardInputMode] = useState<'select' | 'manual'>('select');
-  const [manualCardInput, setManualCardInput] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<'blockchain' | 'balance'>('blockchain');
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  
+  // Add card modal states
+  const [isAddCardModalOpen, setIsAddCardModalOpen] = useState(false);
+  const [selectedCardIdForBank, setSelectedCardIdForBank] = useState<string>("");
+  const [cardFormData, setCardFormData] = useState({
+    name: "",
+    country: "",
+    number: "",
+    firstName: "",
+    lastName: "",
+    phone: "",
+    idCard: "",
+    idBank: ""
+  });
 
   const { data: paymentBalance } = useQuery<Balance>({
     queryKey: ['/api/exchange/payment-balance'],
@@ -65,6 +101,20 @@ export default function ExchangeScreen() {
 
   const { data: userCards = [] } = useQuery<UserCard[]>({
     queryKey: ['/api/user-cards']
+  });
+
+  const { data: activeCards = [] } = useQuery<CountryCard[]>({
+    queryKey: ['/api/cards/active']
+  });
+
+  const { data: banks = [] } = useQuery<Bank[]>({
+    queryKey: ['/api/banks', selectedCardIdForBank],
+    queryFn: async () => {
+      const response = await fetch(`/api/banks/${selectedCardIdForBank}`);
+      if (!response.ok) throw new Error('Failed to fetch banks');
+      return response.json();
+    },
+    enabled: !!selectedCardIdForBank && selectedCardIdForBank !== ""
   });
 
   const { data: userBalance } = useQuery<{ sum: string }>({
@@ -156,18 +206,72 @@ export default function ExchangeScreen() {
 
   // Card mask helper function
   const formatCardNumber = (value: string) => {
-    // Remove all non-digit characters
-    const digits = value.replace(/\D/g, '');
-    // Apply card mask: xxxx xxxx xxxx xxxx
-    const formatted = digits.replace(/(\d{4})(?=\d)/g, '$1 ');
-    // Limit to 16 digits (4 groups of 4)
-    return formatted.substring(0, 19);
+    // Remove all non-digit characters and format
+    return value.replace(/(\d{4})(?=\d)/g, '$1 ');
   };
 
-  const handleCardInputChange = (value: string) => {
-    const formatted = formatCardNumber(value);
-    setManualCardInput(formatted);
-    setSelectedCard(formatted);
+  // Handler functions for card form
+  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const numericValue = e.target.value.replace(/\D/g, '').slice(0, 16);
+    setCardFormData({ ...cardFormData, number: numericValue });
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, '').slice(0, 15);
+    const formattedPhone = '+' + digits;
+    setCardFormData({ ...cardFormData, phone: formattedPhone });
+  };
+
+  const handleNameChange = (field: 'firstName' | 'lastName') => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const latinValue = e.target.value.replace(/[^a-zA-Z\s]/g, '');
+    setCardFormData({ ...cardFormData, [field]: latinValue });
+  };
+
+  // Create card mutation
+  const createCardMutation = useMutation({
+    mutationFn: async (cardData: any) => {
+      const apiKey = localStorage.getItem("userApiKey");
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (apiKey) headers['x-api-key'] = apiKey;
+      
+      const response = await fetch('/api/user-cards', {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify(cardData)
+      });
+      if (!response.ok) throw new Error('Failed to create card');
+      return response.json();
+    },
+    onSuccess: (newCard) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/user-cards'] });
+      setCardFormData({ name: "", country: "", number: "", firstName: "", lastName: "", phone: "", idCard: "", idBank: "" });
+      setSelectedCardIdForBank("");
+      setIsAddCardModalOpen(false);
+      setSelectedCard(newCard.id.toString());
+      toast({ title: "Карта добавлена успешно" });
+    },
+    onError: () => {
+      toast({ title: "Ошибка при добавлении карты", variant: "destructive" });
+    }
+  });
+
+  const handleAddCard = () => {
+    if (cardFormData.name && cardFormData.country && cardFormData.number && cardFormData.firstName && cardFormData.lastName && cardFormData.phone && cardFormData.idCard) {
+      const dataToSend: any = {
+        name: cardFormData.name,
+        country: cardFormData.country,
+        number: cardFormData.number,
+        firstName: cardFormData.firstName,
+        lastName: cardFormData.lastName,
+        phone: cardFormData.phone,
+        idCard: cardFormData.idCard
+      };
+      if (cardFormData.idBank) {
+        dataToSend.idBank = parseInt(cardFormData.idBank);
+      }
+      createCardMutation.mutate(dataToSend);
+    }
   };
 
   // Create exchange mutation
@@ -259,8 +363,8 @@ export default function ExchangeScreen() {
       amountTo: receiveAmount,
       rate,
       commission: "0.0",
-      cardId: cardInputMode === 'select' && selectedCard ? parseInt(selectedCard) : null,
-      manualCardNumber: cardInputMode === 'manual' ? selectedCard : null,
+      cardId: selectedCard ? parseInt(selectedCard) : null,
+      manualCardNumber: null,
       network,
       paymentMethod
     });
@@ -412,67 +516,40 @@ export default function ExchangeScreen() {
             {/* Card Selection */}
             <div className="crypto-card">
               <div className="text-sm text-muted-foreground mb-3">Выберите карту</div>
-              {cardInputMode === 'select' ? (
-                <div className="space-y-3">
-                  <Select 
-                    value={selectedCard} 
-                    onValueChange={(value) => {
-                      if (value === 'manual') {
-                        setCardInputMode('manual');
-                        setManualCardInput('');
-                      } else {
-                        setSelectedCard(value);
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="w-full bg-secondary border-0 text-white font-medium" data-testid="select-card">
-                      <SelectValue placeholder="Выберите карту или введите вручную" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {cardOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value="manual">
-                        ✏️ Ввести номер карты вручную
+              <div className="space-y-3">
+                <Select 
+                  value={selectedCard} 
+                  onValueChange={(value) => {
+                    if (value === 'add_card') {
+                      setIsAddCardModalOpen(true);
+                    } else {
+                      setSelectedCard(value);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-full bg-secondary border-0 text-white font-medium" data-testid="select-card">
+                    <SelectValue placeholder="Выберите карту" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {cardOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
                       </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {selectedCard && selectedCard !== 'manual' && (() => {
-                    const card = userCards.find(c => c.id.toString() === selectedCard);
-                    return card ? (
-                      <div className="text-white font-mono text-lg" data-testid="text-selected-card">
-                        {formatCardNumber(card.numberCard)}
-                      </div>
-                    ) : null;
-                  })()}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <input
-                    type="text"
-                    value={manualCardInput}
-                    onChange={(e) => handleCardInputChange(e.target.value)}
-                    placeholder="xxxx xxxx xxxx xxxx"
-                    className="w-full bg-secondary border-0 text-white font-mono text-lg px-4 py-3 rounded-lg outline-none"
-                    maxLength={19}
-                    data-testid="input-manual-card"
-                  />
-                  <button
-                    onClick={() => {
-                      setCardInputMode('select');
-                      if (cardOptions.length > 0) {
-                        setSelectedCard(cardOptions[0].value);
-                      }
-                    }}
-                    className="text-accent text-sm underline"
-                    data-testid="button-back-to-select"
-                  >
-                    ← Вернуться к выбору из списка
-                  </button>
-                </div>
-              )}
+                    ))}
+                    <SelectItem value="add_card">
+                      ➕ Добавить карту
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                {selectedCard && selectedCard !== 'add_card' && (() => {
+                  const card = userCards.find(c => c.id.toString() === selectedCard);
+                  return card ? (
+                    <div className="text-white font-mono text-lg" data-testid="text-selected-card">
+                      {formatCardNumber(card.numberCard)}
+                    </div>
+                  ) : null;
+                })()}
+              </div>
             </div>
             </div>
           ) : (
@@ -507,6 +584,171 @@ export default function ExchangeScreen() {
           </button>
         </div>
       </div>
+
+      {/* Add Card Modal */}
+      <Dialog open={isAddCardModalOpen} onOpenChange={setIsAddCardModalOpen}>
+        <DialogContent className="mobile-screen bg-secondary border-none text-white max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-white">Добавление карты</DialogTitle>
+          </DialogHeader>
+          
+          <div className="crypto-card mt-4">
+            {/* Card Icon */}
+            <div className="flex justify-center mb-6">
+              <div className="w-16 h-16 bg-accent rounded-xl flex items-center justify-center">
+                <CreditCard className="w-8 h-8 text-accent-foreground" />
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              {/* Card Name */}
+              <div>
+                <Label htmlFor="cardName" className="text-white mb-2 block">
+                  Введите название для карты
+                </Label>
+                <Input
+                  id="cardName"
+                  placeholder="Зарплатная карта"
+                  value={cardFormData.name}
+                  onChange={(e) => setCardFormData({ ...cardFormData, name: e.target.value })}
+                  className="input-field"
+                  data-testid="input-card-name"
+                />
+              </div>
+
+              {/* First Name */}
+              <div>
+                <Label htmlFor="firstName" className="text-white mb-2 block">
+                  Имя (латинницей)
+                </Label>
+                <Input
+                  id="firstName"
+                  placeholder="Ivan"
+                  value={cardFormData.firstName}
+                  onChange={handleNameChange('firstName')}
+                  className="input-field"
+                  data-testid="input-first-name"
+                />
+              </div>
+
+              {/* Last Name */}
+              <div>
+                <Label htmlFor="lastName" className="text-white mb-2 block">
+                  Фамилия (латинницей)
+                </Label>
+                <Input
+                  id="lastName"
+                  placeholder="Petrov"
+                  value={cardFormData.lastName}
+                  onChange={handleNameChange('lastName')}
+                  className="input-field"
+                  data-testid="input-last-name"
+                />
+              </div>
+
+              {/* Phone Number */}
+              <div>
+                <Label htmlFor="phone" className="text-white mb-2 block">
+                  Номер телефона
+                </Label>
+                <Input
+                  id="phone"
+                  placeholder="+79991234567"
+                  value={cardFormData.phone}
+                  onChange={handlePhoneChange}
+                  className="input-field"
+                  data-testid="input-phone"
+                />
+              </div>
+
+              {/* Country Selection */}
+              <div>
+                <Label className="text-white mb-2 block">
+                  Выберите страну
+                </Label>
+                <Select
+                  value={cardFormData.idCard}
+                  onValueChange={(value) => {
+                    const selectedCountryCard = activeCards.find(c => c.id.toString() === value);
+                    setSelectedCardIdForBank(value);
+                    setCardFormData({ 
+                      ...cardFormData, 
+                      idCard: value,
+                      country: selectedCountryCard?.country || "",
+                      idBank: ""
+                    });
+                  }}
+                >
+                  <SelectTrigger className="input-field" data-testid="select-country">
+                    <SelectValue placeholder="Выберите страну" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeCards.map(card => (
+                      <SelectItem key={card.id} value={card.id.toString()}>
+                        {card.country}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Bank Selection - shown only if banks are available for selected country */}
+              {banks.length > 0 && (
+                <div>
+                  <Label className="text-white mb-2 block">
+                    Выберите банк
+                  </Label>
+                  <Select
+                    value={cardFormData.idBank}
+                    onValueChange={(value) => {
+                      setCardFormData({ 
+                        ...cardFormData, 
+                        idBank: value
+                      });
+                    }}
+                  >
+                    <SelectTrigger className="input-field" data-testid="select-bank">
+                      <SelectValue placeholder="Выберите банк" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {banks.map(bank => (
+                        <SelectItem key={bank.id} value={bank.id.toString()}>
+                          {bank.bankName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Card Number */}
+              <div>
+                <Label htmlFor="cardNumber" className="text-white mb-2 block">
+                  Введите номер карты
+                </Label>
+                <Input
+                  id="cardNumber"
+                  placeholder="4373 8349 9348 7328"
+                  value={formatCardNumber(cardFormData.number)}
+                  onChange={handleCardNumberChange}
+                  className="input-field"
+                  data-testid="input-card-number"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <Button 
+              className="action-button"
+              onClick={handleAddCard}
+              data-testid="button-save-card"
+            >
+              Сохранить карту
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
