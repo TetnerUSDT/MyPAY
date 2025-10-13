@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useSearch } from "wouter";
-import { X, ArrowDown, ArrowRight, Settings as SettingsIcon, RefreshCw, CreditCard } from "lucide-react";
+import { X, ArrowDown, ArrowRight, Settings as SettingsIcon, RefreshCw, CreditCard, Copy, Check } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,8 @@ interface UserCard {
   phone: string;
   idUser: number;
   idCard: number;
+  idBank?: number | null;
+  bankName?: string | null;
 }
 
 interface Balance {
@@ -65,7 +67,9 @@ export default function ExchangeScreen() {
   
   // Add card modal states
   const [isAddCardModalOpen, setIsAddCardModalOpen] = useState(false);
+  const [isCardDetailsModalOpen, setIsCardDetailsModalOpen] = useState(false);
   const [selectedCardIdForBank, setSelectedCardIdForBank] = useState<string>("");
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const [cardFormData, setCardFormData] = useState({
     name: "",
     country: "",
@@ -311,6 +315,17 @@ export default function ExchangeScreen() {
     }
     
     createCardMutation.mutate(dataToSend);
+  };
+
+  // Copy to clipboard function
+  const copyToClipboard = async (text: string, fieldName: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(fieldName);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (err) {
+      toast({ title: "Ошибка копирования", variant: "destructive" });
+    }
   };
 
   // Create exchange mutation
@@ -584,16 +599,24 @@ export default function ExchangeScreen() {
                   const card = userCards.find(c => c.id.toString() === selectedCard);
                   if (!card) return null;
                   
-                  const displayValue = card.numberCard 
-                    ? formatCardNumber(card.numberCard)
-                    : card.accountNumber 
-                      ? `Счет: ${card.accountNumber}`
-                      : '';
+                  const parts = [];
+                  if (card.numberCard) {
+                    parts.push(`****${card.numberCard.slice(-4)}`);
+                  }
+                  if (card.accountNumber) {
+                    parts.push(`****${card.accountNumber.slice(-4)}`);
+                  }
+                  const shortInfo = parts.join(', ');
                   
                   return (
-                    <div className="text-white font-mono text-lg" data-testid="text-selected-card">
-                      {displayValue}
-                    </div>
+                    <button
+                      onClick={() => setIsCardDetailsModalOpen(true)}
+                      className="w-full bg-secondary/50 rounded-lg px-4 py-3 text-left hover:bg-secondary/70 transition-colors"
+                      data-testid="button-card-details"
+                    >
+                      <div className="text-accent font-medium text-sm mb-1">{card.name}</div>
+                      <div className="text-white font-mono text-base">{shortInfo}</div>
+                    </button>
                   );
                 })()}
               </div>
@@ -812,6 +835,120 @@ export default function ExchangeScreen() {
               Сохранить карту
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Card Details Modal */}
+      <Dialog open={isCardDetailsModalOpen} onOpenChange={setIsCardDetailsModalOpen}>
+        <DialogContent className="mobile-screen bg-secondary border-none text-white">
+          <DialogHeader>
+            <DialogTitle className="text-white">Реквизиты карты</DialogTitle>
+          </DialogHeader>
+          
+          {selectedCard && selectedCard !== 'add_card' && (() => {
+            const card = userCards.find(c => c.id.toString() === selectedCard);
+            if (!card) return null;
+            
+            return (
+              <div className="space-y-3 mt-4">
+                {/* Card Name */}
+                <div className="bg-secondary/50 rounded-lg p-3">
+                  <div className="text-xs text-muted-foreground mb-1">Название</div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-white font-medium">{card.name}</div>
+                    <button
+                      onClick={() => copyToClipboard(card.name, 'name')}
+                      className="p-2 hover:bg-secondary rounded transition-colors"
+                      data-testid="button-copy-name"
+                    >
+                      {copiedField === 'name' ? <Check className="w-4 h-4 text-accent" /> : <Copy className="w-4 h-4 text-muted-foreground" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Full Name (Compact: First + Last in one row) */}
+                <div className="bg-secondary/50 rounded-lg p-3">
+                  <div className="text-xs text-muted-foreground mb-1">Имя и Фамилия</div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-white font-medium">{card.firstName} {card.lastName}</div>
+                    <button
+                      onClick={() => copyToClipboard(`${card.firstName} ${card.lastName}`, 'fullName')}
+                      className="p-2 hover:bg-secondary rounded transition-colors"
+                      data-testid="button-copy-fullname"
+                    >
+                      {copiedField === 'fullName' ? <Check className="w-4 h-4 text-accent" /> : <Copy className="w-4 h-4 text-muted-foreground" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Phone */}
+                <div className="bg-secondary/50 rounded-lg p-3">
+                  <div className="text-xs text-muted-foreground mb-1">Телефон</div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-white font-medium">{card.phone}</div>
+                    <button
+                      onClick={() => copyToClipboard(card.phone, 'phone')}
+                      className="p-2 hover:bg-secondary rounded transition-colors"
+                      data-testid="button-copy-phone"
+                    >
+                      {copiedField === 'phone' ? <Check className="w-4 h-4 text-accent" /> : <Copy className="w-4 h-4 text-muted-foreground" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Bank */}
+                {card.bankName && (
+                  <div className="bg-secondary/50 rounded-lg p-3">
+                    <div className="text-xs text-muted-foreground mb-1">Банк</div>
+                    <div className="flex items-center justify-between">
+                      <div className="text-white font-medium">{card.bankName}</div>
+                      <button
+                        onClick={() => copyToClipboard(card.bankName || '', 'bank')}
+                        className="p-2 hover:bg-secondary rounded transition-colors"
+                        data-testid="button-copy-bank"
+                      >
+                        {copiedField === 'bank' ? <Check className="w-4 h-4 text-accent" /> : <Copy className="w-4 h-4 text-muted-foreground" />}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Card Number */}
+                {card.numberCard && (
+                  <div className="bg-secondary/50 rounded-lg p-3">
+                    <div className="text-xs text-muted-foreground mb-1">Номер карты</div>
+                    <div className="flex items-center justify-between">
+                      <div className="text-white font-mono">{formatCardNumber(card.numberCard)}</div>
+                      <button
+                        onClick={() => copyToClipboard(card.numberCard, 'card')}
+                        className="p-2 hover:bg-secondary rounded transition-colors"
+                        data-testid="button-copy-card-number"
+                      >
+                        {copiedField === 'card' ? <Check className="w-4 h-4 text-accent" /> : <Copy className="w-4 h-4 text-muted-foreground" />}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Account Number */}
+                {card.accountNumber && (
+                  <div className="bg-secondary/50 rounded-lg p-3">
+                    <div className="text-xs text-muted-foreground mb-1">Номер счета</div>
+                    <div className="flex items-center justify-between">
+                      <div className="text-white font-mono">{card.accountNumber}</div>
+                      <button
+                        onClick={() => copyToClipboard(card.accountNumber || '', 'account')}
+                        className="p-2 hover:bg-secondary rounded transition-colors"
+                        data-testid="button-copy-account"
+                      >
+                        {copiedField === 'account' ? <Check className="w-4 h-4 text-accent" /> : <Copy className="w-4 h-4 text-muted-foreground" />}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

@@ -1159,7 +1159,7 @@ export class DatabaseStorage implements IStorage {
     // Calculate final isRead status:
     // - For personal notifications (userId != null): use notifications.isRead
     // - For broadcast notifications (userId = null): check if readByUser exists
-    return allNotifications.map(n => ({
+    return allNotifications.map((n: any) => ({
       ...n,
       isRead: n.userId !== null ? n.isRead : n.readByUser !== null,
       readByUser: undefined, // Remove helper field
@@ -1268,7 +1268,7 @@ export class DatabaseStorage implements IStorage {
     
     // Mark all broadcast notifications as read for this user
     if (broadcastNotifications.length > 0) {
-      const values = broadcastNotifications.map(n => ({
+      const values = broadcastNotifications.map((n: any) => ({
         notificationId: n.id,
         userId,
       }));
