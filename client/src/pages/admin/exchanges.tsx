@@ -260,7 +260,17 @@ export default function AdminExchanges() {
                 </div>
 
                 {/* Блок с деталями платежа */}
-                {(selectedExchange?.walletAddress || selectedExchange?.cardNumber || selectedExchange?.manualCardNumber || (selectedExchange?.tempBalance && parseFloat(selectedExchange.tempBalance) > 0)) && (
+                {(selectedExchange?.walletAddress || 
+                  selectedExchange?.cardNumber || 
+                  selectedExchange?.manualCardNumber || 
+                  selectedExchange?.cardAccountNumber ||
+                  selectedExchange?.cardFirstName ||
+                  selectedExchange?.cardLastName ||
+                  selectedExchange?.cardPhone ||
+                  selectedExchange?.cardCountry ||
+                  selectedExchange?.cardBankName ||
+                  selectedExchange?.cardName ||
+                  (selectedExchange?.tempBalance && parseFloat(selectedExchange.tempBalance) > 0)) && (
                   <div className="bg-primary/10 border-2 border-primary/20 rounded-lg p-4 space-y-3">
                     {selectedExchange?.walletAddress && (
                       <div>
@@ -282,7 +292,15 @@ export default function AdminExchanges() {
                       </div>
                     )}
                     
-                    {(selectedExchange?.cardNumber || selectedExchange?.manualCardNumber) && (
+                    {(selectedExchange?.cardNumber || 
+                      selectedExchange?.manualCardNumber || 
+                      selectedExchange?.cardAccountNumber ||
+                      selectedExchange?.cardFirstName ||
+                      selectedExchange?.cardLastName ||
+                      selectedExchange?.cardPhone ||
+                      selectedExchange?.cardCountry ||
+                      selectedExchange?.cardBankName ||
+                      selectedExchange?.cardName) && (
                       <div>
                         <span className="text-muted-foreground text-sm">Реквизиты получателя:</span>
                         <button
