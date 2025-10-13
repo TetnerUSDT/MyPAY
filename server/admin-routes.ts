@@ -310,6 +310,17 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
       
       const updated = await updateAndReturn(exchanges, updateData, eq(exchanges.id, parseInt(id)));
       console.log(`[Admin] Exchange ${id} updated successfully`);
+      
+      // Send SSE notification to user about exchange status update
+      notificationService.notifyExchangeUpdate(updated.idUser.toString(), {
+        exchangeId: updated.id,
+        numberOrder: updated.numberOrder,
+        status: updated.status,
+        cancelReason: updated.cancelReason,
+        paymentHash: updated.paymentHash
+      });
+      console.log(`[Admin] SSE notification sent to user ${updated.idUser} for exchange ${id}`);
+      
       res.json(updated);
     } catch (error) {
       console.error('Update exchange status error:', error);

@@ -3,18 +3,19 @@ import { useQuery } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 
 interface NotificationStreamEvent {
-  type: 'notification' | 'invoice' | 'ping';
+  type: 'notification' | 'invoice' | 'ping' | 'exchange_update';
   data: any;
 }
 
 interface UseNotificationStreamOptions {
   onInvoice?: (invoice: any) => void;
   onNotification?: (notification: any) => void;
+  onExchangeUpdate?: (exchange: any) => void;
   enabled?: boolean;
 }
 
 export function useNotificationStream(options: UseNotificationStreamOptions = {}) {
-  const { onInvoice, onNotification, enabled = true } = options;
+  const { onInvoice, onNotification, onExchangeUpdate, enabled = true } = options;
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
@@ -147,6 +148,26 @@ export function useNotificationStream(options: UseNotificationStreamOptions = {}
       }
     });
 
+    // Handle exchange status update events
+    eventSource.addEventListener('exchange_update', (event) => {
+      try {
+        const exchangeData = JSON.parse(event.data);
+        console.log('[SSE] Exchange update received:', exchangeData);
+        
+        // Invalidate exchange cache to refetch immediately
+        if (exchangeData.numberOrder) {
+          queryClient.invalidateQueries({ queryKey: ['/api/exchange', exchangeData.numberOrder] });
+        }
+        
+        // Call callback if provided
+        if (onExchangeUpdate) {
+          onExchangeUpdate(exchangeData);
+        }
+      } catch (error) {
+        console.error('[SSE] Error processing exchange update event:', error);
+      }
+    });
+
     // Handle errors
     eventSource.onerror = (error) => {
       console.error('[SSE] Connection error:', error);
@@ -165,7 +186,7 @@ export function useNotificationStream(options: UseNotificationStreamOptions = {}
         connect();
       }, delay);
     };
-  }, [enabled, onInvoice, onNotification, getSSEToken]);
+  }, [enabled, onInvoice, onNotification, onExchangeUpdate, getSSEToken]);
 
   const disconnect = useCallback(() => {
     console.log('[SSE] Disconnecting from notification stream');

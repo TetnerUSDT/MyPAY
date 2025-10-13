@@ -7,7 +7,7 @@ interface SSEConnection {
 }
 
 interface NotificationEvent {
-  type: 'invoice' | 'notification' | 'ping';
+  type: 'invoice' | 'notification' | 'ping' | 'exchange_update';
   data: any;
 }
 
@@ -118,6 +118,16 @@ class NotificationService {
     this.sendToUser(userId, {
       type: 'invoice',
       data: invoice
+    });
+  }
+
+  /**
+   * Send exchange status update event to user
+   */
+  notifyExchangeUpdate(userId: string, exchange: any): void {
+    this.sendToUser(userId, {
+      type: 'exchange_update',
+      data: exchange
     });
   }
 

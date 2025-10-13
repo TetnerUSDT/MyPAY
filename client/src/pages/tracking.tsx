@@ -5,6 +5,7 @@ import { formatCountdown, copyToClipboard, formatOrderAmount } from "@/lib/utils
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useNotificationStream } from "@/hooks/use-notification-stream";
 
 interface ExchangeOrder {
   id: number;
@@ -51,6 +52,14 @@ export default function TrackingScreen() {
     refetchOnWindowFocus: true, // Refetch when user returns to window
     staleTime: 0, // Always consider data stale to allow refetching
     gcTime: 0, // Don't cache the data
+  });
+
+  // Subscribe to real-time exchange updates via SSE
+  useNotificationStream({
+    onExchangeUpdate: (exchange) => {
+      console.log('[Tracking] Exchange update received:', exchange);
+      // The query will automatically refetch due to cache invalidation in the hook
+    }
   });
 
   // Update countdown based on timeExchange when orderData is available
