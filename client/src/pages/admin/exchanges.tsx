@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/AdminLayout";
 import { Button } from "@/components/ui/button";
@@ -65,6 +65,17 @@ export default function AdminExchanges() {
     },
   });
 
+  // Watch status changes and clear irrelevant fields
+  const currentStatus = form.watch("status");
+  useEffect(() => {
+    if (currentStatus !== "canceled") {
+      form.setValue("cancelReason", "");
+    }
+    if (currentStatus !== "wait-paid") {
+      form.setValue("paymentHash", "");
+    }
+  }, [currentStatus, form]);
+
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: { status: string; cancelReason?: string; paymentHash?: string } }) =>
       adminRequest(`/exchanges/${id}/status`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -94,8 +105,16 @@ export default function AdminExchanges() {
     if (!selectedExchange) return;
     
     const updateData: any = { status: data.status };
-    if (data.cancelReason) updateData.cancelReason = data.cancelReason;
-    if (data.paymentHash) updateData.paymentHash = data.paymentHash;
+    
+    // Only include cancelReason when status is canceled
+    if (data.status === "canceled" && data.cancelReason) {
+      updateData.cancelReason = data.cancelReason;
+    }
+    
+    // Only include paymentHash when status is wait-paid
+    if (data.status === "wait-paid" && data.paymentHash) {
+      updateData.paymentHash = data.paymentHash;
+    }
     
     updateMutation.mutate({ id: selectedExchange.id, data: updateData });
   };
