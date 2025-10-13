@@ -318,7 +318,7 @@ export default function CardsScreen() {
                             parts.push(formatCardNumber(card.numberCard || card.number || ''));
                           }
                           if (card.accountNumber) {
-                            parts.push(`****${card.accountNumber.slice(-6)}`);
+                            parts.push(card.accountNumber);
                           }
                           return parts.length > 0 ? parts.join('  ') : '';
                         })()}
