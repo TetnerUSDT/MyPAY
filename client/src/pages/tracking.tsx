@@ -376,11 +376,36 @@ export default function TrackingScreen() {
           </div>
 
           {/* Processing Animation Small */}
-          <div className="w-12 h-12 crypto-card flex items-center justify-center p-1">
+          <div className="w-12 h-12 crypto-card flex items-center justify-center p-1 mb-8">
             <Loader2 
               className="w-8 h-8 text-accent animate-spin"
               data-testid="animation-hourglass-small"
             />
+          </div>
+
+          {/* Payment Confirmation Block */}
+          <div className="w-full max-w-md crypto-card text-left">
+            <h3 className="text-lg font-semibold text-white mb-4">
+              Подтверждение получения платежа <span className="text-muted-foreground text-sm">(каждые 15 минут)</span>
+            </h3>
+            
+            <p className="text-sm text-muted-foreground mb-3">
+              Пожалуйста, отправьте скриншот из истории платежей вашего банка в чат техподдержки 📩
+            </p>
+            
+            <a 
+              href="https://t.me/SwiftX11" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-flex items-center text-accent hover:text-accent/80 transition-colors font-medium mb-3"
+              data-testid="link-support"
+            >
+              👉 @SwiftX11
+            </a>
+            
+            <p className="text-xs text-muted-foreground">
+              Это необходимо для подтверждения получения суммы и завершения операции.
+            </p>
           </div>
         </div>
       </div>
