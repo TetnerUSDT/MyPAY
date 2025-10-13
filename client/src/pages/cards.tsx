@@ -21,6 +21,7 @@ interface Card {
   name: string;
   numberCard?: string;
   number?: string;
+  accountNumber?: string;
   country: string;
   firstName: string;
   lastName: string;
@@ -75,6 +76,7 @@ export default function CardsScreen() {
     name: "",
     country: "",
     number: "",
+    accountNumber: "",
     firstName: "",
     lastName: "",
     phone: "",
@@ -117,7 +119,7 @@ export default function CardsScreen() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/user-cards'] });
-      setFormData({ name: "", country: "", number: "", firstName: "", lastName: "", phone: "", idCard: "", idBank: "" });
+      setFormData({ name: "", country: "", number: "", accountNumber: "", firstName: "", lastName: "", phone: "", idCard: "", idBank: "" });
       setSelectedCardId("");
       setIsModalOpen(false);
       toast({ title: "Карта добавлена успешно" });
@@ -151,21 +153,39 @@ export default function CardsScreen() {
   });
 
   const handleAddCard = () => {
-    if (formData.name && formData.country && formData.number && formData.firstName && formData.lastName && formData.phone && formData.idCard) {
-      const dataToSend: any = {
-        name: formData.name,
-        country: formData.country,
-        number: formData.number,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        phone: formData.phone,
-        idCard: formData.idCard
-      };
-      if (formData.idBank) {
-        dataToSend.idBank = parseInt(formData.idBank);
-      }
-      createCardMutation.mutate(dataToSend);
+    // Validate: требуется либо номер карты, либо номер счета
+    if (!formData.name || !formData.country || !formData.firstName || !formData.lastName || !formData.phone || !formData.idCard) {
+      toast({ title: "Заполните все обязательные поля", variant: "destructive" });
+      return;
     }
+    
+    if (!formData.number && !formData.accountNumber) {
+      toast({ title: "Заполните номер карты или номер счета", variant: "destructive" });
+      return;
+    }
+
+    const dataToSend: any = {
+      name: formData.name,
+      country: formData.country,
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      phone: formData.phone,
+      idCard: formData.idCard
+    };
+    
+    if (formData.number) {
+      dataToSend.number = formData.number;
+    }
+    
+    if (formData.accountNumber) {
+      dataToSend.accountNumber = formData.accountNumber;
+    }
+    
+    if (formData.idBank) {
+      dataToSend.idBank = parseInt(formData.idBank);
+    }
+    
+    createCardMutation.mutate(dataToSend);
   };
 
   const handleDeleteCard = (cardId: number) => {
@@ -199,6 +219,11 @@ export default function CardsScreen() {
     // Only allow Latin characters and spaces
     const latinValue = e.target.value.replace(/[^a-zA-Z\s]/g, '');
     setFormData({ ...formData, [field]: latinValue });
+  };
+
+  const handleAccountNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const numericValue = e.target.value.replace(/\D/g, '').slice(0, 20);
+    setFormData({ ...formData, accountNumber: numericValue });
   };
 
   return (
@@ -284,7 +309,12 @@ export default function CardsScreen() {
                   <div className="flex items-center justify-between">
                     <div className="flex-1 bg-secondary/50 rounded-lg px-4 py-2 mr-2">
                       <p className="text-white font-mono text-base" data-testid={`card-number-${card.id}`}>
-                        {formatCardNumber(card.numberCard || card.number || '')}
+                        {card.numberCard || card.number 
+                          ? formatCardNumber(card.numberCard || card.number || '')
+                          : card.accountNumber 
+                            ? `Счет: ${card.accountNumber}`
+                            : ''
+                        }
                       </p>
                     </div>
                     
@@ -454,7 +484,7 @@ export default function CardsScreen() {
               {/* Card Number */}
               <div>
                 <Label htmlFor="cardNumber" className="text-white mb-2 block">
-                  Введите номер карты
+                  Введите номер карты (необязательно)
                 </Label>
                 <Input
                   id="cardNumber"
@@ -464,6 +494,24 @@ export default function CardsScreen() {
                   className="input-field"
                   data-testid="input-card-number"
                 />
+              </div>
+
+              {/* Account Number */}
+              <div>
+                <Label htmlFor="accountNumber" className="text-white mb-2 block">
+                  Номер счета (20 цифр, необязательно)
+                </Label>
+                <Input
+                  id="accountNumber"
+                  placeholder="12345678901234567890"
+                  value={formData.accountNumber}
+                  onChange={handleAccountNumberChange}
+                  className="input-field"
+                  data-testid="input-account-number"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Заполните либо номер карты, либо номер счета
+                </p>
               </div>
             </div>
           </div>
