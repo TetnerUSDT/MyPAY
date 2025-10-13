@@ -210,10 +210,18 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
           walletAddress: wallets.address,
           cardNumber: userCards.numberCard,
           manualCardNumber: exchanges.manualCardNumber,
+          // User card details
+          cardName: userCards.name,
+          cardFirstName: userCards.firstName,
+          cardLastName: userCards.lastName,
+          cardPhone: userCards.phone,
+          cardAccountNumber: userCards.accountNumber,
+          cardBankName: banks.bankName,
         })
         .from(exchanges)
         .leftJoin(wallets, eq(exchanges.walletId, wallets.id))
         .leftJoin(userCards, eq(exchanges.idCard, userCards.id))
+        .leftJoin(banks, eq(userCards.idBank, banks.id))
         .where(eq(exchanges.status, status as string))
         .limit(parseInt(limit as string))
         .offset(parseInt(offset as string))
@@ -237,10 +245,18 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
           walletAddress: wallets.address,
           cardNumber: userCards.numberCard,
           manualCardNumber: exchanges.manualCardNumber,
+          // User card details
+          cardName: userCards.name,
+          cardFirstName: userCards.firstName,
+          cardLastName: userCards.lastName,
+          cardPhone: userCards.phone,
+          cardAccountNumber: userCards.accountNumber,
+          cardBankName: banks.bankName,
         })
         .from(exchanges)
         .leftJoin(wallets, eq(exchanges.walletId, wallets.id))
         .leftJoin(userCards, eq(exchanges.idCard, userCards.id))
+        .leftJoin(banks, eq(userCards.idBank, banks.id))
         .limit(parseInt(limit as string))
         .offset(parseInt(offset as string))
         .orderBy(desc(exchanges.id));

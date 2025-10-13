@@ -33,13 +33,22 @@ type Exchange = {
   cancelReason: string | null;
   paymentHash: string | null;
   tempBalance: string | null;
+  // User card details
+  cardName?: string | null;
+  cardFirstName?: string | null;
+  cardLastName?: string | null;
+  cardPhone?: string | null;
+  cardAccountNumber?: string | null;
+  cardBankName?: string | null;
 };
 
 export default function AdminExchanges() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCardDetailsModalOpen, setIsCardDetailsModalOpen] = useState(false);
   const [selectedExchange, setSelectedExchange] = useState<Exchange | null>(null);
   const [copiedWallet, setCopiedWallet] = useState(false);
   const [copiedCard, setCopiedCard] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { data: exchanges, isLoading } = useQuery<Exchange[]>({
@@ -108,6 +117,16 @@ export default function AdminExchanges() {
     setCopiedCard(true);
     toast({ title: "Номер карты скопирован" });
     setTimeout(() => setCopiedCard(false), 2000);
+  };
+
+  const copyToClipboard = async (text: string, fieldName: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(fieldName);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (err) {
+      toast({ title: "Ошибка копирования", variant: "destructive" });
+    }
   };
 
   const statusLabels: Record<string, string> = {
@@ -264,21 +283,30 @@ export default function AdminExchanges() {
                     
                     {(selectedExchange?.cardNumber || selectedExchange?.manualCardNumber) && (
                       <div>
-                        <span className="text-muted-foreground text-sm">Номер карты получателя:</span>
-                        <div className="flex items-center gap-2 mt-1">
-                          <code className="flex-1 bg-background px-3 py-1.5 rounded text-sm font-mono" data-testid="text-card-number">
-                            {formatCardNumber(selectedExchange.cardNumber || selectedExchange.manualCardNumber || '')}
-                          </code>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => copyCardNumber(selectedExchange.cardNumber || selectedExchange.manualCardNumber || '')}
-                            data-testid="button-copy-card"
-                          >
-                            {copiedCard ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                          </Button>
-                        </div>
+                        <span className="text-muted-foreground text-sm">Реквизиты получателя:</span>
+                        <button
+                          onClick={() => setIsCardDetailsModalOpen(true)}
+                          className="w-full mt-1 bg-background hover:bg-muted px-3 py-2 rounded text-left transition-colors"
+                          data-testid="button-card-details"
+                        >
+                          {selectedExchange.cardName && (
+                            <div className="text-primary font-medium text-sm mb-1">{selectedExchange.cardName}</div>
+                          )}
+                          <div className="font-mono text-sm">
+                            {(() => {
+                              const parts = [];
+                              if (selectedExchange.cardNumber) {
+                                parts.push(formatCardNumber(selectedExchange.cardNumber));
+                              } else if (selectedExchange.manualCardNumber) {
+                                parts.push(formatCardNumber(selectedExchange.manualCardNumber));
+                              }
+                              if (selectedExchange.cardAccountNumber) {
+                                parts.push(selectedExchange.cardAccountNumber);
+                              }
+                              return parts.join('  ');
+                            })()}
+                          </div>
+                        </button>
                       </div>
                     )}
                     
@@ -411,6 +439,145 @@ export default function AdminExchanges() {
                 </div>
               </form>
             </Form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Card Details Modal */}
+        <Dialog open={isCardDetailsModalOpen} onOpenChange={setIsCardDetailsModalOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Реквизиты карты получателя</DialogTitle>
+            </DialogHeader>
+            
+            {selectedExchange && (
+              <div className="space-y-3 mt-4">
+                {/* Card Name */}
+                {selectedExchange.cardName && (
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <div className="text-xs text-muted-foreground mb-1">Название</div>
+                    <div className="flex items-center justify-between">
+                      <div className="font-medium">{selectedExchange.cardName}</div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => copyToClipboard(selectedExchange.cardName!, 'cardName')}
+                        data-testid="button-copy-name"
+                      >
+                        {copiedField === 'cardName' ? <Check className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Full Name */}
+                {(selectedExchange.cardFirstName || selectedExchange.cardLastName) && (
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <div className="text-xs text-muted-foreground mb-1">Имя и Фамилия</div>
+                    <div className="flex items-center justify-between">
+                      <div className="font-medium">{selectedExchange.cardFirstName} {selectedExchange.cardLastName}</div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => copyToClipboard(`${selectedExchange.cardFirstName} ${selectedExchange.cardLastName}`, 'fullName')}
+                        data-testid="button-copy-fullname"
+                      >
+                        {copiedField === 'fullName' ? <Check className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Phone */}
+                {selectedExchange.cardPhone && (
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <div className="text-xs text-muted-foreground mb-1">Телефон</div>
+                    <div className="flex items-center justify-between">
+                      <div className="font-medium">{selectedExchange.cardPhone}</div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => copyToClipboard(selectedExchange.cardPhone!, 'phone')}
+                        data-testid="button-copy-phone"
+                      >
+                        {copiedField === 'phone' ? <Check className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Bank */}
+                {selectedExchange.cardBankName && (
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <div className="text-xs text-muted-foreground mb-1">Банк</div>
+                    <div className="flex items-center justify-between">
+                      <div className="font-medium">{selectedExchange.cardBankName}</div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => copyToClipboard(selectedExchange.cardBankName!, 'bank')}
+                        data-testid="button-copy-bank"
+                      >
+                        {copiedField === 'bank' ? <Check className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Card Number */}
+                {selectedExchange.cardNumber && (
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <div className="text-xs text-muted-foreground mb-1">Номер карты</div>
+                    <div className="flex items-center justify-between">
+                      <div className="font-mono">{formatCardNumber(selectedExchange.cardNumber)}</div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => copyToClipboard(selectedExchange.cardNumber!, 'card')}
+                        data-testid="button-copy-card-number"
+                      >
+                        {copiedField === 'card' ? <Check className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Account Number */}
+                {selectedExchange.cardAccountNumber && (
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <div className="text-xs text-muted-foreground mb-1">Номер счета</div>
+                    <div className="flex items-center justify-between">
+                      <div className="font-mono">{selectedExchange.cardAccountNumber}</div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => copyToClipboard(selectedExchange.cardAccountNumber!, 'account')}
+                        data-testid="button-copy-account"
+                      >
+                        {copiedField === 'account' ? <Check className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Manual Card Number (fallback) */}
+                {!selectedExchange.cardNumber && selectedExchange.manualCardNumber && (
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <div className="text-xs text-muted-foreground mb-1">Номер карты (вручную)</div>
+                    <div className="flex items-center justify-between">
+                      <div className="font-mono">{formatCardNumber(selectedExchange.manualCardNumber)}</div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => copyToClipboard(selectedExchange.manualCardNumber!, 'manualCard')}
+                        data-testid="button-copy-manual-card"
+                      >
+                        {copiedField === 'manualCard' ? <Check className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </DialogContent>
         </Dialog>
       </div>
