@@ -153,12 +153,13 @@ export default function CardsScreen() {
   });
 
   const handleAddCard = () => {
-    // Validate: требуется либо номер карты, либо номер счета
+    // Validate: обязательные поля
     if (!formData.name || !formData.country || !formData.firstName || !formData.lastName || !formData.phone || !formData.idCard) {
       toast({ title: "Заполните все обязательные поля", variant: "destructive" });
       return;
     }
     
+    // Требуется хотя бы одно: номер карты или номер счета
     if (!formData.number && !formData.accountNumber) {
       toast({ title: "Заполните номер карты или номер счета", variant: "destructive" });
       return;
@@ -173,10 +174,12 @@ export default function CardsScreen() {
       idCard: formData.idCard
     };
     
+    // Добавляем номер карты, если заполнен
     if (formData.number) {
       dataToSend.number = formData.number;
     }
     
+    // Добавляем номер счета, если заполнен
     if (formData.accountNumber) {
       dataToSend.accountNumber = formData.accountNumber;
     }
@@ -510,7 +513,7 @@ export default function CardsScreen() {
                   data-testid="input-account-number"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Заполните либо номер карты, либо номер счета
+                  Заполните номер карты и/или номер счета (минимум одно поле)
                 </p>
               </div>
             </div>
