@@ -507,6 +507,9 @@ export default function AdminExchanges() {
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Реквизиты карты получателя</DialogTitle>
+              <DialogDescription>
+                Полная информация о реквизитах карты для выполнения перевода
+              </DialogDescription>
             </DialogHeader>
             
             {selectedExchange && (
