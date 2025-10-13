@@ -42,10 +42,9 @@ export default function SellScreen() {
   }, [cryptoBalances, activeNetwork]);
 
   const commission = useMemo(() => {
-    const amount = parseFloat(sendAmount) || 0;
-    const commissionRate = 0.01;
-    return (amount * commissionRate).toFixed(6);
-  }, [sendAmount]);
+    // Fixed commission for all networks
+    return "2.00";
+  }, []);
 
   const isValidTransaction = useMemo(() => {
     const amount = parseFloat(sendAmount) || 0;
