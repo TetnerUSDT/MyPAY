@@ -1559,9 +1559,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ message: "Insufficient balance" });
         }
 
-        // Deduct balance
-        const newBalance = parseFloat(userBalance.sum) - parseFloat(invoice.amount);
-        await storage.updateUserBalance(userBalance.id, newBalance.toString());
+        // Deduct balance (negative amount to deduct)
+        await storage.updateUserBalance(req.user!.id, invoice.balanceId!, -parseFloat(invoice.amount));
 
         // Update invoice status
         const updatedInvoice = await storage.updateInvoiceStatus(invoiceId, 'paid', new Date());

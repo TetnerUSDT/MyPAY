@@ -264,6 +264,10 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
         .orderBy(desc(exchanges.id));
       }
       
+      console.log('[Admin] Returning exchanges:', results.length, 'records');
+      if (results.length > 0) {
+        console.log('[Admin] First exchange sample:', JSON.stringify(results[0]));
+      }
       res.json(results);
     } catch (error) {
       console.error('Get exchanges error:', error);
@@ -298,11 +302,14 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
       const { id } = req.params;
       const { status, cancelReason, paymentHash } = req.body;
       
+      console.log(`[Admin] Updating exchange ${id} status to:`, status);
+      
       const updateData: any = { status };
       if (cancelReason) updateData.cancelReason = cancelReason;
       if (paymentHash) updateData.paymentHash = paymentHash;
       
       const updated = await updateAndReturn(exchanges, updateData, eq(exchanges.id, parseInt(id)));
+      console.log(`[Admin] Exchange ${id} updated successfully`);
       res.json(updated);
     } catch (error) {
       console.error('Update exchange status error:', error);
