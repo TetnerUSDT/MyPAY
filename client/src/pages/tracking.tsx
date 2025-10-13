@@ -44,9 +44,7 @@ export default function TrackingScreen() {
     queryKey: ['/api/exchange', orderNumber],
     queryFn: async () => {
       const response = await apiRequest("GET", `/api/exchange/${orderNumber}`, undefined);
-      const data = await response.json();
-      console.log('📊 Order data received:', { orderNumber, status: data.status, fullData: data });
-      return data;
+      return response.json();
     },
     enabled: !!orderNumber,
     refetchInterval: 30000, // Poll every 30 seconds
