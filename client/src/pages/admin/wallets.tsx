@@ -7,8 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { adminRequest } from "@/lib/adminApi";
 import { queryClient } from "@/lib/queryClient";
-import { RefreshCw, Search, X } from "lucide-react";
+import { RefreshCw, Search, X, Copy, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 
 type Wallet = {
   id: number;
@@ -25,6 +26,8 @@ export default function AdminWallets() {
   const [searchAddress, setSearchAddress] = useState("");
   const [filterNetwork, setFilterNetwork] = useState<string>("all");
   const [filterOperation, setFilterOperation] = useState<string>("all");
+  const [copiedKeyId, setCopiedKeyId] = useState<number | null>(null);
+  const { toast } = useToast();
 
   const buildQueryString = () => {
     const params = new URLSearchParams();
@@ -64,6 +67,32 @@ export default function AdminWallets() {
   };
 
   const hasActiveFilters = searchAddress || filterNetwork !== 'all' || filterOperation !== 'all';
+
+  const copyPrivateKey = async (walletId: number, privateKey: string | null) => {
+    if (!privateKey) {
+      toast({ 
+        title: "Ошибка", 
+        description: "Приватный ключ отсутствует",
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(privateKey);
+      setCopiedKeyId(walletId);
+      toast({ 
+        title: "Скопировано", 
+        description: "Приватный ключ скопирован в буфер обмена" 
+      });
+      setTimeout(() => setCopiedKeyId(null), 2000);
+    } catch (err) {
+      toast({ 
+        title: "Ошибка копирования", 
+        variant: "destructive" 
+      });
+    }
+  };
 
   return (
     <AdminLayout title="Кошельки" description="Управление кошельками платформы">
@@ -140,6 +169,7 @@ export default function AdminWallets() {
                 <TableRow>
                   <TableHead>ID</TableHead>
                   <TableHead>Адрес кошелька</TableHead>
+                  <TableHead>KEY</TableHead>
                   <TableHead>Сеть</TableHead>
                   <TableHead>Пользователь</TableHead>
                   <TableHead>Статус</TableHead>
@@ -150,7 +180,7 @@ export default function AdminWallets() {
               <TableBody>
                 {wallets?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       Кошельки не найдены
                     </TableCell>
                   </TableRow>
@@ -160,6 +190,21 @@ export default function AdminWallets() {
                       <TableCell className="font-medium">{wallet.id}</TableCell>
                       <TableCell className="font-mono text-xs">
                         {wallet.address.substring(0, 8)}...{wallet.address.substring(wallet.address.length - 6)}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyPrivateKey(wallet.id, wallet.privateKey)}
+                          data-testid={`button-copy-key-${wallet.id}`}
+                          className="h-8 w-8 p-0"
+                        >
+                          {copiedKeyId === wallet.id ? (
+                            <Check className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
+                        </Button>
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">{wallet.network}</Badge>
