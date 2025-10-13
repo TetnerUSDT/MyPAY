@@ -202,9 +202,14 @@ export default function ExchangeScreen() {
   const cardOptions = userCards
     .filter(card => selectedCountryId && card.idCard === parseInt(selectedCountryId))
     .map(card => {
-      const cardNumber = card.numberCard ? `****${card.numberCard.slice(-4)}` : '';
-      const accountNumber = card.accountNumber ? `Счет: ${card.accountNumber}` : '';
-      const displayInfo = cardNumber || accountNumber;
+      const parts = [];
+      if (card.numberCard) {
+        parts.push(`****${card.numberCard.slice(-4)}`);
+      }
+      if (card.accountNumber) {
+        parts.push(`Счет: ${card.accountNumber}`);
+      }
+      const displayInfo = parts.join(', ');
       
       return {
         value: card.id.toString(),

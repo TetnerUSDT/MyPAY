@@ -312,12 +312,16 @@ export default function CardsScreen() {
                   <div className="flex items-center justify-between">
                     <div className="flex-1 bg-secondary/50 rounded-lg px-4 py-2 mr-2">
                       <p className="text-white font-mono text-base" data-testid={`card-number-${card.id}`}>
-                        {card.numberCard || card.number 
-                          ? formatCardNumber(card.numberCard || card.number || '')
-                          : card.accountNumber 
-                            ? `Счет: ${card.accountNumber}`
-                            : ''
-                        }
+                        {(() => {
+                          const parts = [];
+                          if (card.numberCard || card.number) {
+                            parts.push(formatCardNumber(card.numberCard || card.number || ''));
+                          }
+                          if (card.accountNumber) {
+                            parts.push(`Счет: ${card.accountNumber}`);
+                          }
+                          return parts.join(', ');
+                        })()}
                       </p>
                     </div>
                     
