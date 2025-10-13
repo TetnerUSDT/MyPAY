@@ -601,12 +601,12 @@ export default function ExchangeScreen() {
                   
                   const parts = [];
                   if (card.numberCard) {
-                    parts.push(`****${card.numberCard.slice(-4)}`);
+                    parts.push(formatCardNumber(card.numberCard));
                   }
                   if (card.accountNumber) {
-                    parts.push(`****${card.accountNumber.slice(-4)}`);
+                    parts.push(card.accountNumber);
                   }
-                  const shortInfo = parts.join(', ');
+                  const fullInfo = parts.join('  ');
                   
                   return (
                     <button
@@ -615,7 +615,7 @@ export default function ExchangeScreen() {
                       data-testid="button-card-details"
                     >
                       <div className="text-accent font-medium text-sm mb-1">{card.name}</div>
-                      <div className="text-white font-mono text-base">{shortInfo}</div>
+                      <div className="text-white font-mono text-base">{fullInfo}</div>
                     </button>
                   );
                 })()}
