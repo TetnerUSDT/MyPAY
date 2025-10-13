@@ -14,11 +14,13 @@ import { queryClient } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
 import { Eye, RefreshCw, Copy, Check, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { UserProfilePopover } from "@/components/UserProfilePopover";
 
 type Exchange = {
   id: number;
   numberOrder: string;
   idUser: number;
+  userName: string | null;
   walletId: number | null;
   walletAddress: string | null;
   cardNumber: string | null;
@@ -209,7 +211,16 @@ export default function AdminExchanges() {
                   <TableRow key={exchange.id} data-testid={`row-exchange-${exchange.id}`}>
                     <TableCell>{exchange.id}</TableCell>
                     <TableCell className="font-medium">{exchange.numberOrder}</TableCell>
-                    <TableCell>#{exchange.idUser}</TableCell>
+                    <TableCell>
+                      <UserProfilePopover userId={exchange.idUser} userName={exchange.userName}>
+                        <button 
+                          className="hover:underline cursor-pointer text-left"
+                          data-testid={`button-user-name-${exchange.idUser}`}
+                        >
+                          {exchange.userName || `#${exchange.idUser}`}
+                        </button>
+                      </UserProfilePopover>
+                    </TableCell>
                     <TableCell>{exchange.fromCurrency} → {exchange.toCurrency}</TableCell>
                     <TableCell>{exchange.amountFrom} → {exchange.amountTo}</TableCell>
                     <TableCell>{exchange.rate}</TableCell>
@@ -243,8 +254,18 @@ export default function AdminExchanges() {
           <DialogContent className="max-w-3xl">
             <DialogHeader>
               <DialogTitle>Обмен #{selectedExchange?.numberOrder}</DialogTitle>
-              <DialogDescription>
-                ID: {selectedExchange?.id} • Пользователь: #{selectedExchange?.idUser}
+              <DialogDescription className="flex items-center gap-2">
+                <span>ID: {selectedExchange?.id} • Пользователь:</span>
+                {selectedExchange && (
+                  <UserProfilePopover userId={selectedExchange.idUser} userName={selectedExchange.userName}>
+                    <button 
+                      className="hover:underline cursor-pointer text-left inline-flex"
+                      data-testid={`button-dialog-user-name-${selectedExchange.idUser}`}
+                    >
+                      {selectedExchange.userName || `#${selectedExchange.idUser}`}
+                    </button>
+                  </UserProfilePopover>
+                )}
               </DialogDescription>
             </DialogHeader>
             

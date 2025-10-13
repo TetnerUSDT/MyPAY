@@ -196,6 +196,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
           id: exchanges.id,
           numberOrder: exchanges.numberOrder,
           idUser: exchanges.idUser,
+          userName: users.name,
           walletId: exchanges.walletId,
           fromCurrency: exchanges.fromCurrency,
           toCurrency: exchanges.toCurrency,
@@ -220,6 +221,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
           cardBankName: banks.bankName,
         })
         .from(exchanges)
+        .leftJoin(users, eq(exchanges.idUser, users.id))
         .leftJoin(wallets, eq(exchanges.walletId, wallets.id))
         .leftJoin(userCards, eq(exchanges.idCard, userCards.id))
         .leftJoin(banks, eq(userCards.idBank, banks.id))
@@ -232,6 +234,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
           id: exchanges.id,
           numberOrder: exchanges.numberOrder,
           idUser: exchanges.idUser,
+          userName: users.name,
           walletId: exchanges.walletId,
           fromCurrency: exchanges.fromCurrency,
           toCurrency: exchanges.toCurrency,
@@ -256,6 +259,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
           cardBankName: banks.bankName,
         })
         .from(exchanges)
+        .leftJoin(users, eq(exchanges.idUser, users.id))
         .leftJoin(wallets, eq(exchanges.walletId, wallets.id))
         .leftJoin(userCards, eq(exchanges.idCard, userCards.id))
         .leftJoin(banks, eq(userCards.idBank, banks.id))
