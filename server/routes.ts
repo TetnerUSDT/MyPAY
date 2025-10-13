@@ -1170,6 +1170,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Disable caching to ensure real-time status updates
+      res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      });
+
       res.json({
         ...exchange,
         walletAddress,
