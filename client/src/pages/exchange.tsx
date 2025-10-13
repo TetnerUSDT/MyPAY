@@ -14,6 +14,7 @@ interface UserCard {
   id: number;
   name: string;
   numberCard: string;
+  accountNumber?: string;
   country: string;
   firstName: string;
   lastName: string;
@@ -69,6 +70,7 @@ export default function ExchangeScreen() {
     name: "",
     country: "",
     number: "",
+    accountNumber: "",
     firstName: "",
     lastName: "",
     phone: "",
@@ -199,10 +201,16 @@ export default function ExchangeScreen() {
 
   const cardOptions = userCards
     .filter(card => selectedCountryId && card.idCard === parseInt(selectedCountryId))
-    .map(card => ({
-      value: card.id.toString(),
-      label: `${card.name} (${(card.numberCard || '').slice(-4)})`
-    }));
+    .map(card => {
+      const cardNumber = card.numberCard ? `****${card.numberCard.slice(-4)}` : '';
+      const accountNumber = card.accountNumber ? `Счет: ${card.accountNumber}` : '';
+      const displayInfo = cardNumber || accountNumber;
+      
+      return {
+        value: card.id.toString(),
+        label: `${card.name} (${displayInfo})`
+      };
+    });
 
   // Card mask helper function
   const formatCardNumber = (value: string) => {
@@ -227,6 +235,11 @@ export default function ExchangeScreen() {
     setCardFormData({ ...cardFormData, [field]: latinValue });
   };
 
+  const handleAccountNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const numericValue = e.target.value.replace(/\D/g, '').slice(0, 20);
+    setCardFormData({ ...cardFormData, accountNumber: numericValue });
+  };
+
   // Create card mutation
   const createCardMutation = useMutation({
     mutationFn: async (cardData: any) => {
@@ -245,7 +258,7 @@ export default function ExchangeScreen() {
     },
     onSuccess: (newCard) => {
       queryClient.invalidateQueries({ queryKey: ['/api/user-cards'] });
-      setCardFormData({ name: "", country: "", number: "", firstName: "", lastName: "", phone: "", idCard: "", idBank: "" });
+      setCardFormData({ name: "", country: "", number: "", accountNumber: "", firstName: "", lastName: "", phone: "", idCard: "", idBank: "" });
       setSelectedCardIdForBank("");
       setIsAddCardModalOpen(false);
       setSelectedCard(newCard.id.toString());
@@ -257,21 +270,39 @@ export default function ExchangeScreen() {
   });
 
   const handleAddCard = () => {
-    if (cardFormData.name && cardFormData.country && cardFormData.number && cardFormData.firstName && cardFormData.lastName && cardFormData.phone && cardFormData.idCard) {
-      const dataToSend: any = {
-        name: cardFormData.name,
-        country: cardFormData.country,
-        number: cardFormData.number,
-        firstName: cardFormData.firstName,
-        lastName: cardFormData.lastName,
-        phone: cardFormData.phone,
-        idCard: cardFormData.idCard
-      };
-      if (cardFormData.idBank) {
-        dataToSend.idBank = parseInt(cardFormData.idBank);
-      }
-      createCardMutation.mutate(dataToSend);
+    // Validate: требуется либо номер карты, либо номер счета
+    if (!cardFormData.name || !cardFormData.country || !cardFormData.firstName || !cardFormData.lastName || !cardFormData.phone || !cardFormData.idCard) {
+      toast({ title: "Заполните все обязательные поля", variant: "destructive" });
+      return;
     }
+    
+    if (!cardFormData.number && !cardFormData.accountNumber) {
+      toast({ title: "Заполните номер карты или номер счета", variant: "destructive" });
+      return;
+    }
+
+    const dataToSend: any = {
+      name: cardFormData.name,
+      country: cardFormData.country,
+      firstName: cardFormData.firstName,
+      lastName: cardFormData.lastName,
+      phone: cardFormData.phone,
+      idCard: cardFormData.idCard
+    };
+    
+    if (cardFormData.number) {
+      dataToSend.number = cardFormData.number;
+    }
+    
+    if (cardFormData.accountNumber) {
+      dataToSend.accountNumber = cardFormData.accountNumber;
+    }
+    
+    if (cardFormData.idBank) {
+      dataToSend.idBank = parseInt(cardFormData.idBank);
+    }
+    
+    createCardMutation.mutate(dataToSend);
   };
 
   // Create exchange mutation
@@ -543,11 +574,19 @@ export default function ExchangeScreen() {
                 </Select>
                 {selectedCard && selectedCard !== 'add_card' && (() => {
                   const card = userCards.find(c => c.id.toString() === selectedCard);
-                  return card ? (
+                  if (!card) return null;
+                  
+                  const displayValue = card.numberCard 
+                    ? formatCardNumber(card.numberCard)
+                    : card.accountNumber 
+                      ? `Счет: ${card.accountNumber}`
+                      : '';
+                  
+                  return (
                     <div className="text-white font-mono text-lg" data-testid="text-selected-card">
-                      {formatCardNumber(card.numberCard)}
+                      {displayValue}
                     </div>
-                  ) : null;
+                  );
                 })()}
               </div>
             </div>
@@ -724,7 +763,7 @@ export default function ExchangeScreen() {
               {/* Card Number */}
               <div>
                 <Label htmlFor="cardNumber" className="text-white mb-2 block">
-                  Введите номер карты
+                  Введите номер карты (необязательно)
                 </Label>
                 <Input
                   id="cardNumber"
@@ -734,6 +773,24 @@ export default function ExchangeScreen() {
                   className="input-field"
                   data-testid="input-card-number"
                 />
+              </div>
+
+              {/* Account Number */}
+              <div>
+                <Label htmlFor="accountNumber" className="text-white mb-2 block">
+                  Номер счета (20 цифр, необязательно)
+                </Label>
+                <Input
+                  id="accountNumber"
+                  placeholder="12345678901234567890"
+                  value={cardFormData.accountNumber}
+                  onChange={handleAccountNumberChange}
+                  className="input-field"
+                  data-testid="input-account-number"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Заполните либо номер карты, либо номер счета
+                </p>
               </div>
             </div>
           </div>

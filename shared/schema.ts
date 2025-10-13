@@ -89,7 +89,8 @@ export const userCards = mysqlTable("user_cards", {
   lastName: varchar("last_name", { length: 100 }),
   phone: varchar("phone", { length: 20 }),
   country: varchar("country", { length: 50 }).notNull(),
-  numberCard: varchar("number_card", { length: 50 }).notNull(),
+  numberCard: varchar("number_card", { length: 50 }),
+  accountNumber: varchar("account_number", { length: 20 }),
   status: varchar("status", { length: 50 }),
 });
 

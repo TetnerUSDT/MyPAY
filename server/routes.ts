@@ -868,7 +868,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create user card
   app.post("/api/user-cards", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {
-      const cardData = {
+      const cardData: any = {
         idCard: parseInt(req.body.idCard),
         idUser: req.user!.id,
         idBank: req.body.idBank ? parseInt(req.body.idBank) : null,
@@ -877,9 +877,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastName: req.body.lastName,
         phone: req.body.phone,
         country: req.body.country,
-        numberCard: req.body.number,
         status: "active"
       };
+      
+      if (req.body.number) {
+        cardData.numberCard = req.body.number;
+      }
+      
+      if (req.body.accountNumber) {
+        cardData.accountNumber = req.body.accountNumber;
+      }
       
       const newCard = await storage.createUserCard(cardData);
       res.json(newCard);
