@@ -207,7 +207,7 @@ export default function ExchangeScreen() {
         parts.push(`****${card.numberCard.slice(-4)}`);
       }
       if (card.accountNumber) {
-        parts.push(`Счет: ${card.accountNumber}`);
+        parts.push(`****${card.accountNumber.slice(-4)}`);
       }
       const displayInfo = parts.join(', ');
       

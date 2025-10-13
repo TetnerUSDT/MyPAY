@@ -318,9 +318,9 @@ export default function CardsScreen() {
                             parts.push(formatCardNumber(card.numberCard || card.number || ''));
                           }
                           if (card.accountNumber) {
-                            parts.push(`Счет: ${card.accountNumber}`);
+                            parts.push(`****${card.accountNumber.slice(-6)}`);
                           }
-                          return parts.join(', ');
+                          return parts.length > 0 ? parts.join('  ') : '';
                         })()}
                       </p>
                     </div>
