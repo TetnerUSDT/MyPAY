@@ -726,6 +726,7 @@ export class DatabaseStorage implements IStorage {
         phone: userCards.phone,
         country: userCards.country,
         numberCard: userCards.numberCard,
+        accountNumber: userCards.accountNumber,
         status: userCards.status,
         bankName: banks.bankName
       })
