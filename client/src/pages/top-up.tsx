@@ -216,6 +216,14 @@ export default function TopUpScreen() {
           )}
         </div>
         
+        {/* Commission Info */}
+        <div className="bg-secondary/50 rounded-lg p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Комиссия сети:</span>
+            <span className="text-sm font-medium text-white" data-testid="text-commission">2.00 USDT</span>
+          </div>
+        </div>
+        
         <Button
           onClick={() => {
             if (wallet?.address && activeNetwork) {
