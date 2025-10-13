@@ -38,6 +38,7 @@ type Exchange = {
   cardFirstName?: string | null;
   cardLastName?: string | null;
   cardPhone?: string | null;
+  cardCountry?: string | null;
   cardAccountNumber?: string | null;
   cardBankName?: string | null;
 };
@@ -285,6 +286,7 @@ export default function AdminExchanges() {
                       <div>
                         <span className="text-muted-foreground text-sm">Реквизиты получателя:</span>
                         <button
+                          type="button"
                           onClick={() => setIsCardDetailsModalOpen(true)}
                           className="w-full mt-1 bg-background hover:bg-muted px-3 py-2 rounded text-left transition-colors"
                           data-testid="button-card-details"
@@ -500,6 +502,24 @@ export default function AdminExchanges() {
                         data-testid="button-copy-phone"
                       >
                         {copiedField === 'phone' ? <Check className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Country */}
+                {selectedExchange.cardCountry && (
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <div className="text-xs text-muted-foreground mb-1">Страна</div>
+                    <div className="flex items-center justify-between">
+                      <div className="font-medium">{selectedExchange.cardCountry}</div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => copyToClipboard(selectedExchange.cardCountry!, 'country')}
+                        data-testid="button-copy-country"
+                      >
+                        {copiedField === 'country' ? <Check className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4" />}
                       </Button>
                     </div>
                   </div>

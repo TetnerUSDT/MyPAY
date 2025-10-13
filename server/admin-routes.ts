@@ -215,6 +215,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
           cardFirstName: userCards.firstName,
           cardLastName: userCards.lastName,
           cardPhone: userCards.phone,
+          cardCountry: userCards.country,
           cardAccountNumber: userCards.accountNumber,
           cardBankName: banks.bankName,
         })
@@ -250,6 +251,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
           cardFirstName: userCards.firstName,
           cardLastName: userCards.lastName,
           cardPhone: userCards.phone,
+          cardCountry: userCards.country,
           cardAccountNumber: userCards.accountNumber,
           cardBankName: banks.bankName,
         })
