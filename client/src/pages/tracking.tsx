@@ -48,6 +48,7 @@ export default function TrackingScreen() {
     },
     enabled: !!orderNumber,
     refetchInterval: 30000, // Poll every 30 seconds
+    staleTime: 0, // Always consider data stale to allow refetching
   });
 
   // Update countdown based on timeExchange when orderData is available
