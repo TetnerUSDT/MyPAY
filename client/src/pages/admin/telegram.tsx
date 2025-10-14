@@ -537,7 +537,7 @@ function ReactionFormDialog({
 
   const updateMutation = useMutation({
     mutationFn: (data: any) =>
-      adminRequest(`/bot/commands/${commandId}/reactions/${reaction?.id}`, {
+      adminRequest(`/bot/reactions/${reaction?.id}`, {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),
@@ -1346,7 +1346,7 @@ function ButtonFormDialog({
 
   const updateMutation = useMutation({
     mutationFn: (data: any) =>
-      adminRequest(`/bot/menus/${menuId}/buttons/${button?.id}`, {
+      adminRequest(`/bot/buttons/${button?.id}`, {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),
