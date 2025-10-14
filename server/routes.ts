@@ -1294,7 +1294,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const rootMenuData = await telegramService.loadRootMenu();
         
         // Find matching command
-        let matchingCommand = commands.find(cmd => 
+        let matchingCommand = commands.find((cmd: any) => 
           messageText === cmd.command || messageText.startsWith(cmd.command + ' ')
         );
 
@@ -1303,7 +1303,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const clickedButton = rootMenuData.buttons.find((btn: any) => btn.text === messageText);
           if (clickedButton && clickedButton.actionType === 'command' && clickedButton.actionValue) {
             // Find command by actionValue
-            matchingCommand = commands.find(cmd => cmd.command === clickedButton.actionValue);
+            matchingCommand = commands.find((cmd: any) => cmd.command === clickedButton.actionValue);
           }
         }
 
