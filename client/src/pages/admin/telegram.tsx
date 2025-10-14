@@ -458,11 +458,435 @@ function CommandDialog({
   );
 }
 
+// Reaction Form Dialog Component
+function ReactionFormDialog({
+  reaction,
+  commandId,
+  open,
+  onOpenChange
+}: {
+  reaction: any;
+  commandId: string | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { toast } = useToast();
+
+  const reactionFormSchema = z.object({
+    reactionType: z.string().min(1, "Тип реакции обязателен"),
+    textContent: z.string().optional(),
+    endpointUrl: z.string().optional(),
+    endpointMethod: z.string().optional(),
+    conditions: z.string().optional(),
+    priority: z.number().min(0).default(0),
+    isActive: z.boolean().default(true),
+  });
+
+  const form = useForm({
+    resolver: zodResolver(reactionFormSchema),
+    defaultValues: {
+      reactionType: "text",
+      textContent: "",
+      endpointUrl: "",
+      endpointMethod: "GET",
+      conditions: "",
+      priority: 0,
+      isActive: true,
+    },
+  });
+
+  useEffect(() => {
+    if (reaction) {
+      form.reset({
+        reactionType: reaction.reactionType || "text",
+        textContent: reaction.textContent || "",
+        endpointUrl: reaction.endpointUrl || "",
+        endpointMethod: reaction.endpointMethod || "GET",
+        conditions: reaction.conditions ? JSON.stringify(reaction.conditions, null, 2) : "",
+        priority: reaction.priority || 0,
+        isActive: reaction.isActive ?? true,
+      });
+    } else {
+      form.reset({
+        reactionType: "text",
+        textContent: "",
+        endpointUrl: "",
+        endpointMethod: "GET",
+        conditions: "",
+        priority: 0,
+        isActive: true,
+      });
+    }
+  }, [reaction, form]);
+
+  const createMutation = useMutation({
+    mutationFn: (data: any) =>
+      adminRequest(`/bot/commands/${commandId}/reactions`, {
+        method: 'POST',
+        body: JSON.stringify({ ...data, commandId: parseInt(commandId!) }),
+      }),
+    onSuccess: () => {
+      toast({ title: "Успех", description: "Реакция успешно создана" });
+      queryClient.invalidateQueries({ queryKey: ['/admin/api/bot/commands', commandId, 'reactions'] });
+      onOpenChange(false);
+    },
+    onError: () => {
+      toast({ title: "Ошибка", description: "Не удалось создать реакцию", variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: any) =>
+      adminRequest(`/bot/commands/${commandId}/reactions/${reaction?.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      toast({ title: "Успех", description: "Реакция успешно обновлена" });
+      queryClient.invalidateQueries({ queryKey: ['/admin/api/bot/commands', commandId, 'reactions'] });
+      onOpenChange(false);
+    },
+    onError: () => {
+      toast({ title: "Ошибка", description: "Не удалось обновить реакцию", variant: "destructive" });
+    },
+  });
+
+  const onSubmit = (data: any) => {
+    try {
+      const payload = { ...data };
+      // Parse conditions JSON if provided
+      if (payload.conditions && payload.conditions.trim()) {
+        try {
+          payload.conditions = JSON.parse(payload.conditions);
+        } catch (e) {
+          toast({
+            title: "Ошибка",
+            description: "Некорректный JSON в поле условий",
+            variant: "destructive",
+          });
+          return;
+        }
+      } else {
+        payload.conditions = null;
+      }
+
+      if (reaction) {
+        updateMutation.mutate(payload);
+      } else {
+        createMutation.mutate(payload);
+      }
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось обработать данные формы",
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{reaction ? "Редактировать реакцию" : "Добавить реакцию"}</DialogTitle>
+          <DialogDescription>
+            {reaction ? "Обновите параметры реакции" : "Создайте новую реакцию для команды"}
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="reactionType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Тип реакции</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-reaction-type">
+                        <SelectValue placeholder="Выберите тип реакции" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="text">Текст</SelectItem>
+                      <SelectItem value="endpoint">API Endpoint</SelectItem>
+                      <SelectItem value="mixed">Текст + Endpoint</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {(form.watch("reactionType") === "text" || form.watch("reactionType") === "mixed") && (
+              <FormField
+                control={form.control}
+                name="textContent"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Текстовое содержимое</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Введите текст ответа" {...field} data-testid="input-text-content" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            {(form.watch("reactionType") === "endpoint" || form.watch("reactionType") === "mixed") && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="endpointUrl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Endpoint URL</FormLabel>
+                      <FormControl>
+                        <Input placeholder="https://api.example.com/webhook" {...field} data-testid="input-endpoint-url" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="endpointMethod"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>HTTP метод</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-endpoint-method">
+                            <SelectValue placeholder="Выберите метод" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="GET">GET</SelectItem>
+                          <SelectItem value="POST">POST</SelectItem>
+                          <SelectItem value="PUT">PUT</SelectItem>
+                          <SelectItem value="PATCH">PATCH</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
+
+            <FormField
+              control={form.control}
+              name="priority"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Приоритет</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="0"
+                      {...field}
+                      onChange={(e) => field.onChange(parseInt(e.target.value))}
+                      data-testid="input-priority"
+                    />
+                  </FormControl>
+                  <FormDescription>Чем выше число, тем выше приоритет</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="conditions"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Условия выполнения (JSON)</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder='[{"field": "userId", "operator": "equals", "value": "123", "action": "execute"}]'
+                      className="font-mono text-sm"
+                      rows={4}
+                      {...field}
+                      data-testid="input-conditions"
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    JSON массив условий для выполнения реакции (опционально)
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="isActive"
+              render={({ field }) => (
+                <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="space-y-0.5">
+                    <FormLabel>Активна</FormLabel>
+                    <FormDescription>Реакция будет выполняться</FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch checked={field.value} onCheckedChange={field.onChange} data-testid="switch-is-active" />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel">
+                Отмена
+              </Button>
+              <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-save">
+                {reaction ? "Обновить" : "Создать"}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Reactions Dialog Component
+function ReactionsDialog({
+  commandId,
+  open,
+  onOpenChange
+}: {
+  commandId: string | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { toast } = useToast();
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingReaction, setEditingReaction] = useState<any>(null);
+
+  const { data: reactions, isLoading } = useQuery({
+    queryKey: ['/admin/api/bot/commands', commandId, 'reactions'],
+    queryFn: () => commandId ? adminRequest(`/bot/commands/${commandId}/reactions`) : Promise.resolve([]),
+    enabled: !!commandId && open,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (reactionId: number) =>
+      adminRequest(`/bot/commands/${commandId}/reactions/${reactionId}`, {
+        method: 'DELETE',
+      }),
+    onSuccess: () => {
+      toast({ title: "Успех", description: "Реакция успешно удалена" });
+      queryClient.invalidateQueries({ queryKey: ['/admin/api/bot/commands', commandId, 'reactions'] });
+    },
+    onError: () => {
+      toast({ title: "Ошибка", description: "Не удалось удалить реакцию", variant: "destructive" });
+    },
+  });
+
+  const handleEdit = (reaction: any) => {
+    setEditingReaction(reaction);
+    setFormOpen(true);
+  };
+
+  const handleAdd = () => {
+    setEditingReaction(null);
+    setFormOpen(true);
+  };
+
+  const handleDelete = (reactionId: number) => {
+    if (confirm("Вы уверены, что хотите удалить эту реакцию?")) {
+      deleteMutation.mutate(reactionId);
+    }
+  };
+
+  return (
+    <>
+      <ReactionFormDialog
+        reaction={editingReaction}
+        commandId={commandId}
+        open={formOpen}
+        onOpenChange={(open) => {
+          setFormOpen(open);
+          if (!open) setEditingReaction(null);
+        }}
+      />
+
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Управление реакциями команды</DialogTitle>
+            <DialogDescription>
+              Создавайте и редактируйте реакции для этой команды
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {isLoading ? (
+              <div>Загрузка...</div>
+            ) : reactions && reactions.length > 0 ? (
+              <div className="space-y-2">
+                {reactions.map((reaction: any) => (
+                  <div
+                    key={reaction.id}
+                    className="flex items-center justify-between p-3 border rounded-lg"
+                    data-testid={`reaction-item-${reaction.id}`}
+                  >
+                    <div>
+                      <div className="font-medium">{reaction.reactionType}</div>
+                      <div className="text-sm text-muted-foreground">
+                        Приоритет: {reaction.priority}
+                        {reaction.textContent && ` • ${reaction.textContent.substring(0, 50)}...`}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <Badge variant={reaction.isActive ? "default" : "secondary"}>
+                        {reaction.isActive ? "Активна" : "Неактивна"}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEdit(reaction)}
+                        data-testid={`button-edit-reaction-${reaction.id}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(reaction.id)}
+                        disabled={deleteMutation.isPending}
+                        data-testid={`button-delete-reaction-${reaction.id}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-muted-foreground py-8">
+                Реакции не найдены. Добавьте первую реакцию.
+              </div>
+            )}
+            <Button className="w-full" variant="outline" onClick={handleAdd} data-testid="button-add-reaction">
+              <Plus className="h-4 w-4 mr-2" />
+              Добавить реакцию
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 // Commands Tab Component
 function CommandsTab() {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCommand, setEditingCommand] = useState<any>(null);
+  const [reactionsDialogOpen, setReactionsDialogOpen] = useState(false);
+  const [selectedCommandId, setSelectedCommandId] = useState<string | null>(null);
 
   const { data: commands, isLoading } = useQuery({
     queryKey: ['/admin/api/bot/commands'],
@@ -506,6 +930,11 @@ function CommandsTab() {
     }
   };
 
+  const handleManageReactions = (commandId: string) => {
+    setSelectedCommandId(commandId);
+    setReactionsDialogOpen(true);
+  };
+
   return (
     <>
       <CommandDialog
@@ -514,6 +943,15 @@ function CommandsTab() {
         onOpenChange={(open) => {
           setDialogOpen(open);
           if (!open) setEditingCommand(null);
+        }}
+      />
+      
+      <ReactionsDialog
+        commandId={selectedCommandId}
+        open={reactionsDialogOpen}
+        onOpenChange={(open) => {
+          setReactionsDialogOpen(open);
+          if (!open) setSelectedCommandId(null);
         }}
       />
       
@@ -554,6 +992,14 @@ function CommandsTab() {
                       <Badge variant={cmd.isActive ? "default" : "secondary"}>
                         {cmd.isActive ? "Активна" : "Неактивна"}
                       </Badge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleManageReactions(cmd.id)}
+                        data-testid={`button-manage-reactions-${cmd.id}`}
+                      >
+                        Реакции
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
