@@ -3,8 +3,10 @@ import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import swiftxCard from "@assets/group (2)_1758368274951.png";
 import TelegramLoginButton from "@/components/TelegramLoginButton";
+
+// Image from public directory - use direct URL
+const swiftxCard = "/uploads/assets/swiftx-card.png";
 
 export default function SplashScreen() {
   const [, setLocation] = useLocation();

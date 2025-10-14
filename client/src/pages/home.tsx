@@ -6,12 +6,14 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { User } from "@shared/schema";
 import { formatBalance } from "@/lib/utils";
-import catImage from "@assets/Image_1758366163369.png";
-import tronImage from "@assets/tron_1758481649917.png";
-import bnbImage from "@assets/bnb_1758481660380.png";
-import tonImage from "@assets/ton_1758481672408.png";
-import ethereumImage from "@assets/ethereum_1758481901648.png";
-import solanaImage from "@assets/solana_1758481901649.png";
+
+// Images from public directory - use direct URLs
+const catImage = "/uploads/icons/cat-logo.png";
+const tronImage = "/uploads/icons/cryptocurrency/tron.png";
+const bnbImage = "/uploads/icons/cryptocurrency/bnb.png";
+const tonImage = "/uploads/icons/cryptocurrency/ton.png";
+const ethereumImage = "/uploads/icons/cryptocurrency/ethereum.png";
+const solanaImage = "/uploads/icons/cryptocurrency/solana.png";
 
 // Custom SVG icon components
 const RefreshIcon = ({ className = "w-6 h-6", ...props }) => (

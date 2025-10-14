@@ -24,7 +24,14 @@ The server uses Express.js with TypeScript in ESM mode, focusing on clean separa
 - **Development**: Vite integration for hot module replacement.
 - **API Design**: RESTful endpoints for transactions, exchange rates, and support.
 - **Telegram Webhook**: Public webhook endpoint at `/api/telegram/webhook` for Telegram updates. Webhook management (set/info/delete) available at `/{adminPath}/api/telegram/webhook/*` (admin only).
-- **File Upload System**: Multer-based file upload with validation (JPEG/PNG/GIF/WebP, 5MB limit), stored in `/uploads/system/` for bot images and `/uploads/users/` for user content.
+- **File Upload System**: Multer-based file upload with validation (JPEG/PNG/GIF/WebP, 5MB limit). Organized structure in `public/uploads/`:
+  - `public/uploads/system/` - Bot reaction images (Telegram bot)
+  - `public/uploads/users/` - User-uploaded content
+  - `public/uploads/icons/` - Application icons and logos
+  - `public/uploads/icons/cryptocurrency/` - Cryptocurrency network icons (ethereum, bnb, ton, tron, solana)
+  - `public/uploads/assets/` - Application static assets
+  - `public/uploads/support/` - Support system assets (avatars, etc.)
+  - All files accessible via `/uploads/*` URLs in frontend
 
 ## Data Storage Solutions
 The application supports PostgreSQL (default) and MySQL with Drizzle ORM for type-safe operations:

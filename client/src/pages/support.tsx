@@ -8,8 +8,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import supportAvatar from "@assets/support_1759681481551.jpg";
-import catImage from "@assets/Image_1758366163369.png";
+
+// Images from public directory - use direct URLs
+const supportAvatar = "/uploads/support/avatar.jpg";
+const catImage = "/uploads/icons/cat-logo.png";
 
 interface Message {
   id: number;

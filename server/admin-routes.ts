@@ -1194,9 +1194,12 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
       }
       
       // Build full URL for Telegram API
+      // req.file.path is "public/uploads/system/image-xxx.png"
+      // We need URL like "https://domain.com/uploads/system/image-xxx.png"
       const protocol = req.protocol;
       const host = req.get('host');
-      const imageUrl = `${protocol}://${host}/${req.file.path}`;
+      const publicPath = req.file.path.replace('public/', '');
+      const imageUrl = `${protocol}://${host}/${publicPath}`;
       
       res.json({ imageUrl });
     } catch (error) {

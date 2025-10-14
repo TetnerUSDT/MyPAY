@@ -5,9 +5,13 @@ import { promises as fs } from 'fs';
 // Ensure uploads directories exist
 async function ensureUploadDirs() {
   const dirs = [
-    'uploads',
-    'uploads/system',
-    'uploads/users',
+    'public/uploads',
+    'public/uploads/system',
+    'public/uploads/users',
+    'public/uploads/icons',
+    'public/uploads/icons/cryptocurrency',
+    'public/uploads/assets',
+    'public/uploads/support',
   ];
   
   for (const dir of dirs) {
@@ -25,7 +29,7 @@ ensureUploadDirs().catch(console.error);
 // Storage configuration for system uploads (bot images, etc.)
 const systemStorage = multer.diskStorage({
   destination: async (req, file, cb) => {
-    const uploadPath = 'uploads/system';
+    const uploadPath = 'public/uploads/system';
     try {
       await fs.mkdir(uploadPath, { recursive: true });
       cb(null, uploadPath);
@@ -43,7 +47,7 @@ const systemStorage = multer.diskStorage({
 // Storage configuration for user uploads
 const userStorage = multer.diskStorage({
   destination: async (req, file, cb) => {
-    const uploadPath = 'uploads/users';
+    const uploadPath = 'public/uploads/users';
     try {
       await fs.mkdir(uploadPath, { recursive: true });
       cb(null, uploadPath);
