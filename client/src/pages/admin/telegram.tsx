@@ -478,9 +478,15 @@ function ReactionFormDialog({
     endpointUrl: z.string().optional(),
     endpointMethod: z.string().optional(),
     conditions: z.string().optional(),
+    imageUrl: z.string().optional(),
+    linkUrl: z.string().optional(),
+    linkText: z.string().optional(),
     priority: z.number().min(0).default(0),
     isActive: z.boolean().default(true),
   });
+
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
 
   const form = useForm({
     resolver: zodResolver(reactionFormSchema),
@@ -490,6 +496,9 @@ function ReactionFormDialog({
       endpointUrl: "",
       endpointMethod: "GET",
       conditions: "",
+      imageUrl: "",
+      linkUrl: "",
+      linkText: "",
       priority: 0,
       isActive: true,
     },
@@ -503,6 +512,9 @@ function ReactionFormDialog({
         endpointUrl: reaction.endpointUrl || "",
         endpointMethod: reaction.endpointMethod || "GET",
         conditions: reaction.conditions ? JSON.stringify(reaction.conditions, null, 2) : "",
+        imageUrl: reaction.imageUrl || "",
+        linkUrl: reaction.linkUrl || "",
+        linkText: reaction.linkText || "",
         priority: reaction.priority || 0,
         isActive: reaction.isActive ?? true,
       });
@@ -513,11 +525,62 @@ function ReactionFormDialog({
         endpointUrl: "",
         endpointMethod: "GET",
         conditions: "",
+        imageUrl: "",
+        linkUrl: "",
+        linkText: "",
         priority: 0,
         isActive: true,
       });
     }
   }, [reaction, form]);
+
+  const handleImageUpload = async (file: File) => {
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const adminPath = import.meta.env.VITE_ADMIN_URL || 'admin';
+      const response = await fetch(`/${adminPath}/api/bot/reactions/upload-image`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      if (!response.ok) throw new Error('Upload failed');
+
+      const data = await response.json();
+      form.setValue('imageUrl', data.imageUrl);
+      toast({ title: "Успех", description: "Изображение загружено" });
+    } catch (error) {
+      toast({ title: "Ошибка", description: "Не удалось загрузить изображение", variant: "destructive" });
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      handleImageUpload(file);
+    } else {
+      toast({ title: "Ошибка", description: "Можно загружать только изображения", variant: "destructive" });
+    }
+  };
+
+  const handleDrag = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
 
   const createMutation = useMutation({
     mutationFn: (data: any) =>
@@ -719,6 +782,108 @@ function ReactionFormDialog({
                 </FormItem>
               )}
             />
+
+            <FormField
+              control={form.control}
+              name="imageUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Изображение</FormLabel>
+                  <FormControl>
+                    <div>
+                      <div
+                        className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                          dragActive ? 'border-primary bg-primary/5' : 'border-gray-300'
+                        } ${uploadingImage ? 'opacity-50' : ''}`}
+                        onDragEnter={handleDrag}
+                        onDragLeave={handleDrag}
+                        onDragOver={handleDrag}
+                        onDrop={handleDrop}
+                      >
+                        {field.value ? (
+                          <div className="space-y-2">
+                            <img src={field.value} alt="Preview" className="max-h-48 mx-auto rounded" />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => field.onChange('')}
+                              data-testid="button-remove-image"
+                            >
+                              Удалить
+                            </Button>
+                          </div>
+                        ) : (
+                          <div>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleImageUpload(file);
+                              }}
+                              className="hidden"
+                              id="image-upload"
+                              data-testid="input-image-file"
+                            />
+                            <label htmlFor="image-upload" className="cursor-pointer">
+                              <div className="space-y-2">
+                                <div className="text-gray-500">
+                                  {uploadingImage ? 'Загрузка...' : 'Перетащите изображение или нажмите для выбора'}
+                                </div>
+                                <Button type="button" variant="outline" size="sm" disabled={uploadingImage} data-testid="button-upload-image">
+                                  Выбрать файл
+                                </Button>
+                              </div>
+                            </label>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </FormControl>
+                  <FormDescription>
+                    Изображение будет отправлено вместе с текстом (опционально)
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="linkUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>URL кнопки-ссылки</FormLabel>
+                  <FormControl>
+                    <Input placeholder="https://example.com" {...field} data-testid="input-link-url" />
+                  </FormControl>
+                  <FormDescription>
+                    URL для inline-кнопки под сообщением (опционально)
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {form.watch("linkUrl") && (
+              <FormField
+                control={form.control}
+                name="linkText"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Текст кнопки</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Перейти" {...field} data-testid="input-link-text" />
+                    </FormControl>
+                    <FormDescription>
+                      Текст, который будет отображаться на кнопке
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <FormField
               control={form.control}
