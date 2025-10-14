@@ -6,7 +6,7 @@ import { apiRequest } from "@/lib/queryClient";
 import TelegramLoginButton from "@/components/TelegramLoginButton";
 
 // Image from public directory - use direct URL with cache busting
-const swiftxCard = `/uploads/assets/start-bg.png?v=${Date.now()}`;
+const swiftxCard = "/uploads/assets/start-bg.png?v=2";
 
 export default function SplashScreen() {
   const [, setLocation] = useLocation();
