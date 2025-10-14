@@ -1293,76 +1293,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const commands = await telegramService.loadBotCommands();
         const rootMenuData = await telegramService.loadRootMenu();
         
-        // Handle commands (both hardcoded and dynamic)
-        if (messageText.startsWith('/start')) {
-          const welcomeMessage = `Добро пожаловать в SwiftX! 👋\n\nВыберите один из пунктов меню ниже:`;
-          
-          // Try to use dynamic menu from DB, fallback to static
-          let replyKeyboard = rootMenuData ? telegramService.generateKeyboard(rootMenuData) : null;
-          
-          if (!replyKeyboard) {
-            // Fallback to static menu
-            replyKeyboard = {
-              keyboard: [
-                [{ text: '📃Условия P2P' }, { text: '💸Кешбек' }]
-              ],
-              resize_keyboard: true,
-              one_time_keyboard: false
-            };
-          }
+        // Find matching command
+        let matchingCommand = commands.find(cmd => 
+          messageText === cmd.command || messageText.startsWith(cmd.command + ' ')
+        );
 
-          await telegramService.sendMessage({
-            chatId: telegramId,
-            text: welcomeMessage,
-            replyMarkup: replyKeyboard
-          });
+        // If no direct command match, check if it's a button click
+        if (!matchingCommand && rootMenuData?.buttons) {
+          const clickedButton = rootMenuData.buttons.find((btn: any) => btn.text === messageText);
+          if (clickedButton && clickedButton.actionType === 'command' && clickedButton.actionValue) {
+            // Find command by actionValue
+            matchingCommand = commands.find(cmd => cmd.command === clickedButton.actionValue);
+          }
         }
-        // Check if it's a dynamic command from DB
-        else {
-          const matchingCommand = commands.find(cmd => messageText === cmd.command || messageText.startsWith(cmd.command + ' '));
+
+        if (matchingCommand) {
+          // Load reactions for this command
+          const { db } = await import('./db');
+          const { botCommandReactions } = await import('@shared/schema');
+          const { eq, and } = await import('drizzle-orm');
           
-          if (matchingCommand) {
-            // TODO: Process command reactions from bot_command_reactions
-            await telegramService.sendMessage({
-              chatId: telegramId,
-              text: matchingCommand.description || 'Команда обрабатывается...'
-            });
-          }
-          // Handle static button clicks (legacy support)
-          else if (messageText === '📃Условия P2P') {
-            const p2pTerms = `💼 Условия работы P2P обменника
+          const reactions = await db
+            .select()
+            .from(botCommandReactions)
+            .where(and(
+              eq(botCommandReactions.commandId, matchingCommand.id),
+              eq(botCommandReactions.isActive, true)
+            ))
+            .orderBy(botCommandReactions.priority);
 
-1. Минимальная сумма обмена:
-от 100 ₽ и выше
+          // Execute reactions
+          for (const reaction of reactions) {
+            if (reaction.reactionType === 'text' || reaction.reactionType === 'mixed') {
+              if (reaction.textContent) {
+                // For /start command, include menu
+                let replyMarkup = undefined;
+                if (matchingCommand.command === '/start' && rootMenuData) {
+                  replyMarkup = telegramService.generateKeyboard(rootMenuData);
+                }
 
-2. Формат работы:
-• Обмен происходит в формате P2P (клиент ↔️ клиент)
-• Оплата производится в криптовалюте (USDT)
-• На время сделки криптовалюта замораживается до полного завершения оплаты
-
-3. Процесс обмена:
-• Оплата фиатом (₽) может проходить несколькими платежами с интервалом в несколько минут — это помогает избежать блокировок банковских переводов
-• После каждого поступления платежа клиент обязан уведомить техподдержку в течение 15 минут
-
-4. Коммуникация:
-• Клиент должен оставаться на связи с техподдержкой до полного завершения сделки
-• Все подтверждения о поступлении платежей направляются в чат поддержки
-
-5. Безопасность средств:
-• Ваша криптовалюта находится в заморозке до подтверждения всех платежей
-• Если оплата не поступила — средства остаются у вас и доступны для вывода
-• Если на карту поступила неполная сумма, остаток автоматически возвращается на ваш криптокошелёк`;
-
-            await telegramService.sendMessage({
-              chatId: telegramId,
-              text: p2pTerms
-            });
-          }
-          else if (messageText === '💸Кешбек') {
-            await telegramService.sendMessage({
-              chatId: telegramId,
-              text: 'Ожидайте, скоро появиться информация!'
-            });
+                await telegramService.sendMessage({
+                  chatId: telegramId,
+                  text: reaction.textContent,
+                  replyMarkup
+                });
+              }
+            }
+            
+            if (reaction.reactionType === 'endpoint' || reaction.reactionType === 'mixed') {
+              if (reaction.endpointUrl) {
+                // TODO: Make API request to endpoint
+                console.log(`Calling endpoint: ${reaction.endpointMethod} ${reaction.endpointUrl}`);
+              }
+            }
           }
         }
       }
