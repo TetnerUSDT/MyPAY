@@ -1295,8 +1295,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           const replyKeyboard = {
             keyboard: [
-              [{ text: '📃Условия P2P' }],
-              [{ text: '💸Кешбек' }]
+              [{ text: '📃Условия P2P' }, { text: '💸Кешбек' }]
             ],
             resize_keyboard: true,
             one_time_keyboard: false
@@ -1335,15 +1334,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           await telegramService.sendMessage({
             chatId: telegramId,
-            text: p2pTerms,
-            replyMarkup: { remove_keyboard: true }
+            text: p2pTerms
           });
         }
         else if (messageText === '💸Кешбек') {
           await telegramService.sendMessage({
             chatId: telegramId,
-            text: 'Ожидайте, скоро появиться информация!',
-            replyMarkup: { remove_keyboard: true }
+            text: 'Ожидайте, скоро появиться информация!'
           });
         }
       }
