@@ -995,4 +995,75 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
       res.status(500).json({ message: "Internal server error" });
     }
   });
+
+  // ========== TELEGRAM BOT WEBHOOK MANAGEMENT ==========
+  app.post(`/${adminPath}/api/telegram/webhook/set`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const customWebhookUrl = req.body.webhookUrl;
+      let webhookUrl: string;
+
+      if (customWebhookUrl) {
+        webhookUrl = customWebhookUrl;
+      } else {
+        const replitDomain = process.env.REPLIT_DEV_DOMAIN || process.env.REPL_SLUG;
+        if (!replitDomain) {
+          return res.status(400).json({ 
+            ok: false, 
+            message: "Не удалось определить домен Replit. Укажите webhookUrl вручную." 
+          });
+        }
+
+        let hostname: string;
+        if (replitDomain.includes('http://') || replitDomain.includes('https://')) {
+          webhookUrl = replitDomain;
+        } else {
+          if (replitDomain.includes('.') || replitDomain.includes('repl.co')) {
+            hostname = replitDomain;
+          } else {
+            const username = process.env.REPL_OWNER || 'user';
+            hostname = `${replitDomain}.${username}.repl.co`;
+          }
+          webhookUrl = `https://${hostname}`;
+        }
+
+        webhookUrl = webhookUrl.replace(/\/$/, '');
+        const webhookPath = req.body.webhookPath || '/api/telegram/webhook';
+        if (!webhookUrl.endsWith(webhookPath)) {
+          webhookUrl = `${webhookUrl}${webhookPath}`;
+        }
+      }
+
+      const result = await telegramService.setWebhook(webhookUrl);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ 
+        ok: false, 
+        message: `Ошибка: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      });
+    }
+  });
+
+  app.get(`/${adminPath}/api/telegram/webhook/info`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const result = await telegramService.getWebhookInfo();
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ 
+        ok: false, 
+        message: `Ошибка: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      });
+    }
+  });
+
+  app.delete(`/${adminPath}/api/telegram/webhook`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const result = await telegramService.deleteWebhook();
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ 
+        ok: false, 
+        message: `Ошибка: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      });
+    }
+  });
 }
