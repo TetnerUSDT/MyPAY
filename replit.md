@@ -24,14 +24,16 @@ The server uses Express.js with TypeScript in ESM mode, focusing on clean separa
 - **Development**: Vite integration for hot module replacement.
 - **API Design**: RESTful endpoints for transactions, exchange rates, and support.
 - **Telegram Webhook**: Public webhook endpoint at `/api/telegram/webhook` for Telegram updates. Webhook management (set/info/delete) available at `/{adminPath}/api/telegram/webhook/*` (admin only).
+- **File Upload System**: Multer-based file upload with validation (JPEG/PNG/GIF/WebP, 5MB limit), stored in `/uploads/system/` for bot images and `/uploads/users/` for user content.
 
 ## Data Storage Solutions
 The application supports PostgreSQL (default) and MySQL with Drizzle ORM for type-safe operations:
 - **Database Flexibility**: Runtime switching via `DB_TYPE` environment variable.
 - **Schema Design**: Well-structured tables for users, wallets, transactions, exchange rates, support chats, notifications, invoices, and a referral system.
+- **Bot Commands System**: Database-driven command management with `botCommands`, `botCommandReactions`, `botMenus`, and `botMenuButtons` tables. Supports dynamic command text, images, inline buttons with links, and conditional execution.
 - **Referral System**: Unique referral codes (1 uppercase letter + 9 digits) generated on user registration.
 - **Type Safety**: Drizzle-Zod integration for runtime validation and TypeScript types.
-- **Migration**: Drizzle Kit for PostgreSQL migrations; MySQL requires manual schema setup.
+- **Migration**: Drizzle Kit for PostgreSQL migrations; MySQL requires manual schema setup via custom migration scripts.
 - **Connection**: Supports Neon Database serverless PostgreSQL and MySQL connection pools.
 - **Data Modeling**: Emphasizes decimal precision for crypto amounts, UUID primary keys, JSON fields, and foreign key relationships.
 
