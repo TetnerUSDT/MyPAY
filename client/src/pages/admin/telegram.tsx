@@ -40,6 +40,18 @@ const menuFormSchema = z.object({
 
 type MenuFormValues = z.infer<typeof menuFormSchema>;
 
+// Button form schema
+const buttonFormSchema = z.object({
+  text: z.string().min(1, "Текст кнопки обязателен"),
+  rowIndex: z.number().min(0),
+  columnIndex: z.number().min(0),
+  actionType: z.enum(["command", "url", "callback"]).default("command"),
+  actionValue: z.string().optional(),
+  isActive: z.boolean().default(true),
+});
+
+type ButtonFormValues = z.infer<typeof buttonFormSchema>;
+
 // Webhook Tab Component
 function WebhookTab() {
   const [customWebhookUrl, setCustomWebhookUrl] = useState("");
@@ -808,11 +820,80 @@ function MenuDialog({
   );
 }
 
+// Button Dialog Component for managing buttons of a menu
+function ButtonDialog({
+  menuId,
+  open,
+  onOpenChange
+}: {
+  menuId: string | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { toast } = useToast();
+
+  const { data: buttons, isLoading } = useQuery({
+    queryKey: ['/admin/api/bot/menus', menuId, 'buttons'],
+    queryFn: () => menuId ? adminRequest(`/bot/menus/${menuId}/buttons`) : Promise.resolve([]),
+    enabled: !!menuId && open,
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Управление кнопками меню</DialogTitle>
+          <DialogDescription>
+            Создавайте и редактируйте кнопки для этого меню
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          {isLoading ? (
+            <div>Загрузка...</div>
+          ) : buttons && buttons.length > 0 ? (
+            <div className="space-y-2">
+              {buttons.map((btn: any) => (
+                <div
+                  key={btn.id}
+                  className="flex items-center justify-between p-3 border rounded-lg"
+                  data-testid={`button-item-${btn.id}`}
+                >
+                  <div>
+                    <div className="font-medium">{btn.text}</div>
+                    <div className="text-sm text-muted-foreground">
+                      Позиция: Row {btn.rowIndex}, Col {btn.columnIndex}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Badge variant={btn.isActive ? "default" : "secondary"}>
+                      {btn.isActive ? "Активна" : "Неактивна"}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center text-muted-foreground py-8">
+              Кнопки не найдены. Добавьте первую кнопку.
+            </div>
+          )}
+          <Button className="w-full" variant="outline" data-testid="button-add-menu-button">
+            <Plus className="h-4 w-4 mr-2" />
+            Добавить кнопку
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // Navigation Tab Component
 function NavigationTab() {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMenu, setEditingMenu] = useState<any>(null);
+  const [buttonsDialogOpen, setButtonsDialogOpen] = useState(false);
+  const [selectedMenuId, setSelectedMenuId] = useState<string | null>(null);
 
   const { data: menus, isLoading } = useQuery({
     queryKey: ['/admin/api/bot/menus'],
@@ -856,6 +937,11 @@ function NavigationTab() {
     }
   };
 
+  const handleManageButtons = (menuId: string) => {
+    setSelectedMenuId(menuId);
+    setButtonsDialogOpen(true);
+  };
+
   return (
     <>
       <MenuDialog
@@ -864,6 +950,15 @@ function NavigationTab() {
         onOpenChange={(open) => {
           setDialogOpen(open);
           if (!open) setEditingMenu(null);
+        }}
+      />
+      
+      <ButtonDialog
+        menuId={selectedMenuId}
+        open={buttonsDialogOpen}
+        onOpenChange={(open) => {
+          setButtonsDialogOpen(open);
+          if (!open) setSelectedMenuId(null);
         }}
       />
       
@@ -907,6 +1002,14 @@ function NavigationTab() {
                     <Badge variant={menu.isActive ? "default" : "secondary"}>
                       {menu.isActive ? "Активно" : "Неактивно"}
                     </Badge>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleManageButtons(menu.id)}
+                      data-testid={`button-manage-buttons-${menu.id}`}
+                    >
+                      Кнопки
+                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"
