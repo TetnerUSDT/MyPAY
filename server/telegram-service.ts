@@ -111,6 +111,52 @@ export class TelegramService {
   }
 
   /**
+   * Send message to a user or chat
+   */
+  async sendMessage(options: {
+    chatId: string | number;
+    text: string;
+    parseMode?: 'HTML' | 'Markdown';
+    replyMarkup?: any;
+  }): Promise<boolean> {
+    try {
+      const body: any = {
+        chat_id: options.chatId,
+        text: options.text,
+      };
+
+      if (options.parseMode) {
+        body.parse_mode = options.parseMode;
+      }
+
+      if (options.replyMarkup) {
+        body.reply_markup = options.replyMarkup;
+      }
+
+      const response = await fetch(`${this.baseUrl}/sendMessage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      const data: TelegramApiResponse<any> = await response.json();
+
+      if (data.ok) {
+        console.log(`✅ Message sent to chat ${options.chatId}`);
+        return true;
+      } else {
+        console.error(`Failed to send message:`, data.description);
+        return false;
+      }
+    } catch (error) {
+      console.error(`Error sending message:`, error);
+      return false;
+    }
+  }
+
+  /**
    * Send message to admin channel
    */
   async sendChannelMessage(message: string, parseMode: 'HTML' | 'Markdown' = 'HTML'): Promise<boolean> {

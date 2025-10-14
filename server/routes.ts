@@ -1357,6 +1357,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const telegramId = update.message.from.id.toString();
         const username = update.message.from.username || null;
         const firstName = update.message.from.first_name || null;
+        const messageText = update.message.text || '';
         
         // Find user by Telegram ID
         const user = await storage.getUserByTgId(telegramId);
@@ -1369,6 +1370,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
               name: firstName || user.name 
             });
           }
+        }
+
+        // Handle /start command
+        if (messageText.startsWith('/start')) {
+          const welcomeMessage = `Добро пожаловать в SwiftX! 👋\n\nВыберите один из пунктов меню ниже:`;
+          
+          const replyKeyboard = {
+            keyboard: [
+              [{ text: '📃Условия P2P' }],
+              [{ text: '💸Кешбек' }]
+            ],
+            resize_keyboard: true,
+            one_time_keyboard: false
+          };
+
+          await telegramService.sendMessage({
+            chatId: telegramId,
+            text: welcomeMessage,
+            replyMarkup: replyKeyboard
+          });
+        }
+        // Handle button clicks (text messages)
+        else if (messageText === '📃Условия P2P') {
+          const p2pTerms = `💼 Условия работы P2P обменника
+
+1. Минимальная сумма обмена:
+от 100 ₽ и выше
+
+2. Формат работы:
+• Обмен происходит в формате P2P (клиент ↔️ клиент)
+• Оплата производится в криптовалюте (USDT)
+• На время сделки криптовалюта замораживается до полного завершения оплаты
+
+3. Процесс обмена:
+• Оплата фиатом (₽) может проходить несколькими платежами с интервалом в несколько минут — это помогает избежать блокировок банковских переводов
+• После каждого поступления платежа клиент обязан уведомить техподдержку в течение 15 минут
+
+4. Коммуникация:
+• Клиент должен оставаться на связи с техподдержкой до полного завершения сделки
+• Все подтверждения о поступлении платежей направляются в чат поддержки
+
+5. Безопасность средств:
+• Ваша криптовалюта находится в заморозке до подтверждения всех платежей
+• Если оплата не поступила — средства остаются у вас и доступны для вывода
+• Если на карту поступила неполная сумма, остаток автоматически возвращается на ваш криптокошелёк`;
+
+          await telegramService.sendMessage({
+            chatId: telegramId,
+            text: p2pTerms,
+            replyMarkup: { remove_keyboard: true }
+          });
+        }
+        else if (messageText === '💸Кешбек') {
+          await telegramService.sendMessage({
+            chatId: telegramId,
+            text: 'Ожидайте, скоро появиться информация!',
+            replyMarkup: { remove_keyboard: true }
+          });
         }
       }
       
