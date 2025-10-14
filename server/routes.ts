@@ -1324,6 +1324,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           // Execute reactions
           for (const reaction of reactions) {
+            // Check conditions if they exist
+            if (reaction.conditions && Array.isArray(reaction.conditions)) {
+              let shouldExecute = true;
+              
+              for (const condition of reaction.conditions) {
+                const { field, operator, value, action } = condition;
+                
+                // Get the actual value to compare
+                let actualValue: any;
+                if (field === 'userId' || field === 'tgId') {
+                  actualValue = telegramId;
+                } else if (field === 'username') {
+                  actualValue = username;
+                } else if (field === 'firstName') {
+                  actualValue = firstName;
+                } else if (field === 'messageText') {
+                  actualValue = messageText;
+                }
+                
+                // Perform comparison based on operator
+                let conditionMet = false;
+                if (operator === 'equals') {
+                  conditionMet = actualValue == value;
+                } else if (operator === 'not_equals') {
+                  conditionMet = actualValue != value;
+                } else if (operator === 'contains') {
+                  conditionMet = actualValue && actualValue.toString().includes(value);
+                } else if (operator === 'starts_with') {
+                  conditionMet = actualValue && actualValue.toString().startsWith(value);
+                } else if (operator === 'ends_with') {
+                  conditionMet = actualValue && actualValue.toString().endsWith(value);
+                }
+                
+                // Check action
+                if (action === 'execute' && !conditionMet) {
+                  shouldExecute = false;
+                  break;
+                } else if (action === 'skip' && conditionMet) {
+                  shouldExecute = false;
+                  break;
+                }
+              }
+              
+              if (!shouldExecute) {
+                console.log(`⏭️  Reaction ${reaction.id} skipped due to conditions`);
+                continue; // Skip this reaction
+              }
+            }
+            
             if (reaction.reactionType === 'text' || reaction.reactionType === 'mixed') {
               if (reaction.textContent || reaction.imageUrl) {
                 // For /start command, include menu

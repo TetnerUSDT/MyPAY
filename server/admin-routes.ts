@@ -1193,8 +1193,11 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
         return res.status(400).json({ message: "No file uploaded" });
       }
       
-      // Return the file path relative to the server
-      const imageUrl = `/${req.file.path}`;
+      // Build full URL for Telegram API
+      const protocol = req.protocol;
+      const host = req.get('host');
+      const imageUrl = `${protocol}://${host}/${req.file.path}`;
+      
       res.json({ imageUrl });
     } catch (error) {
       console.error('Upload reaction image error:', error);
