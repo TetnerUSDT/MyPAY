@@ -4,13 +4,49 @@ import { setupVite, serveStatic, log } from "./vite";
 import { validateConfig, logConfig } from "./config";
 import { DatabaseStorage } from "./storage";
 import { telegramService } from "./telegram-service";
+import path from "path";
+import fs from "fs";
 
 const app = express();
+
+// Serve uploaded files BEFORE any other middleware to prevent Vite from intercepting
+app.use('/uploads', async (req, res, next) => {
+  const uploadsPath = path.resolve(import.meta.dirname, '..', 'public', 'uploads');
+  const filePath = path.join(uploadsPath, req.path);
+  
+  // Security check: ensure the file is within uploads directory
+  if (!filePath.startsWith(uploadsPath)) {
+    return res.status(403).send('Forbidden');
+  }
+  
+  try {
+    // Check if file exists
+    await fs.promises.access(filePath, fs.constants.R_OK);
+    
+    // Set proper content type based on extension
+    const ext = path.extname(filePath).toLowerCase();
+    const contentTypes: Record<string, string> = {
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif',
+      '.webp': 'image/webp',
+    };
+    
+    if (contentTypes[ext]) {
+      res.setHeader('Content-Type', contentTypes[ext]);
+    }
+    
+    // Send the file
+    res.sendFile(filePath);
+  } catch (error) {
+    // File doesn't exist or not readable
+    next();
+  }
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-
-// Serve uploaded files statically
-app.use('/uploads', express.static('uploads'));
 
 app.use((req, res, next) => {
   const start = Date.now();

@@ -11,6 +11,8 @@ import { registerAdminRoutes } from "./admin-routes";
 import { telegramService } from "./telegram-service";
 import { notificationService } from "./notification-service";
 import { requireSuperAdmin, type AdminRequest } from "./admin-middleware";
+import express from "express";
+import path from "path";
 
 // Unified login schema that supports both modes
 const loginSchema = z.discriminatedUnion("mode", [
