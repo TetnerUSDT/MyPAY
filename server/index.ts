@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { validateConfig, logConfig } from "./config";
 import { DatabaseStorage } from "./storage";
+import { telegramService } from "./telegram-service";
 
 const app = express();
 app.use(express.json());
@@ -74,7 +75,22 @@ app.use((req, res, next) => {
     port,
     host: "0.0.0.0",
     reusePort: true,
-  }, () => {
+  }, async () => {
     log(`serving on port ${port}`);
+    
+    // Auto-setup Telegram webhook in production
+    if (process.env.NODE_ENV === 'production' && process.env.TELEGRAM_BOT_TOKEN) {
+      try {
+        const webhookUrl = process.env.WEBHOOK_URL || `https://${process.env.REPLIT_DEV_DOMAIN}/api/telegram/webhook`;
+        const result = await telegramService.setWebhook(webhookUrl);
+        if (result.ok) {
+          log(`✅ Telegram webhook auto-configured: ${webhookUrl}`);
+        } else {
+          log(`⚠️  Telegram webhook auto-setup failed: ${result.message}`);
+        }
+      } catch (error) {
+        log(`⚠️  Error setting up Telegram webhook: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
   });
 })();
