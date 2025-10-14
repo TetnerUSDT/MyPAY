@@ -2,9 +2,9 @@ import { Express } from "express";
 import { AdminRequest, requireSuperAdmin, requireAdmin, requirePermission } from "./admin-middleware";
 import { IStorage } from "./storage";
 import { db } from "./db";
-import { balances, exchanges, cards, banks, exchangeRates, supportTickets, supportMessages, supportChats, users, wallets, admins, userCards, usersBalances } from "@shared/schema";
+import { balances, exchanges, cards, banks, exchangeRates, supportTickets, supportMessages, supportChats, users, wallets, admins, userCards, usersBalances, botCommands, botCommandReactions, botCommandFiles, botMenus, botMenuButtons } from "@shared/schema";
 import { eq, desc, sql } from "drizzle-orm";
-import { insertBalanceSchema, insertCardSchema, insertBankSchema, insertExchangeRateSchema, insertSupportMessageSchema, insertAdminSchema, insertUsersBalancesSchema } from "@shared/schema";
+import { insertBalanceSchema, insertCardSchema, insertBankSchema, insertExchangeRateSchema, insertSupportMessageSchema, insertAdminSchema, insertUsersBalancesSchema, insertBotCommandSchema, insertBotCommandReactionSchema, insertBotCommandFileSchema, insertBotMenuSchema, insertBotMenuButtonSchema } from "@shared/schema";
 import { telegramService } from "./telegram-service";
 import { notificationService } from "./notification-service";
 import { formatBalance } from "./utils";
@@ -1064,6 +1064,73 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
         ok: false, 
         message: `Ошибка: ${error instanceof Error ? error.message : 'Unknown error'}` 
       });
+    }
+  });
+
+  // ========== TELEGRAM BOT COMMANDS MANAGEMENT ==========
+  app.get(`/${adminPath}/api/bot/commands`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const commands = await db.select().from(botCommands).orderBy(botCommands.command);
+      res.json(commands);
+    } catch (error) {
+      console.error('Get bot commands error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get(`/${adminPath}/api/bot/commands/:id`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const { id } = req.params;
+      const [command] = await db.select().from(botCommands).where(eq(botCommands.id, parseInt(id))).limit(1);
+      if (!command) {
+        return res.status(404).json({ message: "Command not found" });
+      }
+      res.json(command);
+    } catch (error) {
+      console.error('Get bot command error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post(`/${adminPath}/api/bot/commands`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const validatedData = insertBotCommandSchema.parse(req.body);
+      const newCommand = await insertAndReturn(botCommands, validatedData);
+      res.json(newCommand);
+    } catch (error) {
+      console.error('Create bot command error:', error);
+      if (error instanceof Error) {
+        res.status(400).json({ message: error.message });
+      } else {
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  });
+
+  app.patch(`/${adminPath}/api/bot/commands/:id`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const { id } = req.params;
+      const validatedData = insertBotCommandSchema.partial().parse(req.body);
+      const updatedCommand = await updateAndReturn(botCommands, validatedData, eq(botCommands.id, parseInt(id)));
+      res.json(updatedCommand);
+    } catch (error) {
+      console.error('Update bot command error:', error);
+      if (error instanceof Error) {
+        res.status(400).json({ message: error.message });
+      } else {
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  });
+
+  app.delete(`/${adminPath}/api/bot/commands/:id`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const { id } = req.params;
+      await db.delete(botCommands).where(eq(botCommands.id, parseInt(id)));
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Delete bot command error:', error);
+      res.status(500).json({ message: "Internal server error" });
     }
   });
 }

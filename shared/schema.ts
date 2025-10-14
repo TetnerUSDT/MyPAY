@@ -230,6 +230,73 @@ export const notificationReads = mysqlTable("notification_reads", {
   readAt: timestamp("read_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
+// Telegram Bot tables
+export const botCommands = mysqlTable("bot_commands", {
+  id: int("id").primaryKey().autoincrement(),
+  command: varchar("command", { length: 100 }).notNull().unique(),
+  description: text("description"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`),
+});
+
+export const botCommandFiles = mysqlTable("bot_command_files", {
+  id: int("id").primaryKey().autoincrement(),
+  commandId: int("command_id").notNull().references(() => botCommands.id, { onDelete: "cascade" }),
+  fileType: varchar("file_type", { length: 50 }).notNull(),
+  fileUrl: varchar("file_url", { length: 500 }).notNull(),
+  fileName: varchar("file_name", { length: 255 }),
+  fileSize: int("file_size"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const botCommandReactions = mysqlTable("bot_command_reactions", {
+  id: int("id").primaryKey().autoincrement(),
+  commandId: int("command_id").notNull().references(() => botCommands.id, { onDelete: "cascade" }),
+  reactionType: varchar("reaction_type", { length: 50 }).notNull(),
+  textContent: text("text_content"),
+  imageUrl: varchar("image_url", { length: 500 }),
+  endpointUrl: varchar("endpoint_url", { length: 500 }),
+  endpointMethod: varchar("endpoint_method", { length: 10 }),
+  endpointAuth: json("endpoint_auth").$type<{ type: string; token?: string; apiKey?: string }>(),
+  endpointParams: json("endpoint_params").$type<Record<string, any>>(),
+  formatTemplate: text("format_template"),
+  conditions: json("conditions").$type<Array<{ field: string; operator: string; value: any; action: string }>>(),
+  priority: int("priority").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const botMenus = mysqlTable("bot_menus", {
+  id: int("id").primaryKey().autoincrement(),
+  parentMenuId: int("parent_menu_id").references((): any => botMenus.id, { onDelete: "cascade" }),
+  title: varchar("title", { length: 255 }).notNull(),
+  keyboardType: varchar("keyboard_type", { length: 20 }).notNull().default("reply"),
+  rows: int("rows").default(1),
+  columns: int("columns").default(1),
+  isRoot: boolean("is_root").default(false),
+  autoBackButton: boolean("auto_back_button").default(true),
+  backButtonText: varchar("back_button_text", { length: 100 }).default("◀️ Назад"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const botMenuButtons = mysqlTable("bot_menu_buttons", {
+  id: int("id").primaryKey().autoincrement(),
+  menuId: int("menu_id").notNull().references(() => botMenus.id, { onDelete: "cascade" }),
+  text: varchar("text", { length: 255 }).notNull(),
+  rowIndex: int("row_index").notNull().default(0),
+  columnIndex: int("column_index").notNull().default(0),
+  actionType: varchar("action_type", { length: 50 }).notNull(),
+  actionValue: text("action_value"),
+  submenuId: int("submenu_id").references(() => botMenus.id, { onDelete: "set null" }),
+  commandId: int("command_id").references(() => botCommands.id, { onDelete: "set null" }),
+  url: varchar("url", { length: 500 }),
+  fileUrl: varchar("file_url", { length: 500 }),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export const insertBalanceSchema = createInsertSchema(balances).omit({ id: true });
 export const insertUsersBalancesSchema = createInsertSchema(usersBalances).omit({ id: true });
@@ -248,6 +315,11 @@ export const insertAdminSchema = createInsertSchema(admins).omit({ id: true, cre
 export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true, createdAt: true, paidAt: true });
 export const insertNotificationSchema = createInsertSchema(notifications).omit({ id: true, createdAt: true });
 export const insertNotificationReadSchema = createInsertSchema(notificationReads).omit({ id: true, readAt: true });
+export const insertBotCommandSchema = createInsertSchema(botCommands).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertBotCommandFileSchema = createInsertSchema(botCommandFiles).omit({ id: true, createdAt: true });
+export const insertBotCommandReactionSchema = createInsertSchema(botCommandReactions).omit({ id: true, createdAt: true });
+export const insertBotMenuSchema = createInsertSchema(botMenus).omit({ id: true, createdAt: true });
+export const insertBotMenuButtonSchema = createInsertSchema(botMenuButtons).omit({ id: true, createdAt: true });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -285,3 +357,13 @@ export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotificationRead = z.infer<typeof insertNotificationReadSchema>;
 export type NotificationRead = typeof notificationReads.$inferSelect;
+export type InsertBotCommand = z.infer<typeof insertBotCommandSchema>;
+export type BotCommand = typeof botCommands.$inferSelect;
+export type InsertBotCommandFile = z.infer<typeof insertBotCommandFileSchema>;
+export type BotCommandFile = typeof botCommandFiles.$inferSelect;
+export type InsertBotCommandReaction = z.infer<typeof insertBotCommandReactionSchema>;
+export type BotCommandReaction = typeof botCommandReactions.$inferSelect;
+export type InsertBotMenu = z.infer<typeof insertBotMenuSchema>;
+export type BotMenu = typeof botMenus.$inferSelect;
+export type InsertBotMenuButton = z.infer<typeof insertBotMenuButtonSchema>;
+export type BotMenuButton = typeof botMenuButtons.$inferSelect;
