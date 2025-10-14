@@ -487,6 +487,7 @@ function ReactionFormDialog({
 
   const [uploadingImage, setUploadingImage] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [showConditions, setShowConditions] = useState(false);
 
   const form = useForm({
     resolver: zodResolver(reactionFormSchema),
@@ -506,6 +507,9 @@ function ReactionFormDialog({
 
   useEffect(() => {
     if (reaction) {
+      const hasConditions = reaction.conditions && JSON.stringify(reaction.conditions, null, 2).trim().length > 0;
+      setShowConditions(hasConditions);
+      
       form.reset({
         reactionType: reaction.reactionType || "text",
         textContent: reaction.textContent || "",
@@ -519,6 +523,7 @@ function ReactionFormDialog({
         isActive: reaction.isActive ?? true,
       });
     } else {
+      setShowConditions(false);
       form.reset({
         reactionType: "text",
         textContent: "",
@@ -658,6 +663,7 @@ function ReactionFormDialog({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {/* 1. Тип реакции */}
             <FormField
               control={form.control}
               name="reactionType"
@@ -681,108 +687,7 @@ function ReactionFormDialog({
               )}
             />
 
-            {(form.watch("reactionType") === "text" || form.watch("reactionType") === "mixed") && (
-              <FormField
-                control={form.control}
-                name="textContent"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Текстовое содержимое</FormLabel>
-                    <FormControl>
-                      <Textarea placeholder="Введите текст ответа" {...field} data-testid="input-text-content" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-
-            {(form.watch("reactionType") === "endpoint" || form.watch("reactionType") === "mixed") && (
-              <>
-                <FormField
-                  control={form.control}
-                  name="endpointUrl"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Endpoint URL</FormLabel>
-                      <FormControl>
-                        <Input placeholder="https://api.example.com/webhook" {...field} data-testid="input-endpoint-url" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="endpointMethod"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>HTTP метод</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-endpoint-method">
-                            <SelectValue placeholder="Выберите метод" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="GET">GET</SelectItem>
-                          <SelectItem value="POST">POST</SelectItem>
-                          <SelectItem value="PUT">PUT</SelectItem>
-                          <SelectItem value="PATCH">PATCH</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </>
-            )}
-
-            <FormField
-              control={form.control}
-              name="priority"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Приоритет</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min="0"
-                      {...field}
-                      onChange={(e) => field.onChange(parseInt(e.target.value))}
-                      data-testid="input-priority"
-                    />
-                  </FormControl>
-                  <FormDescription>Чем выше число, тем выше приоритет</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="conditions"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Условия выполнения (JSON)</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder='[{"field": "userId", "operator": "equals", "value": "123", "action": "execute"}]'
-                      className="font-mono text-sm"
-                      rows={4}
-                      {...field}
-                      data-testid="input-conditions"
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    JSON массив условий для выполнения реакции (опционально)
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
+            {/* 2. Изображение */}
             <FormField
               control={form.control}
               name="imageUrl"
@@ -826,14 +731,14 @@ function ReactionFormDialog({
                               id="image-upload"
                               data-testid="input-image-file"
                             />
-                            <label htmlFor="image-upload" className="cursor-pointer">
+                            <label htmlFor="image-upload" className="cursor-pointer block">
                               <div className="space-y-2">
                                 <div className="text-gray-500">
                                   {uploadingImage ? 'Загрузка...' : 'Перетащите изображение или нажмите для выбора'}
                                 </div>
-                                <Button type="button" variant="outline" size="sm" disabled={uploadingImage} data-testid="button-upload-image">
+                                <div className="inline-block px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors" data-testid="button-upload-image">
                                   Выбрать файл
-                                </Button>
+                                </div>
                               </div>
                             </label>
                           </div>
@@ -849,6 +754,67 @@ function ReactionFormDialog({
               )}
             />
 
+            {/* 3. Текстовое содержимое */}
+            {(form.watch("reactionType") === "text" || form.watch("reactionType") === "mixed") && (
+              <FormField
+                control={form.control}
+                name="textContent"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Текстовое содержимое</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Введите текст ответа" {...field} data-testid="input-text-content" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            {/* 4. Endpoint */}
+            {(form.watch("reactionType") === "endpoint" || form.watch("reactionType") === "mixed") && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="endpointUrl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Endpoint URL</FormLabel>
+                      <FormControl>
+                        <Input placeholder="https://api.example.com/webhook" {...field} data-testid="input-endpoint-url" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="endpointMethod"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>HTTP метод</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-endpoint-method">
+                            <SelectValue placeholder="Выберите метод" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="GET">GET</SelectItem>
+                          <SelectItem value="POST">POST</SelectItem>
+                          <SelectItem value="PUT">PUT</SelectItem>
+                          <SelectItem value="PATCH">PATCH</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
+
+            {/* 5. Ссылка */}
             <FormField
               control={form.control}
               name="linkUrl"
@@ -884,6 +850,69 @@ function ReactionFormDialog({
                 )}
               />
             )}
+
+            {/* 6. Приоритет */}
+            <FormField
+              control={form.control}
+              name="priority"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Приоритет</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="0"
+                      {...field}
+                      onChange={(e) => field.onChange(parseInt(e.target.value))}
+                      data-testid="input-priority"
+                    />
+                  </FormControl>
+                  <FormDescription>Чем выше число, тем выше приоритет</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* 7. Условия выполнения (скрытые) */}
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <FormLabel>Условия выполнения (JSON)</FormLabel>
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  onClick={() => setShowConditions(!showConditions)}
+                  className="h-auto p-0 text-blue-600"
+                  data-testid="button-toggle-conditions"
+                >
+                  {showConditions ? 'Скрыть' : 'Показать'}
+                </Button>
+              </div>
+              
+              {showConditions && (
+                <FormField
+                  control={form.control}
+                  name="conditions"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Textarea
+                          placeholder='[{"field": "userId", "operator": "equals", "value": "123", "action": "execute"}]'
+                          className="font-mono text-sm"
+                          rows={4}
+                          {...field}
+                          data-testid="input-conditions"
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        JSON массив условий для выполнения реакции (опционально)
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+            </div>
 
             <FormField
               control={form.control}
