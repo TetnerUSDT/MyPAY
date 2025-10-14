@@ -1205,6 +1205,36 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
     }
   });
 
+  // Fix old image URLs (migration utility)
+  app.post(`/${adminPath}/api/bot/reactions/fix-image-urls`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const protocol = req.protocol;
+      const host = req.get('host');
+      
+      // Get all reactions with relative URLs (not starting with http)
+      const reactions = await db.select().from(botCommandReactions);
+      const toUpdate = reactions.filter(r => r.imageUrl && !r.imageUrl.startsWith('http'));
+      
+      let updated = 0;
+      for (const reaction of toUpdate) {
+        const oldUrl = reaction.imageUrl!;
+        const newUrl = `${protocol}://${host}/${oldUrl.startsWith('/') ? oldUrl.substring(1) : oldUrl}`;
+        
+        await db.update(botCommandReactions)
+          .set({ imageUrl: newUrl })
+          .where(eq(botCommandReactions.id, reaction.id));
+        
+        console.log(`✅ Updated reaction ${reaction.id}: ${oldUrl} → ${newUrl}`);
+        updated++;
+      }
+      
+      res.json({ success: true, updated, total: toUpdate.length });
+    } catch (error) {
+      console.error('Fix image URLs error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // ========== BOT MENUS NAVIGATION ==========
   app.get(`/${adminPath}/api/bot/menus`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {

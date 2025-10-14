@@ -1401,6 +1401,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
                 // Send photo if imageUrl is provided, otherwise send text
                 if (reaction.imageUrl) {
+                  console.log(`📸 Sending photo with URL: ${reaction.imageUrl}`);
                   await telegramService.sendPhoto({
                     chatId: telegramId,
                     photoUrl: reaction.imageUrl,

@@ -271,7 +271,71 @@ function WebhookTab() {
           </Alert>
         </CardContent>
       </Card>
+
+      <UtilitiesCard />
     </div>
+  );
+}
+
+// Utilities Card Component
+function UtilitiesCard() {
+  const { toast } = useToast();
+
+  const fixImageUrlsMutation = useMutation({
+    mutationFn: () => 
+      adminRequest('/bot/reactions/fix-image-urls', {
+        method: 'POST',
+      }),
+    onSuccess: (data) => {
+      if (data.success) {
+        toast({
+          title: "Успех",
+          description: `Обновлено ${data.updated} из ${data.total} URL изображений`,
+        });
+        queryClient.invalidateQueries({ queryKey: ['/admin/api/bot/reactions'] });
+      } else {
+        toast({
+          title: "Ошибка",
+          description: "Не удалось обновить URL",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: () => {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось обновить URL",
+        variant: "destructive",
+      });
+    },
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Утилиты</CardTitle>
+        <CardDescription>
+          Инструменты для обслуживания и миграции данных
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Исправление URL изображений</label>
+          <p className="text-xs text-muted-foreground">
+            Обновляет старые относительные URL изображений (начинающиеся с /) на полные URL с протоколом и доменом для корректной работы с Telegram API
+          </p>
+          <Button
+            onClick={() => fixImageUrlsMutation.mutate()}
+            disabled={fixImageUrlsMutation.isPending}
+            variant="outline"
+            data-testid="button-fix-image-urls"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${fixImageUrlsMutation.isPending ? 'animate-spin' : ''}`} />
+            {fixImageUrlsMutation.isPending ? "Обновление..." : "Обновить URL изображений"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
