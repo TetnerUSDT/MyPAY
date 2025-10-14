@@ -8,6 +8,7 @@ import { insertBalanceSchema, insertCardSchema, insertBankSchema, insertExchange
 import { telegramService } from "./telegram-service";
 import { notificationService } from "./notification-service";
 import { formatBalance } from "./utils";
+import { systemUpload } from "./upload-config";
 
 // Helper functions for MySQL compatibility
 function generateUUID(): string {
@@ -1181,6 +1182,22 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
       res.json({ success: true });
     } catch (error) {
       console.error('Delete command reaction error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Upload image for reaction
+  app.post(`/${adminPath}/api/bot/reactions/upload-image`, requireSuperAdmin, systemUpload.single('image'), async (req: AdminRequest, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+      
+      // Return the file path relative to the server
+      const imageUrl = `/${req.file.path}`;
+      res.json({ imageUrl });
+    } catch (error) {
+      console.error('Upload reaction image error:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

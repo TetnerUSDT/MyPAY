@@ -256,6 +256,8 @@ export const botCommandReactions = mysqlTable("bot_command_reactions", {
   reactionType: varchar("reaction_type", { length: 50 }).notNull(),
   textContent: text("text_content"),
   imageUrl: varchar("image_url", { length: 500 }),
+  linkUrl: varchar("link_url", { length: 500 }),
+  linkText: varchar("link_text", { length: 100 }),
   endpointUrl: varchar("endpoint_url", { length: 500 }),
   endpointMethod: varchar("endpoint_method", { length: 10 }),
   endpointAuth: json("endpoint_auth").$type<{ type: string; token?: string; apiKey?: string }>(),
