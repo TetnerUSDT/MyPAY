@@ -1133,4 +1133,170 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
       res.status(500).json({ message: "Internal server error" });
     }
   });
+
+  // ========== BOT COMMAND REACTIONS ==========
+  app.get(`/${adminPath}/api/bot/commands/:commandId/reactions`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const { commandId } = req.params;
+      const reactions = await db.select().from(botCommandReactions).where(eq(botCommandReactions.commandId, parseInt(commandId))).orderBy(botCommandReactions.priority);
+      res.json(reactions);
+    } catch (error) {
+      console.error('Get command reactions error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post(`/${adminPath}/api/bot/commands/:commandId/reactions`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const { commandId } = req.params;
+      const validatedData = insertBotCommandReactionSchema.parse({ ...req.body, commandId: parseInt(commandId) });
+      const newReaction = await insertAndReturn(botCommandReactions, validatedData);
+      res.json(newReaction);
+    } catch (error) {
+      console.error('Create command reaction error:', error);
+      if (error instanceof Error) {
+        res.status(400).json({ message: error.message });
+      } else {
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  });
+
+  app.patch(`/${adminPath}/api/bot/reactions/:id`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const { id } = req.params;
+      const validatedData = insertBotCommandReactionSchema.partial().parse(req.body);
+      const updatedReaction = await updateAndReturn(botCommandReactions, validatedData, eq(botCommandReactions.id, parseInt(id)));
+      res.json(updatedReaction);
+    } catch (error) {
+      console.error('Update command reaction error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete(`/${adminPath}/api/bot/reactions/:id`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const { id } = req.params;
+      await db.delete(botCommandReactions).where(eq(botCommandReactions.id, parseInt(id)));
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Delete command reaction error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // ========== BOT MENUS NAVIGATION ==========
+  app.get(`/${adminPath}/api/bot/menus`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const menus = await db.select().from(botMenus).orderBy(botMenus.isRoot, botMenus.title);
+      res.json(menus);
+    } catch (error) {
+      console.error('Get bot menus error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get(`/${adminPath}/api/bot/menus/:id`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const { id } = req.params;
+      const [menu] = await db.select().from(botMenus).where(eq(botMenus.id, parseInt(id))).limit(1);
+      if (!menu) {
+        return res.status(404).json({ message: "Menu not found" });
+      }
+      const buttons = await db.select().from(botMenuButtons).where(eq(botMenuButtons.menuId, parseInt(id))).orderBy(botMenuButtons.rowIndex, botMenuButtons.columnIndex);
+      res.json({ ...menu, buttons });
+    } catch (error) {
+      console.error('Get bot menu error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post(`/${adminPath}/api/bot/menus`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const validatedData = insertBotMenuSchema.parse(req.body);
+      const newMenu = await insertAndReturn(botMenus, validatedData);
+      res.json(newMenu);
+    } catch (error) {
+      console.error('Create bot menu error:', error);
+      if (error instanceof Error) {
+        res.status(400).json({ message: error.message });
+      } else {
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  });
+
+  app.patch(`/${adminPath}/api/bot/menus/:id`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const { id } = req.params;
+      const validatedData = insertBotMenuSchema.partial().parse(req.body);
+      const updatedMenu = await updateAndReturn(botMenus, validatedData, eq(botMenus.id, parseInt(id)));
+      res.json(updatedMenu);
+    } catch (error) {
+      console.error('Update bot menu error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete(`/${adminPath}/api/bot/menus/:id`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const { id } = req.params;
+      await db.delete(botMenus).where(eq(botMenus.id, parseInt(id)));
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Delete bot menu error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // ========== BOT MENU BUTTONS ==========
+  app.get(`/${adminPath}/api/bot/menus/:menuId/buttons`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const { menuId } = req.params;
+      const buttons = await db.select().from(botMenuButtons).where(eq(botMenuButtons.menuId, parseInt(menuId))).orderBy(botMenuButtons.rowIndex, botMenuButtons.columnIndex);
+      res.json(buttons);
+    } catch (error) {
+      console.error('Get menu buttons error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post(`/${adminPath}/api/bot/menus/:menuId/buttons`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const { menuId } = req.params;
+      const validatedData = insertBotMenuButtonSchema.parse({ ...req.body, menuId: parseInt(menuId) });
+      const newButton = await insertAndReturn(botMenuButtons, validatedData);
+      res.json(newButton);
+    } catch (error) {
+      console.error('Create menu button error:', error);
+      if (error instanceof Error) {
+        res.status(400).json({ message: error.message });
+      } else {
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  });
+
+  app.patch(`/${adminPath}/api/bot/buttons/:id`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const { id } = req.params;
+      const validatedData = insertBotMenuButtonSchema.partial().parse(req.body);
+      const updatedButton = await updateAndReturn(botMenuButtons, validatedData, eq(botMenuButtons.id, parseInt(id)));
+      res.json(updatedButton);
+    } catch (error) {
+      console.error('Update menu button error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete(`/${adminPath}/api/bot/buttons/:id`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const { id } = req.params;
+      await db.delete(botMenuButtons).where(eq(botMenuButtons.id, parseInt(id)));
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Delete menu button error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
 }

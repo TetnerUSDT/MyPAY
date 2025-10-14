@@ -1289,17 +1289,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
-        // Handle /start command
+        // Load dynamic commands and menu from DB
+        const commands = await telegramService.loadBotCommands();
+        const rootMenuData = await telegramService.loadRootMenu();
+        
+        // Handle commands (both hardcoded and dynamic)
         if (messageText.startsWith('/start')) {
           const welcomeMessage = `Добро пожаловать в SwiftX! 👋\n\nВыберите один из пунктов меню ниже:`;
           
-          const replyKeyboard = {
-            keyboard: [
-              [{ text: '📃Условия P2P' }, { text: '💸Кешбек' }]
-            ],
-            resize_keyboard: true,
-            one_time_keyboard: false
-          };
+          // Try to use dynamic menu from DB, fallback to static
+          let replyKeyboard = rootMenuData ? telegramService.generateKeyboard(rootMenuData) : null;
+          
+          if (!replyKeyboard) {
+            // Fallback to static menu
+            replyKeyboard = {
+              keyboard: [
+                [{ text: '📃Условия P2P' }, { text: '💸Кешбек' }]
+              ],
+              resize_keyboard: true,
+              one_time_keyboard: false
+            };
+          }
 
           await telegramService.sendMessage({
             chatId: telegramId,
@@ -1307,9 +1317,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             replyMarkup: replyKeyboard
           });
         }
-        // Handle button clicks (text messages)
-        else if (messageText === '📃Условия P2P') {
-          const p2pTerms = `💼 Условия работы P2P обменника
+        // Check if it's a dynamic command from DB
+        else {
+          const matchingCommand = commands.find(cmd => messageText === cmd.command || messageText.startsWith(cmd.command + ' '));
+          
+          if (matchingCommand) {
+            // TODO: Process command reactions from bot_command_reactions
+            await telegramService.sendMessage({
+              chatId: telegramId,
+              text: matchingCommand.description || 'Команда обрабатывается...'
+            });
+          }
+          // Handle static button clicks (legacy support)
+          else if (messageText === '📃Условия P2P') {
+            const p2pTerms = `💼 Условия работы P2P обменника
 
 1. Минимальная сумма обмена:
 от 100 ₽ и выше
@@ -1332,16 +1353,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 • Если оплата не поступила — средства остаются у вас и доступны для вывода
 • Если на карту поступила неполная сумма, остаток автоматически возвращается на ваш криптокошелёк`;
 
-          await telegramService.sendMessage({
-            chatId: telegramId,
-            text: p2pTerms
-          });
-        }
-        else if (messageText === '💸Кешбек') {
-          await telegramService.sendMessage({
-            chatId: telegramId,
-            text: 'Ожидайте, скоро появиться информация!'
-          });
+            await telegramService.sendMessage({
+              chatId: telegramId,
+              text: p2pTerms
+            });
+          }
+          else if (messageText === '💸Кешбек') {
+            await telegramService.sendMessage({
+              chatId: telegramId,
+              text: 'Ожидайте, скоро появиться информация!'
+            });
+          }
         }
       }
       

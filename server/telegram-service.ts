@@ -345,6 +345,93 @@ ${data.network ? `🌐 Сеть: ${data.network}` : ''}
       };
     }
   }
+
+  /**
+   * Load active bot commands from database
+   */
+  async loadBotCommands() {
+    try {
+      const { db } = await import('./db');
+      const { botCommands, botCommandReactions } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      
+      const commands = await db
+        .select()
+        .from(botCommands)
+        .where(eq(botCommands.isActive, true));
+      
+      return commands;
+    } catch (error) {
+      console.error('Error loading bot commands:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Load root menu from database
+   */
+  async loadRootMenu() {
+    try {
+      const { db } = await import('./db');
+      const { botMenus, botMenuButtons } = await import('@shared/schema');
+      const { eq, and } = await import('drizzle-orm');
+      
+      const [rootMenu] = await db
+        .select()
+        .from(botMenus)
+        .where(and(eq(botMenus.isRoot, true), eq(botMenus.isActive, true)))
+        .limit(1);
+      
+      if (!rootMenu) return null;
+      
+      const buttons = await db
+        .select()
+        .from(botMenuButtons)
+        .where(and(eq(botMenuButtons.menuId, rootMenu.id), eq(botMenuButtons.isActive, true)))
+        .orderBy(botMenuButtons.rowIndex, botMenuButtons.columnIndex);
+      
+      return { menu: rootMenu, buttons };
+    } catch (error) {
+      console.error('Error loading root menu:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Generate keyboard from menu and buttons
+   */
+  generateKeyboard(menuData: any) {
+    if (!menuData || !menuData.buttons || menuData.buttons.length === 0) {
+      return null;
+    }
+
+    const { menu, buttons } = menuData;
+    const keyboard: any[][] = [];
+    
+    // Group buttons by row
+    const rowMap = new Map<number, any[]>();
+    buttons.forEach((button: any) => {
+      if (!rowMap.has(button.rowIndex)) {
+        rowMap.set(button.rowIndex, []);
+      }
+      rowMap.get(button.rowIndex)!.push(button);
+    });
+    
+    // Sort rows and create keyboard structure
+    const sortedRows = Array.from(rowMap.keys()).sort((a, b) => a - b);
+    sortedRows.forEach(rowIndex => {
+      const rowButtons = rowMap.get(rowIndex)!
+        .sort((a, b) => a.columnIndex - b.columnIndex)
+        .map(btn => ({ text: btn.text }));
+      keyboard.push(rowButtons);
+    });
+    
+    return {
+      keyboard,
+      resize_keyboard: true,
+      one_time_keyboard: false
+    };
+  }
 }
 
 export const telegramService = new TelegramService();
