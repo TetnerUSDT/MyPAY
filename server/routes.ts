@@ -1325,18 +1325,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Execute reactions
           for (const reaction of reactions) {
             if (reaction.reactionType === 'text' || reaction.reactionType === 'mixed') {
-              if (reaction.textContent) {
+              if (reaction.textContent || reaction.imageUrl) {
                 // For /start command, include menu
                 let replyMarkup = undefined;
                 if (matchingCommand.command === '/start' && rootMenuData) {
                   replyMarkup = telegramService.generateKeyboard(rootMenuData);
                 }
 
-                await telegramService.sendMessage({
-                  chatId: telegramId,
-                  text: reaction.textContent,
-                  replyMarkup
-                });
+                // Add inline button for link if provided
+                if (reaction.linkUrl && reaction.linkText) {
+                  const inlineKeyboard = {
+                    inline_keyboard: [
+                      [{ text: reaction.linkText, url: reaction.linkUrl }]
+                    ]
+                  };
+                  // Merge with existing reply markup if any
+                  if (replyMarkup) {
+                    replyMarkup = {
+                      ...replyMarkup,
+                      inline_keyboard: inlineKeyboard.inline_keyboard
+                    };
+                  } else {
+                    replyMarkup = inlineKeyboard;
+                  }
+                }
+
+                // Send photo if imageUrl is provided, otherwise send text
+                if (reaction.imageUrl) {
+                  await telegramService.sendPhoto({
+                    chatId: telegramId,
+                    photoUrl: reaction.imageUrl,
+                    caption: reaction.textContent || '',
+                    replyMarkup
+                  });
+                } else if (reaction.textContent) {
+                  await telegramService.sendMessage({
+                    chatId: telegramId,
+                    text: reaction.textContent,
+                    replyMarkup
+                  });
+                }
               }
             }
             

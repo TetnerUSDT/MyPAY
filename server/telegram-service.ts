@@ -157,6 +157,57 @@ export class TelegramService {
   }
 
   /**
+   * Send photo with caption and optional buttons
+   */
+  async sendPhoto(options: {
+    chatId: string | number;
+    photoUrl: string;
+    caption?: string;
+    parseMode?: 'HTML' | 'Markdown';
+    replyMarkup?: any;
+  }): Promise<boolean> {
+    try {
+      const body: any = {
+        chat_id: options.chatId,
+        photo: options.photoUrl,
+      };
+
+      if (options.caption) {
+        body.caption = options.caption;
+      }
+
+      if (options.parseMode) {
+        body.parse_mode = options.parseMode;
+      }
+
+      if (options.replyMarkup) {
+        body.reply_markup = options.replyMarkup;
+      }
+
+      const response = await fetch(`${this.baseUrl}/sendPhoto`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      const data: TelegramApiResponse<any> = await response.json();
+
+      if (data.ok) {
+        console.log(`✅ Photo sent to chat ${options.chatId}`);
+        return true;
+      } else {
+        console.error(`Failed to send photo:`, data.description);
+        return false;
+      }
+    } catch (error) {
+      console.error(`Error sending photo:`, error);
+      return false;
+    }
+  }
+
+  /**
    * Send message to admin channel
    */
   async sendChannelMessage(message: string, parseMode: 'HTML' | 'Markdown' = 'HTML'): Promise<boolean> {
