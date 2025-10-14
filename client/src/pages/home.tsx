@@ -7,9 +7,9 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { User } from "@shared/schema";
 import { formatBalance } from "@/lib/utils";
 
-// Images from public directory - use direct URLs
-const catImage = "/uploads/icons/cat-logo.png";
-const startBgImage = "/uploads/assets/start-bg.png";
+// Images from public directory - use direct URLs with cache busting
+const catImage = `/uploads/icons/cat-logo.png?v=${Date.now()}`;
+const startBgImage = `/uploads/assets/start-bg.png?v=${Date.now()}`;
 const tronImage = "/uploads/icons/cryptocurrency/tron.png";
 const bnbImage = "/uploads/icons/cryptocurrency/bnb.png";
 const tonImage = "/uploads/icons/cryptocurrency/ton.png";
