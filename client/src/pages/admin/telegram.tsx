@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { adminRequest } from "@/lib/adminApi";
 import { queryClient } from "@/lib/queryClient";
 import { Badge } from "@/components/ui/badge";
@@ -820,6 +821,263 @@ function MenuDialog({
   );
 }
 
+// Button Form Dialog Component
+function ButtonFormDialog({
+  button,
+  menuId,
+  open,
+  onOpenChange
+}: {
+  button: any;
+  menuId: string | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { toast } = useToast();
+
+  const buttonFormSchema = z.object({
+    text: z.string().min(1, "Текст кнопки обязателен"),
+    rowIndex: z.number().min(0),
+    columnIndex: z.number().min(0),
+    actionType: z.string().min(1, "Тип действия обязателен"),
+    actionValue: z.string().optional(),
+    url: z.string().optional(),
+    isActive: z.boolean().default(true),
+  });
+
+  const form = useForm({
+    resolver: zodResolver(buttonFormSchema),
+    defaultValues: {
+      text: "",
+      rowIndex: 0,
+      columnIndex: 0,
+      actionType: "command",
+      actionValue: "",
+      url: "",
+      isActive: true,
+    },
+  });
+
+  useEffect(() => {
+    if (button) {
+      form.reset({
+        text: button.text || "",
+        rowIndex: button.rowIndex || 0,
+        columnIndex: button.columnIndex || 0,
+        actionType: button.actionType || "command",
+        actionValue: button.actionValue || "",
+        url: button.url || "",
+        isActive: button.isActive ?? true,
+      });
+    } else {
+      form.reset({
+        text: "",
+        rowIndex: 0,
+        columnIndex: 0,
+        actionType: "command",
+        actionValue: "",
+        url: "",
+        isActive: true,
+      });
+    }
+  }, [button, form]);
+
+  const createMutation = useMutation({
+    mutationFn: (data: any) =>
+      adminRequest(`/bot/menus/${menuId}/buttons`, {
+        method: 'POST',
+        body: JSON.stringify({ ...data, menuId: parseInt(menuId!) }),
+      }),
+    onSuccess: () => {
+      toast({ title: "Успех", description: "Кнопка успешно создана" });
+      queryClient.invalidateQueries({ queryKey: ['/admin/api/bot/menus', menuId, 'buttons'] });
+      onOpenChange(false);
+    },
+    onError: () => {
+      toast({ title: "Ошибка", description: "Не удалось создать кнопку", variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: any) =>
+      adminRequest(`/bot/menus/${menuId}/buttons/${button?.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      toast({ title: "Успех", description: "Кнопка успешно обновлена" });
+      queryClient.invalidateQueries({ queryKey: ['/admin/api/bot/menus', menuId, 'buttons'] });
+      onOpenChange(false);
+    },
+    onError: () => {
+      toast({ title: "Ошибка", description: "Не удалось обновить кнопку", variant: "destructive" });
+    },
+  });
+
+  const onSubmit = (data: any) => {
+    if (button) {
+      updateMutation.mutate(data);
+    } else {
+      createMutation.mutate(data);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{button ? "Редактировать кнопку" : "Добавить кнопку"}</DialogTitle>
+          <DialogDescription>
+            {button ? "Обновите параметры кнопки" : "Создайте новую кнопку для меню"}
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="text"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Текст кнопки</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Введите текст кнопки" {...field} data-testid="input-button-text" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="rowIndex"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Ряд (Row)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="0"
+                        {...field}
+                        onChange={(e) => field.onChange(parseInt(e.target.value))}
+                        data-testid="input-row-index"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="columnIndex"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Колонка (Column)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="0"
+                        {...field}
+                        onChange={(e) => field.onChange(parseInt(e.target.value))}
+                        data-testid="input-column-index"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="actionType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Тип действия</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-action-type">
+                        <SelectValue placeholder="Выберите тип действия" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="command">Команда</SelectItem>
+                      <SelectItem value="url">URL</SelectItem>
+                      <SelectItem value="callback">Callback</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {(form.watch("actionType") === "command" || form.watch("actionType") === "callback") && (
+              <FormField
+                control={form.control}
+                name="actionValue"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{form.watch("actionType") === "command" ? "Команда" : "Callback данные"}</FormLabel>
+                    <FormControl>
+                      <Input placeholder={form.watch("actionType") === "command" ? "/start" : "callback_data"} {...field} data-testid="input-action-value" />
+                    </FormControl>
+                    <FormDescription>
+                      {form.watch("actionType") === "command" ? "Команда для выполнения" : "Данные для callback запроса"}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            {form.watch("actionType") === "url" && (
+              <FormField
+                control={form.control}
+                name="url"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>URL</FormLabel>
+                    <FormControl>
+                      <Input placeholder="https://example.com" {...field} data-testid="input-url" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            <FormField
+              control={form.control}
+              name="isActive"
+              render={({ field }) => (
+                <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="space-y-0.5">
+                    <FormLabel>Активна</FormLabel>
+                    <FormDescription>Кнопка будет отображаться в меню</FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch checked={field.value} onCheckedChange={field.onChange} data-testid="switch-is-active" />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel">
+                Отмена
+              </Button>
+              <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-save">
+                {button ? "Обновить" : "Создать"}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // Button Dialog Component for managing buttons of a menu
 function ButtonDialog({
   menuId,
@@ -831,6 +1089,8 @@ function ButtonDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { toast } = useToast();
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingButton, setEditingButton] = useState<any>(null);
 
   const { data: buttons, isLoading } = useQuery({
     queryKey: ['/admin/api/bot/menus', menuId, 'buttons'],
@@ -838,52 +1098,111 @@ function ButtonDialog({
     enabled: !!menuId && open,
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (buttonId: number) =>
+      adminRequest(`/bot/menus/${menuId}/buttons/${buttonId}`, {
+        method: 'DELETE',
+      }),
+    onSuccess: () => {
+      toast({ title: "Успех", description: "Кнопка успешно удалена" });
+      queryClient.invalidateQueries({ queryKey: ['/admin/api/bot/menus', menuId, 'buttons'] });
+    },
+    onError: () => {
+      toast({ title: "Ошибка", description: "Не удалось удалить кнопку", variant: "destructive" });
+    },
+  });
+
+  const handleEdit = (btn: any) => {
+    setEditingButton(btn);
+    setFormOpen(true);
+  };
+
+  const handleAdd = () => {
+    setEditingButton(null);
+    setFormOpen(true);
+  };
+
+  const handleDelete = (buttonId: number) => {
+    if (confirm("Вы уверены, что хотите удалить эту кнопку?")) {
+      deleteMutation.mutate(buttonId);
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Управление кнопками меню</DialogTitle>
-          <DialogDescription>
-            Создавайте и редактируйте кнопки для этого меню
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4">
-          {isLoading ? (
-            <div>Загрузка...</div>
-          ) : buttons && buttons.length > 0 ? (
-            <div className="space-y-2">
-              {buttons.map((btn: any) => (
-                <div
-                  key={btn.id}
-                  className="flex items-center justify-between p-3 border rounded-lg"
-                  data-testid={`button-item-${btn.id}`}
-                >
-                  <div>
-                    <div className="font-medium">{btn.text}</div>
-                    <div className="text-sm text-muted-foreground">
-                      Позиция: Row {btn.rowIndex}, Col {btn.columnIndex}
+    <>
+      <ButtonFormDialog
+        button={editingButton}
+        menuId={menuId}
+        open={formOpen}
+        onOpenChange={(open) => {
+          setFormOpen(open);
+          if (!open) setEditingButton(null);
+        }}
+      />
+
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Управление кнопками меню</DialogTitle>
+            <DialogDescription>
+              Создавайте и редактируйте кнопки для этого меню
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {isLoading ? (
+              <div>Загрузка...</div>
+            ) : buttons && buttons.length > 0 ? (
+              <div className="space-y-2">
+                {buttons.map((btn: any) => (
+                  <div
+                    key={btn.id}
+                    className="flex items-center justify-between p-3 border rounded-lg"
+                    data-testid={`button-item-${btn.id}`}
+                  >
+                    <div>
+                      <div className="font-medium">{btn.text}</div>
+                      <div className="text-sm text-muted-foreground">
+                        Позиция: Row {btn.rowIndex}, Col {btn.columnIndex} • {btn.actionType}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <Badge variant={btn.isActive ? "default" : "secondary"}>
+                        {btn.isActive ? "Активна" : "Неактивна"}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEdit(btn)}
+                        data-testid={`button-edit-btn-${btn.id}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(btn.id)}
+                        disabled={deleteMutation.isPending}
+                        data-testid={`button-delete-btn-${btn.id}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Badge variant={btn.isActive ? "default" : "secondary"}>
-                      {btn.isActive ? "Активна" : "Неактивна"}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center text-muted-foreground py-8">
-              Кнопки не найдены. Добавьте первую кнопку.
-            </div>
-          )}
-          <Button className="w-full" variant="outline" data-testid="button-add-menu-button">
-            <Plus className="h-4 w-4 mr-2" />
-            Добавить кнопку
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-muted-foreground py-8">
+                Кнопки не найдены. Добавьте первую кнопку.
+              </div>
+            )}
+            <Button className="w-full" variant="outline" onClick={handleAdd} data-testid="button-add-menu-button">
+              <Plus className="h-4 w-4 mr-2" />
+              Добавить кнопку
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
