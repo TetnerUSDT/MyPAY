@@ -10,7 +10,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { adminRequest } from "@/lib/adminApi";
+import { adminRequest, getAdminCredentials, getAdminPath } from "@/lib/adminApi";
 import { queryClient } from "@/lib/queryClient";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -545,22 +545,19 @@ function ReactionFormDialog({
       const formData = new FormData();
       formData.append('image', file);
 
-      // Get admin credentials from storage
-      const stored = localStorage.getItem('admin_credentials');
-      if (!stored) {
+      // Get admin credentials
+      const creds = getAdminCredentials();
+      if (!creds) {
         throw new Error('Not authenticated');
       }
 
-      const decoded = atob(stored);
-      const [username, password] = decoded.split(':');
-
-      const adminPath = import.meta.env.VITE_ADMIN_URL || 'admin';
+      const adminPath = await getAdminPath();
       const response = await fetch(`/${adminPath}/api/bot/reactions/upload-image`, {
         method: 'POST',
         body: formData,
         credentials: 'include',
         headers: {
-          'Authorization': `Basic ${btoa(`${username}:${password}`)}`,
+          'Authorization': `Basic ${btoa(`${creds.username}:${creds.password}`)}`,
         },
       });
 
