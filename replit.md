@@ -20,9 +20,10 @@ The client is built with React 18 and TypeScript, utilizing a component-based ar
 ## Backend Architecture
 The server uses Express.js with TypeScript in ESM mode, focusing on clean separation of concerns:
 - **Storage Layer**: Interface-based pattern allowing flexible database implementations.
-- **Route Handling**: Centralized routing with error handling and logging.
+- **Route Handling**: Centralized routing with error handling and logging. Admin routes are separated into `admin-routes.ts` with path prefix `/{adminPath}/api/*`.
 - **Development**: Vite integration for hot module replacement.
 - **API Design**: RESTful endpoints for transactions, exchange rates, and support.
+- **Telegram Webhook**: Public webhook endpoint at `/api/telegram/webhook` for Telegram updates. Webhook management (set/info/delete) available at `/{adminPath}/api/telegram/webhook/*` (admin only).
 
 ## Data Storage Solutions
 The application supports PostgreSQL (default) and MySQL with Drizzle ORM for type-safe operations:
