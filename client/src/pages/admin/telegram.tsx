@@ -1,16 +1,44 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { adminRequest } from "@/lib/adminApi";
 import { queryClient } from "@/lib/queryClient";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle2, XCircle, RefreshCw, Send, Command, Navigation } from "lucide-react";
+import { CheckCircle2, XCircle, RefreshCw, Send, Command, Navigation, Pencil, Trash2, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+
+// Command form schema
+const commandFormSchema = z.object({
+  command: z.string().min(1, "Команда обязательна").regex(/^[/a-zA-Z0-9_\u0400-\u04FF\s]+$/, "Команда может содержать буквы, цифры, подчеркивания и /"),
+  description: z.string().optional(),
+  isActive: z.boolean().default(true),
+});
+
+type CommandFormValues = z.infer<typeof commandFormSchema>;
+
+// Menu form schema
+const menuFormSchema = z.object({
+  title: z.string().min(1, "Название меню обязательно"),
+  keyboardType: z.enum(["reply", "inline"]).default("reply"),
+  rows: z.number().min(1).max(10).default(3),
+  columns: z.number().min(1).max(4).default(2),
+  isRoot: z.boolean().default(false),
+  isActive: z.boolean().default(true),
+});
+
+type MenuFormValues = z.infer<typeof menuFormSchema>;
 
 // Webhook Tab Component
 function WebhookTab() {
@@ -234,94 +262,626 @@ function WebhookTab() {
   );
 }
 
+// Command Dialog Component
+function CommandDialog({ 
+  command, 
+  open, 
+  onOpenChange 
+}: { 
+  command?: any; 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { toast } = useToast();
+  const isEdit = !!command;
+
+  const form = useForm<CommandFormValues>({
+    resolver: zodResolver(commandFormSchema),
+    defaultValues: {
+      command: "",
+      description: "",
+      isActive: true,
+    },
+  });
+
+  // Reset form when command changes or dialog opens
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        command: command?.command || "",
+        description: command?.description || "",
+        isActive: command?.isActive ?? true,
+      });
+    }
+  }, [command, open, form]);
+
+  const createMutation = useMutation({
+    mutationFn: (data: CommandFormValues) =>
+      adminRequest('/bot/commands', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      toast({
+        title: "Успех",
+        description: "Команда успешно создана",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/admin/api/bot/commands'] });
+      onOpenChange(false);
+      form.reset();
+    },
+    onError: () => {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось создать команду",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: CommandFormValues) =>
+      adminRequest(`/bot/commands/${command.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      toast({
+        title: "Успех",
+        description: "Команда успешно обновлена",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/admin/api/bot/commands'] });
+      onOpenChange(false);
+    },
+    onError: () => {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось обновить команду",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: CommandFormValues) => {
+    if (isEdit) {
+      updateMutation.mutate(data);
+    } else {
+      createMutation.mutate(data);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[525px]">
+        <DialogHeader>
+          <DialogTitle>{isEdit ? "Редактировать команду" : "Добавить команду"}</DialogTitle>
+          <DialogDescription>
+            {isEdit ? "Обновите данные команды бота" : "Создайте новую команду для Telegram бота"}
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="command"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Команда</FormLabel>
+                  <FormControl>
+                    <Input placeholder="/start или Текст кнопки" {...field} data-testid="input-command" />
+                  </FormControl>
+                  <FormDescription>
+                    Команда или текст кнопки, которую бот будет распознавать
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Описание (опционально)</FormLabel>
+                  <FormControl>
+                    <Textarea 
+                      placeholder="Краткое описание команды"
+                      {...field}
+                      data-testid="input-description"
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Внутреннее описание для администраторов
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="isActive"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                  <div className="space-y-0.5">
+                    <FormLabel>Активна</FormLabel>
+                    <FormDescription>
+                      Бот будет отвечать на эту команду
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      data-testid="switch-active"
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                data-testid="button-cancel"
+              >
+                Отмена
+              </Button>
+              <Button
+                type="submit"
+                disabled={createMutation.isPending || updateMutation.isPending}
+                data-testid="button-save"
+              >
+                {(createMutation.isPending || updateMutation.isPending) ? "Сохранение..." : "Сохранить"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // Commands Tab Component
 function CommandsTab() {
   const { toast } = useToast();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingCommand, setEditingCommand] = useState<any>(null);
 
   const { data: commands, isLoading } = useQuery({
     queryKey: ['/admin/api/bot/commands'],
     queryFn: () => adminRequest('/bot/commands'),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) =>
+      adminRequest(`/bot/commands/${id}`, {
+        method: 'DELETE',
+      }),
+    onSuccess: () => {
+      toast({
+        title: "Успех",
+        description: "Команда успешно удалена",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/admin/api/bot/commands'] });
+    },
+    onError: () => {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось удалить команду",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEdit = (cmd: any) => {
+    setEditingCommand(cmd);
+    setDialogOpen(true);
+  };
+
+  const handleAdd = () => {
+    setEditingCommand(null);
+    setDialogOpen(true);
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm("Вы уверены, что хотите удалить эту команду?")) {
+      deleteMutation.mutate(id);
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Команды Бота</CardTitle>
-              <CardDescription>
-                Управление командами Telegram бота
-              </CardDescription>
+    <>
+      <CommandDialog
+        command={editingCommand}
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) setEditingCommand(null);
+        }}
+      />
+      
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Команды Бота</CardTitle>
+                <CardDescription>
+                  Управление командами Telegram бота
+                </CardDescription>
+              </div>
+              <Button onClick={handleAdd} data-testid="button-add-command">
+                <Plus className="h-4 w-4 mr-2" />
+                Добавить команду
+              </Button>
             </div>
-            <Button data-testid="button-add-command">
-              <Command className="h-4 w-4 mr-2" />
-              Добавить команду
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div>Загрузка...</div>
-          ) : commands && commands.length > 0 ? (
-            <div className="space-y-2">
-              {commands.map((cmd: any) => (
-                <div
-                  key={cmd.id}
-                  className="flex items-center justify-between p-3 border rounded-lg"
-                  data-testid={`command-item-${cmd.id}`}
-                >
-                  <div>
-                    <div className="font-medium">{cmd.command}</div>
-                    {cmd.description && (
-                      <div className="text-sm text-muted-foreground">{cmd.description}</div>
-                    )}
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div>Загрузка...</div>
+            ) : commands && commands.length > 0 ? (
+              <div className="space-y-2">
+                {commands.map((cmd: any) => (
+                  <div
+                    key={cmd.id}
+                    className="flex items-center justify-between p-3 border rounded-lg"
+                    data-testid={`command-item-${cmd.id}`}
+                  >
+                    <div className="flex-1">
+                      <div className="font-medium">{cmd.command}</div>
+                      {cmd.description && (
+                        <div className="text-sm text-muted-foreground">{cmd.description}</div>
+                      )}
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <Badge variant={cmd.isActive ? "default" : "secondary"}>
+                        {cmd.isActive ? "Активна" : "Неактивна"}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEdit(cmd)}
+                        data-testid={`button-edit-${cmd.id}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(cmd.id)}
+                        disabled={deleteMutation.isPending}
+                        data-testid={`button-delete-${cmd.id}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Badge variant={cmd.isActive ? "default" : "secondary"}>
-                      {cmd.isActive ? "Активна" : "Неактивна"}
-                    </Badge>
-                    <Button variant="outline" size="sm">Редактировать</Button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-muted-foreground py-8">
+                Команды не найдены. Добавьте первую команду.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </>
+  );
+}
+
+// Menu Dialog Component
+function MenuDialog({
+  menu,
+  open,
+  onOpenChange
+}: {
+  menu?: any;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { toast } = useToast();
+  const isEdit = !!menu;
+
+  const form = useForm<MenuFormValues>({
+    resolver: zodResolver(menuFormSchema),
+    defaultValues: {
+      title: "",
+      keyboardType: "reply",
+      rows: 3,
+      columns: 2,
+      isRoot: false,
+      isActive: true,
+    },
+  });
+
+  // Reset form when menu changes or dialog opens
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        title: menu?.title || "",
+        keyboardType: menu?.keyboardType || "reply",
+        rows: menu?.rows || 3,
+        columns: menu?.columns || 2,
+        isRoot: menu?.isRoot || false,
+        isActive: menu?.isActive ?? true,
+      });
+    }
+  }, [menu, open, form]);
+
+  const createMutation = useMutation({
+    mutationFn: (data: MenuFormValues) =>
+      adminRequest('/bot/menus', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      toast({
+        title: "Успех",
+        description: "Меню успешно создано",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/admin/api/bot/menus'] });
+      onOpenChange(false);
+      form.reset();
+    },
+    onError: () => {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось создать меню",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: MenuFormValues) =>
+      adminRequest(`/bot/menus/${menu.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      toast({
+        title: "Успех",
+        description: "Меню успешно обновлено",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/admin/api/bot/menus'] });
+      onOpenChange(false);
+    },
+    onError: () => {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось обновить меню",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: MenuFormValues) => {
+    if (isEdit) {
+      updateMutation.mutate(data);
+    } else {
+      createMutation.mutate(data);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[525px]">
+        <DialogHeader>
+          <DialogTitle>{isEdit ? "Редактировать меню" : "Добавить меню"}</DialogTitle>
+          <DialogDescription>
+            {isEdit ? "Обновите настройки меню" : "Создайте новое меню для бота"}
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Название меню</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Главное меню" {...field} data-testid="input-menu-title" />
+                  </FormControl>
+                  <FormDescription>
+                    Внутреннее название для идентификации
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="rows"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Строк</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        min={1}
+                        max={10}
+                        {...field}
+                        onChange={(e) => field.onChange(parseInt(e.target.value))}
+                        data-testid="input-rows"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="columns"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Столбцов</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number"
+                        min={1}
+                        max={4}
+                        {...field}
+                        onChange={(e) => field.onChange(parseInt(e.target.value))}
+                        data-testid="input-columns"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="isRoot"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                  <div className="space-y-0.5">
+                    <FormLabel>Корневое меню</FormLabel>
+                    <FormDescription>
+                      Показывать при команде /start
+                    </FormDescription>
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center text-muted-foreground py-8">
-              Команды не найдены. Добавьте первую команду.
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      data-testid="switch-root"
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="isActive"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                  <div className="space-y-0.5">
+                    <FormLabel>Активно</FormLabel>
+                    <FormDescription>
+                      Бот будет использовать это меню
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      data-testid="switch-menu-active"
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                data-testid="button-cancel-menu"
+              >
+                Отмена
+              </Button>
+              <Button
+                type="submit"
+                disabled={createMutation.isPending || updateMutation.isPending}
+                data-testid="button-save-menu"
+              >
+                {(createMutation.isPending || updateMutation.isPending) ? "Сохранение..." : "Сохранить"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
 // Navigation Tab Component
 function NavigationTab() {
   const { toast } = useToast();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingMenu, setEditingMenu] = useState<any>(null);
 
   const { data: menus, isLoading } = useQuery({
     queryKey: ['/admin/api/bot/menus'],
     queryFn: () => adminRequest('/bot/menus'),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) =>
+      adminRequest(`/bot/menus/${id}`, {
+        method: 'DELETE',
+      }),
+    onSuccess: () => {
+      toast({
+        title: "Успех",
+        description: "Меню успешно удалено",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/admin/api/bot/menus'] });
+    },
+    onError: () => {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось удалить меню",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEdit = (menu: any) => {
+    setEditingMenu(menu);
+    setDialogOpen(true);
+  };
+
+  const handleAdd = () => {
+    setEditingMenu(null);
+    setDialogOpen(true);
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm("Вы уверены, что хотите удалить это меню?")) {
+      deleteMutation.mutate(id);
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Навигация и Меню</CardTitle>
-              <CardDescription>
-                Управление меню и кнопками навигации бота
-              </CardDescription>
+    <>
+      <MenuDialog
+        menu={editingMenu}
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) setEditingMenu(null);
+        }}
+      />
+      
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Навигация и Меню</CardTitle>
+                <CardDescription>
+                  Управление меню и кнопками навигации бота
+                </CardDescription>
+              </div>
+              <Button onClick={handleAdd} data-testid="button-add-menu">
+                <Plus className="h-4 w-4 mr-2" />
+                Добавить меню
+              </Button>
             </div>
-            <Button data-testid="button-add-menu">
-              <Navigation className="h-4 w-4 mr-2" />
-              Добавить меню
-            </Button>
-          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -340,14 +900,30 @@ function NavigationTab() {
                       {menu.keyboardType} • {menu.rows}x{menu.columns}
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 items-center">
                     {menu.isRoot && (
                       <Badge variant="default">Корневое</Badge>
                     )}
                     <Badge variant={menu.isActive ? "default" : "secondary"}>
                       {menu.isActive ? "Активно" : "Неактивно"}
                     </Badge>
-                    <Button variant="outline" size="sm">Редактировать</Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEdit(menu)}
+                      data-testid={`button-edit-menu-${menu.id}`}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDelete(menu.id)}
+                      disabled={deleteMutation.isPending}
+                      data-testid={`button-delete-menu-${menu.id}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -360,6 +936,7 @@ function NavigationTab() {
         </CardContent>
       </Card>
     </div>
+    </>
   );
 }
 
