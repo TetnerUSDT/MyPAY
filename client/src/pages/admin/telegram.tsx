@@ -545,20 +545,40 @@ function ReactionFormDialog({
       const formData = new FormData();
       formData.append('image', file);
 
+      // Get admin credentials from storage
+      const stored = localStorage.getItem('admin_credentials');
+      if (!stored) {
+        throw new Error('Not authenticated');
+      }
+
+      const decoded = atob(stored);
+      const [username, password] = decoded.split(':');
+
       const adminPath = import.meta.env.VITE_ADMIN_URL || 'admin';
       const response = await fetch(`/${adminPath}/api/bot/reactions/upload-image`, {
         method: 'POST',
         body: formData,
         credentials: 'include',
+        headers: {
+          'Authorization': `Basic ${btoa(`${username}:${password}`)}`,
+        },
       });
 
-      if (!response.ok) throw new Error('Upload failed');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Upload failed');
+      }
 
       const data = await response.json();
       form.setValue('imageUrl', data.imageUrl);
       toast({ title: "Успех", description: "Изображение загружено" });
     } catch (error) {
-      toast({ title: "Ошибка", description: "Не удалось загрузить изображение", variant: "destructive" });
+      console.error('Image upload error:', error);
+      toast({ 
+        title: "Ошибка", 
+        description: error instanceof Error ? error.message : "Не удалось загрузить изображение", 
+        variant: "destructive" 
+      });
     } finally {
       setUploadingImage(false);
     }
