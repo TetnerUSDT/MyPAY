@@ -1821,7 +1821,7 @@ function ButtonDialog({
 
   const deleteMutation = useMutation({
     mutationFn: (buttonId: number) =>
-      adminRequest(`/bot/menus/${menuId}/buttons/${buttonId}`, {
+      adminRequest(`/bot/buttons/${buttonId}`, {
         method: 'DELETE',
       }),
     onSuccess: () => {
