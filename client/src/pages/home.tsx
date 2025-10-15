@@ -185,18 +185,6 @@ export default function HomeScreen() {
             </Link>
         </div>
 
-        {/* SwiftX Card Banner */}
-        <div className="px-6 mb-6">
-          <div className="relative w-full">
-            <img 
-              src={startBgImage} 
-              alt="SwiftX Card" 
-              className="w-full h-auto rounded-2xl shadow-2xl"
-              data-testid="swiftx-home-card"
-            />
-          </div>
-        </div>
-
         {/* Action Buttons */}
         <div className="px-6 mb-8">
           <div className="grid grid-cols-4 gap-4">
