@@ -97,10 +97,7 @@ export default function SettingsScreen() {
   };
 
   const handleDevicesClick = () => {
-    toast({
-      title: "Устройства",
-      description: "Управление сессиями будет доступно скоро",
-    });
+    setLocation("/devices");
   };
 
   return (
