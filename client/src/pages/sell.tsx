@@ -79,7 +79,7 @@ export default function SellScreen() {
   };
 
   return (
-    <div className="mobile-screen text-white">
+    <div className="mobile-screen text-white pb-24">
       <div className="px-6 py-8">
         <h1 className="text-2xl font-bold text-center mb-8" data-testid="text-title">
           Отправить
