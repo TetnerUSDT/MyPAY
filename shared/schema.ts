@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { mysqlTable, text, varchar, decimal, timestamp, json, int, boolean, mysqlEnum, uniqueIndex } from "drizzle-orm/mysql-core";
+import { mysqlTable, text, varchar, decimal, timestamp, json, int, boolean, mysqlEnum, uniqueIndex, foreignKey } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -32,11 +32,16 @@ export const users = mysqlTable("users", {
   agreement: int("agreement").default(0),
   blocked: boolean("blocked").default(false),
   defaultFiatBalanceId: int("default_fiat_balance_id").references(() => balances.id, { onDelete: "set null" }),
-  idRef: int("id_ref").references(() => users.id, { onDelete: "set null" }),
+  idRef: int("id_ref"),
   codeRef: varchar("code_ref", { length: 20 }).unique(),
   trust: int("trust").default(0),
   phone: varchar("phone", { length: 20 }),
-});
+}, (table) => ({
+  selfReference: foreignKey({
+    columns: [table.idRef],
+    foreignColumns: [table.id],
+  }).onDelete("set null"),
+}));
 
 export const usersBalances = mysqlTable("users_balances", {
   id: int("id").primaryKey().autoincrement(),
