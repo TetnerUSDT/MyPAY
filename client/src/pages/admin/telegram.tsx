@@ -1048,7 +1048,7 @@ function ReactionsDialog({
 
   const deleteMutation = useMutation({
     mutationFn: (reactionId: number) =>
-      adminRequest(`/bot/commands/${commandId}/reactions/${reactionId}`, {
+      adminRequest(`/bot/reactions/${reactionId}`, {
         method: 'DELETE',
       }),
     onSuccess: () => {
