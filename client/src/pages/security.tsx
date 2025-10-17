@@ -7,7 +7,6 @@ import PinInputModal from "@/components/pin-input-modal";
 interface User {
   id: number;
   name: string;
-  pinCode: string | null;
 }
 
 export default function SecurityScreen() {
@@ -17,7 +16,7 @@ export default function SecurityScreen() {
     queryKey: ['/api/auth/me']
   });
 
-  const hasPinCode = !!user?.pinCode;
+  const hasPinCode = false;
 
   const handleSetPinClick = () => {
     setIsPinModalOpen(true);

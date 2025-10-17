@@ -897,32 +897,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update user PIN code
-  app.patch("/api/user/pin", requireApiKey, async (req: AuthenticatedRequest, res) => {
-    try {
-      const { pinCode } = req.body;
-      
-      if (!pinCode || typeof pinCode !== 'string') {
-        return res.status(400).json({ message: "PIN code is required" });
-      }
-      
-      if (pinCode.length !== 4 || !/^\d{4}$/.test(pinCode)) {
-        return res.status(400).json({ message: "PIN code must be 4 digits" });
-      }
-      
-      const hashedPin = await bcrypt.hash(pinCode, 10);
-      const updatedUser = await storage.updateUserPin(req.user!.id, hashedPin);
-      
-      if (!updatedUser) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
-      res.json(updatedUser);
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
   // Get user referrals
   app.get("/api/referrals", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {

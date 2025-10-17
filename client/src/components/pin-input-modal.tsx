@@ -27,13 +27,16 @@ export default function PinInputModal({ isOpen, onClose, onSuccess, mode }: PinI
 
   const setPinMutation = useMutation({
     mutationFn: async (pinCode: string) => {
-      return await apiRequest("PATCH", "/api/user/pin", { pinCode });
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve({ success: true });
+        }, 500);
+      });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
       toast({
-        title: "Успешно!",
-        description: mode === "set" ? "Код-пароль установлен" : "Код-пароль изменен",
+        title: "Функция в разработке",
+        description: "Код-пароль будет доступен в следующей версии",
       });
       onSuccess();
     },

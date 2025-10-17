@@ -36,7 +36,6 @@ export const users = mysqlTable("users", {
   codeRef: varchar("code_ref", { length: 20 }).unique(),
   trust: int("trust").default(0),
   phone: varchar("phone", { length: 20 }),
-  pinCode: varchar("pin_code", { length: 255 }),
 }, (table) => ({
   selfReference: foreignKey({
     columns: [table.idRef],

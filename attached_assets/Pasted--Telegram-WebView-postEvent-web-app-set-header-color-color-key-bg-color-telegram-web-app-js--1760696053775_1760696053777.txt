@@ -1,0 +1,36 @@
+[Telegram.WebView] > postEvent web_app_set_header_color {color_key: 'bg_color'}
+telegram-web-app.js:135 [Telegram.WebView] > postEvent web_app_set_bottom_bar_color {color: '#ffffff'}
+telegram-web-app.js:135 [Telegram.WebView] > postEvent web_app_request_theme 
+telegram-web-app.js:135 [Telegram.WebView] > postEvent web_app_request_viewport 
+telegram-web-app.js:135 [Telegram.WebView] > postEvent web_app_request_safe_area 
+telegram-web-app.js:135 [Telegram.WebView] > postEvent web_app_request_content_safe_area 
+chunk-RPCDYKBN.js?v=20d546fe:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+splash.tsx:30 🔍 Telegram WebApp detected: {hasWebApp: true, hasInitData: false, initDataLength: 0, platform: 'unknown', version: '6.0'}
+splash.tsx:55 ⚠️ Telegram WebApp detected but NO initData - running in browser mode
+queryClient.ts:27  POST https://87783c8c-ed71-4784-95a4-19857b44faf5-00-2i0lwjen1bvj2.sisko.replit.dev/api/auth/login 500 (Internal Server Error)
+apiRequest @ queryClient.ts:27
+mutationFn @ splash.tsx:92
+fn @ @tanstack_react-query.js?v=90d1d547:1189
+run @ @tanstack_react-query.js?v=90d1d547:494
+start @ @tanstack_react-query.js?v=90d1d547:536
+execute @ @tanstack_react-query.js?v=90d1d547:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=90d1d547:2630
+(anonymous) @ @tanstack_react-query.js?v=90d1d547:3295
+handleTelegramWidgetAuth @ splash.tsx:128
+window.onTelegramAuth @ TelegramLoginButton.tsx:35
+eval @ VM1959:1
+postMessageHandler @ VM1958 telegram-widget.js:319Understand this error
+splash.tsx:113 Auth failed: Error: 500: {"message":"Internal server error"}
+    at throwIfResNotOk (queryClient.ts:6:11)
+    at async apiRequest (queryClient.ts:34:3)
+    at async Object.mutationFn (splash.tsx:92:24)
+onError @ splash.tsx:113
+execute @ @tanstack_react-query.js?v=90d1d547:1254
+await in execute
+mutate @ @tanstack_react-query.js?v=90d1d547:2630
+(anonymous) @ @tanstack_react-query.js?v=90d1d547:3295
+handleTelegramWidgetAuth @ splash.tsx:128
+window.onTelegramAuth @ TelegramLoginButton.tsx:35
+eval @ VM1959:1
+postMessageHandler @ VM1958 telegram-widget.js:319Understand this error

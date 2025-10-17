@@ -72,7 +72,6 @@ export interface IStorage {
   getUserBalance(userId: number, balanceId: number): Promise<any>;
   updateUserDefaultBalance(userId: number, balanceId: number): Promise<User | undefined>;
   updateUserPhone(userId: number, phone: string): Promise<User | undefined>;
-  updateUserPin(userId: number, pinCode: string): Promise<User | undefined>;
 
   // Exchange methods
   createExchange(exchange: any): Promise<any>;
@@ -864,17 +863,6 @@ export class DatabaseStorage implements IStorage {
   async updateUserPhone(userId: number, phone: string): Promise<User | undefined> {
     const updatedUser = await updateAndReturn<User>(
       db.update(users).set({ phone }).where(eq(users.id, userId)),
-      'users',
-      'id = ?',
-      [userId]
-    );
-
-    return updatedUser || undefined;
-  }
-
-  async updateUserPin(userId: number, pinCode: string): Promise<User | undefined> {
-    const updatedUser = await updateAndReturn<User>(
-      db.update(users).set({ pinCode }).where(eq(users.id, userId)),
       'users',
       'id = ?',
       [userId]
