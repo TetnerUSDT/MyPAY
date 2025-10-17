@@ -83,10 +83,7 @@ export default function SettingsScreen() {
   };
 
   const handleSecurityClick = () => {
-    toast({
-      title: "Безопасность",
-      description: "Настройки безопасности будут доступны скоро",
-    });
+    setLocation("/settings/security");
   };
 
   const handleLanguageClick = () => {

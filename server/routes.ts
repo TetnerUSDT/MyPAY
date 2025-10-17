@@ -2,6 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
 import { createHash, createHmac } from "crypto";
+import bcrypt from "bcryptjs";
 import { validate as validateInitData, parse as parseInitData } from "@telegram-apps/init-data-node";
 import { storage } from "./storage";
 import { insertTransactionSchema, insertSupportChatSchema, insertUserSchema, insertSupportTicketSchema, insertSupportMessageSchema } from "@shared/schema";
@@ -885,6 +886,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const updatedUser = await storage.updateUserPhone(req.user!.id, phone);
+      
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.json(updatedUser);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Update user PIN code
+  app.patch("/api/user/pin", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { pinCode } = req.body;
+      
+      if (!pinCode || typeof pinCode !== 'string') {
+        return res.status(400).json({ message: "PIN code is required" });
+      }
+      
+      if (pinCode.length !== 4 || !/^\d{4}$/.test(pinCode)) {
+        return res.status(400).json({ message: "PIN code must be 4 digits" });
+      }
+      
+      const hashedPin = await bcrypt.hash(pinCode, 10);
+      const updatedUser = await storage.updateUserPin(req.user!.id, hashedPin);
       
       if (!updatedUser) {
         return res.status(404).json({ message: "User not found" });
