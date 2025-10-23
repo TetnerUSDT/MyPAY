@@ -685,6 +685,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get services by category
+  app.get("/api/services/banks", async (req, res) => {
+    try {
+      const bankCards = await storage.getActiveCardsByCategory('bank');
+      res.json(bankCards);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/services/crypto", async (req, res) => {
+    try {
+      const cryptoRates = await storage.getExchangeRatesByCategory('crypto');
+      res.json(cryptoRates);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/services/cash", async (req, res) => {
+    try {
+      // Placeholder for cash services - return empty array for now
+      res.json([]);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Get banks for a specific card
   app.get("/api/banks/:cardId", async (req, res) => {
     try {

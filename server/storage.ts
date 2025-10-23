@@ -44,6 +44,7 @@ export interface IStorage {
 
   // Card methods
   getActiveCards(): Promise<Card[]>;
+  getActiveCardsByCategory(category: string): Promise<Card[]>;
   getCard(id: number): Promise<Card | undefined>;
 
   // Bank methods
@@ -60,6 +61,7 @@ export interface IStorage {
 
   // Exchange rate methods by balance IDs
   getExchangeRateByBalances(fromBalanceId: number, toBalanceId: number): Promise<any | undefined>;
+  getExchangeRatesByCategory(category: string): Promise<any[]>;
 
   // User cards methods
   getUserCardsByUserId(userId: number): Promise<any[]>;
@@ -650,6 +652,15 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(cards).where(eq(cards.status, "1"));
   }
 
+  async getActiveCardsByCategory(category: string): Promise<Card[]> {
+    return await db.select().from(cards).where(
+      and(
+        eq(cards.status, "1"),
+        eq(cards.category, category as any)
+      )
+    );
+  }
+
   async getCard(id: number): Promise<Card | undefined> {
     const [card] = await db.select().from(cards).where(eq(cards.id, id));
     return card || undefined;
@@ -737,6 +748,14 @@ export class DatabaseStorage implements IStorage {
       )
     );
     return rate || undefined;
+  }
+
+  async getExchangeRatesByCategory(category: string): Promise<any[]> {
+    const rates = await db
+      .select()
+      .from(exchangeRates)
+      .where(eq(exchangeRates.category, category as any));
+    return rates;
   }
 
   // User cards methods
