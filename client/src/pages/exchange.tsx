@@ -543,26 +543,6 @@ export default function ExchangeScreen() {
                 </div>
               </div>
               
-              {/* Network Selector - показываем если есть несколько вариантов */}
-              {paymentBalances.length > 1 && (
-                <div className="mb-3 flex gap-2 flex-wrap">
-                  {paymentBalances.map((balance) => (
-                    <button
-                      key={balance.id}
-                      onClick={() => setPayBalanceId(balance.id)}
-                      className={`px-3 py-1.5 text-sm rounded transition-all ${
-                        payBalanceId === balance.id
-                          ? 'bg-accent text-accent-foreground font-medium'
-                          : 'bg-secondary/50 text-muted-foreground hover:bg-secondary/70'
-                      }`}
-                      data-testid={`button-network-${balance.network || balance.currency}`}
-                    >
-                      {balance.currency}{balance.network ? `.${balance.network}` : ''}
-                    </button>
-                  ))}
-                </div>
-              )}
-              
               <div className="flex items-center justify-between">
                 <input
                   type="text"
@@ -571,11 +551,21 @@ export default function ExchangeScreen() {
                   className="text-3xl font-bold bg-transparent text-white outline-none w-full"
                   data-testid="input-pay-amount"
                 />
-                <div className="min-w-36 bg-secondary border-0 text-white font-medium px-4 py-2 ml-4 rounded-md flex items-center" data-testid="select-pay-currency">
-                  {paymentBalances.find(b => b.id === payBalanceId) 
-                    ? `${paymentBalances.find(b => b.id === payBalanceId)!.currency}${paymentBalances.find(b => b.id === payBalanceId)!.network ? `.${paymentBalances.find(b => b.id === payBalanceId)!.network}` : ''}`
-                    : 'Loading...'}
-                </div>
+                <Select 
+                  value={payBalanceId?.toString()} 
+                  onValueChange={(value) => setPayBalanceId(parseInt(value))}
+                >
+                  <SelectTrigger className="min-w-36 bg-secondary border-0 text-white font-medium px-4 py-2 ml-4" data-testid="select-pay-currency">
+                    <SelectValue placeholder="Выберите валюту" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {paymentBalances.map((balance: any) => (
+                      <SelectItem key={balance.id} value={balance.id.toString()}>
+                        {balance.currency}{balance.network ? `.${balance.network}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               {paymentMethod === 'balance' && userBalance && (
                 <div className="mt-3 text-sm text-muted-foreground">
