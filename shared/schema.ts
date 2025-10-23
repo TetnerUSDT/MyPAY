@@ -74,7 +74,7 @@ export const cards = mysqlTable("cards", {
   commission: decimal("commission", { precision: 5, scale: 2 }).notNull(),
   idBalance: varchar("id_balance", { length: 255 }),
   status: varchar("status", { length: 50 }).default("1"),
-  category: exchangeCategoryEnum.notNull().default("bank"),
+  category: mysqlEnum("category", ['bank', 'crypto', 'cash']).notNull().default("bank"),
 });
 
 export const banks = mysqlTable("banks", {
@@ -157,7 +157,7 @@ export const exchangeRates = mysqlTable("exchange_rates", {
   toCurrency: text("to_currency").notNull(),
   rate: decimal("rate", { precision: 18, scale: 8 }).notNull(),
   updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
-  category: exchangeCategoryEnum.notNull().default("bank"),
+  category: mysqlEnum("category", ['bank', 'crypto', 'cash']).notNull().default("bank"),
 });
 
 export const supportChats = mysqlTable("support_chats", {
