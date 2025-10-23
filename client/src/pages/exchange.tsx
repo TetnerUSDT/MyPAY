@@ -652,7 +652,7 @@ export default function ExchangeScreen() {
                   <SelectContent>
                     {receiveBalances.map((balance: any) => (
                       <SelectItem key={balance.id} value={balance.id.toString()}>
-                        {balance.currency}
+                        {balance.currency}{balance.network ? `.${balance.network}` : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>

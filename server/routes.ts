@@ -749,22 +749,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/exchange/crypto/receive-balances", async (req, res) => {
     try {
       const cryptoRates = await storage.getExchangeRatesByCategory('crypto');
-      console.log('📊 Crypto rates found:', cryptoRates.length);
-      console.log('📊 Crypto rates data:', JSON.stringify(cryptoRates, null, 2));
       
       // Get unique "to" balances from crypto exchange rates
       const toBalanceIds = Array.from(new Set(cryptoRates.map(rate => rate.toBalanceId)));
-      console.log('📊 To balance IDs:', toBalanceIds);
-      
       const receiveBalances = await Promise.all(
         toBalanceIds.map(id => storage.getBalanceById(id))
       );
-      console.log('📊 Receive balances:', receiveBalances);
       
       // Filter out null values and return
-      const result = receiveBalances.filter(b => b !== null);
-      console.log('📊 Final result:', result);
-      res.json(result);
+      res.json(receiveBalances.filter(b => b !== null));
     } catch (error) {
       console.error('Error fetching crypto receive balances:', error);
       res.status(500).json({ message: "Internal server error" });
