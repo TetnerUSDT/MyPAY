@@ -184,16 +184,11 @@ export default function ExchangeScreen() {
       if (!isCurrentBalanceAvailable) {
         setPayBalanceId(paymentBalances[0].id);
       }
-    } else if (receiveBalanceId) {
-      // Если нет доступных балансов для выбранной валюты, сбросить и показать предупреждение
+    } else {
+      // Если нет доступных балансов, сбросить
       setPayBalanceId(null);
-      toast({
-        title: "Нет доступных направлений обмена",
-        description: "Курсы обмена для выбранной валюты не настроены",
-        variant: "destructive",
-      });
     }
-  }, [paymentBalances, receiveBalanceId]);
+  }, [paymentBalances]);
 
   useEffect(() => {
     const calculateExchange = async () => {
