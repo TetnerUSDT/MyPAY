@@ -54,16 +54,25 @@ interface Bank {
 export default function ExchangeScreen() {
   const searchParams = new URLSearchParams(useSearch());
   const selectedCountryId = searchParams.get('country');
+  const exchangeMode = searchParams.get('mode') || 'bank';
+  const fromBalanceParam = searchParams.get('from');
+  const toBalanceParam = searchParams.get('to');
   
   const [activeTab, setActiveTab] = useState("exchange");
   const [payAmount, setPayAmount] = useState("100");
   const [receiveAmount, setReceiveAmount] = useState("0.00");
-  const [payBalanceId, setPayBalanceId] = useState<number | null>(null);
-  const [receiveBalanceId, setReceiveBalanceId] = useState<number | null>(null);
+  const [payBalanceId, setPayBalanceId] = useState<number | null>(
+    fromBalanceParam ? parseInt(fromBalanceParam) : null
+  );
+  const [receiveBalanceId, setReceiveBalanceId] = useState<number | null>(
+    toBalanceParam ? parseInt(toBalanceParam) : null
+  );
   const [selectedCard, setSelectedCard] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<'blockchain' | 'balance'>('blockchain');
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  
+  const isCryptoMode = exchangeMode === 'crypto';
   
   // Add card modal states
   const [isAddCardModalOpen, setIsAddCardModalOpen] = useState(false);
@@ -83,8 +92,21 @@ export default function ExchangeScreen() {
   });
 
   const { data: receiveBalances = [] } = useQuery<Balance[]>({
-    queryKey: ['/api/exchange/receive-balances', selectedCountryId],
+    queryKey: ['/api/exchange/receive-balances', selectedCountryId, isCryptoMode],
     queryFn: async () => {
+      if (isCryptoMode) {
+        const apiKey = localStorage.getItem("userApiKey");
+        const headers: Record<string, string> = {};
+        if (apiKey) headers['x-api-key'] = apiKey;
+        
+        const response = await fetch('/api/balances', {
+          headers,
+          credentials: 'include'
+        });
+        if (!response.ok) throw new Error('Failed to fetch balances');
+        return response.json();
+      }
+      
       if (!selectedCountryId) return [];
       const apiKey = localStorage.getItem("userApiKey");
       const headers: Record<string, string> = {};
@@ -97,11 +119,11 @@ export default function ExchangeScreen() {
       if (!response.ok) throw new Error('Failed to fetch receive balances');
       return response.json();
     },
-    enabled: !!selectedCountryId
+    enabled: isCryptoMode || !!selectedCountryId
   });
 
   const { data: paymentBalances = [] } = useQuery<Balance[]>({
-    queryKey: ['/api/exchange/payment-balances', receiveBalanceId],
+    queryKey: ['/api/exchange/payment-balances', receiveBalanceId, isCryptoMode],
     queryFn: async () => {
       if (!receiveBalanceId) return [];
       const apiKey = localStorage.getItem("userApiKey");
@@ -178,6 +200,11 @@ export default function ExchangeScreen() {
   }, [receiveBalances]);
 
   useEffect(() => {
+    // Skip if no balances yet and payBalanceId is already set (from URL params)
+    if (paymentBalances.length === 0 && payBalanceId !== null) {
+      return;
+    }
+    
     if (paymentBalances.length > 0) {
       // Если текущий выбранный баланс не в списке доступных, сбросить на первый
       const isCurrentBalanceAvailable = paymentBalances.some(b => b.id === payBalanceId);
@@ -401,7 +428,8 @@ export default function ExchangeScreen() {
       }
     }
 
-    if (!selectedCard) {
+    // Card validation only for bank mode
+    if (!isCryptoMode && !selectedCard) {
       toast({
         title: "Ошибка",
         description: "Выберите или введите карту для получения",
@@ -612,60 +640,62 @@ export default function ExchangeScreen() {
               </div>
             </div>
 
-            {/* Card Selection */}
-            <div className="crypto-card">
-              <div className="text-sm text-muted-foreground mb-3">Выберите карту</div>
-              <div className="space-y-3">
-                <Select 
-                  value={selectedCard} 
-                  onValueChange={(value) => {
-                    if (value === 'add_card') {
-                      setIsAddCardModalOpen(true);
-                    } else {
-                      setSelectedCard(value);
-                    }
-                  }}
-                >
-                  <SelectTrigger className="w-full bg-secondary border-0 text-white font-medium" data-testid="select-card">
-                    <SelectValue placeholder="Выберите карту" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {cardOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
+            {/* Card Selection - Only for Bank Mode */}
+            {!isCryptoMode && (
+              <div className="crypto-card">
+                <div className="text-sm text-muted-foreground mb-3">Выберите карту</div>
+                <div className="space-y-3">
+                  <Select 
+                    value={selectedCard} 
+                    onValueChange={(value) => {
+                      if (value === 'add_card') {
+                        setIsAddCardModalOpen(true);
+                      } else {
+                        setSelectedCard(value);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-full bg-secondary border-0 text-white font-medium" data-testid="select-card">
+                      <SelectValue placeholder="Выберите карту" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {cardOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="add_card">
+                        ➕ Добавить карту
                       </SelectItem>
-                    ))}
-                    <SelectItem value="add_card">
-                      ➕ Добавить карту
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                {selectedCard && selectedCard !== 'add_card' && (() => {
-                  const card = userCards.find(c => c.id.toString() === selectedCard);
-                  if (!card) return null;
-                  
-                  const parts = [];
-                  if (card.numberCard) {
-                    parts.push(formatCardNumber(card.numberCard));
-                  }
-                  if (card.accountNumber) {
-                    parts.push(card.accountNumber);
-                  }
-                  const fullInfo = parts.join('  ');
-                  
-                  return (
-                    <button
-                      onClick={() => setIsCardDetailsModalOpen(true)}
-                      className="w-full bg-secondary/50 rounded-lg px-4 py-3 text-left hover:bg-secondary/70 transition-colors"
-                      data-testid="button-card-details"
-                    >
-                      <div className="text-accent font-medium text-sm mb-1">{card.name}</div>
-                      <div className="text-white font-mono text-base">{fullInfo}</div>
-                    </button>
-                  );
-                })()}
+                    </SelectContent>
+                  </Select>
+                  {selectedCard && selectedCard !== 'add_card' && (() => {
+                    const card = userCards.find(c => c.id.toString() === selectedCard);
+                    if (!card) return null;
+                    
+                    const parts = [];
+                    if (card.numberCard) {
+                      parts.push(formatCardNumber(card.numberCard));
+                    }
+                    if (card.accountNumber) {
+                      parts.push(card.accountNumber);
+                    }
+                    const fullInfo = parts.join('  ');
+                    
+                    return (
+                      <button
+                        onClick={() => setIsCardDetailsModalOpen(true)}
+                        className="w-full bg-secondary/50 rounded-lg px-4 py-3 text-left hover:bg-secondary/70 transition-colors"
+                        data-testid="button-card-details"
+                      >
+                        <div className="text-accent font-medium text-sm mb-1">{card.name}</div>
+                        <div className="text-white font-mono text-base">{fullInfo}</div>
+                      </button>
+                    );
+                  })()}
+                </div>
               </div>
-            </div>
+            )}
             </div>
           ) : (
             /* Settings Content */
