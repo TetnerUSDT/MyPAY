@@ -52,14 +52,13 @@ export default function SelectCountryScreen() {
           return (
             <Link key={card.id} href={`/exchange?country=${card.id}`}>
               <div 
-                className="crypto-card mx-6 cursor-pointer hover:opacity-90 transition-all mb-[15px]"
+                className="crypto-card mx-6 cursor-pointer hover:opacity-90 transition-all mb-[15px] flex items-center justify-between gap-4"
                 data-testid={`country-card-${card.id}`}
               >
-                {/* Country Header */}
-                <div className="flex items-center mb-6">
-                  {/* Country Flag */}
+                {/* Country Flag & Info */}
+                <div className="flex items-center gap-3">
                   <div 
-                    className="w-12 h-12 rounded-full flex items-center justify-center mr-4 bg-white/5 border border-white/10 overflow-hidden"
+                    className="w-12 h-12 rounded-full flex items-center justify-center bg-white/5 border border-white/10 overflow-hidden shrink-0"
                     data-testid={`flag-wrapper-${card.id}`}
                   >
                     {FlagComponent ? (
@@ -75,47 +74,29 @@ export default function SelectCountryScreen() {
                     )}
                   </div>
                   
-                  {/* Country Info */}
                   <div>
-                    <h3 className="font-semibold text-lg text-white" data-testid={`country-name-${card.id}`}>
+                    <h3 className="font-semibold text-base text-white" data-testid={`country-name-${card.id}`}>
                       {card.title}
                     </h3>
-                    <p className="text-muted-foreground text-sm" data-testid={`country-description-${card.id}`}>
+                    <p className="text-muted-foreground text-xs" data-testid={`country-description-${card.id}`}>
                       {card.country}
                     </p>
                   </div>
                 </div>
                 
-                {/* Details Grid */}
-                <div className="grid grid-cols-3 gap-4 text-sm">
+                {/* Time & Method */}
+                <div className="flex items-center gap-4 text-sm">
                   {/* Time */}
-                  <div className="flex flex-col">
-                    <div className="flex items-center mb-1">
-                      <Zap className="w-4 h-4 text-yellow-400 mr-1" />
-                      <span className="text-yellow-400 font-medium">Время</span>
-                    </div>
-                    <span className="text-white" data-testid={`country-time-${card.id}`}>
-                      {card.timeExchange} минут
-                    </span>
-                  </div>
-                  
-                  {/* Fee */}
-                  <div className="flex flex-col">
-                    <div className="flex items-center mb-1">
-                      <Percent className="w-4 h-4 text-green-400 mr-1" />
-                      <span className="text-green-400 font-medium">Fee</span>
-                    </div>
-                    <span className="text-white" data-testid={`country-fee-${card.id}`}>
-                      {card.commission}%
+                  <div className="flex items-center gap-1">
+                    <Zap className="w-4 h-4 text-yellow-400" />
+                    <span className="text-white whitespace-nowrap" data-testid={`country-time-${card.id}`}>
+                      {card.timeExchange} мин
                     </span>
                   </div>
                   
                   {/* Method */}
-                  <div className="flex flex-col">
-                    <div className="flex items-center mb-1">
-                      <CreditCard className="w-4 h-4 text-yellow-400 mr-1" />
-                      <span className="text-yellow-400 font-medium">Method</span>
-                    </div>
+                  <div className="flex items-center gap-1">
+                    <CreditCard className="w-4 h-4 text-yellow-400" />
                     <span className="text-white" data-testid={`country-method-${card.id}`}>
                       Card
                     </span>
