@@ -479,7 +479,9 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
         id: generateUUID(),
         updatedAt: new Date(),
       };
-      const newRate = await insertAndReturn(exchangeRates, rateData);
+      await db.insert(exchangeRates).values(rateData);
+      // Возвращаем вставленные данные (для UUID нельзя использовать insertAndReturn)
+      const [newRate] = await db.select().from(exchangeRates).where(eq(exchangeRates.id, rateData.id)).limit(1);
       res.json(newRate);
     } catch (error) {
       console.error('Create exchange rate error:', error);
