@@ -29,6 +29,7 @@ interface Balance {
   id: number;
   currency: string;
   network?: string;
+  pattern?: string | null;
 }
 
 interface CountryCard {
@@ -68,6 +69,7 @@ export default function ExchangeScreen() {
     toBalanceParam ? parseInt(toBalanceParam) : null
   );
   const [selectedCard, setSelectedCard] = useState("");
+  const [walletAddress, setWalletAddress] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<'blockchain' | 'balance'>('blockchain');
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -95,15 +97,10 @@ export default function ExchangeScreen() {
     queryKey: ['/api/exchange/receive-balances', selectedCountryId, isCryptoMode],
     queryFn: async () => {
       if (isCryptoMode) {
-        const apiKey = localStorage.getItem("userApiKey");
-        const headers: Record<string, string> = {};
-        if (apiKey) headers['x-api-key'] = apiKey;
-        
-        const response = await fetch('/api/balances', {
-          headers,
+        const response = await fetch('/api/exchange/crypto/receive-balances', {
           credentials: 'include'
         });
-        if (!response.ok) throw new Error('Failed to fetch balances');
+        if (!response.ok) throw new Error('Failed to fetch crypto receive balances');
         return response.json();
       }
       
@@ -438,6 +435,36 @@ export default function ExchangeScreen() {
       return;
     }
 
+    // Wallet address validation for crypto mode with blockchain payment
+    if (isCryptoMode && paymentMethod === 'blockchain') {
+      if (!walletAddress) {
+        toast({
+          title: "Ошибка",
+          description: "Введите адрес кошелька для получения",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Validate wallet address format using pattern from balance
+      const receiveBalance = receiveBalances.find(b => b.id === receiveBalanceId);
+      if (receiveBalance?.pattern) {
+        try {
+          const pattern = new RegExp(receiveBalance.pattern);
+          if (!pattern.test(walletAddress)) {
+            toast({
+              title: "Неверный формат адреса",
+              description: `Адрес кошелька должен соответствовать формату сети ${receiveBalance.network || receiveBalance.currency}`,
+              variant: "destructive",
+            });
+            return;
+          }
+        } catch (error) {
+          console.error('Invalid regex pattern:', error);
+        }
+      }
+    }
+
     // Get selected payment balance
     const selectedPaymentBalance = paymentBalances.find(b => b.id === payBalanceId);
     if (!selectedPaymentBalance) {
@@ -478,7 +505,7 @@ export default function ExchangeScreen() {
       rate,
       commission: "0.0",
       cardId: selectedCard ? parseInt(selectedCard) : null,
-      manualCardNumber: null,
+      manualCardNumber: isCryptoMode && walletAddress ? walletAddress : null,
       network,
       paymentMethod
     });
@@ -693,6 +720,35 @@ export default function ExchangeScreen() {
                       </button>
                     );
                   })()}
+                </div>
+              </div>
+            )}
+            
+            {/* Wallet Address Input - Only for Crypto Mode with Blockchain Payment */}
+            {isCryptoMode && paymentMethod === 'blockchain' && (
+              <div className="crypto-card">
+                <div className="text-sm text-muted-foreground mb-3">Адрес кошелька для получения</div>
+                <div className="space-y-3">
+                  <Input
+                    value={walletAddress}
+                    onChange={(e) => setWalletAddress(e.target.value)}
+                    placeholder={
+                      receiveBalances.find(b => b.id === receiveBalanceId)?.network === 'TRC20' 
+                        ? 'T...' 
+                        : receiveBalances.find(b => b.id === receiveBalanceId)?.network === 'BEP20' 
+                        ? '0x...' 
+                        : receiveBalances.find(b => b.id === receiveBalanceId)?.network === 'TON'
+                        ? 'EQ...'
+                        : 'Введите адрес кошелька'
+                    }
+                    className="w-full bg-secondary border-0 text-white font-medium px-4 py-3 rounded-lg"
+                    data-testid="input-wallet-address"
+                  />
+                  {walletAddress && (
+                    <div className="text-xs text-muted-foreground">
+                      Убедитесь, что адрес соответствует сети {receiveBalances.find(b => b.id === receiveBalanceId)?.network}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

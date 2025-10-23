@@ -745,6 +745,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get receive balances for crypto mode
+  app.get("/api/exchange/crypto/receive-balances", async (req, res) => {
+    try {
+      const cryptoRates = await storage.getExchangeRatesByCategory('crypto');
+      
+      // Get unique "to" balances from crypto exchange rates
+      const toBalanceIds = [...new Set(cryptoRates.map(rate => rate.toBalanceId))];
+      const receiveBalances = await Promise.all(
+        toBalanceIds.map(id => storage.getBalanceById(id))
+      );
+      
+      // Filter out null values and return
+      res.json(receiveBalances.filter(b => b !== null));
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Get receive balances for a card
   app.get("/api/exchange/receive-balances/:cardId", async (req, res) => {
     try {
@@ -991,6 +1009,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       if (toBalance.status === 'hidden') {
         return res.status(400).json({ message: "Целевой баланс недоступен" });
+      }
+
+      // Validate wallet address for crypto exchanges with blockchain payment
+      if (paymentMethod === 'blockchain' && manualCardNumber && toBalance.pattern) {
+        try {
+          const pattern = new RegExp(toBalance.pattern);
+          if (!pattern.test(manualCardNumber)) {
+            return res.status(400).json({ 
+              message: `Неверный формат адреса кошелька для ${toBalance.network || toBalance.currency}. Пожалуйста, проверьте адрес.` 
+            });
+          }
+        } catch (error) {
+          console.error('Invalid regex pattern in balance:', error);
+        }
       }
 
       // If paying from balance, check and deduct funds

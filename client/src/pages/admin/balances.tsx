@@ -25,6 +25,7 @@ type Balance = {
   rate: string | null;
   balanceType: "fiat" | "crypto" | "token" | "voucher";
   status: string | null;
+  pattern: string | null;
 };
 
 type UserBalance = {
@@ -88,6 +89,7 @@ export default function AdminBalances() {
       balanceType: "fiat",
       rate: null,
       status: "active",
+      pattern: null,
     },
   });
 
@@ -202,6 +204,7 @@ export default function AdminBalances() {
       balanceType: balance.balanceType,
       rate: balance.rate || null,
       status: balance.status || "active",
+      pattern: balance.pattern || null,
     });
     setIsSystemDialogOpen(true);
   };
@@ -303,11 +306,11 @@ export default function AdminBalances() {
                     <div className="grid grid-cols-2 gap-4">
                       <FormField
                         control={systemBalanceForm.control}
-                        name="type"
+                        name="balanceType"
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Тип</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value || "fiat"}>
                               <FormControl>
                                 <SelectTrigger data-testid="select-system-balance-type">
                                   <SelectValue placeholder="Выберите тип" />
@@ -373,6 +376,19 @@ export default function AdminBalances() {
                         </FormItem>
                       )}
                     />
+                    <FormField
+                      control={systemBalanceForm.control}
+                      name="pattern"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Паттерн валидации кошелька (regex)</FormLabel>
+                          <FormControl>
+                            <Input {...field} value={field.value || ""} placeholder="^T[A-Za-z0-9]{33}$" data-testid="input-system-balance-pattern" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                     <div className="flex justify-end space-x-2">
                       <Button type="button" variant="outline" onClick={() => setIsSystemDialogOpen(false)}>
                         Отмена
@@ -399,6 +415,7 @@ export default function AdminBalances() {
                     <TableHead>Валюта</TableHead>
                     <TableHead>Тип</TableHead>
                     <TableHead>Сеть</TableHead>
+                    <TableHead>Паттерн</TableHead>
                     <TableHead>Курс</TableHead>
                     <TableHead>Статус</TableHead>
                     <TableHead>Действия</TableHead>
@@ -418,6 +435,11 @@ export default function AdminBalances() {
                         </span>
                       </TableCell>
                       <TableCell>{balance.network || '-'}</TableCell>
+                      <TableCell>
+                        {balance.pattern ? (
+                          <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">{balance.pattern}</code>
+                        ) : '-'}
+                      </TableCell>
                       <TableCell>{balance.rate || '-'}</TableCell>
                       <TableCell>
                         <span className={`px-2 py-1 rounded text-xs ${

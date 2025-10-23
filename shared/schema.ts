@@ -19,6 +19,7 @@ export const balances = mysqlTable("balances", {
   rate: decimal("rate", { precision: 18, scale: 8 }),
   balanceType: varchar("type", { length: 50 }).notNull().default("fiat"),
   status: varchar("status", { length: 50 }).notNull().default("active"),
+  pattern: text("pattern"),
 });
 
 export const users = mysqlTable("users", {
