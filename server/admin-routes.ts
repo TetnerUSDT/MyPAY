@@ -3,7 +3,7 @@ import { AdminRequest, requireSuperAdmin, requireAdmin, requirePermission } from
 import { IStorage } from "./storage";
 import { db } from "./db";
 import { balances, exchanges, cards, banks, exchangeRates, supportTickets, supportMessages, supportChats, users, wallets, admins, userCards, usersBalances, botCommands, botCommandReactions, botCommandFiles, botMenus, botMenuButtons } from "@shared/schema";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, and, not } from "drizzle-orm";
 import { insertBalanceSchema, insertCardSchema, insertBankSchema, insertExchangeRateSchema, insertSupportMessageSchema, insertAdminSchema, insertUsersBalancesSchema, insertBotCommandSchema, insertBotCommandReactionSchema, insertBotCommandFileSchema, insertBotMenuSchema, insertBotMenuButtonSchema } from "@shared/schema";
 import { telegramService } from "./telegram-service";
 import { notificationService } from "./notification-service";
@@ -456,6 +456,22 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
         return res.status(400).json({ message: "Балансы не найдены" });
       }
       
+      // Проверка на дубликаты - курс с таким же направлением уже существует
+      const [existingRate] = await db
+        .select()
+        .from(exchangeRates)
+        .where(
+          and(
+            eq(exchangeRates.fromBalanceId, validatedData.fromBalanceId),
+            eq(exchangeRates.toBalanceId, validatedData.toBalanceId)
+          )
+        )
+        .limit(1);
+      
+      if (existingRate) {
+        return res.status(409).json({ message: "Курс с таким направлением уже существует" });
+      }
+      
       const rateData = {
         ...validatedData,
         fromCurrency: fromBalance.currency,
@@ -473,7 +489,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
 
   app.put(`/${adminPath}/api/exchange-rates/:id`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
-      const { id } = req.params;
+      const id = req.params.id; // Keep as string for UUID comparison
       const validatedData = insertExchangeRateSchema.parse(req.body);
       
       // Получаем валюты из связанных балансов
@@ -482,6 +498,23 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
       
       if (!fromBalance || !toBalance) {
         return res.status(400).json({ message: "Балансы не найдены" });
+      }
+      
+      // Проверка на дубликаты - курс с таким же направлением уже существует (исключая текущий)
+      const [existingRate] = await db
+        .select()
+        .from(exchangeRates)
+        .where(
+          and(
+            eq(exchangeRates.fromBalanceId, validatedData.fromBalanceId),
+            eq(exchangeRates.toBalanceId, validatedData.toBalanceId),
+            not(eq(exchangeRates.id, id))
+          )
+        )
+        .limit(1);
+      
+      if (existingRate) {
+        return res.status(409).json({ message: "Курс с таким направлением уже существует" });
       }
       
       const updateData = {

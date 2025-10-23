@@ -706,6 +706,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get available payment balances for a receive balance
+  app.get("/api/exchange/payment-balances/:toBalanceId", async (req, res) => {
+    try {
+      const toBalanceId = parseInt(req.params.toBalanceId);
+      const paymentBalances = await storage.getAvailablePaymentBalances(toBalanceId);
+      res.json(paymentBalances);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Get receive balances for a card
   app.get("/api/exchange/receive-balances/:cardId", async (req, res) => {
     try {

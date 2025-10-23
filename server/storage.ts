@@ -56,6 +56,7 @@ export interface IStorage {
   getBalanceById(id: number): Promise<any | undefined>;
   getBalancesByIds(ids: string): Promise<any[]>;
   getPaymentBalance(): Promise<any | undefined>; // USDT.BEP20
+  getAvailablePaymentBalances(toBalanceId: number): Promise<any[]>;
 
   // Exchange rate methods by balance IDs
   getExchangeRateByBalances(fromBalanceId: number, toBalanceId: number): Promise<any | undefined>;
@@ -699,6 +700,32 @@ export class DatabaseStorage implements IStorage {
     // USDT.BEP20 is id=4
     const [balance] = await db.select().from(balances).where(eq(balances.id, 4));
     return balance || undefined;
+  }
+
+  async getAvailablePaymentBalances(toBalanceId: number): Promise<any[]> {
+    // Получаем все активные курсы обмена для данного целевого баланса
+    const rates = await db
+      .select({
+        fromBalanceId: exchangeRates.fromBalanceId,
+      })
+      .from(exchangeRates)
+      .where(eq(exchangeRates.toBalanceId, toBalanceId));
+    
+    if (rates.length === 0) {
+      // Если нет курсов обмена, вернуть дефолтный баланс для обратной совместимости
+      const [defaultBalance] = await db.select().from(balances).where(eq(balances.id, 4));
+      return defaultBalance ? [defaultBalance] : [];
+    }
+    
+    const balanceIds = rates.map((r: { fromBalanceId: number }) => r.fromBalanceId);
+    
+    // Получаем все балансы, которые есть в списке
+    const paymentBalances = await db
+      .select()
+      .from(balances)
+      .where(inArray(balances.id, balanceIds));
+    
+    return paymentBalances;
   }
 
   // Exchange rate methods by balance IDs

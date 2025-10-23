@@ -82,11 +82,6 @@ export default function ExchangeScreen() {
     idBank: ""
   });
 
-  const { data: paymentBalance } = useQuery<Balance>({
-    queryKey: ['/api/exchange/payment-balance'],
-    enabled: true
-  });
-
   const { data: receiveBalances = [] } = useQuery<Balance[]>({
     queryKey: ['/api/exchange/receive-balances', selectedCountryId],
     queryFn: async () => {
@@ -103,6 +98,24 @@ export default function ExchangeScreen() {
       return response.json();
     },
     enabled: !!selectedCountryId
+  });
+
+  const { data: paymentBalances = [] } = useQuery<Balance[]>({
+    queryKey: ['/api/exchange/payment-balances', receiveBalanceId],
+    queryFn: async () => {
+      if (!receiveBalanceId) return [];
+      const apiKey = localStorage.getItem("userApiKey");
+      const headers: Record<string, string> = {};
+      if (apiKey) headers['x-api-key'] = apiKey;
+      
+      const response = await fetch(`/api/exchange/payment-balances/${receiveBalanceId}`, {
+        headers,
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error('Failed to fetch payment balances');
+      return response.json();
+    },
+    enabled: !!receiveBalanceId
   });
 
   const { data: userCards = [] } = useQuery<UserCard[]>({
@@ -159,16 +172,28 @@ export default function ExchangeScreen() {
   });
 
   useEffect(() => {
-    if (paymentBalance) {
-      setPayBalanceId(paymentBalance.id);
-    }
-  }, [paymentBalance]);
-
-  useEffect(() => {
     if (receiveBalances.length > 0 && !receiveBalanceId) {
       setReceiveBalanceId(receiveBalances[0].id);
     }
   }, [receiveBalances]);
+
+  useEffect(() => {
+    if (paymentBalances.length > 0) {
+      // Если текущий выбранный баланс не в списке доступных, сбросить на первый
+      const isCurrentBalanceAvailable = paymentBalances.some(b => b.id === payBalanceId);
+      if (!isCurrentBalanceAvailable) {
+        setPayBalanceId(paymentBalances[0].id);
+      }
+    } else if (receiveBalanceId) {
+      // Если нет доступных балансов для выбранной валюты, сбросить и показать предупреждение
+      setPayBalanceId(null);
+      toast({
+        title: "Нет доступных направлений обмена",
+        description: "Курсы обмена для выбранной валюты не настроены",
+        variant: "destructive",
+      });
+    }
+  }, [paymentBalances, receiveBalanceId]);
 
   useEffect(() => {
     const calculateExchange = async () => {
@@ -369,11 +394,12 @@ export default function ExchangeScreen() {
 
     // Check balance if paying from internal wallet
     if (paymentMethod === 'balance') {
+      const selectedPaymentBalance = paymentBalances.find(b => b.id === payBalanceId);
       const availableBalance = userBalance ? parseFloat(userBalance.sum) : 0;
       if (parseFloat(payAmount) > availableBalance) {
         toast({
           title: "Недостаточно средств",
-          description: `Доступно: ${availableBalance.toFixed(2)} ${paymentBalance?.currency}`,
+          description: `Доступно: ${availableBalance.toFixed(2)} ${selectedPaymentBalance?.currency}`,
           variant: "destructive",
         });
         return;
@@ -389,8 +415,19 @@ export default function ExchangeScreen() {
       return;
     }
 
+    // Get selected payment balance
+    const selectedPaymentBalance = paymentBalances.find(b => b.id === payBalanceId);
+    if (!selectedPaymentBalance) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось определить валюту для оплаты",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Get network from payment balance
-    const network = paymentBalance?.network;
+    const network = selectedPaymentBalance.network;
     if (!network) {
       toast({
         title: "Ошибка",
@@ -401,7 +438,7 @@ export default function ExchangeScreen() {
     }
 
     // Get currencies
-    const fromCurrency = paymentBalance?.currency || 'USDT';
+    const fromCurrency = selectedPaymentBalance.currency;
     const toCurrency = receiveBalances.find(b => b.id === receiveBalanceId)?.currency || 'RUB';
 
     // Calculate rate
@@ -505,6 +542,27 @@ export default function ExchangeScreen() {
                   </button>
                 </div>
               </div>
+              
+              {/* Network Selector - показываем если есть несколько вариантов */}
+              {paymentBalances.length > 1 && (
+                <div className="mb-3 flex gap-2 flex-wrap">
+                  {paymentBalances.map((balance) => (
+                    <button
+                      key={balance.id}
+                      onClick={() => setPayBalanceId(balance.id)}
+                      className={`px-3 py-1.5 text-sm rounded transition-all ${
+                        payBalanceId === balance.id
+                          ? 'bg-accent text-accent-foreground font-medium'
+                          : 'bg-secondary/50 text-muted-foreground hover:bg-secondary/70'
+                      }`}
+                      data-testid={`button-network-${balance.network || balance.currency}`}
+                    >
+                      {balance.currency}{balance.network ? `.${balance.network}` : ''}
+                    </button>
+                  ))}
+                </div>
+              )}
+              
               <div className="flex items-center justify-between">
                 <input
                   type="text"
@@ -514,12 +572,14 @@ export default function ExchangeScreen() {
                   data-testid="input-pay-amount"
                 />
                 <div className="min-w-36 bg-secondary border-0 text-white font-medium px-4 py-2 ml-4 rounded-md flex items-center" data-testid="select-pay-currency">
-                  {paymentBalance ? `${paymentBalance.currency}${paymentBalance.network ? `.${paymentBalance.network}` : ''}` : 'Loading...'}
+                  {paymentBalances.find(b => b.id === payBalanceId) 
+                    ? `${paymentBalances.find(b => b.id === payBalanceId)!.currency}${paymentBalances.find(b => b.id === payBalanceId)!.network ? `.${paymentBalances.find(b => b.id === payBalanceId)!.network}` : ''}`
+                    : 'Loading...'}
                 </div>
               </div>
               {paymentMethod === 'balance' && userBalance && (
                 <div className="mt-3 text-sm text-muted-foreground">
-                  Доступно: {parseFloat(userBalance.sum).toFixed(2)} {paymentBalance?.currency}
+                  Доступно: {parseFloat(userBalance.sum).toFixed(2)} {paymentBalances.find(b => b.id === payBalanceId)?.currency}
                 </div>
               )}
             </div>

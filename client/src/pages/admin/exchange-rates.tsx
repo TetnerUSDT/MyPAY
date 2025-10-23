@@ -61,6 +61,14 @@ export default function AdminExchangeRates() {
       setIsDialogOpen(false);
       form.reset();
     },
+    onError: (error: any) => {
+      const errorMessage = error.message || "Ошибка при добавлении курса";
+      toast({ 
+        title: "Ошибка", 
+        description: errorMessage,
+        variant: "destructive" 
+      });
+    },
   });
 
   const updateMutation = useMutation({
@@ -72,6 +80,14 @@ export default function AdminExchangeRates() {
       setIsDialogOpen(false);
       setSelectedRate(null);
       form.reset();
+    },
+    onError: (error: any) => {
+      const errorMessage = error.message || "Ошибка при обновлении курса";
+      toast({ 
+        title: "Ошибка", 
+        description: errorMessage,
+        variant: "destructive" 
+      });
     },
   });
 

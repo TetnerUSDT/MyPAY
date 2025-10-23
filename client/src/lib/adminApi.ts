@@ -108,8 +108,16 @@ export const adminRequest = async (endpoint: string, options: RequestInit = {}) 
   }
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Request failed' }));
-    throw new Error(error.message || 'Request failed');
+    let errorMessage = `Request failed with status ${response.status}`;
+    try {
+      const error = await response.json();
+      if (error.message) {
+        errorMessage = error.message;
+      }
+    } catch (jsonError) {
+      // If JSON parsing fails, use the default error message
+    }
+    throw new Error(errorMessage);
   }
 
   return response.json();
