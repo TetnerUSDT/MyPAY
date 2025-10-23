@@ -6,13 +6,11 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { User } from "@shared/schema";
 import { formatBalance } from "@/lib/utils";
+import { getBalanceIcon } from "@/lib/balanceIcons";
 
 // Images from public directory - use direct URLs with cache busting
 const catImage = "/uploads/icons/cat-logo.png?v=2";
 const startBgImage = "/uploads/assets/start-bg.png?v=2";
-const tronImage = "/uploads/icons/cryptocurrency/tron.png";
-const bnbImage = "/uploads/icons/cryptocurrency/bnb.png";
-const tonImage = "/uploads/icons/cryptocurrency/ton.png";
 const ethereumImage = "/uploads/icons/cryptocurrency/ethereum.png";
 const solanaImage = "/uploads/icons/cryptocurrency/solana.png";
 
@@ -105,20 +103,13 @@ export default function HomeScreen() {
 
   const selectedBalance = fiatBalances.find(b => b.id === selectedFiatBalanceId);
 
-  // Map crypto balances with icons
-  const getNetworkIcon = (network: string) => {
-    if (network?.includes('TRC20')) return tronImage;
-    if (network?.includes('BEP20')) return bnbImage;
-    if (network?.includes('TON')) return tonImage;
-    return tronImage; // default
-  };
-
+  // Map crypto balances with icons from database (by balance ID)
   const wallets = cryptoBalances.map(balance => ({
     id: balance.id,
     name: balance.title,
     amount: balance.sum || "0.000000",
     currency: balance.currency,
-    icon: getNetworkIcon(balance.network),
+    icon: getBalanceIcon(balance.id),
     network: balance.network,
     status: balance.status,
     balanceStatus: balance.balanceStatus,

@@ -30,6 +30,7 @@ The server uses Express.js with TypeScript in ESM mode, focusing on clean separa
   - `public/uploads/users/` - User-uploaded content
   - `public/uploads/icons/` - Application icons and logos
   - `public/uploads/icons/cryptocurrency/` - Cryptocurrency network icons (ethereum, bnb, ton, tron, solana)
+  - `public/uploads/balances/` - Balance icons named by database ID (e.g., `3.png` for balance id=3). Universal approach for displaying balance icons throughout the app using `getBalanceIcon(id)` helper from `client/src/lib/balanceIcons.ts`
   - `public/uploads/assets/` - Application static assets
   - `public/uploads/support/` - Support system assets (avatars, etc.)
   - All files accessible via `/uploads/*` URLs in frontend
