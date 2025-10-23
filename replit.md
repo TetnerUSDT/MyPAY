@@ -1,6 +1,6 @@
 # Overview
 
-SwiftX is a cryptocurrency exchange application designed for converting cryptocurrencies to traditional currencies, primarily targeting Russian users for USDT to RUB exchanges. It is a modern, mobile-first, full-stack web application featuring a React frontend and an Express.js backend with PostgreSQL/MySQL database integration. The project aims to provide a seamless and efficient exchange experience.
+SwiftX is a cryptocurrency exchange application designed for converting cryptocurrencies to traditional currencies, primarily targeting Russian users for USDT to RUB exchanges. It is a modern, mobile-first, full-stack web application featuring a React frontend and an Express.js backend with MySQL database integration. The project aims to provide a seamless and efficient exchange experience.
 
 # User Preferences
 
@@ -35,16 +35,16 @@ The server uses Express.js with TypeScript in ESM mode, focusing on clean separa
   - All files accessible via `/uploads/*` URLs in frontend
 
 ## Data Storage Solutions
-The application supports PostgreSQL (default) and MySQL with Drizzle ORM for type-safe operations:
-- **Database Flexibility**: Runtime switching via `DB_TYPE` environment variable.
+The application uses MySQL exclusively with Drizzle ORM for type-safe operations:
+- **Database**: MySQL with connection pooling via `mysql2/promise` driver.
 - **Schema Design**: Well-structured tables for users, wallets, transactions, exchange rates, support chats, notifications, invoices, and a referral system.
 - **Service Categories System**: Exchange rates and cards organized by category enum ('bank', 'crypto', 'cash'). Category-aware API endpoints (/api/services/banks, /api/services/crypto, /api/services/cash) filter data by service type. Crypto mode supports direct cryptocurrency-to-cryptocurrency exchanges without requiring bank card selection.
 - **Bot Commands System**: Database-driven command management with `botCommands`, `botCommandReactions`, `botMenus`, and `botMenuButtons` tables. Supports dynamic command text, images, inline buttons with links, and conditional execution.
 - **Referral System**: Unique referral codes (1 uppercase letter + 9 digits) generated on user registration.
 - **Type Safety**: Drizzle-Zod integration for runtime validation and TypeScript types.
-- **Migration**: Drizzle Kit for PostgreSQL migrations; MySQL requires manual schema setup via custom migration scripts.
-- **Connection**: Supports Neon Database serverless PostgreSQL and MySQL connection pools.
-- **Data Modeling**: Emphasizes decimal precision for crypto amounts, UUID primary keys, JSON fields, and foreign key relationships.
+- **Migration Tools**: Custom shell scripts (`./scripts/db-push.sh`, `./scripts/db-generate.sh`, `./scripts/db-studio.sh`) using `drizzle.mysql.config.ts` for MySQL-specific operations. See DATABASE.md for detailed guide.
+- **MySQL Helpers**: Custom helper functions (`insertAndReturn`, `updateAndReturn`, `insertAndReturnTx`) in `server/mysql-helpers.ts` to handle MySQL's lack of native `RETURNING` clause support.
+- **Data Modeling**: Emphasizes decimal precision for crypto amounts, auto-increment serial IDs, JSON fields, and foreign key relationships.
 
 ## Authentication and Authorization
 - **Authentication**: Dual strategy with Telegram Mini App `initData` for in-app access and "Login with Telegram" widget for browser users. Backend validates Telegram auth data using HMAC-SHA256.
@@ -59,9 +59,7 @@ The application supports PostgreSQL (default) and MySQL with Drizzle ORM for typ
 
 # External Dependencies
 
-- **Database**: PostgreSQL, MySQL (via Drizzle ORM).
+- **Database**: MySQL (via Drizzle ORM and mysql2 driver).
 - **Telegram API**: For user authentication, fetching user profile data (avatars, usernames), and sharing features.
 - **Payment Processing**: Integration points for blockchain payments (transaction hash tracking) and balance payments.
 - **Exchange Rate APIs**: Modular design for integrating real-time cryptocurrency exchange rate providers.
-- **Neon Database**: Serverless PostgreSQL driver for specific deployment environments.
-- **`pg` package**: Standard PostgreSQL driver for local and production environments.

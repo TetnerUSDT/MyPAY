@@ -1,6 +1,5 @@
 // Configuration for authentication modes
 export type AuthMode = 'test' | 'telegram';
-export type DatabaseType = 'postgres' | 'mysql';
 
 export interface AppConfig {
   auth: {
@@ -21,7 +20,6 @@ export interface AppConfig {
     environment: string;
   };
   database: {
-    type: DatabaseType;
     url: string;
   };
 }
@@ -47,7 +45,6 @@ export const config: AppConfig = {
     environment: process.env.NODE_ENV || 'development',
   },
   database: {
-    type: (process.env.DB_TYPE as DatabaseType) || 'postgres',
     url: process.env.DATABASE_URL || '',
   },
 };
@@ -57,8 +54,6 @@ export const isTestMode = () => config.auth.mode === 'test';
 export const isTelegramMode = () => config.auth.mode === 'telegram';
 export const isDevelopment = () => config.server.environment === 'development';
 export const isProduction = () => config.server.environment === 'production';
-export const isPostgres = () => config.database.type === 'postgres';
-export const isMySQL = () => config.database.type === 'mysql';
 
 // Validation helpers
 export const validateConfig = () => {
@@ -74,10 +69,6 @@ export const validateConfig = () => {
     throw new Error('DATABASE_URL is required');
   }
   
-  if (!['postgres', 'mysql'].includes(config.database.type)) {
-    throw new Error('DB_TYPE must be either "postgres" or "mysql"');
-  }
-  
   return true;
 };
 
@@ -86,7 +77,7 @@ export const logConfig = () => {
   console.log(`🔧 Configuration loaded:`);
   console.log(`   Auth Mode: ${config.auth.mode}`);
   console.log(`   Environment: ${config.server.environment}`);
-  console.log(`   Database Type: ${config.database.type}`);
+  console.log(`   Database: MySQL`);
   console.log(`   Test Auth: ${config.auth.test.enabled ? 'enabled' : 'disabled'}`);
   if (isTelegramMode()) {
     console.log(`   Telegram validation: ${config.auth.telegram.validateInitData ? 'enabled' : 'disabled'}`);
