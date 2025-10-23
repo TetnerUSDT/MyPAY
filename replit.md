@@ -15,7 +15,8 @@ The client is built with React 18 and TypeScript, utilizing a component-based ar
 - **UI Framework**: shadcn/ui components built on Radix UI for accessibility and customization.
 - **Styling**: Tailwind CSS with a custom design system and CSS custom properties for theming.
 - **Design**: Mobile-first approach with optimized layouts and bottom navigation.
-- **Pages**: Structured with screens for splash, country selection, exchange, top-up, selling, waiting, success, and support.
+- **Pages**: Structured with screens for splash, service selection (with tabs: Banks, Cryptocurrency, Cash), exchange (supports both bank and crypto modes), top-up, selling, waiting, success, and support.
+- **Service Selection**: Tabbed interface at /select-country displays three service categories. Bank tab shows country cards with flag icons, crypto tab displays available cryptocurrency exchange rates, cash tab shows coming-soon placeholder.
 
 ## Backend Architecture
 The server uses Express.js with TypeScript in ESM mode, focusing on clean separation of concerns:
@@ -37,6 +38,7 @@ The server uses Express.js with TypeScript in ESM mode, focusing on clean separa
 The application supports PostgreSQL (default) and MySQL with Drizzle ORM for type-safe operations:
 - **Database Flexibility**: Runtime switching via `DB_TYPE` environment variable.
 - **Schema Design**: Well-structured tables for users, wallets, transactions, exchange rates, support chats, notifications, invoices, and a referral system.
+- **Service Categories System**: Exchange rates and cards organized by category enum ('bank', 'crypto', 'cash'). Category-aware API endpoints (/api/services/banks, /api/services/crypto, /api/services/cash) filter data by service type. Crypto mode supports direct cryptocurrency-to-cryptocurrency exchanges without requiring bank card selection.
 - **Bot Commands System**: Database-driven command management with `botCommands`, `botCommandReactions`, `botMenus`, and `botMenuButtons` tables. Supports dynamic command text, images, inline buttons with links, and conditional execution.
 - **Referral System**: Unique referral codes (1 uppercase letter + 9 digits) generated on user registration.
 - **Type Safety**: Drizzle-Zod integration for runtime validation and TypeScript types.
@@ -53,6 +55,7 @@ The application supports PostgreSQL (default) and MySQL with Drizzle ORM for typ
 - **Green-themed UI**: Consistent visual design with green gradients.
 - **Interactive Customer Engagement**: Notification badges with unread counts, detailed notification pages with rich media, and invoice pages with countdown timers and payment options.
 - **Referral System UI**: Dedicated loyalty program page with "Link" and "My Partners" tabs, copy-to-clipboard functionality, and Telegram share integration.
+- **Service Category Navigation**: Three-tab interface (Banks, Cryptocurrency, Cash) for organizing exchange services by type. Bank mode requires card selection for receiving fiat, crypto mode enables direct crypto-to-crypto exchanges without card requirements.
 
 # External Dependencies
 

@@ -20,6 +20,7 @@ type ExchangeRate = {
   fromCurrency: string;
   toCurrency: string;
   rate: string;
+  category: 'bank' | 'crypto' | 'cash';
   updatedAt: string;
 };
 
@@ -50,6 +51,7 @@ export default function AdminExchangeRates() {
       fromBalanceId: "",
       toBalanceId: "",
       rate: "",
+      category: "bank",
     },
   });
 
@@ -105,6 +107,7 @@ export default function AdminExchangeRates() {
       fromBalanceId: rate.fromBalanceId?.toString() || "",
       toBalanceId: rate.toBalanceId?.toString() || "",
       rate: rate.rate,
+      category: rate.category || "bank",
     });
     setIsDialogOpen(true);
   };
@@ -148,6 +151,7 @@ export default function AdminExchangeRates() {
                 <TableRow>
                   <TableHead>Направление</TableHead>
                   <TableHead>Курс</TableHead>
+                  <TableHead>Категория</TableHead>
                   <TableHead>Обновлен</TableHead>
                   <TableHead>Действия</TableHead>
                 </TableRow>
@@ -157,6 +161,16 @@ export default function AdminExchangeRates() {
                   <TableRow key={rate.id} data-testid={`row-rate-${rate.id}`}>
                     <TableCell className="font-medium">{rate.fromCurrency} → {rate.toCurrency}</TableCell>
                     <TableCell>{rate.rate}</TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-1 rounded text-xs ${
+                        rate.category === 'crypto' ? 'bg-purple-100 text-purple-800' :
+                        rate.category === 'cash' ? 'bg-green-100 text-green-800' :
+                        'bg-blue-100 text-blue-800'
+                      }`}>
+                        {rate.category === 'crypto' ? 'Криптовалюта' :
+                         rate.category === 'cash' ? 'Наличные' : 'Банки'}
+                      </span>
+                    </TableCell>
                     <TableCell>{new Date(rate.updatedAt).toLocaleString('ru-RU')}</TableCell>
                     <TableCell>
                       <div className="flex space-x-2">
@@ -244,6 +258,29 @@ export default function AdminExchangeRates() {
                       <FormControl>
                         <Input {...field} placeholder="95.50" data-testid="input-rate" />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Категория</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-category">
+                            <SelectValue placeholder="Выберите категорию" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="bank">Банки</SelectItem>
+                          <SelectItem value="crypto">Криптовалюта</SelectItem>
+                          <SelectItem value="cash">Наличные</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
