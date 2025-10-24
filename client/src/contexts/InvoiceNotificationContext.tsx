@@ -173,14 +173,11 @@ export function InvoiceNotificationProvider({ children }: InvoiceNotificationPro
       {/* Invoice Notification Drawer */}
       <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
         <DrawerContent className="bg-gradient-to-b from-green-800 to-green-900 border-green-600/30">
-          <DrawerHeader>
-            <DrawerTitle className="text-white flex items-center gap-2">
+          <DrawerHeader className="pb-2">
+            <DrawerTitle className="text-white flex items-center justify-center gap-2">
               <AlertCircle className="w-5 h-5 text-yellow-400" />
-              Счет на оплату
+              Вам выставлен счет на оплату
             </DrawerTitle>
-            <DrawerDescription className="text-green-200">
-              Вам выставлен новый счет
-            </DrawerDescription>
           </DrawerHeader>
 
           {selectedInvoice && (
