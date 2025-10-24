@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Wallet, type InsertWallet, type Transaction, type InsertTransaction, type ExchangeRate, type InsertExchangeRate, type SupportChat, type InsertSupportChat, type SupportTicket, type InsertSupportTicket, type SupportMessage, type InsertSupportMessage, type Card, type Bank, type InsertBank, users, wallets, transactions, exchangeRates, supportChats, supportTickets, supportMessages, cards, banks, balances, userCards, exchanges, usersBalances } from "@shared/schema";
+import { type User, type InsertUser, type Wallet, type InsertWallet, type Transaction, type InsertTransaction, type ExchangeRate, type InsertExchangeRate, type SupportChat, type InsertSupportChat, type SupportTicket, type InsertSupportTicket, type SupportMessage, type InsertSupportMessage, type Card, type Bank, type InsertBank, type Voucher, type InsertVoucher, users, wallets, transactions, exchangeRates, supportChats, supportTickets, supportMessages, cards, banks, balances, userCards, exchanges, usersBalances, vouchers } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, and, or, isNull, sql, inArray } from "drizzle-orm";
@@ -107,6 +107,13 @@ export interface IStorage {
   createInvoice(invoice: any): Promise<any>;
   updateInvoiceStatus(id: number, status: string, paidAt?: Date, paymentHash?: string): Promise<any | undefined>;
   getExpiredInvoices(): Promise<any[]>;
+
+  // Voucher methods
+  createVoucher(voucher: any): Promise<any>;
+  getVoucherByCode(code: string): Promise<any | undefined>;
+  getUserVouchers(userId: number, status?: 'active' | 'activated' | 'expired'): Promise<any[]>;
+  activateVoucher(voucherCode: string, userId: number): Promise<any>;
+  updateVoucherBalance(voucherId: number, newAmount: string): Promise<any | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1458,6 +1465,55 @@ export class DatabaseStorage implements IStorage {
         sql`${invoices.expiresAt} < NOW()`
       )
     );
+  }
+
+  // Voucher methods implementation
+  async createVoucher(voucher: any): Promise<any> {
+    const newVoucher = await insertAndReturn<any>(
+      db.insert(vouchers).values(voucher),
+      'vouchers'
+    );
+    return newVoucher;
+  }
+
+  async getVoucherByCode(code: string): Promise<any | undefined> {
+    const [voucher] = await db.select().from(vouchers).where(eq(vouchers.code, code));
+    return voucher || undefined;
+  }
+
+  async getUserVouchers(userId: number, status?: 'active' | 'activated' | 'expired'): Promise<any[]> {
+    if (status) {
+      return await db.select().from(vouchers)
+        .where(and(eq(vouchers.userId, userId), eq(vouchers.status, status)))
+        .orderBy(sql`${vouchers.createdAt} DESC`);
+    }
+    return await db.select().from(vouchers)
+      .where(eq(vouchers.userId, userId))
+      .orderBy(sql`${vouchers.createdAt} DESC`);
+  }
+
+  async activateVoucher(voucherCode: string, userId: number): Promise<any> {
+    const updatedVoucher = await updateAndReturn<any>(
+      db.update(vouchers).set({
+        status: 'activated',
+        activatedBy: userId,
+        activatedAt: new Date()
+      }).where(eq(vouchers.code, voucherCode)),
+      'vouchers',
+      'code = ?',
+      [voucherCode]
+    );
+    return updatedVoucher;
+  }
+
+  async updateVoucherBalance(voucherId: number, newAmount: string): Promise<any | undefined> {
+    const updatedVoucher = await updateAndReturn<any>(
+      db.update(vouchers).set({ amount: newAmount }).where(eq(vouchers.id, voucherId)),
+      'vouchers',
+      'id = ?',
+      [voucherId]
+    );
+    return updatedVoucher || undefined;
   }
 }
 
