@@ -72,6 +72,7 @@ export interface IStorage {
   getFiatBalances(): Promise<any[]>;
   getCryptoBalances(): Promise<any[]>;
   getUserCryptoBalances(userId: number): Promise<any[]>;
+  getUserFiatBalances(userId: number): Promise<any[]>;
   getUserBalance(userId: number, balanceId: number): Promise<any>;
   updateUserDefaultBalance(userId: number, balanceId: number): Promise<User | undefined>;
   updateUserPhone(userId: number, phone: string): Promise<User | undefined>;
@@ -829,6 +830,33 @@ export class DatabaseStorage implements IStorage {
           sum: userBalance?.sum || "0.00",
           status: userBalance?.status || "inactive",
           balanceStatus: balance.status || "active", // Add system balance status
+        };
+      })
+    );
+
+    return result;
+  }
+
+  async getUserFiatBalances(userId: number): Promise<any[]> {
+    const fiatBalances = await this.getFiatBalances();
+    
+    // Filter out hidden balances
+    const visibleBalances = fiatBalances.filter(balance => balance.status !== 'hidden');
+    
+    const result = await Promise.all(
+      visibleBalances.map(async (balance) => {
+        // Get or create user balance (this will auto-generate accountNumber if needed)
+        const userBalance = await this.getUserBalance(userId, balance.id);
+
+        return {
+          id: balance.id,
+          title: balance.title,
+          network: balance.network,
+          currency: balance.currency,
+          sum: userBalance?.sum || "0.00",
+          status: userBalance?.status || "inactive",
+          balanceStatus: balance.status || "active",
+          accountNumber: userBalance?.accountNumber, // Include account number for fiat balances
         };
       })
     );

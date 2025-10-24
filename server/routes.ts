@@ -904,6 +904,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get user fiat balances with account numbers
+  app.get("/api/user/fiat-balances", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const fiatBalances = await storage.getUserFiatBalances(req.user!.id);
+      res.json(fiatBalances);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Get or create user balance
   app.get("/api/user-balance/:balanceId", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {
