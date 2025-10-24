@@ -5,7 +5,7 @@ import { copyToClipboard } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import QRCodeComponent from "@/components/qr-code";
+import StyledQRCodeComponent from "@/components/styled-qr-code";
 import { Button } from "@/components/ui/button";
 
 type BalanceType = "crypto" | "fiat";
@@ -97,9 +97,20 @@ export default function TopUpScreen() {
   // Reserve wallet for crypto balances
   useEffect(() => {
     if (balanceType === "crypto" && activeBalance) {
-      reserveWalletMutation.mutate(activeBalance.network);
+      // Ensure the active balance is actually a crypto balance before reserving
+      const isCryptoBalance = cryptoBalances.some(b => b.id === activeBalance.id);
+      
+      if (isCryptoBalance && activeBalance.network) {
+        // Reset previous wallet data when switching
+        reserveWalletMutation.reset();
+        // Reserve wallet for crypto
+        reserveWalletMutation.mutate(activeBalance.network);
+      }
+    } else if (balanceType === "fiat") {
+      // Reset wallet data when switching to fiat
+      reserveWalletMutation.reset();
     }
-  }, [activeBalance, balanceType]);
+  }, [activeBalance, balanceType, cryptoBalances]);
 
   const wallet = reserveWalletMutation.data;
 
@@ -232,7 +243,7 @@ export default function TopUpScreen() {
                   }`}
                   data-testid={`button-balance-${balance.currency.toLowerCase()}`}
                 >
-                  {balance.title}
+                  {balanceType === "fiat" ? balance.currency : balance.title}
                 </button>
               ))}
             </div>
@@ -245,7 +256,7 @@ export default function TopUpScreen() {
           ) : (
             <>
               <div className="qr-code-container mx-auto mb-6 w-48 h-48" data-testid="qr-code-container">
-                <QRCodeComponent value={qrData} size={192} />
+                <StyledQRCodeComponent value={qrData} size={192} balanceId={activeBalance?.id} />
               </div>
               
               <div className="text-sm text-muted-foreground mb-2">
