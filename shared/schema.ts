@@ -11,6 +11,8 @@ export const supportTicketStatusEnum = mysqlEnum('support_status', ['wait-user',
 export const messageSenderEnum = mysqlEnum('message_sender', ['user', 'support']);
 export const exchangeCategoryEnum = mysqlEnum('exchange_category', ['bank', 'crypto', 'cash']);
 export const qrStyleEnum = mysqlEnum('qr_style', ['square', 'dots', 'rounded', 'extra-rounded', 'classy', 'classy-rounded']);
+export const voucherStatusEnum = mysqlEnum('voucher_status', ['active', 'activated', 'expired']);
+export const voucherSecurityTypeEnum = mysqlEnum('voucher_security_type', ['none', 'word', 'pin']);
 
 export const balances = mysqlTable("balances", {
   id: int("id").primaryKey().autoincrement(),
@@ -243,6 +245,21 @@ export const notificationReads = mysqlTable("notification_reads", {
   readAt: timestamp("read_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const vouchers = mysqlTable("vouchers", {
+  id: int("id").primaryKey().autoincrement(),
+  code: varchar("code", { length: 15 }).notNull().unique(),
+  userId: int("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  balanceId: int("balance_id").notNull().references(() => balances.id, { onDelete: "cascade" }),
+  amount: decimal("amount", { precision: 18, scale: 8 }).notNull(),
+  currency: varchar("currency", { length: 10 }).notNull(),
+  securityType: voucherSecurityTypeEnum.notNull().default("none"),
+  securityValue: varchar("security_value", { length: 255 }),
+  status: voucherStatusEnum.notNull().default("active"),
+  activatedBy: int("activated_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  activatedAt: timestamp("activated_at"),
+});
+
 // Telegram Bot tables
 export const botCommands = mysqlTable("bot_commands", {
   id: int("id").primaryKey().autoincrement(),
@@ -330,6 +347,7 @@ export const insertAdminSchema = createInsertSchema(admins).omit({ id: true, cre
 export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true, createdAt: true, paidAt: true });
 export const insertNotificationSchema = createInsertSchema(notifications).omit({ id: true, createdAt: true });
 export const insertNotificationReadSchema = createInsertSchema(notificationReads).omit({ id: true, readAt: true });
+export const insertVoucherSchema = createInsertSchema(vouchers).omit({ id: true, createdAt: true, activatedAt: true, activatedBy: true });
 export const insertBotCommandSchema = createInsertSchema(botCommands).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertBotCommandFileSchema = createInsertSchema(botCommandFiles).omit({ id: true, createdAt: true });
 export const insertBotCommandReactionSchema = createInsertSchema(botCommandReactions).omit({ id: true, createdAt: true });
@@ -372,6 +390,8 @@ export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotificationRead = z.infer<typeof insertNotificationReadSchema>;
 export type NotificationRead = typeof notificationReads.$inferSelect;
+export type InsertVoucher = z.infer<typeof insertVoucherSchema>;
+export type Voucher = typeof vouchers.$inferSelect;
 export type InsertBotCommand = z.infer<typeof insertBotCommandSchema>;
 export type BotCommand = typeof botCommands.$inferSelect;
 export type InsertBotCommandFile = z.infer<typeof insertBotCommandFileSchema>;
