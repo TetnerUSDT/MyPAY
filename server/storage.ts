@@ -404,8 +404,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async reserveWallet(walletId: number, hours: number, reservationType?: string, userId?: number): Promise<Wallet | undefined> {
-    const reservationTime = new Date();
-    reservationTime.setHours(reservationTime.getHours() + hours);
+    const reservationTime = new Date(Date.now() + hours * 60 * 60 * 1000);
     
     const updateData: any = { reservationTime };
     if (reservationType) {
