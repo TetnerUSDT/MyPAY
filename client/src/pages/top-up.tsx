@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { X, ArrowDown, Copy, ArrowRight, Check } from "lucide-react";
+import { Copy, ArrowRight, Check } from "lucide-react";
 import { useState, useEffect } from "react";
 import { copyToClipboard } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -8,7 +8,7 @@ import { apiRequest } from "@/lib/queryClient";
 import QRCodeComponent from "@/components/qr-code";
 import { Button } from "@/components/ui/button";
 
-type NetworkType = "TRC20" | "BEP20" | "TON";
+type BalanceType = "crypto" | "fiat";
 
 interface ReservedWallet {
   id: number;
@@ -21,28 +21,38 @@ interface ReservedWallet {
   status: string | null;
 }
 
+interface UserBalance {
+  id: number;
+  title: string;
+  network: string;
+  currency: string;
+  sum: string;
+  status: string;
+  balanceStatus: string;
+  accountNumber?: string;
+}
+
 export default function TopUpScreen() {
-  const [activeNetwork, setActiveNetwork] = useState<NetworkType | null>(null);
+  const [balanceType, setBalanceType] = useState<BalanceType>("crypto");
+  const [activeBalance, setActiveBalance] = useState<UserBalance | null>(null);
   const [copied, setCopied] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<string>("");
   const { toast } = useToast();
   const [location, navigate] = useLocation();
 
-  // Get crypto balances to check status
-  const { data: cryptoBalances = [] } = useQuery<any[]>({
+  // Get crypto balances
+  const { data: cryptoBalances = [] } = useQuery<UserBalance[]>({
     queryKey: ["/api/user/crypto-balances"],
   });
 
-  // Filter active (not frozen) networks
-  const availableNetworks = cryptoBalances
-    .filter(balance => balance.balanceStatus !== 'frozen')
-    .map(balance => {
-      if (balance.network?.includes('TRC20')) return 'TRC20';
-      if (balance.network?.includes('BEP20')) return 'BEP20';
-      if (balance.network?.includes('TON')) return 'TON';
-      return null;
-    })
-    .filter(Boolean) as NetworkType[];
+  // Get fiat balances
+  const { data: fiatBalances = [] } = useQuery<UserBalance[]>({
+    queryKey: ["/api/user/fiat-balances"],
+  });
+
+  // Filter active (not frozen) balances
+  const availableBalances = (balanceType === "crypto" ? cryptoBalances : fiatBalances)
+    .filter(balance => balance.balanceStatus !== 'frozen');
 
   const reserveWalletMutation = useMutation({
     mutationFn: async (network: string) => {
@@ -70,113 +80,165 @@ export default function TopUpScreen() {
     }
   });
 
+  // Initialize active balance when balances load or type changes
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const networkParam = urlParams.get('network') as NetworkType;
-    
-    // Check if network from URL is available (not frozen)
-    if (networkParam && availableNetworks.includes(networkParam)) {
-      setActiveNetwork(networkParam);
-    } else if (availableNetworks.length > 0 && !activeNetwork) {
-      // Select first available network as default
-      setActiveNetwork(availableNetworks[0]);
+    if (availableBalances.length > 0) {
+      // Set first available balance when data loads or type switches
+      // Only update if active balance is not in current list (type switch or initial load)
+      const currentBalanceValid = activeBalance && availableBalances.some(b => b.id === activeBalance.id);
+      if (!currentBalanceValid) {
+        setActiveBalance(availableBalances[0]);
+      }
+    } else {
+      setActiveBalance(null);
     }
-  }, [location, cryptoBalances]);
+  }, [balanceType, cryptoBalances, fiatBalances]);
 
+  // Reserve wallet for crypto balances
   useEffect(() => {
-    if (activeNetwork) {
-      reserveWalletMutation.mutate(activeNetwork);
+    if (balanceType === "crypto" && activeBalance) {
+      reserveWalletMutation.mutate(activeBalance.network);
     }
-  }, [activeNetwork]);
+  }, [activeBalance, balanceType]);
 
   const wallet = reserveWalletMutation.data;
 
+  // Timer for crypto wallet reservation
   useEffect(() => {
-    if (!wallet?.reservationTime) return;
+    if (balanceType === "crypto" && wallet?.reservationTime) {
+      const updateTimer = () => {
+        const now = new Date();
+        const expiryTime = new Date(wallet.reservationTime!);
+        const diff = expiryTime.getTime() - now.getTime();
 
-    const updateTimer = () => {
-      const now = new Date();
-      const expiryTime = new Date(wallet.reservationTime!);
-      const diff = expiryTime.getTime() - now.getTime();
+        if (diff <= 0) {
+          setTimeRemaining("00:00:00");
+          if (activeBalance) {
+            reserveWalletMutation.mutate(activeBalance.network);
+          }
+          return;
+        }
 
-      if (diff <= 0) {
-        setTimeRemaining("00:00:00");
-        reserveWalletMutation.mutate(activeNetwork);
-        return;
-      }
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+        setTimeRemaining(
+          `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+        );
+      };
 
-      setTimeRemaining(
-        `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-      );
-    };
+      updateTimer();
+      const interval = setInterval(updateTimer, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [wallet?.reservationTime, activeBalance, balanceType]);
 
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
+  // Determine what to display (wallet address or account number)
+  const displayValue = balanceType === "crypto" 
+    ? (wallet?.address || "Loading...") 
+    : (activeBalance?.accountNumber || "Loading...");
 
-    return () => clearInterval(interval);
-  }, [wallet?.reservationTime, activeNetwork]);
-
-  const walletAddress = wallet?.address || "Loading...";
-  const qrData = wallet?.address || "";
+  const qrData = balanceType === "crypto" 
+    ? (wallet?.address || "") 
+    : (activeBalance?.accountNumber || "");
 
   const handleCopyAddress = async () => {
-    if (!wallet?.address) return;
+    if (!displayValue || displayValue === "Loading...") return;
     
     try {
-      await copyToClipboard(walletAddress);
+      await copyToClipboard(displayValue);
       setCopied(true);
       toast({
         title: "Скопировано!",
-        description: "Адрес кошелька скопирован в буфер обмена",
+        description: balanceType === "crypto" 
+          ? "Адрес кошелька скопирован в буфер обмена"
+          : "Номер счета скопирован в буфер обмена",
       });
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       toast({
         title: "Ошибка",
-        description: "Не удалось скопировать адрес",
+        description: "Не удалось скопировать",
         variant: "destructive",
       });
     }
   };
 
+  const handleContinue = () => {
+    if (balanceType === "crypto" && wallet?.address && activeBalance) {
+      createTopupMutation.mutate({
+        walletAddress: wallet.address,
+        network: activeBalance.network
+      });
+    } else if (balanceType === "fiat") {
+      // For fiat, navigate to success page or handle differently
+      navigate("/top-up-success");
+    }
+  };
+
+  const isLoading = balanceType === "crypto" && reserveWalletMutation.isPending;
+  const canContinue = balanceType === "crypto" 
+    ? (wallet?.address && activeBalance) 
+    : activeBalance;
+
   return (
     <div className="mobile-screen text-white overflow-y-auto pb-20">
       <div className="mobile-content">
         <h1 className="text-2xl font-bold text-center mb-8" data-testid="text-title">
-          Пополнить USDT
+          Пополнить {activeBalance?.currency || ""}
         </h1>
         
-        <div className="flex justify-center mb-12">
+        {/* Balance Type Selector */}
+        <div className="flex justify-center mb-8">
           <div className="flex bg-secondary rounded-lg p-1">
-            {availableNetworks.map((network) => (
-              <button
-                key={network}
-                onClick={() => setActiveNetwork(network)}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                  activeNetwork === network
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                data-testid={`button-network-${network.toLowerCase()}`}
-              >
-                {network}
-              </button>
-            ))}
+            <button
+              onClick={() => setBalanceType("crypto")}
+              className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${
+                balanceType === "crypto"
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              data-testid="button-type-crypto"
+            >
+              Криптовалюты
+            </button>
+            <button
+              onClick={() => setBalanceType("fiat")}
+              className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${
+                balanceType === "fiat"
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              data-testid="button-type-fiat"
+            >
+              Фиат
+            </button>
           </div>
         </div>
         
         <div className="crypto-card text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 bg-accent rounded-full flex items-center justify-center">
-              <ArrowDown className="w-6 h-6 text-accent-foreground" />
+          {/* Currency Selector (moved above QR code) */}
+          <div className="flex justify-center mb-6">
+            <div className="flex bg-secondary rounded-lg p-1 flex-wrap gap-1">
+              {availableBalances.map((balance) => (
+                <button
+                  key={balance.id}
+                  onClick={() => setActiveBalance(balance)}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                    activeBalance?.id === balance.id
+                      ? "bg-accent text-accent-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  data-testid={`button-balance-${balance.currency.toLowerCase()}`}
+                >
+                  {balance.title}
+                </button>
+              ))}
             </div>
           </div>
           
-          {reserveWalletMutation.isPending ? (
+          {isLoading ? (
             <div className="flex justify-center items-center h-48 mb-6">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent"></div>
             </div>
@@ -186,13 +248,15 @@ export default function TopUpScreen() {
                 <QRCodeComponent value={qrData} size={192} />
               </div>
               
-              <div className="text-sm text-muted-foreground mb-2">На адрес кошелька</div>
+              <div className="text-sm text-muted-foreground mb-2">
+                {balanceType === "crypto" ? "На адрес кошелька" : "Номер счета для пополнения"}
+              </div>
               <div className="flex items-center bg-secondary rounded-lg p-3 mb-3">
                 <span 
                   className="font-mono text-sm flex-1 truncate"
-                  data-testid="text-wallet-address"
+                  data-testid="text-address"
                 >
-                  {walletAddress}
+                  {displayValue}
                 </span>
                 <button 
                   className="ml-2 p-1 hover:bg-white/10 rounded"
@@ -207,7 +271,7 @@ export default function TopUpScreen() {
                 </button>
               </div>
               
-              {timeRemaining && (
+              {balanceType === "crypto" && timeRemaining && (
                 <div className="text-sm text-muted-foreground" data-testid="text-timer">
                   Адрес действителен {timeRemaining}
                 </div>
@@ -217,17 +281,10 @@ export default function TopUpScreen() {
         </div>
         
         <Button
-          onClick={() => {
-            if (wallet?.address && activeNetwork) {
-              createTopupMutation.mutate({
-                walletAddress: wallet.address,
-                network: activeNetwork
-              });
-            }
-          }}
+          onClick={handleContinue}
           className="action-button w-full"
           data-testid="button-continue"
-          disabled={reserveWalletMutation.isPending || createTopupMutation.isPending || !wallet?.address}
+          disabled={isLoading || createTopupMutation.isPending || !canContinue}
         >
           {createTopupMutation.isPending ? "Отправка..." : "Далее"}
           <ArrowRight className="w-5 h-5 ml-2" />
