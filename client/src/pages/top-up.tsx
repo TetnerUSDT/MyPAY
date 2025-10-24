@@ -315,11 +315,10 @@ export default function TopUpScreen() {
           </Button>
         ) : (
           <div className="space-y-4">
-            <div className="bg-secondary/50 rounded-lg p-4 text-center">
-              <p className="text-sm text-muted-foreground leading-relaxed" data-testid="text-fiat-info">
+            <div className="bg-secondary/50 rounded-lg py-3 px-4 text-center">
+              <p className="text-sm text-muted-foreground leading-snug" data-testid="text-fiat-info">
                 Пополнить фиатный баланс можно только переводом от другого пользователя по QR коду или номеру счета!
-              </p>
-              <p className="text-sm text-muted-foreground mt-2" data-testid="text-voucher-info">
+                <br />
                 Или если у вас есть ваучер пополнения
               </p>
             </div>
