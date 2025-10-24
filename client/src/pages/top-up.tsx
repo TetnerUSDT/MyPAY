@@ -21,6 +21,10 @@ interface ReservedWallet {
   status: string | null;
 }
 
+type QRColorConfig = 
+  | { type: 'single', color: string } 
+  | { type: 'gradient', colors: [string, string] };
+
 interface UserBalance {
   id: number;
   title: string;
@@ -30,6 +34,8 @@ interface UserBalance {
   status: string;
   balanceStatus: string;
   accountNumber?: string;
+  qrColor?: QRColorConfig;
+  qrStyle?: 'square' | 'dots' | 'rounded' | 'extra-rounded' | 'classy' | 'classy-rounded';
 }
 
 export default function TopUpScreen() {
@@ -256,7 +262,13 @@ export default function TopUpScreen() {
           ) : (
             <>
               <div className="qr-code-container mx-auto mb-6 w-48 h-48" data-testid="qr-code-container">
-                <StyledQRCodeComponent value={qrData} size={192} balanceId={activeBalance?.id} />
+                <StyledQRCodeComponent 
+                  value={qrData} 
+                  size={192} 
+                  balanceId={activeBalance?.id}
+                  qrColor={activeBalance?.qrColor}
+                  qrStyle={activeBalance?.qrStyle}
+                />
               </div>
               
               <div className="text-sm text-muted-foreground mb-2">

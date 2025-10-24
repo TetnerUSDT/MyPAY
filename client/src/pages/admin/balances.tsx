@@ -17,6 +17,10 @@ import { insertBalanceSchema, insertUsersBalancesSchema } from "@shared/schema";
 import { z } from "zod";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 
+type QRColorConfig = 
+  | { type: 'single', color: string } 
+  | { type: 'gradient', colors: [string, string] };
+
 type Balance = {
   id: number;
   title: string;
@@ -26,6 +30,8 @@ type Balance = {
   balanceType: "fiat" | "crypto" | "token" | "voucher";
   status: string | null;
   pattern: string | null;
+  qrColor: QRColorConfig | null;
+  qrStyle: 'square' | 'dots' | 'rounded' | 'extra-rounded' | 'classy' | 'classy-rounded' | null;
 };
 
 type UserBalance = {
@@ -59,6 +65,10 @@ export default function AdminBalances() {
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
   const [editingBalance, setEditingBalance] = useState<Balance | null>(null);
   const [editingUserBalance, setEditingUserBalance] = useState<UserBalance | null>(null);
+  const [qrColorType, setQrColorType] = useState<'single' | 'gradient'>('single');
+  const [qrSingleColor, setQrSingleColor] = useState('#000000');
+  const [qrGradientColor1, setQrGradientColor1] = useState('#000000');
+  const [qrGradientColor2, setQrGradientColor2] = useState('#FF0000');
   const { toast } = useToast();
 
   // System Balances Queries
@@ -90,6 +100,8 @@ export default function AdminBalances() {
       rate: null,
       status: "active",
       pattern: null,
+      qrColor: null,
+      qrStyle: "rounded",
     },
   });
 
@@ -188,15 +200,47 @@ export default function AdminBalances() {
 
   // System Balance Handlers
   const handleSystemBalanceSubmit = (data: z.infer<typeof balanceFormSchema>) => {
+    // Build qrColor object based on type
+    let qrColorData: QRColorConfig | null = null;
+    if (qrColorType === 'single' && qrSingleColor) {
+      qrColorData = { type: 'single', color: qrSingleColor };
+    } else if (qrColorType === 'gradient' && qrGradientColor1 && qrGradientColor2) {
+      qrColorData = { type: 'gradient', colors: [qrGradientColor1, qrGradientColor2] };
+    }
+
+    const submitData = {
+      ...data,
+      qrColor: qrColorData as any,
+    };
+
     if (editingBalance) {
-      updateBalanceMutation.mutate({ id: editingBalance.id, data });
+      updateBalanceMutation.mutate({ id: editingBalance.id, data: submitData });
     } else {
-      createBalanceMutation.mutate(data);
+      createBalanceMutation.mutate(submitData);
     }
   };
 
   const handleEditSystemBalance = (balance: Balance) => {
     setEditingBalance(balance);
+    
+    // Load QR color settings
+    if (balance.qrColor) {
+      if (balance.qrColor.type === 'single') {
+        setQrColorType('single');
+        setQrSingleColor(balance.qrColor.color);
+      } else if (balance.qrColor.type === 'gradient') {
+        setQrColorType('gradient');
+        setQrGradientColor1(balance.qrColor.colors[0]);
+        setQrGradientColor2(balance.qrColor.colors[1]);
+      }
+    } else {
+      // Reset to defaults if no qrColor
+      setQrColorType('single');
+      setQrSingleColor('#000000');
+      setQrGradientColor1('#000000');
+      setQrGradientColor2('#FF0000');
+    }
+    
     systemBalanceForm.reset({
       title: balance.title,
       currency: balance.currency,
@@ -205,6 +249,7 @@ export default function AdminBalances() {
       rate: balance.rate || null,
       status: balance.status || "active",
       pattern: balance.pattern || null,
+      qrStyle: balance.qrStyle || 'rounded',
     });
     setIsSystemDialogOpen(true);
   };
@@ -389,6 +434,87 @@ export default function AdminBalances() {
                         </FormItem>
                       )}
                     />
+
+                    {/* QR Code Settings */}
+                    <div className="space-y-4 border-t pt-4">
+                      <h3 className="text-sm font-semibold">Настройки QR кода</h3>
+                      
+                      <FormField
+                        control={systemBalanceForm.control}
+                        name="qrStyle"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Стиль точек QR кода</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value || "rounded"}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-qr-style">
+                                  <SelectValue placeholder="Выберите стиль" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="square">Square</SelectItem>
+                                <SelectItem value="dots">Dots</SelectItem>
+                                <SelectItem value="rounded">Rounded</SelectItem>
+                                <SelectItem value="extra-rounded">Extra Rounded</SelectItem>
+                                <SelectItem value="classy">Classy</SelectItem>
+                                <SelectItem value="classy-rounded">Classy Rounded</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div>
+                        <FormLabel>Тип цвета QR кода</FormLabel>
+                        <Select value={qrColorType} onValueChange={(value: 'single' | 'gradient') => setQrColorType(value)}>
+                          <SelectTrigger data-testid="select-qr-color-type" className="mt-2">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="single">Один цвет</SelectItem>
+                            <SelectItem value="gradient">Градиент (2 цвета)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {qrColorType === 'single' ? (
+                        <div>
+                          <FormLabel>Цвет QR кода</FormLabel>
+                          <Input 
+                            type="color" 
+                            value={qrSingleColor}
+                            onChange={(e) => setQrSingleColor(e.target.value)}
+                            className="mt-2 h-10"
+                            data-testid="input-qr-single-color"
+                          />
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <FormLabel>Цвет градиента 1</FormLabel>
+                            <Input 
+                              type="color" 
+                              value={qrGradientColor1}
+                              onChange={(e) => setQrGradientColor1(e.target.value)}
+                              className="mt-2 h-10"
+                              data-testid="input-qr-gradient-color1"
+                            />
+                          </div>
+                          <div>
+                            <FormLabel>Цвет градиента 2</FormLabel>
+                            <Input 
+                              type="color" 
+                              value={qrGradientColor2}
+                              onChange={(e) => setQrGradientColor2(e.target.value)}
+                              className="mt-2 h-10"
+                              data-testid="input-qr-gradient-color2"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     <div className="flex justify-end space-x-2">
                       <Button type="button" variant="outline" onClick={() => setIsSystemDialogOpen(false)}>
                         Отмена

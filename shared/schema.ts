@@ -10,6 +10,7 @@ export const exchangeStatusEnum = mysqlEnum('status', ['wait', 'wait-paid', 'pai
 export const supportTicketStatusEnum = mysqlEnum('support_status', ['wait-user', 'wait-support', 'closed']);
 export const messageSenderEnum = mysqlEnum('message_sender', ['user', 'support']);
 export const exchangeCategoryEnum = mysqlEnum('exchange_category', ['bank', 'crypto', 'cash']);
+export const qrStyleEnum = mysqlEnum('qr_style', ['square', 'dots', 'rounded', 'extra-rounded', 'classy', 'classy-rounded']);
 
 export const balances = mysqlTable("balances", {
   id: int("id").primaryKey().autoincrement(),
@@ -20,6 +21,8 @@ export const balances = mysqlTable("balances", {
   balanceType: varchar("type", { length: 50 }).notNull().default("fiat"),
   status: varchar("status", { length: 50 }).notNull().default("active"),
   pattern: text("pattern"),
+  qrColor: json("qr_color").$type<{ type: 'single', color: string } | { type: 'gradient', colors: [string, string] }>(),
+  qrStyle: qrStyleEnum.default('rounded'),
 });
 
 export const users = mysqlTable("users", {
