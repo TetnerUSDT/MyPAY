@@ -3,6 +3,7 @@ import { Zap, CreditCard, Loader2, Banknote, Coins, Wallet } from "lucide-react"
 import { useQuery } from "@tanstack/react-query";
 import { RussiaFlag, TurkeyFlag } from "@/components/flags";
 import { useState } from "react";
+import { getBalanceIcon } from "@/lib/balanceIcons";
 
 type Card = {
   id: number;
@@ -190,11 +191,27 @@ export default function SelectCountryScreen() {
                         data-testid={`crypto-rate-${rate.id}`}
                       >
                         <div className="flex items-center justify-between">
-                          <div>
-                            <h3 className="font-semibold text-base text-white">
-                              {rate.fromCurrency} → {rate.toCurrency}
-                            </h3>
-                            <p className="text-muted-foreground text-sm mt-1">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <img 
+                                src={getBalanceIcon(rate.fromBalanceId)} 
+                                alt={rate.fromCurrency}
+                                className="w-8 h-8 rounded-full"
+                              />
+                              <h3 className="font-semibold text-base text-white">
+                                {rate.fromCurrency}
+                              </h3>
+                              <span className="text-white/70">→</span>
+                              <img 
+                                src={getBalanceIcon(rate.toBalanceId)} 
+                                alt={rate.toCurrency}
+                                className="w-8 h-8 rounded-full"
+                              />
+                              <h3 className="font-semibold text-base text-white">
+                                {rate.toCurrency}
+                              </h3>
+                            </div>
+                            <p className="text-muted-foreground text-sm mt-2">
                               1 {rate.fromCurrency} = {parseFloat(rate.rate).toFixed(2)} {rate.toCurrency}
                             </p>
                           </div>
