@@ -837,7 +837,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserBalance(userId: number, balanceId: number): Promise<any> {
-    const { usersBalances } = await import("@shared/schema");
+    const { usersBalances, balances } = await import("@shared/schema");
     
     // Try to find existing user balance
     const [existingBalance] = await db
@@ -854,18 +854,51 @@ export class DatabaseStorage implements IStorage {
       return existingBalance;
     }
 
+    // Get balance info to check if it's fiat
+    const [balanceInfo] = await db
+      .select()
+      .from(balances)
+      .where(eq(balances.id, balanceId));
+
+    // Generate account number for fiat balances
+    let accountNumber: string | undefined;
+    if (balanceInfo?.balanceType === 'fiat') {
+      accountNumber = await this.generateUniqueAccountNumber();
+    }
+
     // Create new user balance if not exists
     const newBalance = await insertAndReturn<any>(
       db.insert(usersBalances).values({
         idUser: userId,
         idBalance: balanceId,
         sum: "0.0",
-        status: "active"
+        status: "active",
+        accountNumber
       }),
       'users_balances'
     );
 
     return newBalance;
+  }
+
+  async generateUniqueAccountNumber(): Promise<string> {
+    const { usersBalances } = await import("@shared/schema");
+    
+    while (true) {
+      // Generate 10-digit number (9000000000 to 9999999999)
+      const accountNumber = (9000000000 + Math.floor(Math.random() * 1000000000)).toString();
+      
+      // Check if it's unique
+      const [existing] = await db
+        .select()
+        .from(usersBalances)
+        .where(eq(usersBalances.accountNumber, accountNumber));
+      
+      if (!existing) {
+        return accountNumber;
+      }
+      // If exists, loop will generate a new number
+    }
   }
 
   async updateUserBalance(userId: number, balanceId: number, amount: number): Promise<any> {
