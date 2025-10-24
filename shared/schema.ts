@@ -51,6 +51,7 @@ export const usersBalances = mysqlTable("users_balances", {
   idUser: int("id_user").notNull().references(() => users.id, { onDelete: "cascade" }),
   sum: decimal("sum", { precision: 18, scale: 8 }).default("0.0"),
   status: varchar("status", { length: 50 }),
+  accountNumber: varchar("account_number", { length: 20 }).unique(),
 }, (table) => ({
   userBalanceUnique: uniqueIndex("user_balance_unique").on(table.idUser, table.idBalance)
 }));
