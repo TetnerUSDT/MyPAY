@@ -5,7 +5,9 @@ import { createHash, createHmac } from "crypto";
 import bcrypt from "bcryptjs";
 import { validate as validateInitData, parse as parseInitData } from "@telegram-apps/init-data-node";
 import { storage } from "./storage";
-import { insertTransactionSchema, insertSupportChatSchema, insertUserSchema, insertSupportTicketSchema, insertSupportMessageSchema } from "@shared/schema";
+import { db } from "./db";
+import { insertTransactionSchema, insertSupportChatSchema, insertUserSchema, insertSupportTicketSchema, insertSupportMessageSchema, usersBalances } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
 import { config, isTestMode, isTelegramMode, isDevelopment } from "./config";
 import { createWalletViaAPI } from "./wallet-api";
 import { registerAdminRoutes } from "./admin-routes";
@@ -1770,6 +1772,220 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedInvoice);
     } catch (error) {
       console.error('Cancel invoice error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Voucher routes
+  // Generate voucher code: V + 13 digits + D
+  function generateVoucherCode(): string {
+    const digits = Math.floor(Math.random() * 10000000000000).toString().padStart(13, '0');
+    return `V${digits}D`;
+  }
+
+  // Create voucher
+  app.post("/api/vouchers/create", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { balanceId, amount, securityType, securityValue } = req.body;
+
+      if (!balanceId || !amount) {
+        return res.status(400).json({ message: "Balance ID and amount are required" });
+      }
+
+      const userId = req.user!.id;
+
+      // Get user balance
+      const userBalance = await storage.getUserBalance(userId, balanceId);
+      if (!userBalance) {
+        return res.status(404).json({ message: "Balance not found" });
+      }
+
+      // Check if balance status is active
+      if (userBalance.balanceStatus === 'frozen') {
+        return res.status(400).json({ message: "Balance is frozen" });
+      }
+
+      // Check if user has enough balance
+      const currentBalance = parseFloat(userBalance.sum);
+      const requestedAmount = parseFloat(amount);
+
+      if (currentBalance < requestedAmount) {
+        return res.status(400).json({ message: "Insufficient balance" });
+      }
+
+      // Get balance details for currency
+      const balance = await storage.getBalance(balanceId);
+      if (!balance) {
+        return res.status(404).json({ message: "Balance configuration not found" });
+      }
+
+      // Hash security value if provided
+      let hashedSecurityValue = null;
+      if (securityType && securityType !== 'none' && securityValue) {
+        hashedSecurityValue = await bcrypt.hash(securityValue, 10);
+      }
+
+      // Generate unique voucher code
+      let voucherCode = generateVoucherCode();
+      let existingVoucher = await storage.getVoucherByCode(voucherCode);
+      while (existingVoucher) {
+        voucherCode = generateVoucherCode();
+        existingVoucher = await storage.getVoucherByCode(voucherCode);
+      }
+
+      // Create voucher
+      const voucher = await storage.createVoucher({
+        code: voucherCode,
+        userId,
+        balanceId,
+        amount: requestedAmount.toFixed(8),
+        currency: balance.currency,
+        securityType: securityType || 'none',
+        securityValue: hashedSecurityValue,
+        status: 'active'
+      });
+
+      // Deduct amount from user balance
+      const newBalance = (currentBalance - requestedAmount).toFixed(8);
+      await db.update(usersBalances)
+        .set({ sum: newBalance })
+        .where(and(
+          eq(usersBalances.idUser, userId),
+          eq(usersBalances.idBalance, balanceId)
+        ));
+
+      res.json(voucher);
+    } catch (error) {
+      console.error('Create voucher error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get user vouchers
+  app.get("/api/vouchers/my", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { status } = req.query;
+      const userId = req.user!.id;
+
+      const vouchers = await storage.getUserVouchers(
+        userId,
+        status as 'active' | 'activated' | 'expired' | undefined
+      );
+
+      res.json(vouchers);
+    } catch (error) {
+      console.error('Get user vouchers error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Check voucher
+  app.post("/api/vouchers/check", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { code } = req.body;
+
+      if (!code) {
+        return res.status(400).json({ message: "Voucher code is required" });
+      }
+
+      const voucher = await storage.getVoucherByCode(code);
+      
+      if (!voucher) {
+        return res.status(404).json({ message: "Voucher not found" });
+      }
+
+      // Return voucher info without sensitive data
+      res.json({
+        id: voucher.id,
+        amount: voucher.amount,
+        currency: voucher.currency,
+        status: voucher.status,
+        securityType: voucher.securityType,
+        requiresSecurity: voucher.securityType !== 'none',
+        createdAt: voucher.createdAt
+      });
+    } catch (error) {
+      console.error('Check voucher error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Activate voucher
+  app.post("/api/vouchers/activate", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { code, securityValue } = req.body;
+
+      if (!code) {
+        return res.status(400).json({ message: "Voucher code is required" });
+      }
+
+      const userId = req.user!.id;
+      const voucher = await storage.getVoucherByCode(code);
+      
+      if (!voucher) {
+        return res.status(404).json({ message: "Voucher not found" });
+      }
+
+      if (voucher.status !== 'active') {
+        return res.status(400).json({ message: "Voucher is not active" });
+      }
+
+      // Check if user is trying to activate own voucher
+      if (voucher.userId === userId) {
+        return res.status(400).json({ message: "Cannot activate your own voucher" });
+      }
+
+      // Check security if required
+      if (voucher.securityType !== 'none' && voucher.securityValue) {
+        if (!securityValue) {
+          return res.status(400).json({ message: "Security code is required" });
+        }
+
+        const isValid = await bcrypt.compare(securityValue, voucher.securityValue);
+        if (!isValid) {
+          return res.status(403).json({ message: "Invalid security code" });
+        }
+      }
+
+      // Get or create user balance for this currency
+      let userBalance = await storage.getUserBalance(userId, voucher.balanceId);
+      
+      if (!userBalance) {
+        return res.status(400).json({ message: "Balance not found for this currency" });
+      }
+
+      // Add voucher amount to user balance
+      const currentBalance = parseFloat(userBalance.sum);
+      const voucherAmount = parseFloat(voucher.amount);
+      const newBalance = (currentBalance + voucherAmount).toFixed(8);
+
+      await db.update(usersBalances)
+        .set({ sum: newBalance })
+        .where(and(
+          eq(usersBalances.idUser, userId),
+          eq(usersBalances.idBalance, voucher.balanceId)
+        ));
+
+      // Mark voucher as activated
+      const activatedVoucher = await storage.activateVoucher(code, userId);
+
+      // Create notification
+      await storage.createNotification({
+        userId,
+        type: 'success',
+        title: 'Ваучер активирован',
+        message: `Вы успешно активировали ваучер на сумму ${voucherAmount} ${voucher.currency}`,
+        isRead: false
+      });
+
+      res.json({
+        message: "Voucher activated successfully",
+        amount: voucherAmount,
+        currency: voucher.currency,
+        newBalance
+      });
+    } catch (error) {
+      console.error('Activate voucher error:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
