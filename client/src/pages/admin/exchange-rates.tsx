@@ -12,6 +12,7 @@ import { adminRequest } from "@/lib/adminApi";
 import { queryClient } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
 import { Pencil, Plus, Trash2 } from "lucide-react";
+import { getBalanceIcon } from "@/lib/balanceIcons";
 
 type ExchangeRate = {
   id: string;
@@ -159,7 +160,27 @@ export default function AdminExchangeRates() {
               <TableBody>
                 {rates?.map((rate) => (
                   <TableRow key={rate.id} data-testid={`row-rate-${rate.id}`}>
-                    <TableCell className="font-medium">{rate.fromCurrency} → {rate.toCurrency}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {rate.fromBalanceId && (
+                          <img 
+                            src={getBalanceIcon(rate.fromBalanceId)} 
+                            alt={rate.fromCurrency}
+                            className="w-8 h-8 rounded-full"
+                          />
+                        )}
+                        <span>{rate.fromCurrency}</span>
+                        <span className="text-muted-foreground">→</span>
+                        {rate.toBalanceId && (
+                          <img 
+                            src={getBalanceIcon(rate.toBalanceId)} 
+                            alt={rate.toCurrency}
+                            className="w-8 h-8 rounded-full"
+                          />
+                        )}
+                        <span>{rate.toCurrency}</span>
+                      </div>
+                    </TableCell>
                     <TableCell>{rate.rate}</TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 rounded text-xs ${

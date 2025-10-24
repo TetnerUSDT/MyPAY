@@ -415,7 +415,6 @@ export default function AdminBalances() {
                     <TableHead>Валюта</TableHead>
                     <TableHead>Тип</TableHead>
                     <TableHead>Сеть</TableHead>
-                    <TableHead>Паттерн</TableHead>
                     <TableHead>Курс</TableHead>
                     <TableHead>Статус</TableHead>
                     <TableHead>Действия</TableHead>
@@ -435,11 +434,6 @@ export default function AdminBalances() {
                         </span>
                       </TableCell>
                       <TableCell>{balance.network || '-'}</TableCell>
-                      <TableCell>
-                        {balance.pattern ? (
-                          <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">{balance.pattern}</code>
-                        ) : '-'}
-                      </TableCell>
                       <TableCell>{balance.rate || '-'}</TableCell>
                       <TableCell>
                         <span className={`px-2 py-1 rounded text-xs ${
