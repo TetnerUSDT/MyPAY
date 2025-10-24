@@ -190,7 +190,7 @@ export default function SelectCountryScreen() {
                         className="crypto-card cursor-pointer hover:opacity-90 transition-all mb-[15px]"
                         data-testid={`crypto-rate-${rate.id}`}
                       >
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-4">
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
                               <img 
@@ -215,8 +215,8 @@ export default function SelectCountryScreen() {
                               1 {rate.fromCurrency} = {parseFloat(rate.rate).toFixed(2)} {rate.toCurrency}
                             </p>
                           </div>
-                          <div className="text-right">
-                            <div className="text-accent font-semibold text-lg">
+                          <div className="bg-secondary border-0 text-accent font-semibold px-4 py-3 rounded-lg min-w-[80px] text-center">
+                            <div className="text-lg">
                               {parseFloat(rate.rate).toFixed(2)}
                             </div>
                           </div>
