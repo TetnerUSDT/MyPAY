@@ -660,12 +660,14 @@ export default function ExchangeScreen() {
               </div>
             </div>
 
-            {/* Arrow Down */}
-            <div className="flex justify-center" style={{position: 'relative', marginTop: '-20px', marginBottom: '-30px', zIndex: 2}}>
-              <div className="w-12 h-12 bg-accent rounded-full flex items-center justify-center border-[6px]" style={{borderColor: '#2a4c3b'}}>
-                <ArrowDown className="w-6 h-6 text-accent-foreground" />
+            {/* Arrow Down - Hide when crypto mode with balance payment */}
+            {!(isCryptoMode && paymentMethod === 'balance') && (
+              <div className="flex justify-center" style={{position: 'relative', marginTop: '-20px', marginBottom: '-30px', zIndex: 2}}>
+                <div className="w-12 h-12 bg-accent rounded-full flex items-center justify-center border-[6px]" style={{borderColor: '#2a4c3b'}}>
+                  <ArrowDown className="w-6 h-6 text-accent-foreground" />
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Card Selection - Only for Bank Mode */}
             {!isCryptoMode && (
