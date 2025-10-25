@@ -916,6 +916,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all user balances (crypto + fiat) for voucher creation
+  app.get("/api/user/balances", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const allBalances = await storage.getAllUserBalances(req.user!.id);
+      res.json(allBalances);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Get or create user balance
   app.get("/api/user-balance/:balanceId", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {

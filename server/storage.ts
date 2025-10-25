@@ -73,6 +73,7 @@ export interface IStorage {
   getCryptoBalances(): Promise<any[]>;
   getUserCryptoBalances(userId: number): Promise<any[]>;
   getUserFiatBalances(userId: number): Promise<any[]>;
+  getAllUserBalances(userId: number): Promise<any[]>;
   getUserBalance(userId: number, balanceId: number): Promise<any>;
   updateUserDefaultBalance(userId: number, balanceId: number): Promise<User | undefined>;
   updateUserPhone(userId: number, phone: string): Promise<User | undefined>;
@@ -858,8 +859,8 @@ export class DatabaseStorage implements IStorage {
         const userBalance = await this.getUserBalance(userId, balance.id);
 
         return {
-          id: balance.id,
-          title: balance.title,
+          balanceId: balance.id,
+          balanceName: balance.title,
           network: balance.network,
           currency: balance.currency,
           sum: userBalance?.sum || "0.00",
@@ -873,6 +874,28 @@ export class DatabaseStorage implements IStorage {
     );
 
     return result;
+  }
+
+  // Get all user balances (both fiat and crypto) for voucher creation
+  async getAllUserBalances(userId: number): Promise<any[]> {
+    const [cryptoBalances, fiatBalances] = await Promise.all([
+      this.getUserCryptoBalances(userId),
+      this.getUserFiatBalances(userId)
+    ]);
+
+    // Transform to match UserBalance interface expected by frontend
+    const transformBalance = (balance: any) => ({
+      balanceId: balance.id || balance.balanceId,
+      balanceName: balance.title || balance.balanceName,
+      sum: balance.sum || "0.00",
+      currency: balance.currency,
+      balanceStatus: balance.balanceStatus || balance.status || "active"
+    });
+
+    return [
+      ...cryptoBalances.map(transformBalance),
+      ...fiatBalances.map(transformBalance)
+    ];
   }
 
   async getUserBalance(userId: number, balanceId: number): Promise<any> {
