@@ -1978,7 +1978,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create notification
       await storage.createNotification({
         userId,
-        type: 'success',
+        type: 'info',
         title: 'Ваучер активирован',
         message: `Вы успешно активировали ваучер на сумму ${voucherAmount} ${voucher.currency}`,
         isRead: false
