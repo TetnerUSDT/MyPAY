@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Scanner, type IDetectedBarcode } from "@yudiel/react-qr-scanner";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X, Camera } from "lucide-react";
@@ -22,6 +22,56 @@ export default function QRScanner({
   errorMessage = "Неверный формат QR-кода"
 }: QRScannerProps) {
   const [error, setError] = useState<string | null>(null);
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setIsReady(false);
+      setHasPermission(null);
+      setError(null);
+      return;
+    }
+
+    // Request camera permission first
+    navigator.mediaDevices.getUserMedia({ 
+      video: { 
+        facingMode: "environment",
+        width: { ideal: 1280, min: 640, max: 1920 },
+        height: { ideal: 960, min: 480, max: 1440 }
+      } 
+    })
+      .then((stream) => {
+        // Stop the stream immediately - we just needed to get permission
+        stream.getTracks().forEach(track => track.stop());
+        setHasPermission(true);
+        // Small delay for iOS to properly initialize
+        setTimeout(() => setIsReady(true), 100);
+      })
+      .catch((err) => {
+        console.error("Camera permission error:", err);
+        setHasPermission(false);
+        setError("Необходим доступ к камере");
+      });
+  }, [open]);
+
+  // Apply iOS-specific video attributes after component mounts
+  useEffect(() => {
+    if (!isReady || !open) return;
+
+    const timer = setTimeout(() => {
+      // Find all video elements and ensure they have iOS-required attributes
+      const videos = document.querySelectorAll('video');
+      videos.forEach((video) => {
+        video.setAttribute('autoplay', '');
+        video.setAttribute('muted', '');
+        video.setAttribute('playsinline', '');
+        video.setAttribute('webkit-playsinline', '');
+      });
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [isReady, open]);
 
   const handleScan = (detectedCodes: IDetectedBarcode[]) => {
     if (!detectedCodes || detectedCodes.length === 0) return;
@@ -43,6 +93,11 @@ export default function QRScanner({
 
   const handleError = (error: unknown) => {
     console.error("QR Scanner Error:", error);
+    const err = error as Error;
+    if (err?.name === 'NotAllowedError') {
+      setError("Доступ к камере запрещен");
+      setHasPermission(false);
+    }
   };
 
   return (
@@ -69,55 +124,77 @@ export default function QRScanner({
             </Button>
           </div>
 
-          {/* Scanner - Full Screen */}
-          <div className="absolute inset-0">
-            <Scanner
-              onScan={handleScan}
-              onError={handleError}
-              constraints={{
-                facingMode: "environment",
-                aspectRatio: { 
-                  ideal: typeof window !== 'undefined' ? window.innerWidth / window.innerHeight : 0.75, 
-                  min: 0.75, 
-                  max: 1.5 
-                }
-              }}
-              styles={{
-                container: {
-                  width: "100vw",
-                  height: "100vh",
-                  overflow: "hidden",
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center"
-                },
-                video: {
-                  width: "100%",
-                  height: "auto",
-                  minHeight: "100%",
-                  objectFit: "cover",
-                  transform: "translateZ(0)"
-                }
-              }}
-            />
-
-            {/* Scanning Overlay - Corner Brackets */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-              <div className="relative w-64 h-64">
-                {/* Top-Left Corner */}
-                <div className="absolute top-0 left-0 w-16 h-16 border-t-4 border-l-4 border-white rounded-tl-lg" />
-                {/* Top-Right Corner */}
-                <div className="absolute top-0 right-0 w-16 h-16 border-t-4 border-r-4 border-white rounded-tr-lg" />
-                {/* Bottom-Left Corner */}
-                <div className="absolute bottom-0 left-0 w-16 h-16 border-b-4 border-l-4 border-white rounded-bl-lg" />
-                {/* Bottom-Right Corner */}
-                <div className="absolute bottom-0 right-0 w-16 h-16 border-b-4 border-r-4 border-white rounded-br-lg" />
+          {/* Permission Loading State */}
+          {hasPermission === null && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-white text-center">
+                <Camera className="w-12 h-12 mx-auto mb-4 animate-pulse" />
+                <p>Запрос доступа к камере...</p>
               </div>
             </div>
-          </div>
+          )}
+
+          {/* Permission Denied State */}
+          {hasPermission === false && (
+            <div className="absolute inset-0 flex items-center justify-center p-6">
+              <div className="text-white text-center space-y-4">
+                <X className="w-12 h-12 mx-auto text-red-500" />
+                <p className="text-lg font-semibold">Доступ к камере запрещен</p>
+                <p className="text-sm text-gray-300">
+                  Разрешите доступ к камере в настройках браузера и попробуйте снова
+                </p>
+                <Button
+                  onClick={onClose}
+                  className="bg-white text-black hover:bg-gray-200"
+                >
+                  Закрыть
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Scanner - Full Screen */}
+          {hasPermission === true && isReady && (
+            <div className="absolute inset-0">
+              <Scanner
+                onScan={handleScan}
+                onError={handleError}
+                constraints={{
+                  facingMode: "environment",
+                  width: { ideal: 1280, min: 640, max: 1920 },
+                  height: { ideal: 960, min: 480, max: 1440 },
+                  frameRate: { ideal: 30, min: 15 }
+                }}
+                styles={{
+                  container: {
+                    width: "100%",
+                    height: "100%",
+                    overflow: "hidden",
+                    position: "relative"
+                  },
+                  video: {
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover"
+                  }
+                }}
+              />
+
+              {/* Scanning Overlay - Corner Brackets */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                <div className="relative w-64 h-64">
+                  {/* Top-Left Corner */}
+                  <div className="absolute top-0 left-0 w-16 h-16 border-t-4 border-l-4 border-white rounded-tl-lg" />
+                  {/* Top-Right Corner */}
+                  <div className="absolute top-0 right-0 w-16 h-16 border-t-4 border-r-4 border-white rounded-tr-lg" />
+                  {/* Bottom-Left Corner */}
+                  <div className="absolute bottom-0 left-0 w-16 h-16 border-b-4 border-l-4 border-white rounded-bl-lg" />
+                  {/* Bottom-Right Corner */}
+                  <div className="absolute bottom-0 right-0 w-16 h-16 border-b-4 border-r-4 border-white rounded-br-lg" />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Error Message */}
           {error && (
@@ -129,12 +206,14 @@ export default function QRScanner({
           )}
 
           {/* Camera Icon Indicator */}
-          <div className="absolute bottom-8 left-0 right-0 z-20 flex justify-center pointer-events-none">
-            <div className="bg-white/10 backdrop-blur-sm px-6 py-3 rounded-full flex items-center gap-2">
-              <Camera className="w-5 h-5 text-white" />
-              <span className="text-white text-sm font-medium">Наведите на QR-код</span>
+          {hasPermission === true && isReady && (
+            <div className="absolute bottom-8 left-0 right-0 z-20 flex justify-center pointer-events-none">
+              <div className="bg-white/10 backdrop-blur-sm px-6 py-3 rounded-full flex items-center gap-2">
+                <Camera className="w-5 h-5 text-white" />
+                <span className="text-white text-sm font-medium">Наведите на QR-код</span>
+              </div>
             </div>
-          </div>
+          )}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
