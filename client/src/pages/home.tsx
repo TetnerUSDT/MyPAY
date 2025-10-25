@@ -7,6 +7,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { User } from "@shared/schema";
 import { formatBalance } from "@/lib/utils";
 import { getBalanceIcon } from "@/lib/balanceIcons";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Images from public directory - use direct URLs with cache busting
 const catImage = "/uploads/icons/cat-logo.png?v=2";
@@ -64,7 +65,7 @@ export default function HomeScreen() {
   });
 
   // Get user crypto balances
-  const { data: cryptoBalances = [] } = useQuery<any[]>({
+  const { data: cryptoBalances = [], isLoading: cryptoLoading } = useQuery<any[]>({
     queryKey: ["/api/user/crypto-balances"],
   });
 
@@ -270,7 +271,34 @@ export default function HomeScreen() {
         {/* Wallets List */}
         <div className="flex-1 px-6">
           <div className="space-y-4">
-            {wallets.map((wallet) => (
+            {cryptoLoading ? (
+              // Skeleton loading state
+              Array.from({ length: 3 }).map((_, index) => (
+                <div 
+                  key={`skeleton-${index}`}
+                  className="crypto-card flex items-center justify-between"
+                  data-testid={`wallet-skeleton-${index}`}
+                >
+                  <div className="flex items-center flex-1">
+                    {/* Icon skeleton */}
+                    <Skeleton className="w-12 h-12 rounded-full mr-4 bg-white/10" />
+                    
+                    {/* Text skeleton */}
+                    <div className="flex-1">
+                      <Skeleton className="h-5 w-32 mb-2 bg-white/10" />
+                      <Skeleton className="h-4 w-24 bg-white/10" />
+                    </div>
+                  </div>
+                  
+                  {/* Action buttons skeleton */}
+                  <div className="flex space-x-2">
+                    <Skeleton className="w-10 h-10 rounded-lg bg-white/10" />
+                    <Skeleton className="w-10 h-10 rounded-lg bg-white/10" />
+                  </div>
+                </div>
+              ))
+            ) : (
+              wallets.map((wallet) => (
               <div 
                 key={wallet.id}
                 className={`crypto-card flex items-center justify-between relative ${(wallet.isBlocked || wallet.isFrozen) ? 'opacity-70 cursor-pointer' : ''}`}
@@ -341,7 +369,8 @@ export default function HomeScreen() {
                   </div>
                 )}
               </div>
-            ))}
+            ))
+            )}
           </div>
         </div>
 
