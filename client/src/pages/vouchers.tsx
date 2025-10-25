@@ -14,6 +14,8 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
+import Lottie from "lottie-react";
+import voucherAnimation from "@assets/VOUCHER_1761384914159.json";
 
 // Helper function to get user-friendly error messages
 function getErrorMessage(error: any): string {
@@ -449,6 +451,15 @@ export default function VouchersPage() {
       </div>
 
       <div className="px-4 space-y-4">
+        {/* Voucher Animation */}
+        <div className="flex justify-center -mt-4 mb-2">
+          <Lottie 
+            animationData={voucherAnimation} 
+            loop={true}
+            className="w-32 h-32"
+          />
+        </div>
+
         {/* Action Buttons */}
         <div className="grid grid-cols-2 gap-3">
           <Button
