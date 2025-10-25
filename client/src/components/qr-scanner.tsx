@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Scanner } from "@yudiel/react-qr-scanner";
+import { Scanner, type IDetectedBarcode } from "@yudiel/react-qr-scanner";
 import { X, Camera } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ export default function QRScanner({
 }: QRScannerProps) {
   const [error, setError] = useState<string | null>(null);
 
-  const handleScan = (detectedCodes: any) => {
+  const handleScan = (detectedCodes: IDetectedBarcode[]) => {
     if (!detectedCodes || detectedCodes.length === 0) return;
 
     const scannedData = detectedCodes[0]?.rawValue;
@@ -41,7 +41,7 @@ export default function QRScanner({
     onScan(scannedData);
   };
 
-  const handleError = (error: any) => {
+  const handleError = (error: unknown) => {
     console.error("QR Scanner Error:", error);
   };
 
