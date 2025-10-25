@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Scanner, type IDetectedBarcode } from "@yudiel/react-qr-scanner";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X, Camera } from "lucide-react";
@@ -12,6 +12,27 @@ interface QRScannerProps {
   validate?: (data: string) => boolean;
   errorMessage?: string;
 }
+
+// Custom green tracker - stable function outside component
+const greenTracker = (detectedCodes: IDetectedBarcode[], ctx: CanvasRenderingContext2D) => {
+  console.log('🟢 Green tracker called with', detectedCodes.length, 'codes');
+  
+  detectedCodes.forEach((code) => {
+    const { boundingBox } = code;
+    
+    console.log('Drawing green box at:', boundingBox);
+    
+    // Draw green bounding box
+    ctx.strokeStyle = '#00FF00'; // Bright green
+    ctx.lineWidth = 4;
+    ctx.strokeRect(
+      boundingBox.x,
+      boundingBox.y,
+      boundingBox.width,
+      boundingBox.height
+    );
+  });
+};
 
 export default function QRScanner({
   open,
@@ -98,23 +119,6 @@ export default function QRScanner({
       setError("Доступ к камере запрещен");
       setHasPermission(false);
     }
-  };
-
-  // Custom green tracker
-  const greenTracker = (detectedCodes: IDetectedBarcode[], ctx: CanvasRenderingContext2D) => {
-    detectedCodes.forEach((code) => {
-      const { boundingBox } = code;
-      
-      // Draw green bounding box
-      ctx.strokeStyle = '#00FF00'; // Bright green
-      ctx.lineWidth = 4;
-      ctx.strokeRect(
-        boundingBox.x,
-        boundingBox.y,
-        boundingBox.width,
-        boundingBox.height
-      );
-    });
   };
 
   return (
