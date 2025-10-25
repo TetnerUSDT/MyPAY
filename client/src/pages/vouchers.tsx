@@ -116,28 +116,19 @@ export default function VouchersPage() {
     queryKey: ['/api/user/balances'],
   });
 
-  console.log('🔍 User balances received:', userBalances);
-
   // Filter active balances with balance > 0
   const availableBalances = userBalances.filter(
-    b => {
-      const isActive = b.balanceStatus === 'active';
-      const hasBalance = parseFloat(b.sum) > 0;
-      console.log(`Balance ${b.balanceName}: active=${isActive}, hasBalance=${hasBalance}, sum=${b.sum}`);
-      return isActive && hasBalance;
-    }
+    b => b.balanceStatus === 'active' && parseFloat(b.sum) > 0
   );
-
-  console.log('✅ Available balances:', availableBalances);
 
   // Fetch active vouchers
   const { data: activeVouchers = [], isLoading: activeLoading } = useQuery<Voucher[]>({
-    queryKey: ['/api/vouchers/my', { status: 'active' }],
+    queryKey: ['/api/vouchers/my?status=active'],
   });
 
   // Fetch activated vouchers
   const { data: activatedVouchers = [], isLoading: activatedLoading } = useQuery<Voucher[]>({
-    queryKey: ['/api/vouchers/my', { status: 'activated' }],
+    queryKey: ['/api/vouchers/my?status=activated'],
   });
 
   const createVoucherMutation = useMutation({
