@@ -66,7 +66,7 @@ export default function VouchersPage() {
 
   // Check for activation action in URL params
   useEffect(() => {
-    const params = new URLSearchParams(location.split('?')[1]);
+    const params = new URLSearchParams(window.location.search);
     if (params.get('action') === 'activate') {
       setIsActivateDialogOpen(true);
     }
@@ -75,7 +75,7 @@ export default function VouchersPage() {
   // Clean URL when activation dialog closes
   const handleActivateDialogChange = (open: boolean) => {
     setIsActivateDialogOpen(open);
-    if (!open && location.includes('?action=activate')) {
+    if (!open && window.location.search.includes('action=activate')) {
       setLocation('/vouchers', { replace: true });
     }
   };
