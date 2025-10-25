@@ -15,7 +15,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import Lottie from "lottie-react";
-import voucherAnimation from "@assets/VOUCHER_1761384914159.json";
+import voucherAnimation from "@assets/VOUCHER_1761385257411.json";
 
 // Helper function to get user-friendly error messages
 function getErrorMessage(error: any): string {
