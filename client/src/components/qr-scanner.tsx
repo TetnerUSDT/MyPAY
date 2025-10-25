@@ -55,7 +55,7 @@ export default function QRScanner({
       });
   }, [open]);
 
-  // Apply iOS-specific video attributes and hide tracker after component mounts
+  // Apply iOS-specific video attributes after component mounts
   useEffect(() => {
     if (!isReady || !open) return;
 
@@ -68,24 +68,6 @@ export default function QRScanner({
         video.setAttribute('playsinline', '');
         video.setAttribute('webkit-playsinline', '');
       });
-
-      // Hide the tracker overlay (red border)
-      const trackers = document.querySelectorAll('svg[class*="tracker"]');
-      trackers.forEach((tracker) => {
-        (tracker as unknown as HTMLElement).style.display = 'none';
-      });
-
-      // Also try to hide any canvas or svg elements that might be the tracker
-      const scannerContainer = document.querySelector('[data-testid="dialog-qr-scanner"]');
-      if (scannerContainer) {
-        const svgs = scannerContainer.querySelectorAll('svg');
-        svgs.forEach((svg) => {
-          // Only hide SVG if it's not part of our UI (icons, etc)
-          if (!svg.closest('button') && !svg.closest('[class*="lucide"]')) {
-            (svg as unknown as HTMLElement).style.display = 'none';
-          }
-        });
-      }
     }, 200);
 
     return () => clearTimeout(timer);
@@ -174,44 +156,31 @@ export default function QRScanner({
           {/* Scanner - Full Screen */}
           {hasPermission === true && isReady && (
             <div className="absolute inset-0">
-              <div className="qr-scanner-wrapper">
-                <style>{`
-                  .qr-scanner-wrapper svg {
-                    display: none !important;
+              <Scanner
+                onScan={handleScan}
+                onError={handleError}
+                scanDelay={200}
+                constraints={{
+                  facingMode: "environment",
+                  width: { ideal: 1920, min: 1280, max: 3840 },
+                  height: { ideal: 1440, min: 960, max: 2160 },
+                  frameRate: { ideal: 60, min: 30 }
+                }}
+                styles={{
+                  container: {
+                    width: "100%",
+                    height: "100%",
+                    overflow: "hidden",
+                    position: "relative"
+                  },
+                  video: {
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    filter: "contrast(1.1) brightness(1.05)"
                   }
-                  .qr-scanner-wrapper video {
-                    display: block !important;
-                  }
-                `}</style>
-                <Scanner
-                  onScan={handleScan}
-                  onError={handleError}
-                  scanDelay={200}
-                  components={{
-                    tracker: () => null
-                  }}
-                  constraints={{
-                    facingMode: "environment",
-                    width: { ideal: 1920, min: 1280, max: 3840 },
-                    height: { ideal: 1440, min: 960, max: 2160 },
-                    frameRate: { ideal: 60, min: 30 }
-                  }}
-                  styles={{
-                    container: {
-                      width: "100%",
-                      height: "100%",
-                      overflow: "hidden",
-                      position: "relative"
-                    },
-                    video: {
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      filter: "contrast(1.1) brightness(1.05)"
-                    }
-                  }}
-                />
-              </div>
+                }}
+              />
 
               {/* Scanning Overlay - Corner Brackets */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">

@@ -120,6 +120,12 @@
     background: hsl(0, 70%, 60%); 
   }
 
+  /* QR Scanner - Hide red tracker border */
+  [data-testid="dialog-qr-scanner"] svg:not(button svg):not([class*="lucide"]) {
+    opacity: 0 !important;
+    visibility: hidden !important;
+  }
+
   /* Phone Input Custom Styles */
   .phone-input-custom {
     width: 100%;
