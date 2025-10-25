@@ -120,10 +120,13 @@
     background: hsl(0, 70%, 60%); 
   }
 
-  /* QR Scanner - Hide red tracker border */
+  /* QR Scanner - Hide any tracking overlays */
+  [data-testid="dialog-qr-scanner"] canvas[style*="position: absolute"] {
+    display: none !important;
+  }
+  
   [data-testid="dialog-qr-scanner"] svg:not([class*="lucide"]) {
-    opacity: 0 !important;
-    pointer-events: none !important;
+    display: none !important;
   }
 
   /* Phone Input Custom Styles */
