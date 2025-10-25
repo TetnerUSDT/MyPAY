@@ -159,11 +159,12 @@ export default function QRScanner({
               <Scanner
                 onScan={handleScan}
                 onError={handleError}
+                scanDelay={200}
                 constraints={{
                   facingMode: "environment",
-                  width: { ideal: 1280, min: 640, max: 1920 },
-                  height: { ideal: 960, min: 480, max: 1440 },
-                  frameRate: { ideal: 30, min: 15 }
+                  width: { ideal: 1920, min: 1280, max: 3840 },
+                  height: { ideal: 1440, min: 960, max: 2160 },
+                  frameRate: { ideal: 60, min: 30 }
                 }}
                 styles={{
                   container: {
@@ -175,7 +176,8 @@ export default function QRScanner({
                   video: {
                     width: "100%",
                     height: "100%",
-                    objectFit: "cover"
+                    objectFit: "cover",
+                    filter: "contrast(1.1) brightness(1.05)"
                   }
                 }}
               />
