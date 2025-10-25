@@ -837,6 +837,8 @@ export class DatabaseStorage implements IStorage {
           sum: userBalance?.sum || "0.00",
           status: userBalance?.status || "inactive",
           balanceStatus: balance.status || "active", // Add system balance status
+          qrColor: balance.qrColor,
+          qrStyle: balance.qrStyle,
         };
       })
     );
@@ -864,6 +866,8 @@ export class DatabaseStorage implements IStorage {
           status: userBalance?.status || "inactive",
           balanceStatus: balance.status || "active",
           accountNumber: userBalance?.accountNumber, // Include account number for fiat balances
+          qrColor: balance.qrColor,
+          qrStyle: balance.qrStyle,
         };
       })
     );
