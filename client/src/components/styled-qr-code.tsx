@@ -34,21 +34,22 @@ export default function StyledQRCodeComponent({
     const highResSize = size * 2;
 
     // Determine dot color configuration
-    let dotsColor: any;
-    if (qrColor?.type === 'gradient') {
-      console.log('✅ Gradient detected:', qrColor.colors);
-      dotsColor = {
-        type: 'linear',
-        rotation: 0,
-        colorStops: [
-          { offset: 0, color: qrColor.colors[0] },
-          { offset: 1, color: qrColor.colors[1] }
-        ]
-      };
-    } else {
-      console.log('❌ Single color or default:', qrColor?.color || '#000000');
-      dotsColor = qrColor?.color || '#000000';
-    }
+    const gradientConfig = qrColor?.type === 'gradient' ? {
+      type: 'linear',
+      rotation: Math.PI / 4, // 45 degrees
+      colorStops: [
+        { offset: 0, color: qrColor.colors[0] },
+        { offset: 1, color: qrColor.colors[1] }
+      ]
+    } : undefined;
+
+    const singleColor = qrColor?.type === 'single' ? qrColor.color : '#000000';
+
+    console.log('🎨 QR Config:', { 
+      hasGradient: !!gradientConfig, 
+      singleColor, 
+      gradientConfig 
+    });
 
     const qrCode = new QRCodeStyling({
       width: highResSize,
@@ -67,18 +68,18 @@ export default function StyledQRCodeComponent({
         crossOrigin: "anonymous"
       },
       dotsOptions: {
-        color: dotsColor as any,
+        ...(gradientConfig ? { gradient: gradientConfig } : { color: singleColor }),
         type: qrStyle as DotType
       },
       backgroundOptions: {
         color: "#ffffff",
       },
       cornersSquareOptions: {
-        color: dotsColor as any,
+        ...(gradientConfig ? { gradient: gradientConfig } : { color: singleColor }),
         type: (qrStyle === 'extra-rounded' ? 'extra-rounded' : 'square') as CornerSquareType
       },
       cornersDotOptions: {
-        color: dotsColor as any,
+        ...(gradientConfig ? { gradient: gradientConfig } : { color: singleColor }),
         type: (qrStyle === 'dots' ? 'dot' : 'square') as CornerDotType
       },
       image: logoPath
