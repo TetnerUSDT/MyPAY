@@ -90,8 +90,10 @@ export default function TopUpScreen() {
   useEffect(() => {
     if (availableBalances.length > 0) {
       // Set first available balance when data loads or type switches
-      // Only update if active balance is not in current list (type switch or initial load)
-      const currentBalanceValid = activeBalance && availableBalances.some(b => b.id === activeBalance.id);
+      // Check if current activeBalance is in the current list
+      const currentBalanceValid = activeBalance && availableBalances.some(
+        b => b.id === activeBalance.id && b.network === activeBalance.network
+      );
       if (!currentBalanceValid) {
         setActiveBalance(availableBalances[0]);
       }
@@ -240,10 +242,10 @@ export default function TopUpScreen() {
             <div className="flex bg-secondary rounded-lg p-1 flex-wrap gap-1">
               {availableBalances.map((balance) => (
                 <button
-                  key={balance.id}
+                  key={`${balanceType}-${balance.id}`}
                   onClick={() => setActiveBalance(balance)}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                    activeBalance?.id === balance.id
+                    activeBalance?.id === balance.id && activeBalance?.network === balance.network
                       ? "bg-accent text-accent-foreground"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
