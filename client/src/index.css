@@ -120,28 +120,6 @@
     background: hsl(0, 70%, 60%); 
   }
 
-  /* QR Scanner - Aggressive hide of all overlay elements */
-  video + canvas,
-  video ~ canvas,
-  video + svg,
-  video ~ svg {
-    display: none !important;
-    opacity: 0 !important;
-    visibility: hidden !important;
-    position: absolute !important;
-    left: -9999px !important;
-  }
-  
-  /* Keep only video and button icons visible */
-  video {
-    display: block !important;
-  }
-  
-  button svg {
-    display: inline-block !important;
-    position: static !important;
-    left: auto !important;
-  }
 
   /* Phone Input Custom Styles */
   .phone-input-custom {
