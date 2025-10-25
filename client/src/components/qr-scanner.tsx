@@ -181,20 +181,6 @@ export default function QRScanner({
                   }
                 }}
               />
-
-              {/* Scanning Overlay - Corner Brackets */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                <div className="relative w-64 h-64">
-                  {/* Top-Left Corner */}
-                  <div className="absolute top-0 left-0 w-16 h-16 border-t-4 border-l-4 border-white rounded-tl-lg" />
-                  {/* Top-Right Corner */}
-                  <div className="absolute top-0 right-0 w-16 h-16 border-t-4 border-r-4 border-white rounded-tr-lg" />
-                  {/* Bottom-Left Corner */}
-                  <div className="absolute bottom-0 left-0 w-16 h-16 border-b-4 border-l-4 border-white rounded-bl-lg" />
-                  {/* Bottom-Right Corner */}
-                  <div className="absolute bottom-0 right-0 w-16 h-16 border-b-4 border-r-4 border-white rounded-br-lg" />
-                </div>
-              </div>
             </div>
           )}
 
