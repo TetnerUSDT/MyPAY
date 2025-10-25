@@ -55,9 +55,11 @@ export default function QRScanner({
       });
   }, [open]);
 
-  // Apply iOS-specific video attributes after component mounts
+  // Apply iOS-specific video attributes and force hide tracker
   useEffect(() => {
     if (!isReady || !open) return;
+
+    let interval: NodeJS.Timeout | null = null;
 
     const timer = setTimeout(() => {
       // Find all video elements and ensure they have iOS-required attributes
@@ -68,9 +70,28 @@ export default function QRScanner({
         video.setAttribute('playsinline', '');
         video.setAttribute('webkit-playsinline', '');
       });
+
+      // Aggressively hide tracker SVG every 100ms
+      interval = setInterval(() => {
+        const dialog = document.querySelector('[data-testid="dialog-qr-scanner"]');
+        if (dialog) {
+          const svgs = dialog.querySelectorAll('svg');
+          svgs.forEach(svg => {
+            // Only hide if NOT inside a button
+            if (!svg.closest('button')) {
+              svg.style.setProperty('display', 'none', 'important');
+              svg.style.setProperty('opacity', '0', 'important');
+              svg.style.setProperty('visibility', 'hidden', 'important');
+            }
+          });
+        }
+      }, 100);
     }, 200);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      if (interval) clearInterval(interval);
+    };
   }, [isReady, open]);
 
   const handleScan = (detectedCodes: IDetectedBarcode[]) => {
