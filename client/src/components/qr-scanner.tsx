@@ -55,7 +55,7 @@ export default function QRScanner({
       });
   }, [open]);
 
-  // Apply iOS-specific video attributes after component mounts
+  // Apply iOS-specific video attributes and hide tracker after component mounts
   useEffect(() => {
     if (!isReady || !open) return;
 
@@ -68,7 +68,26 @@ export default function QRScanner({
         video.setAttribute('playsinline', '');
         video.setAttribute('webkit-playsinline', '');
       });
-    }, 200);
+
+      // Find and hide the scanner's tracking overlay SVG
+      const scannerDialog = document.querySelector('[data-testid="dialog-qr-scanner"]');
+      if (scannerDialog) {
+        const allSvgs = scannerDialog.querySelectorAll('svg');
+        allSvgs.forEach((svg) => {
+          // Check if this is NOT a Lucide icon
+          const isLucideIcon = svg.classList.contains('lucide') || 
+                               svg.closest('.lucide') || 
+                               svg.parentElement?.tagName === 'BUTTON';
+          
+          if (!isLucideIcon) {
+            // This is the tracker SVG - hide it
+            svg.style.opacity = '0';
+            svg.style.pointerEvents = 'none';
+            svg.style.visibility = 'hidden';
+          }
+        });
+      }
+    }, 300);
 
     return () => clearTimeout(timer);
   }, [isReady, open]);
