@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import BottomNavigation from "@/components/bottom-navigation";
 
 // Images from public directory - use direct URLs
 const supportAvatar = "/uploads/support/avatar.jpg";
@@ -160,7 +161,7 @@ export default function SupportScreen() {
   };
 
   return (
-    <div className="mobile-screen text-white">
+    <div className="mobile-screen text-white pb-20">
       {/* Header */}
       <div className="text-center py-8">
         <h1 className="text-2xl font-bold mb-4" data-testid="text-title">
@@ -407,6 +408,9 @@ export default function SupportScreen() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Bottom Navigation */}
+      <BottomNavigation />
     </div>
   );
 }

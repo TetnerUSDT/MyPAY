@@ -259,16 +259,16 @@ export default function SettingsScreen() {
         <div className="pt-4 border-t border-green-500/20">
           <button
             onClick={handleSupportClick}
-            className="w-full crypto-card hover:opacity-90 transition-all bg-blue-500/10 border-blue-500/30"
+            className="w-full crypto-card hover:opacity-90 transition-all"
             data-testid="button-support-settings"
           >
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0">
-                <Headphones className="w-9 h-9 text-blue-400" />
+              <div className="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center shrink-0">
+                <Headphones className="w-9 h-9 text-accent" />
               </div>
               <div className="flex-1 flex flex-col gap-1">
                 <h3 className="text-white font-semibold text-left">Поддержка</h3>
-                <p className="text-blue-200 text-sm text-left">Свяжитесь с нашей командой</p>
+                <p className="text-green-200 text-sm text-left">Свяжитесь с нашей командой</p>
               </div>
             </div>
           </button>
