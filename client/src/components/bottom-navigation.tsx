@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, ArrowRightLeft, Wallet, Headphones } from "lucide-react";
+import { Home, ArrowRightLeft, Wallet, Ticket } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function BottomNavigation() {
@@ -18,7 +18,7 @@ export default function BottomNavigation() {
     { path: "/home", icon: Home, label: "Home" },
     { path: "/select-country", icon: ArrowRightLeft, label: "Exchange" },
     { path: "/top-up", icon: Wallet, label: "Wallet" },
-    { path: "/support", icon: Headphones, label: "Support" },
+    { path: "/vouchers", icon: Ticket, label: "Vouchers" },
   ];
 
   return (

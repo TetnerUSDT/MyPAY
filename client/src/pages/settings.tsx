@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { Users, Shield, Globe, Smartphone, HelpCircle, Phone } from "lucide-react";
+import { Users, Shield, Globe, Smartphone, HelpCircle, Phone, Headphones } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import BottomNavigation from "@/components/bottom-navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -95,6 +95,10 @@ export default function SettingsScreen() {
 
   const handleDevicesClick = () => {
     setLocation("/devices");
+  };
+
+  const handleSupportClick = () => {
+    setLocation("/support");
   };
 
   return (
@@ -250,6 +254,25 @@ export default function SettingsScreen() {
             </div>
           </div>
         </button>
+
+        {/* Support - Separate block */}
+        <div className="pt-4 border-t border-green-500/20">
+          <button
+            onClick={handleSupportClick}
+            className="w-full crypto-card hover:opacity-90 transition-all bg-blue-500/10 border-blue-500/30"
+            data-testid="button-support-settings"
+          >
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0">
+                <Headphones className="w-9 h-9 text-blue-400" />
+              </div>
+              <div className="flex-1 flex flex-col gap-1">
+                <h3 className="text-white font-semibold text-left">Поддержка</h3>
+                <p className="text-blue-200 text-sm text-left">Свяжитесь с нашей командой</p>
+              </div>
+            </div>
+          </button>
+        </div>
       </div>
 
       {/* Phone Input Dialog */}
