@@ -76,23 +76,30 @@ export default function QRScanner({
               onError={handleError}
               constraints={{
                 facingMode: "environment",
-                aspectRatio: { ideal: 1 }
+                aspectRatio: { 
+                  ideal: typeof window !== 'undefined' ? window.innerWidth / window.innerHeight : 0.75, 
+                  min: 0.75, 
+                  max: 1.5 
+                }
               }}
               styles={{
                 container: {
-                  width: "100%",
-                  height: "100%",
+                  width: "100vw",
+                  height: "100vh",
+                  overflow: "hidden",
                   position: "absolute",
                   top: 0,
-                  left: 0
+                  left: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center"
                 },
                 video: {
                   width: "100%",
-                  height: "100%",
+                  height: "auto",
+                  minHeight: "100%",
                   objectFit: "cover",
-                  position: "absolute",
-                  top: 0,
-                  left: 0
+                  transform: "translateZ(0)"
                 }
               }}
             />

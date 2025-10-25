@@ -803,7 +803,7 @@ export default function VouchersPage() {
           const voucherRegex = /^V\d{13}D$/;
           return voucherRegex.test(data);
         }}
-        errorMessage="Неверный формат ваучера. Ожидается: V + 13 цифр + D"
+        errorMessage="Неверный формат ваучера."
       />
     </div>
   );
