@@ -815,8 +815,8 @@ export class DatabaseStorage implements IStorage {
   async getUserCryptoBalances(userId: number): Promise<any[]> {
     const cryptoBalances = await this.getCryptoBalances();
     
-    // Filter out hidden balances
-    const visibleBalances = cryptoBalances.filter(balance => balance.status !== 'hidden');
+    // Filter only active balances (not hidden or frozen)
+    const visibleBalances = cryptoBalances.filter(balance => balance.status === 'active');
     
     const result = await Promise.all(
       visibleBalances.map(async (balance) => {
@@ -837,7 +837,7 @@ export class DatabaseStorage implements IStorage {
           currency: balance.currency,
           sum: userBalance?.sum || "0.00",
           status: userBalance?.status || "inactive",
-          balanceStatus: balance.status || "active", // Add system balance status
+          balanceStatus: balance.status || "active",
           qrColor: balance.qrColor,
           qrStyle: balance.qrStyle,
         };
@@ -850,8 +850,8 @@ export class DatabaseStorage implements IStorage {
   async getUserFiatBalances(userId: number): Promise<any[]> {
     const fiatBalances = await this.getFiatBalances();
     
-    // Filter out hidden balances
-    const visibleBalances = fiatBalances.filter(balance => balance.status !== 'hidden');
+    // Filter only active balances (not hidden or frozen)
+    const visibleBalances = fiatBalances.filter(balance => balance.status === 'active');
     
     const result = await Promise.all(
       visibleBalances.map(async (balance) => {
@@ -859,8 +859,8 @@ export class DatabaseStorage implements IStorage {
         const userBalance = await this.getUserBalance(userId, balance.id);
 
         return {
-          balanceId: balance.id,
-          balanceName: balance.title,
+          id: balance.id, // Use 'id' to match crypto balances structure
+          title: balance.title, // Use 'title' to match crypto balances structure
           network: balance.network,
           currency: balance.currency,
           sum: userBalance?.sum || "0.00",

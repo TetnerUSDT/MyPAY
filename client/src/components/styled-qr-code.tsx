@@ -33,7 +33,7 @@ export default function StyledQRCodeComponent({
 
     // Determine dot color configuration
     const gradientConfig = qrColor?.type === 'gradient' ? {
-      type: 'linear',
+      type: 'linear' as const,
       rotation: Math.PI / 4, // 45 degrees
       colorStops: [
         { offset: 0, color: qrColor.colors[0] },
