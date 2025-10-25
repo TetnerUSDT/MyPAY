@@ -100,6 +100,23 @@ export default function QRScanner({
     }
   };
 
+  // Custom green tracker
+  const greenTracker = (detectedCodes: IDetectedBarcode[], ctx: CanvasRenderingContext2D) => {
+    detectedCodes.forEach((code) => {
+      const { boundingBox } = code;
+      
+      // Draw green bounding box
+      ctx.strokeStyle = '#00FF00'; // Bright green
+      ctx.lineWidth = 4;
+      ctx.strokeRect(
+        boundingBox.x,
+        boundingBox.y,
+        boundingBox.width,
+        boundingBox.height
+      );
+    });
+  };
+
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onClose}>
       <DialogPrimitive.Portal>
@@ -160,6 +177,9 @@ export default function QRScanner({
                 onScan={handleScan}
                 onError={handleError}
                 scanDelay={200}
+                components={{
+                  tracker: greenTracker
+                }}
                 constraints={{
                   facingMode: "environment",
                   width: { ideal: 1920, min: 1280, max: 3840 },

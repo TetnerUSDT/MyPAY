@@ -120,10 +120,6 @@
     background: hsl(0, 70%, 60%); 
   }
 
-  /* QR Scanner - Change tracker color to green */
-  [data-testid="dialog-qr-scanner"] svg:not(button svg) {
-    filter: hue-rotate(240deg) saturate(1.5) brightness(1.2) !important;
-  }
 
   /* Phone Input Custom Styles */
   .phone-input-custom {
