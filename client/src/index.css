@@ -120,14 +120,6 @@
     background: hsl(0, 70%, 60%); 
   }
 
-  /* QR Scanner - Hide any tracking overlays */
-  [data-testid="dialog-qr-scanner"] canvas[style*="position: absolute"] {
-    display: none !important;
-  }
-  
-  [data-testid="dialog-qr-scanner"] svg:not([class*="lucide"]) {
-    display: none !important;
-  }
 
   /* Phone Input Custom Styles */
   .phone-input-custom {

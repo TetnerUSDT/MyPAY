@@ -160,6 +160,9 @@ export default function QRScanner({
                 onScan={handleScan}
                 onError={handleError}
                 scanDelay={200}
+                components={{
+                  tracker: false as any
+                }}
                 constraints={{
                   facingMode: "environment",
                   width: { ideal: 1920, min: 1280, max: 3840 },
