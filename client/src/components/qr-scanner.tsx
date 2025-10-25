@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Scanner, type IDetectedBarcode } from "@yudiel/react-qr-scanner";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X, Camera } from "lucide-react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
 interface QRScannerProps {
@@ -46,12 +46,13 @@ export default function QRScanner({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent 
-        className="w-full h-full max-w-full max-h-full p-0 m-0 rounded-none bg-black border-none"
-        data-testid="dialog-qr-scanner"
-      >
-        <div className="relative w-full h-full flex flex-col">
+    <DialogPrimitive.Root open={open} onOpenChange={onClose}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Content 
+          className="fixed inset-0 z-50 bg-black overflow-hidden"
+          data-testid="dialog-qr-scanner"
+        >
           {/* Header with Close Button */}
           <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent">
             <h2 className="text-white text-lg font-semibold" data-testid="text-scanner-title">
@@ -68,30 +69,36 @@ export default function QRScanner({
             </Button>
           </div>
 
-          {/* Scanner */}
-          <div className="flex-1 relative">
+          {/* Scanner - Full Screen */}
+          <div className="absolute inset-0">
             <Scanner
               onScan={handleScan}
               onError={handleError}
               constraints={{
-                facingMode: "environment"
+                facingMode: "environment",
+                aspectRatio: { ideal: 1 }
               }}
               styles={{
                 container: {
                   width: "100%",
                   height: "100%",
-                  position: "relative"
+                  position: "absolute",
+                  top: 0,
+                  left: 0
                 },
                 video: {
                   width: "100%",
                   height: "100%",
-                  objectFit: "cover"
+                  objectFit: "cover",
+                  position: "absolute",
+                  top: 0,
+                  left: 0
                 }
               }}
             />
 
             {/* Scanning Overlay - Corner Brackets */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
               <div className="relative w-64 h-64">
                 {/* Top-Left Corner */}
                 <div className="absolute top-0 left-0 w-16 h-16 border-t-4 border-l-4 border-white rounded-tl-lg" />
@@ -121,9 +128,9 @@ export default function QRScanner({
               <span className="text-white text-sm font-medium">Наведите на QR-код</span>
             </div>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
 
