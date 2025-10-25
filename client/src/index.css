@@ -120,15 +120,6 @@
     background: hsl(0, 70%, 60%); 
   }
 
-  /* QR Scanner - Hide red tracker overlay completely */
-  [data-testid="dialog-qr-scanner"] svg {
-    display: none !important;
-  }
-  
-  /* But keep button icons visible */
-  [data-testid="dialog-qr-scanner"] button svg {
-    display: inline-block !important;
-  }
 
   /* Phone Input Custom Styles */
   .phone-input-custom {
