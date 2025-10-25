@@ -15,6 +15,33 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 
+// Helper function to get user-friendly error messages
+function getErrorMessage(error: any): string {
+  const message = error?.message || '';
+  
+  // Common error patterns
+  const errorMap: Record<string, string> = {
+    'Voucher not found': 'Ваучер не найден',
+    'Insufficient balance': 'Недостаточно средств',
+    'Invalid voucher code': 'Неверный код ваучера',
+    'Voucher already activated': 'Ваучер уже активирован',
+    'Voucher expired': 'Срок действия ваучера истек',
+    'Invalid security value': 'Неверный PIN-код или пароль',
+    'Internal server error': 'Ошибка сервера. Попробуйте позже',
+    'Unauthorized': 'Необходима авторизация',
+  };
+  
+  // Check for exact match
+  for (const [key, value] of Object.entries(errorMap)) {
+    if (message.includes(key)) {
+      return value;
+    }
+  }
+  
+  // Return original message if no mapping found
+  return message || 'Произошла ошибка';
+}
+
 interface Voucher {
   id: number;
   code: string;
@@ -118,7 +145,7 @@ export default function VouchersPage() {
     onError: (error: any) => {
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось создать ваучер",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     },
@@ -151,7 +178,7 @@ export default function VouchersPage() {
     onError: (error: any) => {
       toast({
         title: "Ошибка",
-        description: error.message || "Ваучер не найден",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     },
@@ -178,7 +205,7 @@ export default function VouchersPage() {
     onError: (error: any) => {
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось активировать ваучер",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     },
