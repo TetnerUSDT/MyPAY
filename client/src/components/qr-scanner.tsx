@@ -161,8 +161,7 @@ export default function QRScanner({
                 onError={handleError}
                 scanDelay={200}
                 components={{
-                  // @ts-expect-error - Library accepts false despite types saying otherwise
-                  tracker: false
+                  tracker: false as any
                 }}
                 constraints={{
                   facingMode: "environment",
