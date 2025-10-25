@@ -16,6 +16,7 @@ import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import Lottie from "lottie-react";
 import voucherAnimation from "@assets/VOUCHER_1761385257411.json";
+import QRScanner, { QRScannerButton } from "@/components/qr-scanner";
 
 // Helper function to get user-friendly error messages
 function getErrorMessage(error: any): string {
@@ -92,6 +93,7 @@ export default function VouchersPage() {
   const [voucherInfo, setVoucherInfo] = useState<VoucherCheckResponse | null>(null);
   const [isSecurityDialogOpen, setIsSecurityDialogOpen] = useState(false);
   const [activationSecurityValue, setActivationSecurityValue] = useState("");
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   // Check for activation action in URL params
   useEffect(() => {
@@ -653,24 +655,24 @@ export default function VouchersPage() {
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            <div className="text-center space-y-2">
-              <p className="text-green-200">
-                Код состоит из 15 символов (V + 13 цифр + D)
-              </p>
-            </div>
-
             <div className="space-y-2">
               <Label htmlFor="code" className="text-green-200">Код ваучера</Label>
-              <Input
-                id="code"
-                type="text"
-                value={formatCodeDisplay(voucherCode)}
-                onChange={(e) => handleCodeChange(e.target.value.replace(/-/g, ''))}
-                placeholder="V-0000-00000-0000-D"
-                className="bg-white/90 text-secondary text-center text-lg font-mono font-semibold tracking-wider"
-                maxLength={19} // 15 chars + 4 dashes
-                data-testid="input-voucher-code"
-              />
+              <div className="flex gap-2 items-center">
+                <Input
+                  id="code"
+                  type="text"
+                  value={formatCodeDisplay(voucherCode)}
+                  onChange={(e) => handleCodeChange(e.target.value.replace(/-/g, ''))}
+                  placeholder="V-0000-00000-0000-D"
+                  className="bg-white/90 text-secondary text-center text-lg font-mono font-semibold tracking-wider flex-1"
+                  maxLength={19} // 15 chars + 4 dashes
+                  data-testid="input-voucher-code"
+                />
+                <QRScannerButton 
+                  onClick={() => setIsScannerOpen(true)}
+                  className="border-green-500/30 bg-white/10 hover:bg-white/20 text-white shrink-0"
+                />
+              </div>
               <p className="text-xs text-green-200 text-center">
                 Введено: {voucherCode.length}/15
               </p>
@@ -781,6 +783,28 @@ export default function VouchersPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* QR Scanner */}
+      <QRScanner
+        open={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onScan={(data) => {
+          // Auto-fill the scanned code
+          handleCodeChange(data);
+          setIsScannerOpen(false);
+          toast({
+            title: "QR-код отсканирован",
+            description: "Код ваучера успешно считан",
+          });
+        }}
+        title="Сканирование ваучера"
+        validate={(data) => {
+          // Validate voucher format: V + 13 digits + D (total 15 characters)
+          const voucherRegex = /^V\d{13}D$/;
+          return voucherRegex.test(data);
+        }}
+        errorMessage="Неверный формат ваучера. Ожидается: V + 13 цифр + D"
+      />
     </div>
   );
 }
