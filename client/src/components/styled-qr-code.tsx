@@ -26,6 +26,8 @@ export default function StyledQRCodeComponent({
   useEffect(() => {
     if (!canvasRef.current || !value) return;
 
+    console.log('🎨 QR Code Props:', { qrColor, qrStyle, balanceId });
+
     const logoPath = balanceId ? `/uploads/balances/${balanceId}.png` : undefined;
 
     // Generate at 2x resolution for better quality, then scale down
@@ -34,6 +36,7 @@ export default function StyledQRCodeComponent({
     // Determine dot color configuration
     let dotsColor: any;
     if (qrColor?.type === 'gradient') {
+      console.log('✅ Gradient detected:', qrColor.colors);
       dotsColor = {
         type: 'linear',
         rotation: 0,
@@ -43,6 +46,7 @@ export default function StyledQRCodeComponent({
         ]
       };
     } else {
+      console.log('❌ Single color or default:', qrColor?.color || '#000000');
       dotsColor = qrColor?.color || '#000000';
     }
 
