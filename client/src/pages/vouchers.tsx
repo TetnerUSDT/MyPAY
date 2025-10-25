@@ -456,7 +456,7 @@ export default function VouchersPage() {
           <Lottie 
             animationData={voucherAnimation} 
             loop={true}
-            className="w-32 h-32"
+            className="w-64 h-64"
           />
         </div>
 
