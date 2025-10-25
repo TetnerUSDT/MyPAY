@@ -323,7 +323,7 @@ export default function TopUpScreen() {
               </p>
             </div>
             <Button
-              onClick={() => navigate("/activate-voucher")}
+              onClick={() => navigate("/vouchers?action=activate")}
               className="action-button w-full"
               data-testid="button-activate-voucher"
             >

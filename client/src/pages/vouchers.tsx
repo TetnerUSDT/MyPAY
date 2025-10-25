@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Link } from "wouter";
-import { X, Plus, Copy, Ticket, CheckCircle2 } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import { X, Plus, Copy, Ticket, CheckCircle2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -28,12 +29,6 @@ interface Voucher {
   activatedAt?: string;
 }
 
-interface Balance {
-  id: number;
-  name: string;
-  currency: string;
-}
-
 interface UserBalance {
   balanceId: number;
   balanceName: string;
@@ -42,19 +37,58 @@ interface UserBalance {
   balanceStatus: 'active' | 'frozen';
 }
 
+interface VoucherCheckResponse {
+  id: number;
+  amount: string;
+  currency: string;
+  status: string;
+  securityType: 'none' | 'word' | 'pin';
+  requiresSecurity: boolean;
+  createdAt: string;
+}
+
 export default function VouchersPage() {
   const { toast } = useToast();
+  const [location, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("active");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isActivateDialogOpen, setIsActivateDialogOpen] = useState(false);
   const [selectedBalance, setSelectedBalance] = useState<string>("");
   const [amount, setAmount] = useState("");
   const [securityType, setSecurityType] = useState<'none' | 'word' | 'pin'>('none');
   const [securityValue, setSecurityValue] = useState("");
+  
+  // Activation state
+  const [voucherCode, setVoucherCode] = useState("");
+  const [voucherInfo, setVoucherInfo] = useState<VoucherCheckResponse | null>(null);
+  const [isSecurityDialogOpen, setIsSecurityDialogOpen] = useState(false);
+  const [activationSecurityValue, setActivationSecurityValue] = useState("");
+
+  // Check for activation action in URL params
+  useEffect(() => {
+    const params = new URLSearchParams(location.split('?')[1]);
+    if (params.get('action') === 'activate') {
+      setIsActivateDialogOpen(true);
+    }
+  }, [location]);
+  
+  // Clean URL when activation dialog closes
+  const handleActivateDialogChange = (open: boolean) => {
+    setIsActivateDialogOpen(open);
+    if (!open && location.includes('?action=activate')) {
+      setLocation('/vouchers', { replace: true });
+    }
+  };
 
   // Fetch user balances
   const { data: userBalances = [] } = useQuery<UserBalance[]>({
     queryKey: ['/api/user/balances'],
   });
+
+  // Filter active balances with balance > 0
+  const availableBalances = userBalances.filter(
+    b => b.balanceStatus === 'active' && parseFloat(b.sum) > 0
+  );
 
   // Fetch active vouchers
   const { data: activeVouchers = [], isLoading: activeLoading } = useQuery<Voucher[]>({
@@ -75,7 +109,7 @@ export default function VouchersPage() {
       queryClient.invalidateQueries({ queryKey: ['/api/vouchers/my'] });
       queryClient.invalidateQueries({ queryKey: ['/api/user/balances'] });
       setIsCreateDialogOpen(false);
-      resetForm();
+      resetCreateForm();
       toast({
         title: "Ваучер создан!",
         description: "Ваучер успешно создан и средства списаны с баланса",
@@ -90,11 +124,77 @@ export default function VouchersPage() {
     },
   });
 
-  const resetForm = () => {
+  const checkVoucherMutation = useMutation({
+    mutationFn: async (voucherCode: string) => {
+      const response = await apiRequest("POST", "/api/vouchers/check", { code: voucherCode });
+      return await response.json() as VoucherCheckResponse;
+    },
+    onSuccess: (data: VoucherCheckResponse) => {
+      if (data.status !== 'active') {
+        toast({
+          title: "Ошибка",
+          description: "Этот ваучер уже был использован или истек",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setVoucherInfo(data);
+      
+      if (data.requiresSecurity) {
+        setIsSecurityDialogOpen(true);
+      } else {
+        // Activate immediately if no security
+        activateVoucherMutation.mutate({ code: voucherCode, securityValue: undefined });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Ваучер не найден",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const activateVoucherMutation = useMutation({
+    mutationFn: async (data: { code: string; securityValue?: string }) => {
+      const response = await apiRequest("POST", "/api/vouchers/activate", data);
+      return await response.json() as { message: string; amount: number; currency: string; newBalance: string };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/user/balances'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/vouchers/my'] });
+      
+      toast({
+        title: "Успешно!",
+        description: `Ваучер активирован. Начислено ${data.amount} ${data.currency}`,
+      });
+      
+      setIsSecurityDialogOpen(false);
+      handleActivateDialogChange(false);
+      resetActivationForm();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось активировать ваучер",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const resetCreateForm = () => {
     setSelectedBalance("");
     setAmount("");
     setSecurityType('none');
     setSecurityValue("");
+  };
+
+  const resetActivationForm = () => {
+    setVoucherCode("");
+    setVoucherInfo(null);
+    setActivationSecurityValue("");
   };
 
   const handleCreateVoucher = () => {
@@ -140,6 +240,84 @@ export default function VouchersPage() {
       securityType,
       securityValue: securityType !== 'none' ? securityValue : undefined,
     });
+  };
+
+  // Format voucher code input (V + 13 digits + D)
+  const handleCodeChange = (value: string) => {
+    // Remove all non-alphanumeric characters
+    let cleaned = value.toUpperCase().replace(/[^VD0-9]/g, '');
+    
+    // Ensure it starts with V if user types anything
+    if (cleaned && !cleaned.startsWith('V')) {
+      cleaned = 'V' + cleaned.replace(/V/g, '');
+    }
+    
+    // Limit to 15 characters (V + 13 digits + D)
+    if (cleaned.length > 15) {
+      cleaned = cleaned.substring(0, 15);
+    }
+    
+    setVoucherCode(cleaned);
+  };
+
+  const handleCheckVoucher = () => {
+    if (!voucherCode || voucherCode.length !== 15) {
+      toast({
+        title: "Ошибка",
+        description: "Введите полный код ваучера (15 символов)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!voucherCode.startsWith('V') || !voucherCode.endsWith('D')) {
+      toast({
+        title: "Ошибка",
+        description: "Неверный формат кода ваучера",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    checkVoucherMutation.mutate(voucherCode);
+  };
+
+  const handleActivateWithSecurity = () => {
+    if (!activationSecurityValue) {
+      toast({
+        title: "Ошибка",
+        description: voucherInfo?.securityType === 'pin' ? "Введите PIN-код" : "Введите пароль",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    activateVoucherMutation.mutate({
+      code: voucherCode,
+      securityValue: activationSecurityValue,
+    });
+  };
+
+  const formatCodeDisplay = (code: string) => {
+    if (code.length <= 1) return code;
+    
+    // V + 13 digits + D
+    const v = code[0] || '';
+    const digits = code.slice(1, 14);
+    const d = code[14] || '';
+    
+    // Group digits in chunks of 4-5-4
+    const chunk1 = digits.slice(0, 4);
+    const chunk2 = digits.slice(4, 9);
+    const chunk3 = digits.slice(9, 13);
+    
+    let formatted = v;
+    if (chunk1) formatted += '-' + chunk1;
+    if (chunk2) formatted += '-' + chunk2;
+    if (chunk3) formatted += '-' + chunk3;
+    if (d) formatted += '-' + d;
+    
+    return formatted;
   };
 
   const handleCopyCode = (code: string) => {
@@ -244,15 +422,25 @@ export default function VouchersPage() {
       </div>
 
       <div className="px-4 space-y-4">
-        {/* Create Button */}
-        <Button
-          onClick={() => setIsCreateDialogOpen(true)}
-          className="w-full bg-accent hover:bg-accent/90 text-secondary font-semibold py-6 rounded-xl"
-          data-testid="button-create-voucher"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          Создать ваучер
-        </Button>
+        {/* Action Buttons */}
+        <div className="grid grid-cols-2 gap-3">
+          <Button
+            onClick={() => setIsCreateDialogOpen(true)}
+            className="w-full bg-accent hover:bg-accent/90 text-secondary font-semibold py-6 rounded-xl"
+            data-testid="button-create-voucher"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Создать ваучер
+          </Button>
+          <Button
+            onClick={() => handleActivateDialogChange(true)}
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-6 rounded-xl"
+            data-testid="button-activate-voucher"
+          >
+            <CheckCircle2 className="w-5 h-5 mr-2" />
+            Активировать
+          </Button>
+        </div>
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -312,77 +500,86 @@ export default function VouchersPage() {
             {/* Balance Selection */}
             <div className="space-y-2">
               <Label htmlFor="balance" className="text-green-200">Валюта</Label>
-              <Select value={selectedBalance} onValueChange={setSelectedBalance}>
-                <SelectTrigger className="bg-white/10 border-green-500/30 text-white" data-testid="select-balance">
-                  <SelectValue placeholder="Выберите валюту" />
-                </SelectTrigger>
-                <SelectContent>
-                  {userBalances
-                    .filter(b => b.balanceStatus === 'active' && parseFloat(b.sum) > 0)
-                    .map((balance) => (
+              {availableBalances.length === 0 ? (
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 text-center">
+                  <p className="text-sm text-yellow-200">У вас нет активных балансов</p>
+                  <p className="text-xs text-yellow-200/70 mt-1">Пополните баланс для создания ваучера</p>
+                </div>
+              ) : (
+                <Select value={selectedBalance} onValueChange={setSelectedBalance}>
+                  <SelectTrigger className="bg-white/10 border-green-500/30 text-white" data-testid="select-balance">
+                    <SelectValue placeholder="Выберите валюту" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableBalances.map((balance) => (
                       <SelectItem key={balance.balanceId} value={balance.balanceId.toString()}>
                         {balance.balanceName} ({parseFloat(balance.sum).toFixed(2)} {balance.currency})
                       </SelectItem>
                     ))}
-                </SelectContent>
-              </Select>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
-            {/* Amount */}
-            <div className="space-y-2">
-              <Label htmlFor="amount" className="text-green-200">Сумма</Label>
-              <Input
-                id="amount"
-                type="number"
-                step="0.01"
-                min="0"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
-                className="bg-white/10 border-green-500/30 text-white placeholder:text-white/50"
-                data-testid="input-amount"
-              />
-            </div>
+            {availableBalances.length > 0 && (
+              <>
+                {/* Amount */}
+                <div className="space-y-2">
+                  <Label htmlFor="amount" className="text-green-200">Сумма</Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="0.00"
+                    className="bg-white/10 border-green-500/30 text-white placeholder:text-white/50"
+                    data-testid="input-amount"
+                  />
+                </div>
 
-            {/* Security Type */}
-            <div className="space-y-2">
-              <Label className="text-green-200">Защита</Label>
-              <RadioGroup value={securityType} onValueChange={(value: any) => {
-                setSecurityType(value);
-                setSecurityValue("");
-              }}>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="none" id="none" className="border-green-500/50" data-testid="radio-security-none" />
-                  <Label htmlFor="none" className="cursor-pointer">Без защиты</Label>
+                {/* Security Type */}
+                <div className="space-y-2">
+                  <Label className="text-green-200">Защита</Label>
+                  <RadioGroup value={securityType} onValueChange={(value: any) => {
+                    setSecurityType(value);
+                    setSecurityValue("");
+                  }}>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="none" id="none" className="border-green-500/50" data-testid="radio-security-none" />
+                      <Label htmlFor="none" className="cursor-pointer">Без защиты</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="pin" id="pin" className="border-green-500/50" data-testid="radio-security-pin" />
+                      <Label htmlFor="pin" className="cursor-pointer">PIN-код (4-6 цифр)</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="word" id="word" className="border-green-500/50" data-testid="radio-security-word" />
+                      <Label htmlFor="word" className="cursor-pointer">Пароль</Label>
+                    </div>
+                  </RadioGroup>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="pin" id="pin" className="border-green-500/50" data-testid="radio-security-pin" />
-                  <Label htmlFor="pin" className="cursor-pointer">PIN-код (4-6 цифр)</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="word" id="word" className="border-green-500/50" data-testid="radio-security-word" />
-                  <Label htmlFor="word" className="cursor-pointer">Пароль</Label>
-                </div>
-              </RadioGroup>
-            </div>
 
-            {/* Security Value Input */}
-            {securityType !== 'none' && (
-              <div className="space-y-2">
-                <Label htmlFor="security" className="text-green-200">
-                  {securityType === 'pin' ? 'PIN-код' : 'Пароль'}
-                </Label>
-                <Input
-                  id="security"
-                  type={securityType === 'pin' ? 'number' : 'text'}
-                  value={securityValue}
-                  onChange={(e) => setSecurityValue(e.target.value)}
-                  placeholder={securityType === 'pin' ? '1234' : 'Введите пароль'}
-                  maxLength={securityType === 'pin' ? 6 : undefined}
-                  className="bg-white/10 border-green-500/30 text-white placeholder:text-white/50"
-                  data-testid="input-security-value"
-                />
-              </div>
+                {/* Security Value Input */}
+                {securityType !== 'none' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="security" className="text-green-200">
+                      {securityType === 'pin' ? 'PIN-код' : 'Пароль'}
+                    </Label>
+                    <Input
+                      id="security"
+                      type={securityType === 'pin' ? 'number' : 'text'}
+                      value={securityValue}
+                      onChange={(e) => setSecurityValue(e.target.value)}
+                      placeholder={securityType === 'pin' ? '1234' : 'Введите пароль'}
+                      maxLength={securityType === 'pin' ? 6 : undefined}
+                      className="bg-white/10 border-green-500/30 text-white placeholder:text-white/50"
+                      data-testid="input-security-value"
+                    />
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -391,7 +588,7 @@ export default function VouchersPage() {
               variant="outline"
               onClick={() => {
                 setIsCreateDialogOpen(false);
-                resetForm();
+                resetCreateForm();
               }}
               className="flex-1 border-green-500/30 text-white hover:bg-white/10"
               data-testid="button-cancel-create"
@@ -400,11 +597,148 @@ export default function VouchersPage() {
             </Button>
             <Button
               onClick={handleCreateVoucher}
-              disabled={createVoucherMutation.isPending}
+              disabled={createVoucherMutation.isPending || availableBalances.length === 0}
               className="flex-1 bg-accent hover:bg-accent/90 text-secondary"
               data-testid="button-confirm-create"
             >
               {createVoucherMutation.isPending ? "Создание..." : "Создать"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Activate Voucher Dialog */}
+      <Dialog open={isActivateDialogOpen} onOpenChange={handleActivateDialogChange}>
+        <DialogContent className="bg-gradient-to-br from-green-900 to-green-950 text-white border-green-500/30">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Активировать ваучер</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="text-center space-y-2">
+              <p className="text-green-200">
+                Код состоит из 15 символов (V + 13 цифр + D)
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="code" className="text-green-200">Код ваучера</Label>
+              <Input
+                id="code"
+                type="text"
+                value={formatCodeDisplay(voucherCode)}
+                onChange={(e) => handleCodeChange(e.target.value.replace(/-/g, ''))}
+                placeholder="V-0000-00000-0000-D"
+                className="bg-white/90 text-secondary text-center text-lg font-mono font-semibold tracking-wider"
+                maxLength={19} // 15 chars + 4 dashes
+                data-testid="input-voucher-code"
+              />
+              <p className="text-xs text-green-200 text-center">
+                Введено: {voucherCode.length}/15
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                handleActivateDialogChange(false);
+                resetActivationForm();
+              }}
+              className="flex-1 border-green-500/30 text-white hover:bg-white/10"
+              data-testid="button-cancel-activate"
+            >
+              Отмена
+            </Button>
+            <Button
+              onClick={handleCheckVoucher}
+              disabled={checkVoucherMutation.isPending || voucherCode.length !== 15}
+              className="flex-1 bg-accent hover:bg-accent/90 text-secondary"
+              data-testid="button-check-voucher"
+            >
+              {checkVoucherMutation.isPending ? "Проверка..." : "Активировать"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Security Dialog for Activation */}
+      <Dialog open={isSecurityDialogOpen} onOpenChange={setIsSecurityDialogOpen}>
+        <DialogContent className="bg-gradient-to-br from-green-900 to-green-950 text-white border-green-500/30">
+          <DialogHeader>
+            <DialogTitle className="text-xl flex items-center gap-2">
+              <Lock className="w-5 h-5" />
+              Защищенный ваучер
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="text-center space-y-2">
+              <p className="text-green-200">
+                Этот ваучер защищен {voucherInfo?.securityType === 'pin' ? 'PIN-кодом' : 'паролем'}
+              </p>
+              <p className="text-2xl font-bold text-accent">
+                {voucherInfo?.amount} {voucherInfo?.currency}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="security" className="text-green-200">
+                {voucherInfo?.securityType === 'pin' ? 'PIN-код' : 'Пароль'}
+              </Label>
+              
+              {voucherInfo?.securityType === 'pin' ? (
+                <div className="flex justify-center">
+                  <InputOTP
+                    maxLength={6}
+                    value={activationSecurityValue}
+                    onChange={setActivationSecurityValue}
+                    data-testid="input-pin-code"
+                  >
+                    <InputOTPGroup>
+                      <InputOTPSlot index={0} className="bg-white/10 border-green-500/30 text-white" />
+                      <InputOTPSlot index={1} className="bg-white/10 border-green-500/30 text-white" />
+                      <InputOTPSlot index={2} className="bg-white/10 border-green-500/30 text-white" />
+                      <InputOTPSlot index={3} className="bg-white/10 border-green-500/30 text-white" />
+                      <InputOTPSlot index={4} className="bg-white/10 border-green-500/30 text-white" />
+                      <InputOTPSlot index={5} className="bg-white/10 border-green-500/30 text-white" />
+                    </InputOTPGroup>
+                  </InputOTP>
+                </div>
+              ) : (
+                <Input
+                  id="security"
+                  type="password"
+                  value={activationSecurityValue}
+                  onChange={(e) => setActivationSecurityValue(e.target.value)}
+                  placeholder="Введите пароль"
+                  className="bg-white/10 border-green-500/30 text-white placeholder:text-white/50"
+                  data-testid="input-password"
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsSecurityDialogOpen(false);
+                setActivationSecurityValue("");
+              }}
+              className="flex-1 border-green-500/30 text-white hover:bg-white/10"
+              data-testid="button-cancel-security"
+            >
+              Отмена
+            </Button>
+            <Button
+              onClick={handleActivateWithSecurity}
+              disabled={activateVoucherMutation.isPending}
+              className="flex-1 bg-accent hover:bg-accent/90 text-secondary"
+              data-testid="button-confirm-activate"
+            >
+              {activateVoucherMutation.isPending ? "Активация..." : "Активировать"}
             </Button>
           </div>
         </DialogContent>

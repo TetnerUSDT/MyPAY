@@ -27,7 +27,6 @@ import SecurityScreen from "@/pages/security";
 import LoyaltyScreen from "@/pages/loyalty";
 import DevicesScreen from "@/pages/devices";
 import VouchersScreen from "@/pages/vouchers";
-import ActivateVoucherScreen from "@/pages/activate-voucher";
 import BottomNavigation from "@/components/bottom-navigation";
 import { useLocation } from "wouter";
 import { AdminRoutes } from "@/components/AdminRouteProvider";
@@ -161,12 +160,6 @@ function Router() {
         <Route path="/vouchers">
           <AuthGuard requireAgreement={true}>
             <VouchersScreen />
-          </AuthGuard>
-        </Route>
-        
-        <Route path="/activate-voucher">
-          <AuthGuard requireAgreement={true}>
-            <ActivateVoucherScreen />
           </AuthGuard>
         </Route>
         
