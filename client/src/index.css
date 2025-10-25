@@ -121,9 +121,14 @@
   }
 
   /* QR Scanner - Hide red tracker border */
-  [data-testid="dialog-qr-scanner"] svg:not(button svg):not([class*="lucide"]) {
-    opacity: 0 !important;
-    visibility: hidden !important;
+  [data-testid="dialog-qr-scanner"] svg {
+    display: none !important;
+  }
+  
+  /* Keep icons visible */
+  [data-testid="dialog-qr-scanner"] button svg,
+  [data-testid="dialog-qr-scanner"] [class*="lucide"] {
+    display: inline-block !important;
   }
 
   /* Phone Input Custom Styles */
