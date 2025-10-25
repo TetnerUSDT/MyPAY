@@ -20,7 +20,23 @@ import QRScanner, { QRScannerButton } from "@/components/qr-scanner";
 
 // Helper function to get user-friendly error messages
 function getErrorMessage(error: any): string {
-  const message = error?.message || '';
+  // Try to extract message from different error formats
+  let message = '';
+  
+  if (typeof error === 'string') {
+    message = error;
+  } else if (error?.message) {
+    message = error.message;
+  } else if (typeof error === 'object') {
+    // If error is JSON string, try to parse it
+    try {
+      const errorStr = JSON.stringify(error);
+      const parsed = JSON.parse(errorStr);
+      message = parsed.message || errorStr;
+    } catch {
+      message = String(error);
+    }
+  }
   
   // Common error patterns
   const errorMap: Record<string, string> = {
@@ -28,8 +44,11 @@ function getErrorMessage(error: any): string {
     'Insufficient balance': 'Недостаточно средств',
     'Invalid voucher code': 'Неверный код ваучера',
     'Voucher already activated': 'Ваучер уже активирован',
+    'Voucher is not active': 'Ваучер недействителен',
     'Voucher expired': 'Срок действия ваучера истек',
     'Invalid security value': 'Неверный PIN-код или пароль',
+    'Security code is required': 'Требуется код защиты',
+    'Invalid security code': 'Неверный код защиты',
     'Internal server error': 'Ошибка сервера. Попробуйте позже',
     'Unauthorized': 'Необходима авторизация',
   };

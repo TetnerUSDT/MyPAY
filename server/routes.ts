@@ -1941,11 +1941,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Voucher is not active" });
       }
 
-      // Check if user is trying to activate own voucher
-      if (voucher.userId === userId) {
-        return res.status(400).json({ message: "Cannot activate your own voucher" });
-      }
-
       // Check security if required
       if (voucher.securityType !== 'none' && voucher.securityValue) {
         if (!securityValue) {
