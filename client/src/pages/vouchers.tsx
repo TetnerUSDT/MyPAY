@@ -116,10 +116,19 @@ export default function VouchersPage() {
     queryKey: ['/api/user/balances'],
   });
 
+  console.log('🔍 User balances received:', userBalances);
+
   // Filter active balances with balance > 0
   const availableBalances = userBalances.filter(
-    b => b.balanceStatus === 'active' && parseFloat(b.sum) > 0
+    b => {
+      const isActive = b.balanceStatus === 'active';
+      const hasBalance = parseFloat(b.sum) > 0;
+      console.log(`Balance ${b.balanceName}: active=${isActive}, hasBalance=${hasBalance}, sum=${b.sum}`);
+      return isActive && hasBalance;
+    }
   );
+
+  console.log('✅ Available balances:', availableBalances);
 
   // Fetch active vouchers
   const { data: activeVouchers = [], isLoading: activeLoading } = useQuery<Voucher[]>({

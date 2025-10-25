@@ -920,8 +920,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/user/balances", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {
       const allBalances = await storage.getAllUserBalances(req.user!.id);
+      console.log('📊 User balances for user', req.user!.id, ':', JSON.stringify(allBalances, null, 2));
       res.json(allBalances);
     } catch (error) {
+      console.error('Error getting user balances:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
