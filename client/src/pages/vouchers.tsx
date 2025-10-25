@@ -155,9 +155,14 @@ export default function VouchersPage() {
       const response = await apiRequest("POST", "/api/vouchers/create", data);
       return await response.json();
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/vouchers/my'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/user/balances'] });
+    onSuccess: async (data) => {
+      // Refetch all voucher-related queries
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['/api/vouchers/my?status=active'] }),
+        queryClient.invalidateQueries({ queryKey: ['/api/vouchers/my?status=activated'] }),
+        queryClient.invalidateQueries({ queryKey: ['/api/user/balances'] })
+      ]);
+      
       setIsCreateDialogOpen(false);
       resetCreateForm();
       toast({
@@ -212,9 +217,13 @@ export default function VouchersPage() {
       const response = await apiRequest("POST", "/api/vouchers/activate", data);
       return await response.json() as { message: string; amount: number; currency: string; newBalance: string };
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/user/balances'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/vouchers/my'] });
+    onSuccess: async (data) => {
+      // Refetch all related queries
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['/api/vouchers/my?status=active'] }),
+        queryClient.invalidateQueries({ queryKey: ['/api/vouchers/my?status=activated'] }),
+        queryClient.invalidateQueries({ queryKey: ['/api/user/balances'] })
+      ]);
       
       toast({
         title: "Успешно!",
