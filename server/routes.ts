@@ -1806,8 +1806,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const userId = req.user!.id;
 
-      // Get user balance
-      const userBalance = await storage.getUserBalance(userId, balanceId);
+      // Get balance details for currency
+      const balance = await storage.getBalance(balanceId);
+      if (!balance) {
+        return res.status(404).json({ message: "Balance configuration not found" });
+      }
+
+      // For voucher-type balances, check and deduct from targetBalanceId
+      const targetBalanceId = balance.targetBalanceId || balanceId;
+      
+      console.log(`💳 Creating voucher: balanceId=${balanceId}, targetBalanceId=${targetBalanceId}`);
+
+      // Get user balance from TARGET balance (where the money is)
+      const userBalance = await storage.getUserBalance(userId, targetBalanceId);
       if (!userBalance) {
         return res.status(404).json({ message: "Balance not found" });
       }
@@ -1821,14 +1832,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentBalance = parseFloat(userBalance.sum);
       const requestedAmount = parseFloat(amount);
 
+      console.log(`💰 Balance check: current=${currentBalance}, requested=${requestedAmount}`);
+
       if (currentBalance < requestedAmount) {
         return res.status(400).json({ message: "Insufficient balance" });
-      }
-
-      // Get balance details for currency
-      const balance = await storage.getBalance(balanceId);
-      if (!balance) {
-        return res.status(404).json({ message: "Balance configuration not found" });
       }
 
       // Hash security value if provided
@@ -1858,14 +1865,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: 'active'
       });
 
-      // Deduct amount from user balance
+      // Deduct amount from TARGET balance (where the money is)
       const newBalance = (currentBalance - requestedAmount).toFixed(8);
       await db.update(usersBalances)
         .set({ sum: newBalance })
         .where(and(
           eq(usersBalances.idUser, userId),
-          eq(usersBalances.idBalance, balanceId)
+          eq(usersBalances.idBalance, targetBalanceId)  // Deduct from target, not voucher balance
         ));
+
+      console.log(`✅ Voucher created successfully. Deducted ${requestedAmount} from balance ${targetBalanceId}. New balance: ${newBalance}`);
 
       res.json(voucher);
     } catch (error) {
