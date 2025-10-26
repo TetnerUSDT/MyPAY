@@ -22,6 +22,7 @@ export const balances = mysqlTable("balances", {
   rate: decimal("rate", { precision: 18, scale: 8 }),
   balanceType: varchar("type", { length: 50 }).notNull().default("fiat"),
   status: varchar("status", { length: 50 }).notNull().default("active"),
+  targetBalanceId: int("target_balance_id"),
   pattern: text("pattern"),
   qrColor: json("qr_color").$type<{ type: 'single', color: string } | { type: 'gradient', colors: [string, string] }>(),
   qrStyle: qrStyleEnum.default('rounded'),

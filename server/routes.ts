@@ -1957,6 +1957,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Find balance with matching currency AND network among ALL user balances
       // This allows activation of old vouchers created before voucher-type restriction
+      console.log('🎫 Activating voucher:', { currency: voucher.currency, network: voucher.network });
+      
       const matchingBalances = await db.select()
         .from(balances)
         .where(
@@ -1966,7 +1968,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           )
         );
 
+      console.log('🔍 Found matching balances:', matchingBalances.map(b => ({ id: b.id, title: b.title, network: b.network, type: b.balanceType })));
+
       if (matchingBalances.length === 0) {
+        console.log('❌ No matching balance found for currency:', voucher.currency, 'network:', voucher.network);
         return res.status(400).json({ message: "Упс. Ваучер существует но сеть не найдена" });
       }
 
