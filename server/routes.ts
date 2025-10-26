@@ -1955,31 +1955,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Find balance with matching currency AND network among ALL user balances
-      // This allows activation of old vouchers created before voucher-type restriction
-      console.log('🎫 Activating voucher:', { currency: voucher.currency, network: voucher.network });
+      // Get source balance (voucher-type balance that was used to create the voucher)
+      console.log('🎫 Activating voucher:', { voucherBalanceId: voucher.balanceId, currency: voucher.currency, network: voucher.network });
       
-      const matchingBalances = await db.select()
+      const [sourceBalance] = await db.select()
         .from(balances)
-        .where(
-          and(
-            eq(balances.currency, voucher.currency),
-            voucher.network ? eq(balances.network, voucher.network) : sql`1=1`
-          )
-        );
+        .where(eq(balances.id, voucher.balanceId));
 
-      console.log('🔍 Found matching balances:', matchingBalances.map(b => ({ id: b.id, title: b.title, network: b.network, type: b.balanceType })));
-
-      if (matchingBalances.length === 0) {
-        console.log('❌ No matching balance found for currency:', voucher.currency, 'network:', voucher.network);
+      if (!sourceBalance) {
+        console.log('❌ Source balance not found for voucher:', voucher.balanceId);
         return res.status(400).json({ message: "Упс. Ваучер существует но сеть не найдена" });
       }
 
-      // Try to find user balance with this currency and network
-      const matchedBalance = matchingBalances[0];
-      let userBalance = await storage.getUserBalance(userId, matchedBalance.id);
+      console.log('📦 Source balance:', { 
+        id: sourceBalance.id, 
+        title: sourceBalance.title, 
+        type: sourceBalance.balanceType,
+        targetBalanceId: sourceBalance.targetBalanceId 
+      });
+
+      // Determine target balance: use targetBalanceId if set, otherwise use source balance
+      const targetBalanceId = sourceBalance.targetBalanceId || sourceBalance.id;
+      
+      console.log('🎯 Target balance ID:', targetBalanceId);
+
+      // Get target balance details
+      const [targetBalance] = await db.select()
+        .from(balances)
+        .where(eq(balances.id, targetBalanceId));
+
+      if (!targetBalance) {
+        console.log('❌ Target balance not found:', targetBalanceId);
+        return res.status(400).json({ message: "Упс. Ваучер существует но сеть не найдена" });
+      }
+
+      console.log('✅ Target balance:', { 
+        id: targetBalance.id, 
+        title: targetBalance.title, 
+        currency: targetBalance.currency,
+        network: targetBalance.network,
+        type: targetBalance.balanceType 
+      });
+
+      // Check if user has this target balance
+      let userBalance = await storage.getUserBalance(userId, targetBalanceId);
       
       if (!userBalance) {
+        console.log('❌ User does not have target balance:', targetBalanceId);
         return res.status(400).json({ message: "Упс. Ваучер существует но сеть не найдена" });
       }
 
@@ -1988,11 +2010,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const voucherAmount = parseFloat(voucher.amount);
       const newBalance = (currentBalance + voucherAmount).toFixed(8);
 
+      console.log('💰 Crediting amount:', { voucherAmount, currentBalance, newBalance, targetBalanceId });
+
       await db.update(usersBalances)
         .set({ sum: newBalance })
         .where(and(
           eq(usersBalances.idUser, userId),
-          eq(usersBalances.idBalance, matchedBalance.id)
+          eq(usersBalances.idBalance, targetBalanceId)
         ));
 
       // Mark voucher as activated
@@ -2003,9 +2027,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId,
         type: 'info',
         title: 'Ваучер активирован',
-        message: `Вы успешно активировали ваучер на сумму ${voucherAmount} ${voucher.currency}`,
+        message: `Вы успешно активировали ваучер на сумму ${voucherAmount} ${targetBalance.currency}${targetBalance.network ? ` (${targetBalance.network})` : ''}`,
         isRead: false
       });
+
+      console.log('✅ Voucher activated successfully');
 
       res.json({
         message: "Voucher activated successfully",
