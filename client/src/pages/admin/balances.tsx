@@ -29,6 +29,7 @@ type Balance = {
   rate: string | null;
   balanceType: "fiat" | "crypto" | "token" | "voucher";
   status: string | null;
+  targetBalanceId: number | null;
   pattern: string | null;
   qrColor: QRColorConfig | null;
   qrStyle: 'square' | 'dots' | 'rounded' | 'extra-rounded' | 'classy' | 'classy-rounded' | null;
@@ -99,6 +100,7 @@ export default function AdminBalances() {
       balanceType: "fiat",
       rate: null,
       status: "active",
+      targetBalanceId: null,
       pattern: null,
       qrColor: null,
       qrStyle: "rounded",
@@ -248,6 +250,7 @@ export default function AdminBalances() {
       balanceType: balance.balanceType,
       rate: balance.rate || null,
       status: balance.status || "active",
+      targetBalanceId: balance.targetBalanceId || null,
       pattern: balance.pattern || null,
       qrStyle: balance.qrStyle || 'rounded',
     });
@@ -421,6 +424,41 @@ export default function AdminBalances() {
                         </FormItem>
                       )}
                     />
+                    
+                    {/* Target Balance (only for voucher type) */}
+                    {systemBalanceForm.watch("balanceType") === "voucher" && (
+                      <FormField
+                        control={systemBalanceForm.control}
+                        name="targetBalanceId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Целевой баланс для зачисления</FormLabel>
+                            <Select 
+                              onValueChange={(value) => field.onChange(value ? parseInt(value) : null)} 
+                              value={field.value?.toString() || ""}
+                            >
+                              <FormControl>
+                                <SelectTrigger data-testid="select-target-balance">
+                                  <SelectValue placeholder="Выберите баланс" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {balances?.filter(b => b.id !== editingBalance?.id).map((balance) => (
+                                  <SelectItem key={balance.id} value={balance.id.toString()}>
+                                    {balance.title} ({balance.currency}{balance.network ? ` - ${balance.network}` : ''})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                            <p className="text-xs text-muted-foreground mt-1">
+                              При активации ваучера средства будут зачислены на выбранный баланс
+                            </p>
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                    
                     <FormField
                       control={systemBalanceForm.control}
                       name="pattern"
