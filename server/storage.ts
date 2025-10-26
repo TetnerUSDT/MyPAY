@@ -846,6 +846,7 @@ export class DatabaseStorage implements IStorage {
       })
     );
 
+    console.log('✅ Final result being returned:', result.map(r => ({ id: r.id, title: r.title, balanceStatus: r.balanceStatus })));
     return result;
   }
 
