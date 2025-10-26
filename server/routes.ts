@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 import { validate as validateInitData, parse as parseInitData } from "@telegram-apps/init-data-node";
 import { storage } from "./storage";
 import { db } from "./db";
-import { insertTransactionSchema, insertSupportChatSchema, insertUserSchema, insertSupportTicketSchema, insertSupportMessageSchema, usersBalances } from "@shared/schema";
+import { insertTransactionSchema, insertSupportChatSchema, insertUserSchema, insertSupportTicketSchema, insertSupportMessageSchema, usersBalances, balances } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { config, isTestMode, isTelegramMode, isDevelopment } from "./config";
 import { createWalletViaAPI } from "./wallet-api";
@@ -1851,6 +1851,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         balanceId,
         amount: requestedAmount.toFixed(8),
         currency: balance.currency,
+        network: balance.network,
         securityType: securityType || 'none',
         securityValue: hashedSecurityValue,
         status: 'active'
@@ -1910,6 +1911,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: voucher.id,
         amount: voucher.amount,
         currency: voucher.currency,
+        network: voucher.network,
         status: voucher.status,
         securityType: voucher.securityType,
         requiresSecurity: voucher.securityType !== 'none',
@@ -1953,11 +1955,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Get or create user balance for this currency
-      let userBalance = await storage.getUserBalance(userId, voucher.balanceId);
+      // Find user balance with matching currency AND network
+      const allBalances = await db.select()
+        .from(balances)
+        .where(
+          and(
+            eq(balances.currency, voucher.currency),
+            eq(balances.network, voucher.network || '')
+          )
+        );
+
+      if (allBalances.length === 0) {
+        return res.status(400).json({ message: "Упс. Ваучер существует но сеть не найдена" });
+      }
+
+      const matchedBalance = allBalances[0];
+      let userBalance = await storage.getUserBalance(userId, matchedBalance.id);
       
       if (!userBalance) {
-        return res.status(400).json({ message: "Balance not found for this currency" });
+        return res.status(400).json({ message: "Упс. Ваучер существует но сеть не найдена" });
       }
 
       // Add voucher amount to user balance
@@ -1969,7 +1985,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .set({ sum: newBalance })
         .where(and(
           eq(usersBalances.idUser, userId),
-          eq(usersBalances.idBalance, voucher.balanceId)
+          eq(usersBalances.idBalance, matchedBalance.id)
         ));
 
       // Mark voucher as activated

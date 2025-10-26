@@ -252,6 +252,7 @@ export const vouchers = mysqlTable("vouchers", {
   balanceId: int("balance_id").notNull().references(() => balances.id, { onDelete: "cascade" }),
   amount: decimal("amount", { precision: 18, scale: 8 }).notNull(),
   currency: varchar("currency", { length: 10 }).notNull(),
+  network: varchar("network", { length: 50 }),
   securityType: mysqlEnum("security_type", ['none', 'word', 'pin']).notNull().default("none"),
   securityValue: varchar("security_value", { length: 255 }),
   status: mysqlEnum("status", ['active', 'activated', 'expired']).notNull().default("active"),
