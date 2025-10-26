@@ -814,11 +814,9 @@ export class DatabaseStorage implements IStorage {
 
   async getUserCryptoBalances(userId: number): Promise<any[]> {
     const cryptoBalances = await this.getCryptoBalances();
-    console.log('📊 All crypto balances from DB:', cryptoBalances.map(b => ({ id: b.id, title: b.title, status: b.status })));
     
     // Filter out hidden balances
     const visibleBalances = cryptoBalances.filter(balance => balance.status !== 'hidden');
-    console.log('👁️ Visible crypto balances after filter:', visibleBalances.map(b => ({ id: b.id, title: b.title, status: b.status })));
     
     const result = await Promise.all(
       visibleBalances.map(async (balance) => {
@@ -846,7 +844,6 @@ export class DatabaseStorage implements IStorage {
       })
     );
 
-    console.log('✅ Final result being returned:', result.map(r => ({ id: r.id, title: r.title, balanceStatus: r.balanceStatus })));
     return result;
   }
 

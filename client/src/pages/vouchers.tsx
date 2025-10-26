@@ -5,7 +5,7 @@ import { X, Plus, Copy, Ticket, CheckCircle2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -562,6 +562,9 @@ export default function VouchersPage() {
         <DialogContent className="bg-gradient-to-br from-green-900 to-green-950 text-white border-green-500/30">
           <DialogHeader>
             <DialogTitle className="text-xl">Создать ваучер</DialogTitle>
+            <DialogDescription className="text-green-200/70">
+              Выберите баланс, укажите сумму и защиту для нового ваучера
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
@@ -680,6 +683,9 @@ export default function VouchersPage() {
         <DialogContent className="bg-gradient-to-br from-green-900 to-green-950 text-white border-green-500/30">
           <DialogHeader>
             <DialogTitle className="text-xl">Активировать ваучер</DialogTitle>
+            <DialogDescription className="text-green-200/70">
+              Введите или отсканируйте код ваучера для активации
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
@@ -739,6 +745,9 @@ export default function VouchersPage() {
               <Lock className="w-5 h-5" />
               Защищенный ваучер
             </DialogTitle>
+            <DialogDescription className="text-green-200/70">
+              Этот ваучер защищен. Введите {voucherInfo?.securityType === 'word' ? 'слово' : 'PIN-код'} для активации
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
