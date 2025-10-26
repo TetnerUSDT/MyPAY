@@ -899,9 +899,23 @@ export class DatabaseStorage implements IStorage {
         )
       );
     
+    console.log('🔍 Found voucher-enabled balances:', voucherEnabledBalances.map(b => ({
+      id: b.id,
+      title: b.title,
+      currency: b.currency,
+      targetBalanceId: b.targetBalanceId,
+      status: b.status
+    })));
+    
     const result = await Promise.all(
       voucherEnabledBalances.map(async (balance) => {
         const userBalance = await this.getUserBalance(userId, balance.id);
+        
+        console.log(`💰 User ${userId} balance for ${balance.title}:`, {
+          balanceId: balance.id,
+          sum: userBalance?.sum,
+          status: userBalance?.status
+        });
 
         return {
           balanceId: balance.id,
@@ -916,6 +930,7 @@ export class DatabaseStorage implements IStorage {
       })
     );
 
+    console.log('✅ Final result for user balances:', result);
     return result;
   }
 
