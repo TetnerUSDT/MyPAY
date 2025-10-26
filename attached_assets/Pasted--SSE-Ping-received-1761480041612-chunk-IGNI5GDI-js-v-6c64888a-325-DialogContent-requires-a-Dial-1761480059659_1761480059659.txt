@@ -1,0 +1,33 @@
+[SSE] Ping received: 1761480041612
+chunk-IGNI5GDI.js?v=6c64888a:325 `DialogContent` requires a `DialogTitle` for the component to be accessible for screen reader users.
+
+If you want to hide the `DialogTitle`, you can wrap it with our VisuallyHidden component.
+
+For more information, see https://radix-ui.com/primitives/docs/components/dialog
+(anonymous) @ chunk-IGNI5GDI.js?v=6c64888a:325
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=6c64888a:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=6c64888a:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=6c64888a:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=6c64888a:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=6c64888a:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=6c64888a:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=6c64888a:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=6c64888a:19416
+commitRoot @ chunk-RPCDYKBN.js?v=6c64888a:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=6c64888a:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=6c64888a:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=6c64888a:18627Understand this error
+chunk-IGNI5GDI.js?v=6c64888a:339 Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+(anonymous) @ chunk-IGNI5GDI.js?v=6c64888a:339
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=6c64888a:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=6c64888a:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=6c64888a:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=6c64888a:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=6c64888a:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=6c64888a:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=6c64888a:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=6c64888a:19416
+commitRoot @ chunk-RPCDYKBN.js?v=6c64888a:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=6c64888a:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=6c64888a:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=6c64888a:18627Understand this warning

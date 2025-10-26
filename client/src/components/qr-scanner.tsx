@@ -129,6 +129,14 @@ export default function QRScanner({
           className="fixed inset-0 z-50 bg-black overflow-hidden"
           data-testid="dialog-qr-scanner"
         >
+          {/* Accessibility: Required for screen readers */}
+          <DialogPrimitive.Title className="sr-only">
+            {title}
+          </DialogPrimitive.Title>
+          <DialogPrimitive.Description className="sr-only">
+            Сканирование QR-кода с помощью камеры устройства
+          </DialogPrimitive.Description>
+
           {/* Header with Close Button */}
           <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent">
             <h2 className="text-white text-lg font-semibold" data-testid="text-scanner-title">
