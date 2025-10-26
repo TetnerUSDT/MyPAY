@@ -83,7 +83,10 @@ interface UserBalance {
   balanceName: string;
   sum: string;
   currency: string;
+  network?: string;
   balanceStatus: 'active' | 'frozen';
+  balanceType?: 'fiat' | 'crypto' | 'token' | 'voucher';
+  targetBalanceId?: number;
 }
 
 interface VoucherCheckResponse {

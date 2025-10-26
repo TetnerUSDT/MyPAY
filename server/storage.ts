@@ -887,12 +887,20 @@ export class DatabaseStorage implements IStorage {
     );
   }
 
-  // Get all user balances for voucher creation (only voucher-type balances)
+  // Get all user balances for voucher creation (balances with targetBalanceId)
   async getAllUserBalances(userId: number): Promise<any[]> {
-    const voucherBalances = await this.getVoucherBalances();
+    // Get all balances with targetBalanceId (configured for voucher creation)
+    const voucherEnabledBalances = await db.select()
+      .from(balances)
+      .where(
+        and(
+          sql`${balances.targetBalanceId} IS NOT NULL`,
+          eq(balances.status, 'active')
+        )
+      );
     
     const result = await Promise.all(
-      voucherBalances.map(async (balance) => {
+      voucherEnabledBalances.map(async (balance) => {
         const userBalance = await this.getUserBalance(userId, balance.id);
 
         return {
@@ -901,7 +909,9 @@ export class DatabaseStorage implements IStorage {
           sum: userBalance?.sum || "0.00",
           currency: balance.currency,
           network: balance.network,
-          balanceStatus: balance.status
+          balanceStatus: balance.status,
+          balanceType: balance.balanceType,
+          targetBalanceId: balance.targetBalanceId
         };
       })
     );
