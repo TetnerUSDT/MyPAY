@@ -909,18 +909,21 @@ export class DatabaseStorage implements IStorage {
     
     const result = await Promise.all(
       voucherEnabledBalances.map(async (balance) => {
-        const userBalance = await this.getUserBalance(userId, balance.id);
+        // Get user balance from TARGET balance (where the money is), not voucher balance
+        const targetBalanceId = balance.targetBalanceId!;
+        const userBalance = await this.getUserBalance(userId, targetBalanceId);
         
-        console.log(`💰 User ${userId} balance for ${balance.title}:`, {
-          balanceId: balance.id,
+        console.log(`💰 User ${userId} balance for ${balance.title} (target ID ${targetBalanceId}):`, {
+          voucherBalanceId: balance.id,
+          targetBalanceId,
           sum: userBalance?.sum,
           status: userBalance?.status
         });
 
         return {
-          balanceId: balance.id,
+          balanceId: balance.id,  // Return voucher balance ID for creating voucher
           balanceName: balance.title,
-          sum: userBalance?.sum || "0.00",
+          sum: userBalance?.sum || "0.00",  // But show target balance amount
           currency: balance.currency,
           network: balance.network,
           balanceStatus: balance.status,
