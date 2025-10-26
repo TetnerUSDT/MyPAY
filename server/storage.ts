@@ -815,8 +815,8 @@ export class DatabaseStorage implements IStorage {
   async getUserCryptoBalances(userId: number): Promise<any[]> {
     const cryptoBalances = await this.getCryptoBalances();
     
-    // Filter only active balances (not hidden or frozen)
-    const visibleBalances = cryptoBalances.filter(balance => balance.status === 'active');
+    // Filter out hidden balances
+    const visibleBalances = cryptoBalances.filter(balance => balance.status !== 'hidden');
     
     const result = await Promise.all(
       visibleBalances.map(async (balance) => {
@@ -850,8 +850,8 @@ export class DatabaseStorage implements IStorage {
   async getUserFiatBalances(userId: number): Promise<any[]> {
     const fiatBalances = await this.getFiatBalances();
     
-    // Filter only active balances (not hidden or frozen)
-    const visibleBalances = fiatBalances.filter(balance => balance.status === 'active');
+    // Filter out hidden balances
+    const visibleBalances = fiatBalances.filter(balance => balance.status !== 'hidden');
     
     const result = await Promise.all(
       visibleBalances.map(async (balance) => {
