@@ -71,6 +71,7 @@ export interface IStorage {
   // Fiat balance methods
   getFiatBalances(): Promise<any[]>;
   getCryptoBalances(): Promise<any[]>;
+  getVoucherBalances(): Promise<any[]>;
   getUserCryptoBalances(userId: number): Promise<any[]>;
   getUserFiatBalances(userId: number): Promise<any[]>;
   getAllUserBalances(userId: number): Promise<any[]>;
@@ -876,26 +877,36 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  // Get all user balances (both fiat and crypto) for voucher creation
+  // Get voucher balances (only type='voucher' and status='active')
+  async getVoucherBalances(): Promise<any[]> {
+    return await db.select().from(balances).where(
+      and(
+        eq(balances.balanceType, 'voucher'),
+        eq(balances.status, 'active')
+      )
+    );
+  }
+
+  // Get all user balances for voucher creation (only voucher-type balances)
   async getAllUserBalances(userId: number): Promise<any[]> {
-    const [cryptoBalances, fiatBalances] = await Promise.all([
-      this.getUserCryptoBalances(userId),
-      this.getUserFiatBalances(userId)
-    ]);
+    const voucherBalances = await this.getVoucherBalances();
+    
+    const result = await Promise.all(
+      voucherBalances.map(async (balance) => {
+        const userBalance = await this.getUserBalance(userId, balance.id);
 
-    // Transform to match UserBalance interface expected by frontend
-    const transformBalance = (balance: any) => ({
-      balanceId: balance.id || balance.balanceId,
-      balanceName: balance.title || balance.balanceName,
-      sum: balance.sum || "0.00",
-      currency: balance.currency,
-      balanceStatus: balance.balanceStatus || balance.status || "active"
-    });
+        return {
+          balanceId: balance.id,
+          balanceName: balance.title,
+          sum: userBalance?.sum || "0.00",
+          currency: balance.currency,
+          network: balance.network,
+          balanceStatus: balance.status
+        };
+      })
+    );
 
-    return [
-      ...cryptoBalances.map(transformBalance),
-      ...fiatBalances.map(transformBalance)
-    ];
+    return result;
   }
 
   async getUserBalance(userId: number, balanceId: number): Promise<any> {
