@@ -140,18 +140,26 @@ export class DatabaseStorage implements IStorage {
 
   private async initializeBalances() {
     try {
-      const existingBalances = await db.select().from(balances).limit(1);
-      if (existingBalances.length > 0) return;
-
       const defaultBalances = [
-        { id: 1, title: "Российский рубль", network: null, currency: "RUB", type: "fiat", status: "1" },
-        { id: 2, title: "Турецкая лира", network: null, currency: "TRY", type: "fiat", status: "1" },
-        { id: 3, title: "USDT TRC20", network: "TRC20", currency: "USDT", type: "crypto", status: "1" },
-        { id: 4, title: "USDT BEP20", network: "BEP20", currency: "USDT", type: "crypto", status: "1" },
+        { id: 1, title: "Российский рубль", network: null, currency: "RUB", type: "fiat", status: "active" },
+        { id: 2, title: "Турецкая лира", network: null, currency: "TRY", type: "fiat", status: "active" },
+        { id: 3, title: "USDT TRC20", network: "TRC20", currency: "USDT", type: "crypto", status: "active" },
+        { id: 4, title: "USDT BEP20", network: "BEP20", currency: "USDT", type: "crypto", status: "active" },
+        { id: 5, title: "Ton Network", network: "TON", currency: "USDT", type: "crypto", status: "active" },
+        { id: 7, title: "DAI", network: "Polygon", currency: "DAI", type: "crypto", status: "active" },
+        { id: 8, title: "POL", network: "Polygon", currency: "POL", type: "crypto", status: "active" },
       ];
 
       for (const balance of defaultBalances) {
-        await db.insert(balances).values(balance as any).onConflictDoNothing();
+        try {
+          const existing = await db.select().from(balances).where(eq(balances.id, balance.id)).limit(1);
+          if (existing.length === 0) {
+            await db.insert(balances).values(balance as any);
+            console.log(`Added missing balance: ${balance.title} (ID: ${balance.id})`);
+          }
+        } catch (insertError) {
+          // Skip if balance already exists or on error
+        }
       }
     } catch (error) {
       console.log('Balances initialization skipped (table may not exist yet)');
@@ -160,23 +168,41 @@ export class DatabaseStorage implements IStorage {
 
   private async initializeExchangeRates() {
     try {
-      // Check if rates already exist
-      const existingRates = await db.select().from(exchangeRates).limit(1);
-      if (existingRates.length > 0) return;
-
       const rates = [
-        { fromBalanceId: 4, toBalanceId: 1, fromCurrency: "USDT", toCurrency: "RUB", rate: "95.50" },
-        { fromBalanceId: 4, toBalanceId: 2, fromCurrency: "USDT", toCurrency: "TRY", rate: "27.80" },
-        { fromBalanceId: 3, toBalanceId: 1, fromCurrency: "USDT", toCurrency: "RUB", rate: "95.50" },
-        { fromBalanceId: 3, toBalanceId: 2, fromCurrency: "USDT", toCurrency: "TRY", rate: "27.80" },
+        // USDT -> DAI (сеть полигон)
+        { fromBalanceId: 4, toBalanceId: 7, fromCurrency: "BEP20.USDT", toCurrency: "DAI", rate: "0.9980", category: "crypto" },
+        { fromBalanceId: 3, toBalanceId: 7, fromCurrency: "TRC20.USDT", toCurrency: "DAI", rate: "0.9980", category: "crypto" },
+        { fromBalanceId: 5, toBalanceId: 7, fromCurrency: "TON.USDT", toCurrency: "DAI", rate: "0.9980", category: "crypto" },
+        // DAI -> USDT
+        { fromBalanceId: 7, toBalanceId: 4, fromCurrency: "DAI", toCurrency: "BEP20.USDT", rate: "0.9980", category: "crypto" },
+        { fromBalanceId: 7, toBalanceId: 3, fromCurrency: "DAI", toCurrency: "TRC20.USDT", rate: "0.9980", category: "crypto" },
+        { fromBalanceId: 7, toBalanceId: 5, fromCurrency: "DAI", toCurrency: "TON.USDT", rate: "0.9980", category: "crypto" },
+        // USDT -> POL (сеть полигон)
+        { fromBalanceId: 4, toBalanceId: 8, fromCurrency: "BEP20.USDT", toCurrency: "POL", rate: "2.0500", category: "crypto" },
+        { fromBalanceId: 3, toBalanceId: 8, fromCurrency: "TRC20.USDT", toCurrency: "POL", rate: "2.0500", category: "crypto" },
+        { fromBalanceId: 5, toBalanceId: 8, fromCurrency: "TON.USDT", toCurrency: "POL", rate: "2.0500", category: "crypto" },
       ];
 
       for (const rate of rates) {
-        await db.insert(exchangeRates).values({
-          id: randomUUID(),
-          ...rate,
-          updatedAt: new Date(),
-        }).onConflictDoNothing();
+        try {
+          const existing = await db.select().from(exchangeRates)
+            .where(and(
+              eq(exchangeRates.fromBalanceId, rate.fromBalanceId),
+              eq(exchangeRates.toBalanceId, rate.toBalanceId)
+            ))
+            .limit(1);
+          
+          if (existing.length === 0) {
+            await db.insert(exchangeRates).values({
+              id: randomUUID(),
+              ...rate,
+              updatedAt: new Date(),
+            } as any);
+            console.log(`Added missing exchange rate: ${rate.fromCurrency} -> ${rate.toCurrency}`);
+          }
+        } catch (insertError) {
+          // Skip if rate already exists or on error
+        }
       }
     } catch (error) {
       console.log('Exchange rates initialization skipped (table may not exist yet)');

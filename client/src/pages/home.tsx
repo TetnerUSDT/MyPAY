@@ -122,7 +122,6 @@ export default function HomeScreen() {
     { icon: ArrowDownLeft, label: "Пополнить", testId: "action-deposit" },
     { icon: ArrowUpRight, label: "Отправить", testId: "action-send" },
     { icon: ArrowRightLeft, label: "Обмен", testId: "action-exchange" },
-    { icon: CreditCard, label: "Карты", testId: "action-cards" }
   ];
 
   return (
@@ -179,7 +178,7 @@ export default function HomeScreen() {
 
         {/* Action Buttons */}
         <div className="px-6 mb-8">
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             {actions.map((action, index) => {
               const Icon = action.icon;
               return (
@@ -211,15 +210,6 @@ export default function HomeScreen() {
                         <Icon className="w-6 h-6 text-white" />
                       </button>
                     </Link>
-                  ) : action.label === "Карты" ? (
-                    <Link href="/cards">
-                      <button 
-                        className="w-14 h-14 rounded-full bg-black/20 flex items-center justify-center mb-2"
-                        data-testid={action.testId}
-                      >
-                        <Icon className="w-6 h-6 text-white" />
-                      </button>
-                    </Link>
                   ) : (
                     <button 
                       className="w-14 h-14 rounded-full bg-black/20 flex items-center justify-center mb-2"
@@ -235,14 +225,13 @@ export default function HomeScreen() {
           </div>
         </div>
 
-        {/* Fiat Balance Card */}
+        {/* Fiat Balance Card - Commented out
         <div className="px-6 mb-4">
           <div 
             className="bg-gradient-to-r from-green-700/40 to-green-800/40 rounded-2xl p-4 border border-green-600/30 backdrop-blur-sm shadow-[0_4px_12px_rgba(0,0,0,0.2)]"
             data-testid="fiat-balance-card"
           >
             <div className="flex items-center justify-between">
-              {/* Left: Icon and Balance */}
               <div className="flex items-center">
                 <div className="mr-4">
                   <WalletIcon className="w-12 h-12" />
@@ -254,8 +243,6 @@ export default function HomeScreen() {
                   </p>
                 </div>
               </div>
-
-              {/* Right: Currency Selector */}
               <button
                 onClick={() => setIsCurrencyModalOpen(true)}
                 className="bg-black/20 hover:bg-black/30 transition-colors px-4 py-2 rounded-lg flex items-center gap-2"
@@ -267,6 +254,7 @@ export default function HomeScreen() {
             </div>
           </div>
         </div>
+        */}
 
         {/* Wallets List */}
         <div className="flex-1 px-6">
