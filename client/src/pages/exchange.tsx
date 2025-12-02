@@ -30,7 +30,10 @@ interface Balance {
   currency: string;
   network?: string;
   pattern?: string | null;
+  type?: string;
 }
+
+const FIAT_CURRENCIES = ['RUB', 'USD', 'EUR', 'TRY', 'KZT', 'UAH'];
 
 interface CountryCard {
   id: number;
@@ -190,29 +193,37 @@ export default function ExchangeScreen() {
     enabled: !!payBalanceId && !!receiveBalanceId
   });
 
+  const filteredReceiveBalances = isCryptoMode 
+    ? receiveBalances.filter(b => !FIAT_CURRENCIES.includes(b.currency))
+    : receiveBalances;
+
+  const filteredPaymentBalances = isCryptoMode
+    ? paymentBalances.filter(b => !FIAT_CURRENCIES.includes(b.currency))
+    : paymentBalances;
+
   useEffect(() => {
-    if (receiveBalances.length > 0 && !receiveBalanceId) {
-      setReceiveBalanceId(receiveBalances[0].id);
+    if (filteredReceiveBalances.length > 0 && !receiveBalanceId) {
+      setReceiveBalanceId(filteredReceiveBalances[0].id);
     }
-  }, [receiveBalances]);
+  }, [filteredReceiveBalances, receiveBalanceId]);
 
   useEffect(() => {
     // Skip if no balances yet and payBalanceId is already set (from URL params)
-    if (paymentBalances.length === 0 && payBalanceId !== null) {
+    if (filteredPaymentBalances.length === 0 && payBalanceId !== null) {
       return;
     }
     
-    if (paymentBalances.length > 0) {
+    if (filteredPaymentBalances.length > 0) {
       // Если текущий выбранный баланс не в списке доступных, сбросить на первый
-      const isCurrentBalanceAvailable = paymentBalances.some(b => b.id === payBalanceId);
+      const isCurrentBalanceAvailable = filteredPaymentBalances.some(b => b.id === payBalanceId);
       if (!isCurrentBalanceAvailable) {
-        setPayBalanceId(paymentBalances[0].id);
+        setPayBalanceId(filteredPaymentBalances[0].id);
       }
     } else {
       // Если нет доступных балансов, сбросить
       setPayBalanceId(null);
     }
-  }, [paymentBalances]);
+  }, [filteredPaymentBalances, payBalanceId]);
 
   useEffect(() => {
     const calculateExchange = async () => {
@@ -447,7 +458,7 @@ export default function ExchangeScreen() {
       }
 
       // Validate wallet address format using pattern from balance
-      const receiveBalance = receiveBalances.find(b => b.id === receiveBalanceId);
+      const receiveBalance = filteredReceiveBalances.find(b => b.id === receiveBalanceId);
       if (receiveBalance?.pattern) {
         try {
           const pattern = new RegExp(receiveBalance.pattern);
@@ -489,7 +500,7 @@ export default function ExchangeScreen() {
 
     // Get currencies
     const fromCurrency = selectedPaymentBalance.currency;
-    const toCurrency = receiveBalances.find(b => b.id === receiveBalanceId)?.currency || 'RUB';
+    const toCurrency = filteredReceiveBalances.find(b => b.id === receiveBalanceId)?.currency || 'USDT';
 
     // Calculate rate
     const rate = receiveAmount && payAmount ? (parseFloat(receiveAmount) / parseFloat(payAmount)).toString() : "0";
@@ -609,7 +620,7 @@ export default function ExchangeScreen() {
                     <SelectValue placeholder="Выберите валюту" />
                   </SelectTrigger>
                   <SelectContent>
-                    {paymentBalances.map((balance: any) => (
+                    {filteredPaymentBalances.map((balance: any) => (
                       <SelectItem key={balance.id} value={balance.id.toString()}>
                         {balance.currency}{balance.network ? `.${balance.network}` : ''}
                       </SelectItem>
@@ -650,7 +661,7 @@ export default function ExchangeScreen() {
                     <SelectValue placeholder="Выберите валюту" />
                   </SelectTrigger>
                   <SelectContent>
-                    {receiveBalances.map((balance: any) => (
+                    {filteredReceiveBalances.map((balance: any) => (
                       <SelectItem key={balance.id} value={balance.id.toString()}>
                         {balance.currency}{balance.network ? `.${balance.network}` : ''}
                       </SelectItem>
@@ -735,12 +746,14 @@ export default function ExchangeScreen() {
                     value={walletAddress}
                     onChange={(e) => setWalletAddress(e.target.value)}
                     placeholder={
-                      receiveBalances.find(b => b.id === receiveBalanceId)?.network === 'TRC20' 
+                      filteredReceiveBalances.find(b => b.id === receiveBalanceId)?.network === 'TRC20' 
                         ? 'T...' 
-                        : receiveBalances.find(b => b.id === receiveBalanceId)?.network === 'BEP20' 
+                        : filteredReceiveBalances.find(b => b.id === receiveBalanceId)?.network === 'BEP20' 
                         ? '0x...' 
-                        : receiveBalances.find(b => b.id === receiveBalanceId)?.network === 'TON'
+                        : filteredReceiveBalances.find(b => b.id === receiveBalanceId)?.network === 'TON'
                         ? 'EQ...'
+                        : filteredReceiveBalances.find(b => b.id === receiveBalanceId)?.network === 'Polygon'
+                        ? '0x...'
                         : 'Введите адрес кошелька'
                     }
                     className="w-full bg-secondary border-0 text-white font-medium px-4 py-3 rounded-lg"
@@ -748,7 +761,7 @@ export default function ExchangeScreen() {
                   />
                   {walletAddress && (
                     <div className="text-xs text-muted-foreground">
-                      Убедитесь, что адрес соответствует сети {receiveBalances.find(b => b.id === receiveBalanceId)?.network}
+                      Убедитесь, что адрес соответствует сети {filteredReceiveBalances.find(b => b.id === receiveBalanceId)?.network}
                     </div>
                   )}
                 </div>
