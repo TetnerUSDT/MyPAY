@@ -35,7 +35,7 @@ export default function SelectCountryScreen() {
             <p className="mt-4 text-muted-foreground">Загрузка...</p>
           </div>
         ) : (
-          <div className="px-6">
+          <div className="px-6 pb-24">
             {cryptoRates.length === 0 ? (
               <div className="text-center py-12">
                 <Coins className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
