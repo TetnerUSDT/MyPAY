@@ -133,6 +133,7 @@ export class DatabaseStorage implements IStorage {
     const instance = storage;
     await instance.initializeBalances();
     await instance.initializeExchangeRates();
+    await instance.fixExistingUserBalances();
     await instance.initializeDemoChat();
     await instance.initializeCards();
     await instance.initializeBanks();
@@ -160,11 +161,46 @@ export class DatabaseStorage implements IStorage {
             console.log(`Added missing balance: ${balance.title} (ID: ${balance.id})`);
           }
         } catch (insertError) {
-          // Skip if balance already exists or on error
+          console.error(`Error inserting balance ${balance.title}:`, insertError);
         }
       }
+      
+      console.log('Balances initialization completed');
     } catch (error) {
-      console.log('Balances initialization skipped (table may not exist yet)');
+      console.error('Balances initialization failed:', error);
+    }
+  }
+
+  async initializeUserBalances(userId: number): Promise<void> {
+    try {
+      const cryptoBalanceIds = [3, 4, 5, 7, 8];
+      
+      for (const balanceId of cryptoBalanceIds) {
+        try {
+          const existing = await db.select()
+            .from(usersBalances)
+            .where(and(
+              eq(usersBalances.idUser, userId),
+              eq(usersBalances.idBalance, balanceId)
+            ))
+            .limit(1);
+          
+          if (existing.length === 0) {
+            await db.insert(usersBalances).values({
+              idUser: userId,
+              idBalance: balanceId,
+              sum: "0.0",
+              status: "active"
+            });
+          }
+        } catch (insertError) {
+          console.error(`Error creating user balance for balance ${balanceId}:`, insertError);
+        }
+      }
+      
+      console.log(`User balances initialized for user ${userId}`);
+    } catch (error) {
+      console.error(`Failed to initialize user balances for user ${userId}:`, error);
     }
   }
 
@@ -199,19 +235,79 @@ export class DatabaseStorage implements IStorage {
             .limit(1);
           
           if (existing.length === 0) {
-            await db.insert(exchangeRates).values({
-              id: randomUUID(),
-              ...rate,
-              updatedAt: new Date(),
-            } as any);
-            console.log(`Added missing exchange rate: ${rate.fromCurrency} -> ${rate.toCurrency}`);
+            const existingByCurrency = await db.select().from(exchangeRates)
+              .where(and(
+                eq(exchangeRates.fromCurrency, rate.fromCurrency),
+                eq(exchangeRates.toCurrency, rate.toCurrency)
+              ))
+              .limit(1);
+            
+            if (existingByCurrency.length > 0) {
+              await db.update(exchangeRates)
+                .set({
+                  fromBalanceId: rate.fromBalanceId,
+                  toBalanceId: rate.toBalanceId,
+                  updatedAt: new Date()
+                })
+                .where(eq(exchangeRates.id, existingByCurrency[0].id));
+              console.log(`Fixed exchange rate balance IDs: ${rate.fromCurrency} -> ${rate.toCurrency}`);
+            } else {
+              await db.insert(exchangeRates).values({
+                id: randomUUID(),
+                ...rate,
+                updatedAt: new Date(),
+              } as any);
+              console.log(`Added missing exchange rate: ${rate.fromCurrency} -> ${rate.toCurrency}`);
+            }
           }
         } catch (insertError) {
-          // Skip if rate already exists or on error
+          console.error(`Error with exchange rate ${rate.fromCurrency}->${rate.toCurrency}:`, insertError);
         }
       }
+      
+      console.log('Exchange rates initialization completed');
     } catch (error) {
-      console.log('Exchange rates initialization skipped (table may not exist yet)');
+      console.error('Exchange rates initialization failed:', error);
+    }
+  }
+
+  private async fixExistingUserBalances() {
+    try {
+      const cryptoBalanceIds = [3, 4, 5, 7, 8];
+      const allUsers = await db.select({ id: users.id }).from(users);
+      let fixed = 0;
+      
+      for (const user of allUsers) {
+        for (const balanceId of cryptoBalanceIds) {
+          try {
+            const [existing] = await db.select()
+              .from(usersBalances)
+              .where(and(
+                eq(usersBalances.idUser, user.id),
+                eq(usersBalances.idBalance, balanceId)
+              ))
+              .limit(1);
+            
+            if (!existing) {
+              await db.insert(usersBalances).values({
+                idUser: user.id,
+                idBalance: balanceId,
+                sum: "0.0",
+                status: "active"
+              });
+              fixed++;
+            }
+          } catch (insertError) {
+            // Ignore duplicate key errors
+          }
+        }
+      }
+      
+      if (fixed > 0) {
+        console.log(`Fixed ${fixed} missing user balances`);
+      }
+    } catch (error) {
+      console.error('Fix existing user balances failed:', error);
     }
   }
 
@@ -368,6 +464,9 @@ export class DatabaseStorage implements IStorage {
       }),
       'users'
     );
+    
+    await this.initializeUserBalances(user.id);
+    
     return user;
   }
 

@@ -1387,4 +1387,130 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
       res.status(500).json({ message: "Internal server error" });
     }
   });
+
+  // ========== DATA FIX UTILITIES ==========
+  app.post(`/${adminPath}/api/fix/user-balances`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const cryptoBalanceIds = [3, 4, 5, 7, 8];
+      
+      const allUsers = await db.select({ id: users.id }).from(users);
+      let fixed = 0;
+      
+      for (const user of allUsers) {
+        for (const balanceId of cryptoBalanceIds) {
+          try {
+            const [existing] = await db.select()
+              .from(usersBalances)
+              .where(and(
+                eq(usersBalances.idUser, user.id),
+                eq(usersBalances.idBalance, balanceId)
+              ))
+              .limit(1);
+            
+            if (!existing) {
+              await db.insert(usersBalances).values({
+                idUser: user.id,
+                idBalance: balanceId,
+                sum: "0.0",
+                status: "active"
+              });
+              fixed++;
+            }
+          } catch (insertError) {
+            console.error(`Error creating balance ${balanceId} for user ${user.id}:`, insertError);
+          }
+        }
+      }
+      
+      res.json({ success: true, fixed, message: `Fixed ${fixed} missing user balances` });
+    } catch (error) {
+      console.error('Fix user balances error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post(`/${adminPath}/api/fix/exchange-rates`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const correctRates = [
+        { fromBalanceId: 4, toBalanceId: 7, fromCurrency: "BEP20.USDT", toCurrency: "DAI", rate: "0.9980", category: "crypto" },
+        { fromBalanceId: 3, toBalanceId: 7, fromCurrency: "TRC20.USDT", toCurrency: "DAI", rate: "0.9980", category: "crypto" },
+        { fromBalanceId: 5, toBalanceId: 7, fromCurrency: "TON.USDT", toCurrency: "DAI", rate: "0.9980", category: "crypto" },
+        { fromBalanceId: 7, toBalanceId: 4, fromCurrency: "DAI", toCurrency: "BEP20.USDT", rate: "0.9980", category: "crypto" },
+        { fromBalanceId: 7, toBalanceId: 3, fromCurrency: "DAI", toCurrency: "TRC20.USDT", rate: "0.9980", category: "crypto" },
+        { fromBalanceId: 7, toBalanceId: 5, fromCurrency: "DAI", toCurrency: "TON.USDT", rate: "0.9980", category: "crypto" },
+        { fromBalanceId: 4, toBalanceId: 8, fromCurrency: "BEP20.USDT", toCurrency: "POL", rate: "2.0500", category: "crypto" },
+        { fromBalanceId: 3, toBalanceId: 8, fromCurrency: "TRC20.USDT", toCurrency: "POL", rate: "2.0500", category: "crypto" },
+        { fromBalanceId: 5, toBalanceId: 8, fromCurrency: "TON.USDT", toCurrency: "POL", rate: "2.0500", category: "crypto" },
+        { fromBalanceId: 8, toBalanceId: 4, fromCurrency: "POL", toCurrency: "BEP20.USDT", rate: "0.4878", category: "crypto" },
+        { fromBalanceId: 8, toBalanceId: 3, fromCurrency: "POL", toCurrency: "TRC20.USDT", rate: "0.4878", category: "crypto" },
+        { fromBalanceId: 8, toBalanceId: 5, fromCurrency: "POL", toCurrency: "TON.USDT", rate: "0.4878", category: "crypto" },
+      ];
+      
+      let fixed = 0;
+      
+      for (const rate of correctRates) {
+        const [existing] = await db.select().from(exchangeRates)
+          .where(and(
+            eq(exchangeRates.fromCurrency, rate.fromCurrency),
+            eq(exchangeRates.toCurrency, rate.toCurrency)
+          ))
+          .limit(1);
+        
+        if (existing) {
+          if (existing.fromBalanceId !== rate.fromBalanceId || existing.toBalanceId !== rate.toBalanceId) {
+            await db.update(exchangeRates)
+              .set({
+                fromBalanceId: rate.fromBalanceId,
+                toBalanceId: rate.toBalanceId,
+                updatedAt: new Date()
+              })
+              .where(eq(exchangeRates.id, existing.id));
+            fixed++;
+          }
+        } else {
+          await db.insert(exchangeRates).values({
+            id: generateUUID(),
+            ...rate,
+            updatedAt: new Date()
+          } as any);
+          fixed++;
+        }
+      }
+      
+      res.json({ success: true, fixed, message: `Fixed ${fixed} exchange rates` });
+    } catch (error) {
+      console.error('Fix exchange rates error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post(`/${adminPath}/api/fix/system-balances`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const systemBalances = [
+        { id: 1, title: "Российский рубль", network: null, currency: "RUB", type: "fiat", status: "active" },
+        { id: 2, title: "Турецкая лира", network: null, currency: "TRY", type: "fiat", status: "active" },
+        { id: 3, title: "USDT TRC20", network: "TRC20", currency: "USDT", type: "crypto", status: "active" },
+        { id: 4, title: "USDT BEP20", network: "BEP20", currency: "USDT", type: "crypto", status: "active" },
+        { id: 5, title: "Ton Network", network: "TON", currency: "USDT", type: "crypto", status: "active" },
+        { id: 7, title: "DAI", network: "Polygon", currency: "DAI", type: "crypto", status: "active" },
+        { id: 8, title: "POL", network: "Polygon", currency: "POL", type: "crypto", status: "active" },
+      ];
+      
+      let fixed = 0;
+      
+      for (const balance of systemBalances) {
+        const [existing] = await db.select().from(balances).where(eq(balances.id, balance.id)).limit(1);
+        if (!existing) {
+          await db.insert(balances).values(balance as any);
+          fixed++;
+          console.log(`Added missing system balance: ${balance.title} (ID: ${balance.id})`);
+        }
+      }
+      
+      res.json({ success: true, fixed, message: `Added ${fixed} missing system balances` });
+    } catch (error) {
+      console.error('Fix system balances error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
 }
