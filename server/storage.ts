@@ -78,6 +78,8 @@ export interface IStorage {
   getUserBalance(userId: number, balanceId: number): Promise<any>;
   updateUserDefaultBalance(userId: number, balanceId: number): Promise<User | undefined>;
   updateUserPhone(userId: number, phone: string): Promise<User | undefined>;
+  getAvailableNetworks(userId: number): Promise<any[]>;
+  addUserNetwork(userId: number, balanceId: number): Promise<any>;
 
   // Exchange methods
   createExchange(exchange: any): Promise<any>;
@@ -847,7 +849,6 @@ export class DatabaseStorage implements IStorage {
   async getUserCryptoBalances(userId: number): Promise<any[]> {
     const cryptoBalances = await this.getCryptoBalances();
     
-    // Filter out hidden balances
     const visibleBalances = cryptoBalances.filter(balance => balance.status !== 'hidden');
     
     const result = await Promise.all(
@@ -877,6 +878,50 @@ export class DatabaseStorage implements IStorage {
     );
 
     return result;
+  }
+
+  async getAvailableNetworks(userId: number): Promise<any[]> {
+    const allCryptoBalances = await this.getCryptoBalances();
+    
+    const hiddenNetworks = allCryptoBalances.filter(balance => 
+      balance.status === 'hidden'
+    );
+    
+    return hiddenNetworks.map(balance => ({
+      id: balance.id,
+      title: balance.title,
+      network: balance.network,
+      currency: balance.currency,
+      status: 'coming_soon',
+    }));
+  }
+
+  async addUserNetwork(userId: number, balanceId: number): Promise<any> {
+    const [existingBalance] = await db
+      .select()
+      .from(usersBalances)
+      .where(
+        and(
+          eq(usersBalances.idUser, userId),
+          eq(usersBalances.idBalance, balanceId)
+        )
+      );
+
+    if (existingBalance) {
+      return existingBalance;
+    }
+
+    const newBalance = await insertAndReturn<any>(
+      db.insert(usersBalances).values({
+        idUser: userId,
+        idBalance: balanceId,
+        sum: "0.0",
+        status: "active"
+      }),
+      'users_balances'
+    );
+
+    return newBalance;
   }
 
   async getUserFiatBalances(userId: number): Promise<any[]> {

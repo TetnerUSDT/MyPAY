@@ -12,8 +12,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 // Images from public directory - use direct URLs with cache busting
 const catImage = "/uploads/icons/cat-logo.png?v=2";
 const startBgImage = "/uploads/assets/start-bg.png?v=2";
-const ethereumImage = "/uploads/icons/cryptocurrency/ethereum.png";
-const solanaImage = "/uploads/icons/cryptocurrency/solana.png";
 
 // Custom SVG icon components
 const RefreshIcon = ({ className = "w-6 h-6", ...props }) => (
@@ -73,6 +71,36 @@ export default function HomeScreen() {
   const { data: unreadCount } = useQuery<{ count: number }>({
     queryKey: ["/api/notifications/unread-count"],
     refetchInterval: 30000, // Refetch every 30 seconds
+  });
+
+  // Get available networks for adding
+  const { data: availableNetworks = [], isLoading: networksLoading } = useQuery<any[]>({
+    queryKey: ["/api/user/available-networks"],
+    enabled: isModalOpen,
+  });
+
+  // Add network mutation
+  const addNetworkMutation = useMutation({
+    mutationFn: async (balanceId: number) => {
+      const response = await apiRequest("POST", "/api/user/add-network", { balanceId });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user/crypto-balances"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/available-networks"] });
+      toast({
+        title: "Успешно",
+        description: "Сеть добавлена в ваш кошелёк",
+      });
+      setIsModalOpen(false);
+    },
+    onError: () => {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось добавить сеть",
+        variant: "destructive",
+      });
+    },
   });
 
   // Update default balance mutation
@@ -404,62 +432,51 @@ export default function HomeScreen() {
                 Выберите сеть для добавления
               </p>
               
-              <div className="space-y-4">
-                {/* Ethereum Option */}
-                <button
-                  onClick={() => {
-                    toast({
-                      title: "Ethereum",
-                      description: "Данная сеть временно недоступна",
-                      variant: "destructive",
-                    });
-                    setIsModalOpen(false);
-                  }}
-                  className="w-full crypto-card p-4 hover:bg-gray-700/30 transition-all border border-gray-600 hover:border-gray-500"
-                  data-testid="button-add-ethereum"
-                >
-                  <div className="flex items-center">
-                    <div className="w-12 h-12 rounded-full overflow-hidden mr-4">
-                      <img 
-                        src={ethereumImage} 
-                        alt="Ethereum"
-                        className="w-full h-full object-cover"
-                      />
+              <div className="space-y-4 max-h-80 overflow-y-auto">
+                {networksLoading ? (
+                  Array.from({ length: 3 }).map((_, index) => (
+                    <div key={`skeleton-${index}`} className="w-full crypto-card p-4 border border-gray-600">
+                      <div className="flex items-center">
+                        <Skeleton className="w-12 h-12 rounded-full mr-4 bg-white/10" />
+                        <div>
+                          <Skeleton className="h-5 w-32 mb-2 bg-white/10" />
+                          <Skeleton className="h-4 w-24 bg-white/10" />
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-left">
-                      <h3 className="font-semibold text-white">Ethereum</h3>
-                      <p className="text-sm text-gray-400">ETH сеть</p>
+                  ))
+                ) : availableNetworks.length > 0 ? (
+                  availableNetworks.map((network: any) => (
+                    <div
+                      key={network.id}
+                      className="w-full crypto-card p-4 border border-gray-600 opacity-60"
+                      data-testid={`network-coming-soon-${network.id}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div className="w-12 h-12 rounded-full overflow-hidden mr-4 grayscale">
+                            <img 
+                              src={getBalanceIcon(network.id)} 
+                              alt={network.title}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <div className="text-left">
+                            <h3 className="font-semibold text-white">{network.title}</h3>
+                            <p className="text-sm text-gray-400">{network.network} • {network.currency}</p>
+                          </div>
+                        </div>
+                        <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded-full">
+                          Скоро
+                        </span>
+                      </div>
                     </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-400">Новые сети появятся в ближайшее время</p>
                   </div>
-                </button>
-
-                {/* Solana Option */}
-                <button
-                  onClick={() => {
-                    toast({
-                      title: "Solana",
-                      description: "Данная сеть временно недоступна",
-                      variant: "destructive",
-                    });
-                    setIsModalOpen(false);
-                  }}
-                  className="w-full crypto-card p-4 hover:bg-gray-700/30 transition-all border border-gray-600 hover:border-gray-500"
-                  data-testid="button-add-solana"
-                >
-                  <div className="flex items-center">
-                    <div className="w-12 h-12 rounded-full overflow-hidden mr-4">
-                      <img 
-                        src={solanaImage} 
-                        alt="Solana"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="text-left">
-                      <h3 className="font-semibold text-white">Solana</h3>
-                      <p className="text-sm text-gray-400">SOL сеть</p>
-                    </div>
-                  </div>
-                </button>
+                )}
               </div>
             </div>
           </div>

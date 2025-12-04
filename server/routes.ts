@@ -906,6 +906,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get available networks (crypto balances user doesn't have yet)
+  app.get("/api/user/available-networks", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const availableNetworks = await storage.getAvailableNetworks(req.user!.id);
+      res.json(availableNetworks);
+    } catch (error) {
+      console.error("Error getting available networks:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Add network to user (create user balance entry)
+  app.post("/api/user/add-network", requireApiKey, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { balanceId } = req.body;
+      if (!balanceId) {
+        return res.status(400).json({ message: "Balance ID is required" });
+      }
+      const userBalance = await storage.addUserNetwork(req.user!.id, balanceId);
+      res.json(userBalance);
+    } catch (error) {
+      console.error("Error adding network:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Get user fiat balances with account numbers
   app.get("/api/user/fiat-balances", requireApiKey, async (req: AuthenticatedRequest, res) => {
     try {

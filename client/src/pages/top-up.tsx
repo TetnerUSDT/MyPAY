@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Copy, ArrowRight, Check } from "lucide-react";
+import { Copy, ArrowRight, Check, ChevronDown } from "lucide-react";
 import { useState, useEffect } from "react";
 import { copyToClipboard } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -7,8 +7,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import StyledQRCodeComponent from "@/components/styled-qr-code";
 import { Button } from "@/components/ui/button";
-
-type BalanceType = "crypto" | "fiat";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getBalanceIcon } from "@/lib/balanceIcons";
 
 interface ReservedWallet {
   id: number;
@@ -39,7 +39,6 @@ interface UserBalance {
 }
 
 export default function TopUpScreen() {
-  const [balanceType, setBalanceType] = useState<BalanceType>("crypto");
   const [activeBalance, setActiveBalance] = useState<UserBalance | null>(null);
   const [copied, setCopied] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<string>("");
@@ -51,14 +50,8 @@ export default function TopUpScreen() {
     queryKey: ["/api/user/crypto-balances"],
   });
 
-  // Get fiat balances
-  const { data: fiatBalances = [] } = useQuery<UserBalance[]>({
-    queryKey: ["/api/user/fiat-balances"],
-  });
-
-  // Filter active (not frozen) balances
-  const availableBalances = (balanceType === "crypto" ? cryptoBalances : fiatBalances)
-    .filter(balance => balance.balanceStatus !== 'frozen');
+  // Filter active (not frozen) balances - only crypto now
+  const availableBalances = cryptoBalances.filter(balance => balance.balanceStatus !== 'frozen');
 
   const reserveWalletMutation = useMutation({
     mutationFn: async (network: string) => {
@@ -86,11 +79,9 @@ export default function TopUpScreen() {
     }
   });
 
-  // Initialize active balance when balances load or type changes
+  // Initialize active balance when balances load
   useEffect(() => {
     if (availableBalances.length > 0) {
-      // Set first available balance when data loads or type switches
-      // Only update if active balance is not in current list (type switch or initial load)
       const currentBalanceValid = activeBalance && availableBalances.some(b => b.id === activeBalance.id);
       if (!currentBalanceValid) {
         setActiveBalance(availableBalances[0]);
@@ -98,31 +89,21 @@ export default function TopUpScreen() {
     } else {
       setActiveBalance(null);
     }
-  }, [balanceType, cryptoBalances, fiatBalances]);
+  }, [cryptoBalances]);
 
   // Reserve wallet for crypto balances
   useEffect(() => {
-    if (balanceType === "crypto" && activeBalance) {
-      // Ensure the active balance is actually a crypto balance before reserving
-      const isCryptoBalance = cryptoBalances.some(b => b.id === activeBalance.id);
-      
-      if (isCryptoBalance && activeBalance.network) {
-        // Reset previous wallet data when switching
-        reserveWalletMutation.reset();
-        // Reserve wallet for crypto
-        reserveWalletMutation.mutate(activeBalance.network);
-      }
-    } else if (balanceType === "fiat") {
-      // Reset wallet data when switching to fiat
+    if (activeBalance && activeBalance.network) {
       reserveWalletMutation.reset();
+      reserveWalletMutation.mutate(activeBalance.network);
     }
-  }, [activeBalance, balanceType, cryptoBalances]);
+  }, [activeBalance]);
 
   const wallet = reserveWalletMutation.data;
 
   // Timer for crypto wallet reservation
   useEffect(() => {
-    if (balanceType === "crypto" && wallet?.reservationTime) {
+    if (wallet?.reservationTime) {
       const updateTimer = () => {
         const now = new Date();
         const expiryTime = new Date(wallet.reservationTime!);
@@ -149,16 +130,11 @@ export default function TopUpScreen() {
       const interval = setInterval(updateTimer, 1000);
       return () => clearInterval(interval);
     }
-  }, [wallet?.reservationTime, activeBalance, balanceType]);
+  }, [wallet?.reservationTime, activeBalance]);
 
-  // Determine what to display (wallet address or account number)
-  const displayValue = balanceType === "crypto" 
-    ? (wallet?.address || "Loading...") 
-    : (activeBalance?.accountNumber || "Loading...");
-
-  const qrData = balanceType === "crypto" 
-    ? (wallet?.address || "") 
-    : (activeBalance?.accountNumber || "");
+  // Determine what to display (wallet address)
+  const displayValue = wallet?.address || "Loading...";
+  const qrData = wallet?.address || "";
 
   const handleCopyAddress = async () => {
     if (!displayValue || displayValue === "Loading...") return;
@@ -168,9 +144,7 @@ export default function TopUpScreen() {
       setCopied(true);
       toast({
         title: "Скопировано!",
-        description: balanceType === "crypto" 
-          ? "Адрес кошелька скопирован в буфер обмена"
-          : "Номер счета скопирован в буфер обмена",
+        description: "Адрес кошелька скопирован в буфер обмена",
       });
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
@@ -183,21 +157,16 @@ export default function TopUpScreen() {
   };
 
   const handleContinue = () => {
-    if (balanceType === "crypto" && wallet?.address && activeBalance) {
+    if (wallet?.address && activeBalance) {
       createTopupMutation.mutate({
         walletAddress: wallet.address,
         network: activeBalance.network
       });
-    } else if (balanceType === "fiat") {
-      // For fiat, navigate to success page or handle differently
-      navigate("/top-up-success");
     }
   };
 
-  const isLoading = balanceType === "crypto" && reserveWalletMutation.isPending;
-  const canContinue = balanceType === "crypto" 
-    ? (wallet?.address && activeBalance) 
-    : activeBalance;
+  const isLoading = reserveWalletMutation.isPending;
+  const canContinue = wallet?.address && activeBalance;
 
   return (
     <div className="mobile-screen text-white overflow-y-auto pb-20">
@@ -206,54 +175,60 @@ export default function TopUpScreen() {
           Пополнить {activeBalance?.currency || ""}
         </h1>
         
-        {/* Balance Type Selector */}
-        <div className="flex justify-center mb-8">
-          <div className="flex bg-secondary rounded-lg p-1">
-            <button
-              onClick={() => setBalanceType("crypto")}
-              className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${
-                balanceType === "crypto"
-                  ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-              data-testid="button-type-crypto"
+        {/* Crypto Currency Selector Dropdown */}
+        <div className="mb-6">
+          <Select
+            value={activeBalance?.id?.toString() || ""}
+            onValueChange={(value) => {
+              const selected = availableBalances.find(b => b.id.toString() === value);
+              if (selected) setActiveBalance(selected);
+            }}
+          >
+            <SelectTrigger 
+              className="w-full bg-secondary border-0 h-14"
+              data-testid="select-crypto-currency"
             >
-              Криптовалюты
-            </button>
-            <button
-              onClick={() => setBalanceType("fiat")}
-              className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${
-                balanceType === "fiat"
-                  ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-              data-testid="button-type-fiat"
-            >
-              Фиат
-            </button>
-          </div>
+              <SelectValue placeholder="Выберите криптовалюту">
+                {activeBalance && (
+                  <div className="flex items-center">
+                    <img 
+                      src={getBalanceIcon(activeBalance.id)} 
+                      alt={activeBalance.title}
+                      className="w-8 h-8 rounded-full mr-3"
+                    />
+                    <div className="text-left">
+                      <span className="font-medium">{activeBalance.title}</span>
+                      <span className="text-muted-foreground ml-2 text-sm">({activeBalance.network})</span>
+                    </div>
+                  </div>
+                )}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent className="bg-secondary border-0">
+              {availableBalances.map((balance) => (
+                <SelectItem 
+                  key={balance.id} 
+                  value={balance.id.toString()}
+                  data-testid={`select-item-${balance.currency.toLowerCase()}-${balance.id}`}
+                >
+                  <div className="flex items-center py-1">
+                    <img 
+                      src={getBalanceIcon(balance.id)} 
+                      alt={balance.title}
+                      className="w-8 h-8 rounded-full mr-3"
+                    />
+                    <div>
+                      <span className="font-medium">{balance.title}</span>
+                      <span className="text-muted-foreground ml-2 text-sm">({balance.network})</span>
+                    </div>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         
         <div className="crypto-card text-center mb-8">
-          {/* Currency Selector (moved above QR code) */}
-          <div className="flex justify-center mb-6">
-            <div className="flex bg-secondary rounded-lg p-1 flex-wrap gap-1">
-              {availableBalances.map((balance) => (
-                <button
-                  key={balance.id}
-                  onClick={() => setActiveBalance(balance)}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                    activeBalance?.id === balance.id
-                      ? "bg-accent text-accent-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                  data-testid={`button-balance-${balance.currency.toLowerCase()}`}
-                >
-                  {balanceType === "fiat" ? balance.currency : balance.title}
-                </button>
-              ))}
-            </div>
-          </div>
           
           {isLoading ? (
             <div className="flex justify-center items-center h-48 mb-6">
@@ -272,7 +247,7 @@ export default function TopUpScreen() {
               </div>
               
               <div className="text-sm text-muted-foreground mb-2">
-                {balanceType === "crypto" ? "На адрес кошелька" : "Номер счета для пополнения"}
+                На адрес кошелька
               </div>
               <div className="flex items-center bg-secondary rounded-lg p-3 mb-3">
                 <span 
@@ -294,7 +269,7 @@ export default function TopUpScreen() {
                 </button>
               </div>
               
-              {balanceType === "crypto" && timeRemaining && (
+              {timeRemaining && (
                 <div className="text-sm text-muted-foreground" data-testid="text-timer">
                   Адрес действителен {timeRemaining}
                 </div>
@@ -303,35 +278,15 @@ export default function TopUpScreen() {
           )}
         </div>
         
-        {balanceType === "crypto" ? (
-          <Button
-            onClick={handleContinue}
-            className="action-button w-full"
-            data-testid="button-continue"
-            disabled={isLoading || createTopupMutation.isPending || !canContinue}
-          >
-            {createTopupMutation.isPending ? "Отправка..." : "Далее"}
-            <ArrowRight className="w-5 h-5 ml-2" />
-          </Button>
-        ) : (
-          <div className="space-y-4">
-            <div className="bg-secondary/50 rounded-lg py-3 px-4 text-center">
-              <p className="text-sm text-muted-foreground leading-snug" data-testid="text-fiat-info">
-                Пополнить фиатный баланс можно только переводом от другого пользователя по QR коду или номеру счета!
-                <br />
-                Или если у вас есть ваучер пополнения
-              </p>
-            </div>
-            <Button
-              onClick={() => navigate("/vouchers?action=activate")}
-              className="action-button w-full"
-              data-testid="button-activate-voucher"
-            >
-              Активировать ваучер
-              <ArrowRight className="w-5 h-5 ml-2" />
-            </Button>
-          </div>
-        )}
+        <Button
+          onClick={handleContinue}
+          className="action-button w-full"
+          data-testid="button-continue"
+          disabled={isLoading || createTopupMutation.isPending || !canContinue}
+        >
+          {createTopupMutation.isPending ? "Отправка..." : "Далее"}
+          <ArrowRight className="w-5 h-5 ml-2" />
+        </Button>
       </div>
     </div>
   );
