@@ -100,3 +100,8 @@ waitForPort = 5000
 
 [agent]
 integrations = ["javascript_database:1.0.0"]
+
+[userenv]
+
+[userenv.shared]
+WALLET_API_URL = "https://pay.swiftx.online/api/wallet/create"

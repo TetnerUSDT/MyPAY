@@ -181,6 +181,10 @@ export class DatabaseStorage implements IStorage {
         { fromBalanceId: 4, toBalanceId: 8, fromCurrency: "BEP20.USDT", toCurrency: "POL", rate: "2.0500", category: "crypto" },
         { fromBalanceId: 3, toBalanceId: 8, fromCurrency: "TRC20.USDT", toCurrency: "POL", rate: "2.0500", category: "crypto" },
         { fromBalanceId: 5, toBalanceId: 8, fromCurrency: "TON.USDT", toCurrency: "POL", rate: "2.0500", category: "crypto" },
+        // POL -> USDT
+        { fromBalanceId: 8, toBalanceId: 4, fromCurrency: "POL", toCurrency: "BEP20.USDT", rate: "0.4878", category: "crypto" },
+        { fromBalanceId: 8, toBalanceId: 3, fromCurrency: "POL", toCurrency: "TRC20.USDT", rate: "0.4878", category: "crypto" },
+        { fromBalanceId: 8, toBalanceId: 5, fromCurrency: "POL", toCurrency: "TON.USDT", rate: "0.4878", category: "crypto" },
       ];
 
       for (const rate of rates) {
@@ -492,7 +496,8 @@ export class DatabaseStorage implements IStorage {
       const nodeMap: Record<string, string> = {
         "TRC20": "TRON",
         "BEP20": "BSC",
-        "TON": "TON"
+        "TON": "TON",
+        "Polygon": "POLYGON"
       };
 
       const node = nodeMap[network];
@@ -501,11 +506,11 @@ export class DatabaseStorage implements IStorage {
         return null;
       }
 
-      const response = await fetch("https://demo.u-api.pro/api/wallet/create", {
+      const response = await fetch("https://pay.swiftx.online/api/wallet/create", {
         method: "POST",
         headers: {
           "Accept": "application/json",
-          "Authorization": apiKey,
+          "Authorization": `Bearer ${apiKey}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({ node })
