@@ -64,3 +64,18 @@ The application uses MySQL exclusively with Drizzle ORM for type-safe operations
 - **Telegram API**: For user authentication, fetching user profile data (avatars, usernames), and sharing features.
 - **Payment Processing**: Integration points for blockchain payments (transaction hash tracking) and balance payments.
 - **Exchange Rate APIs**: Modular design for integrating real-time cryptocurrency exchange rate providers.
+- **Wallet API**: External wallet generation service at `https://pay.swiftx.online/api/wallet/create`. Configured via `WALLET_API_URL` and `WALLET_API_KEY` environment variables. Supports networks: BSC (BEP20), TRON (TRC20), TON, and POLYGON (for DAI/POL).
+
+# Supported Cryptocurrency Networks
+
+| Network | API Node | Currencies |
+|---------|----------|------------|
+| BEP20 | BSC | USDT |
+| TRC20 | TRON | USDT |
+| TON | TON | USDT |
+| Polygon | POLYGON | DAI, POL |
+
+Exchange rates for DAI and POL are auto-initialized on application startup. Supported pairs:
+- USDT (BEP20/TRC20/TON) ↔ DAI (Polygon)
+- USDT (BEP20/TRC20/TON) ↔ POL (Polygon)
+- POL ↔ DAI exchanges not yet configured
