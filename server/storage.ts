@@ -144,13 +144,13 @@ export class DatabaseStorage implements IStorage {
   private async initializeBalances() {
     try {
       const defaultBalances = [
-        { id: 1, title: "Российский рубль", network: null, currency: "RUB", type: "fiat", status: "active" },
-        { id: 2, title: "Турецкая лира", network: null, currency: "TRY", type: "fiat", status: "active" },
-        { id: 3, title: "USDT TRC20", network: "TRC20", currency: "USDT", type: "crypto", status: "active" },
-        { id: 4, title: "USDT BEP20", network: "BEP20", currency: "USDT", type: "crypto", status: "active" },
-        { id: 5, title: "Ton Network", network: "TON", currency: "USDT", type: "crypto", status: "active" },
-        { id: 7, title: "DAI", network: "Polygon", currency: "DAI", type: "crypto", status: "active" },
-        { id: 8, title: "POL", network: "Polygon", currency: "POL", type: "crypto", status: "active" },
+        { id: 1, title: "Российский рубль", network: null, currency: "RUB", balanceType: "fiat", status: "active" },
+        { id: 2, title: "Турецкая лира", network: null, currency: "TRY", balanceType: "fiat", status: "active" },
+        { id: 3, title: "USDT TRC20", network: "TRC20", currency: "USDT", balanceType: "crypto", status: "active", pattern: "^T[A-Za-z0-9]{33}$" },
+        { id: 4, title: "USDT BEP20", network: "BEP20", currency: "USDT", balanceType: "crypto", status: "active", pattern: "^0x[a-fA-F0-9]{40}$" },
+        { id: 5, title: "USDT TON", network: "TON", currency: "USDT", balanceType: "crypto", status: "active" },
+        { id: 9, title: "DAI", network: "Polygon", currency: "DAI", balanceType: "crypto", status: "active", pattern: "^0x[a-fA-F0-9]{40}$" },
+        { id: 10, title: "POL", network: "Polygon", currency: "POL", balanceType: "crypto", status: "active", pattern: "^0x[a-fA-F0-9]{40}$" },
       ];
 
       for (const balance of defaultBalances) {
@@ -159,21 +159,56 @@ export class DatabaseStorage implements IStorage {
           if (existing.length === 0) {
             await db.insert(balances).values(balance as any);
             console.log(`Added missing balance: ${balance.title} (ID: ${balance.id})`);
+          } else {
+            const existingBalance = existing[0];
+            if (balance.id === 9 || balance.id === 10) {
+              if (existingBalance.currency !== balance.currency || existingBalance.balanceType !== 'crypto') {
+                await db.update(balances)
+                  .set({
+                    title: balance.title,
+                    network: balance.network,
+                    currency: balance.currency,
+                    balanceType: 'crypto',
+                    status: balance.status,
+                    pattern: balance.pattern
+                  })
+                  .where(eq(balances.id, balance.id));
+                console.log(`Updated balance to crypto: ${balance.title} (ID: ${balance.id})`);
+              }
+            }
           }
         } catch (insertError) {
           console.error(`Error inserting balance ${balance.title}:`, insertError);
         }
       }
       
+      await this.fixCryptoBalanceTypes();
+      
       console.log('Balances initialization completed');
     } catch (error) {
       console.error('Balances initialization failed:', error);
     }
   }
+  
+  private async fixCryptoBalanceTypes() {
+    try {
+      const cryptoBalanceIds = [3, 4, 5, 9, 10];
+      for (const id of cryptoBalanceIds) {
+        await db.update(balances)
+          .set({ balanceType: 'crypto' })
+          .where(and(
+            eq(balances.id, id),
+            sql`${balances.balanceType} != 'crypto'`
+          ));
+      }
+    } catch (error) {
+      console.error('Fix crypto balance types failed:', error);
+    }
+  }
 
   async initializeUserBalances(userId: number): Promise<void> {
     try {
-      const cryptoBalanceIds = [3, 4, 5, 7, 8];
+      const cryptoBalanceIds = [3, 4, 5, 9, 10];
       
       for (const balanceId of cryptoBalanceIds) {
         try {
@@ -207,22 +242,22 @@ export class DatabaseStorage implements IStorage {
   private async initializeExchangeRates() {
     try {
       const rates = [
-        // USDT -> DAI (сеть полигон)
-        { fromBalanceId: 4, toBalanceId: 7, fromCurrency: "BEP20.USDT", toCurrency: "DAI", rate: "0.9980", category: "crypto" },
-        { fromBalanceId: 3, toBalanceId: 7, fromCurrency: "TRC20.USDT", toCurrency: "DAI", rate: "0.9980", category: "crypto" },
-        { fromBalanceId: 5, toBalanceId: 7, fromCurrency: "TON.USDT", toCurrency: "DAI", rate: "0.9980", category: "crypto" },
-        // DAI -> USDT
-        { fromBalanceId: 7, toBalanceId: 4, fromCurrency: "DAI", toCurrency: "BEP20.USDT", rate: "0.9980", category: "crypto" },
-        { fromBalanceId: 7, toBalanceId: 3, fromCurrency: "DAI", toCurrency: "TRC20.USDT", rate: "0.9980", category: "crypto" },
-        { fromBalanceId: 7, toBalanceId: 5, fromCurrency: "DAI", toCurrency: "TON.USDT", rate: "0.9980", category: "crypto" },
-        // USDT -> POL (сеть полигон)
-        { fromBalanceId: 4, toBalanceId: 8, fromCurrency: "BEP20.USDT", toCurrency: "POL", rate: "2.0500", category: "crypto" },
-        { fromBalanceId: 3, toBalanceId: 8, fromCurrency: "TRC20.USDT", toCurrency: "POL", rate: "2.0500", category: "crypto" },
-        { fromBalanceId: 5, toBalanceId: 8, fromCurrency: "TON.USDT", toCurrency: "POL", rate: "2.0500", category: "crypto" },
-        // POL -> USDT
-        { fromBalanceId: 8, toBalanceId: 4, fromCurrency: "POL", toCurrency: "BEP20.USDT", rate: "0.4878", category: "crypto" },
-        { fromBalanceId: 8, toBalanceId: 3, fromCurrency: "POL", toCurrency: "TRC20.USDT", rate: "0.4878", category: "crypto" },
-        { fromBalanceId: 8, toBalanceId: 5, fromCurrency: "POL", toCurrency: "TON.USDT", rate: "0.4878", category: "crypto" },
+        // USDT -> DAI (сеть Polygon) - DAI balance ID = 9
+        { fromBalanceId: 4, toBalanceId: 9, fromCurrency: "BEP20.USDT", toCurrency: "DAI", rate: "0.9980", category: "crypto" },
+        { fromBalanceId: 3, toBalanceId: 9, fromCurrency: "TRC20.USDT", toCurrency: "DAI", rate: "0.9980", category: "crypto" },
+        { fromBalanceId: 5, toBalanceId: 9, fromCurrency: "TON.USDT", toCurrency: "DAI", rate: "0.9980", category: "crypto" },
+        // DAI -> USDT - DAI balance ID = 9
+        { fromBalanceId: 9, toBalanceId: 4, fromCurrency: "DAI", toCurrency: "BEP20.USDT", rate: "0.9980", category: "crypto" },
+        { fromBalanceId: 9, toBalanceId: 3, fromCurrency: "DAI", toCurrency: "TRC20.USDT", rate: "0.9980", category: "crypto" },
+        { fromBalanceId: 9, toBalanceId: 5, fromCurrency: "DAI", toCurrency: "TON.USDT", rate: "0.9980", category: "crypto" },
+        // USDT -> POL (сеть Polygon) - POL balance ID = 10
+        { fromBalanceId: 4, toBalanceId: 10, fromCurrency: "BEP20.USDT", toCurrency: "POL", rate: "2.0500", category: "crypto" },
+        { fromBalanceId: 3, toBalanceId: 10, fromCurrency: "TRC20.USDT", toCurrency: "POL", rate: "2.0500", category: "crypto" },
+        { fromBalanceId: 5, toBalanceId: 10, fromCurrency: "TON.USDT", toCurrency: "POL", rate: "2.0500", category: "crypto" },
+        // POL -> USDT - POL balance ID = 10
+        { fromBalanceId: 10, toBalanceId: 4, fromCurrency: "POL", toCurrency: "BEP20.USDT", rate: "0.4878", category: "crypto" },
+        { fromBalanceId: 10, toBalanceId: 3, fromCurrency: "POL", toCurrency: "TRC20.USDT", rate: "0.4878", category: "crypto" },
+        { fromBalanceId: 10, toBalanceId: 5, fromCurrency: "POL", toCurrency: "TON.USDT", rate: "0.4878", category: "crypto" },
       ];
 
       for (const rate of rates) {
@@ -273,7 +308,7 @@ export class DatabaseStorage implements IStorage {
 
   private async fixExistingUserBalances() {
     try {
-      const cryptoBalanceIds = [3, 4, 5, 7, 8];
+      const cryptoBalanceIds = [3, 4, 5, 9, 10];
       const allUsers = await db.select({ id: users.id }).from(users);
       let fixed = 0;
       
