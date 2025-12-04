@@ -209,17 +209,17 @@ export class DatabaseStorage implements IStorage {
         .where(eq(balances.id, 5));
       console.log('Fixed USD (id=5) to fiat type');
       
-      // Update QR colors for DAI and POL
+      // Update QR colors for DAI and POL (as JSON objects, not strings)
       await db.update(balances)
         .set({ 
-          qrColor: JSON.stringify({ type: "single", color: "#f5ac37" }),
+          qrColor: { type: "single", color: "#f5ac37" } as any,
           qrStyle: "rounded"
         })
         .where(eq(balances.id, 9));
       
       await db.update(balances)
         .set({ 
-          qrColor: JSON.stringify({ type: "single", color: "#7b3fe4" }),
+          qrColor: { type: "single", color: "#7b3fe4" } as any,
           qrStyle: "rounded"
         })
         .where(eq(balances.id, 10));
