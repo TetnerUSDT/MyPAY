@@ -126,13 +126,14 @@ export default function LoyaltyPage() {
               />
             </div>
 
-            {/* Commission Info */}
+            {/* Commission Info - временно скрыто
             <div className="text-center space-y-2">
               <h2 className="text-3xl font-bold">Зарабатывай до 30%</h2>
               <p className="text-green-200 text-lg">
                 Пригласи друзей в SwiftX и зарабатывай
               </p>
             </div>
+            */}
 
             {/* Referral Code & Link */}
             <div className="space-y-4 bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-green-500/30">
