@@ -26,11 +26,13 @@ export default function SellScreen() {
   const [sendAmount, setSendAmount] = useState("0");
   const [activeNetwork, setActiveNetwork] = useState<NetworkType>("TRC20");
   const [selectedCurrency, setSelectedCurrency] = useState<string | null>(null);
+  const [urlCurrencyParam, setUrlCurrencyParam] = useState<string | null>(null);
   const [walletAddress, setWalletAddress] = useState("");
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Parse URL params on mount/location change
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const networkParam = urlParams.get('network') as NetworkType;
@@ -40,6 +42,7 @@ export default function SellScreen() {
       setActiveNetwork(networkParam);
     }
     if (currencyParam) {
+      setUrlCurrencyParam(currencyParam);
       setSelectedCurrency(currencyParam);
     }
   }, [location]);
@@ -51,6 +54,38 @@ export default function SellScreen() {
   const networkBalances = useMemo(() => {
     return cryptoBalances.filter(b => b.network === activeNetwork);
   }, [cryptoBalances, activeNetwork]);
+
+  // Apply URL currency or fallback to first balance when balances load
+  useEffect(() => {
+    if (networkBalances.length > 0) {
+      // If we have a URL currency param, try to use it
+      if (urlCurrencyParam) {
+        const urlCurrencyExists = networkBalances.some(b => b.currency === urlCurrencyParam);
+        if (urlCurrencyExists) {
+          setSelectedCurrency(urlCurrencyParam);
+          return;
+        }
+      }
+      
+      // Check if current selection is valid
+      if (selectedCurrency) {
+        const currencyExists = networkBalances.some(b => b.currency === selectedCurrency);
+        if (currencyExists) {
+          return;
+        }
+      }
+      
+      // Fallback to first balance
+      setSelectedCurrency(networkBalances[0].currency);
+    }
+  }, [networkBalances, urlCurrencyParam]);
+
+  // Reset URL currency param when user manually switches network
+  const handleNetworkChange = (network: NetworkType) => {
+    setActiveNetwork(network);
+    setUrlCurrencyParam(null);
+    setSelectedCurrency(null);
+  };
 
   const currentBalanceData = useMemo(() => {
     let balance: CryptoBalance | undefined;
@@ -68,21 +103,6 @@ export default function SellScreen() {
       currency: balance?.currency || "USDT"
     };
   }, [networkBalances, selectedCurrency]);
-
-  useEffect(() => {
-    if (networkBalances.length > 0 && !selectedCurrency) {
-      setSelectedCurrency(networkBalances[0].currency);
-    }
-  }, [networkBalances, selectedCurrency]);
-
-  useEffect(() => {
-    if (networkBalances.length > 0) {
-      const currencyExists = networkBalances.some(b => b.currency === selectedCurrency);
-      if (!currencyExists) {
-        setSelectedCurrency(networkBalances[0].currency);
-      }
-    }
-  }, [activeNetwork, networkBalances, selectedCurrency]);
 
   const currentBalance = currentBalanceData.sum;
   const currentCurrency = currentBalanceData.currency;
@@ -137,7 +157,7 @@ export default function SellScreen() {
             {(["TRC20", "BEP20", "TON", "Polygon"] as NetworkType[]).map((network) => (
               <button
                 key={network}
-                onClick={() => setActiveNetwork(network)}
+                onClick={() => handleNetworkChange(network)}
                 className={`px-3 py-2 rounded-md text-sm font-medium transition-all ${
                   activeNetwork === network
                     ? "bg-accent text-accent-foreground"
