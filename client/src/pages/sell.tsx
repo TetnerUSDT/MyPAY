@@ -4,6 +4,12 @@ import { X, ArrowDown, ArrowRight, ChevronDown } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type NetworkType = "TRC20" | "BEP20" | "TON" | "Polygon";
 
@@ -19,6 +25,7 @@ interface CryptoBalance {
 export default function SellScreen() {
   const [sendAmount, setSendAmount] = useState("0");
   const [activeNetwork, setActiveNetwork] = useState<NetworkType>("TRC20");
+  const [selectedCurrency, setSelectedCurrency] = useState<string | null>(null);
   const [walletAddress, setWalletAddress] = useState("");
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
@@ -27,8 +34,13 @@ export default function SellScreen() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const networkParam = urlParams.get('network') as NetworkType;
+    const currencyParam = urlParams.get('currency');
+    
     if (networkParam && ['TRC20', 'BEP20', 'TON', 'Polygon'].includes(networkParam)) {
       setActiveNetwork(networkParam);
+    }
+    if (currencyParam) {
+      setSelectedCurrency(currencyParam);
     }
   }, [location]);
 
@@ -36,16 +48,45 @@ export default function SellScreen() {
     queryKey: ["/api/user/crypto-balances"],
   });
 
+  const networkBalances = useMemo(() => {
+    return cryptoBalances.filter(b => b.network === activeNetwork);
+  }, [cryptoBalances, activeNetwork]);
+
   const currentBalanceData = useMemo(() => {
-    const balance = cryptoBalances.find(b => b.network === activeNetwork);
+    let balance: CryptoBalance | undefined;
+    
+    if (selectedCurrency) {
+      balance = networkBalances.find(b => b.currency === selectedCurrency);
+    }
+    if (!balance && networkBalances.length > 0) {
+      balance = networkBalances[0];
+    }
+    
     return {
+      id: balance?.id,
       sum: balance?.sum || "0.00",
       currency: balance?.currency || "USDT"
     };
-  }, [cryptoBalances, activeNetwork]);
+  }, [networkBalances, selectedCurrency]);
+
+  useEffect(() => {
+    if (networkBalances.length > 0 && !selectedCurrency) {
+      setSelectedCurrency(networkBalances[0].currency);
+    }
+  }, [networkBalances, selectedCurrency]);
+
+  useEffect(() => {
+    if (networkBalances.length > 0) {
+      const currencyExists = networkBalances.some(b => b.currency === selectedCurrency);
+      if (!currencyExists) {
+        setSelectedCurrency(networkBalances[0].currency);
+      }
+    }
+  }, [activeNetwork, networkBalances, selectedCurrency]);
 
   const currentBalance = currentBalanceData.sum;
   const currentCurrency = currentBalanceData.currency;
+  const hasMultipleCurrencies = networkBalances.length > 1;
 
   const commission = useMemo(() => {
     // Fixed commission for all networks
@@ -135,10 +176,29 @@ export default function SellScreen() {
               onChange={(e) => setSendAmount(e.target.value)}
               data-testid="input-send-amount"
             />
-            <div className="bg-secondary rounded-lg px-4 py-2 mr-2 flex items-center">
-              <span className="font-semibold">{currentCurrency}</span>
-              <ChevronDown className="w-4 h-4 ml-2" />
-            </div>
+            {hasMultipleCurrencies ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger className="bg-secondary rounded-lg px-4 py-2 mr-2 flex items-center cursor-pointer hover:bg-secondary/80 transition-colors">
+                  <span className="font-semibold">{currentCurrency}</span>
+                  <ChevronDown className="w-4 h-4 ml-2" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-secondary border-green-700">
+                  {networkBalances.map((balance) => (
+                    <DropdownMenuItem
+                      key={balance.id}
+                      onClick={() => setSelectedCurrency(balance.currency)}
+                      className={`cursor-pointer ${balance.currency === currentCurrency ? 'bg-accent text-accent-foreground' : ''}`}
+                    >
+                      {balance.currency}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <div className="bg-secondary rounded-lg px-4 py-2 mr-2 flex items-center">
+                <span className="font-semibold">{currentCurrency}</span>
+              </div>
+            )}
           </div>
         </div>
         

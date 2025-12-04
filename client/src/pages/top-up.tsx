@@ -79,17 +79,33 @@ export default function TopUpScreen() {
     }
   });
 
-  // Initialize active balance when balances load
+  // Initialize active balance when balances load, considering URL params
   useEffect(() => {
     if (availableBalances.length > 0) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const networkParam = urlParams.get('network');
+      const currencyParam = urlParams.get('currency');
+      
+      // Try to find balance matching URL parameters
+      let targetBalance: UserBalance | undefined;
+      
+      if (networkParam && currencyParam) {
+        targetBalance = availableBalances.find(b => b.network === networkParam && b.currency === currencyParam);
+      } else if (networkParam) {
+        targetBalance = availableBalances.find(b => b.network === networkParam);
+      }
+      
       const currentBalanceValid = activeBalance && availableBalances.some(b => b.id === activeBalance.id);
-      if (!currentBalanceValid) {
+      
+      if (targetBalance && (!activeBalance || activeBalance.id !== targetBalance.id)) {
+        setActiveBalance(targetBalance);
+      } else if (!currentBalanceValid) {
         setActiveBalance(availableBalances[0]);
       }
     } else {
       setActiveBalance(null);
     }
-  }, [cryptoBalances]);
+  }, [cryptoBalances, location]);
 
   // Reserve wallet for crypto balances
   useEffect(() => {

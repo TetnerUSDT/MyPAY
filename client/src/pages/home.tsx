@@ -348,7 +348,7 @@ export default function HomeScreen() {
                 
                 {/* Action Buttons */}
                 <div className="flex space-x-2">
-                  <Link href={(wallet.isBlocked || wallet.isFrozen) ? '#' : `/top-up?network=${wallet.network || 'TRC20'}`}>
+                  <Link href={(wallet.isBlocked || wallet.isFrozen) ? '#' : `/top-up?network=${wallet.network || 'TRC20'}&currency=${wallet.currency || 'USDT'}`}>
                     <button 
                       className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                       disabled={wallet.isBlocked || wallet.isFrozen}
@@ -358,7 +358,7 @@ export default function HomeScreen() {
                       <ArrowDownLeft className="w-4 h-4 text-accent-foreground" />
                     </button>
                   </Link>
-                  <Link href={(wallet.isBlocked || wallet.isFrozen) ? '#' : `/transfer?network=${wallet.network || 'TRC20'}`}>
+                  <Link href={(wallet.isBlocked || wallet.isFrozen) ? '#' : `/transfer?network=${wallet.network || 'TRC20'}&currency=${wallet.currency || 'USDT'}`}>
                     <button 
                       className="w-10 h-10 bg-yellow-400 rounded-lg flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                       disabled={wallet.isBlocked || wallet.isFrozen}
