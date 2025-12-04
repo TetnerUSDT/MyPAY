@@ -758,8 +758,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         toBalanceIds.map(id => storage.getBalanceById(id))
       );
       
-      // Filter out null values and return
-      res.json(receiveBalances.filter(b => b !== null));
+      // Filter out null values and fiat balances - only crypto for top-up
+      res.json(receiveBalances.filter(b => b !== null && b.balanceType === 'crypto'));
     } catch (error) {
       console.error('Error fetching crypto receive balances:', error);
       res.status(500).json({ message: "Internal server error" });
