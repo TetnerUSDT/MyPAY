@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
-type NetworkType = "TRC20" | "BEP20" | "TON";
+type NetworkType = "TRC20" | "BEP20" | "TON" | "Polygon";
 
 interface CryptoBalance {
   id: number;
@@ -27,7 +27,7 @@ export default function SellScreen() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const networkParam = urlParams.get('network') as NetworkType;
-    if (networkParam && ['TRC20', 'BEP20', 'TON'].includes(networkParam)) {
+    if (networkParam && ['TRC20', 'BEP20', 'TON', 'Polygon'].includes(networkParam)) {
       setActiveNetwork(networkParam);
     }
   }, [location]);
@@ -36,10 +36,16 @@ export default function SellScreen() {
     queryKey: ["/api/user/crypto-balances"],
   });
 
-  const currentBalance = useMemo(() => {
+  const currentBalanceData = useMemo(() => {
     const balance = cryptoBalances.find(b => b.network === activeNetwork);
-    return balance?.sum || "0.00";
+    return {
+      sum: balance?.sum || "0.00",
+      currency: balance?.currency || "USDT"
+    };
   }, [cryptoBalances, activeNetwork]);
+
+  const currentBalance = currentBalanceData.sum;
+  const currentCurrency = currentBalanceData.currency;
 
   const commission = useMemo(() => {
     // Fixed commission for all networks
@@ -86,12 +92,12 @@ export default function SellScreen() {
         </h1>
         
         <div className="flex justify-center mb-8">
-          <div className="flex bg-secondary rounded-lg p-1">
-            {(["TRC20", "BEP20", "TON"] as NetworkType[]).map((network) => (
+          <div className="flex bg-secondary rounded-lg p-1 flex-wrap gap-1">
+            {(["TRC20", "BEP20", "TON", "Polygon"] as NetworkType[]).map((network) => (
               <button
                 key={network}
                 onClick={() => setActiveNetwork(network)}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-all ${
                   activeNetwork === network
                     ? "bg-accent text-accent-foreground"
                     : "text-muted-foreground hover:text-foreground"
@@ -113,7 +119,7 @@ export default function SellScreen() {
               className="text-2xl font-bold text-yellow-400"
               data-testid="text-balance"
             >
-              {currentBalance} USDT
+              {currentBalance} {currentCurrency}
             </div>
           )}
         </div>
@@ -130,7 +136,7 @@ export default function SellScreen() {
               data-testid="input-send-amount"
             />
             <div className="bg-secondary rounded-lg px-4 py-2 mr-2 flex items-center">
-              <span className="font-semibold">USDT</span>
+              <span className="font-semibold">{currentCurrency}</span>
               <ChevronDown className="w-4 h-4 ml-2" />
             </div>
           </div>
@@ -162,7 +168,7 @@ export default function SellScreen() {
             className="text-lg font-semibold text-yellow-400"
             data-testid="text-commission"
           >
-            {commission} USDT
+            {commission} {currentCurrency}
           </div>
         </div>
         
