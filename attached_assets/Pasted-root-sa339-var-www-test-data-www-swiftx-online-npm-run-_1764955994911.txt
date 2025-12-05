@@ -1,0 +1,32 @@
+root@sa339:/var/www/test/data/www/swiftx.online# npm run db:push
+
+> rest-express@1.0.0 db:push
+> drizzle-kit push
+
+No config path provided, using default 'drizzle.config.ts'
+Reading config file '/var/www/test/data/www/swiftx.online/drizzle.config.ts'
+[✓] Pulling schema from database...
+Reading schema files:
+/var/www/test/data/www/swiftx.online/shared/schema.ts
+
+· You're about to add bot_commands_command_unique unique constraint to the table, which contains 3 items. If this statement fails, you will receive an error from the database. Do you want to truncate bot_commands table?
+
+· You're about to add users_tg_id_unique unique constraint to the table, which contains 2 items. If this statement fails, you will receive an error from the database. Do you want to truncate users table?
+
+· You're about to add users_api_key_unique unique constraint to the table, which contains 2 items. If this statement fails, you will receive an error from the database. Do you want to truncate users table?
+
+· You're about to add users_code_ref_unique unique constraint to the table, which contains 2 items. If this statement fails, you will receive an error from the database. Do you want to truncate users table?
+
+· You're about to add users_balances_account_number_unique unique constraint to the table, which contains 11 items. If this statement fails, you will receive an error from the database. Do you want to truncate users_balances table?
+
+· You're about to add user_balance_unique unique constraint to the table, which contains 11 items. If this statement fails, you will receive an error from the database. Do you want to truncate users_balances table?
+
+ Warning  Found data-loss statements:
+· You're about to change type column type from enum('fiat','crypto','token','voucher') to varchar(50) with 10 items
+· You're about to change link_url column type from text to varchar(500) with 3 items
+· You're about to change link_text column type from varchar(255) to varchar(100) with 3 items
+
+THIS ACTION WILL CAUSE DATA LOSS AND CANNOT BE REVERTED
+
+Do you still want to push changes?
+[x] All changes were aborted
