@@ -1431,19 +1431,21 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
 
   app.post(`/${adminPath}/api/fix/exchange-rates`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
+      // Correct balance IDs: TRC20(3), BEP20(4), TON(6), DAI(9), POL(10)
+      // Note: id=5 is USD (fiat), NOT crypto!
       const correctRates = [
-        { fromBalanceId: 4, toBalanceId: 7, fromCurrency: "BEP20.USDT", toCurrency: "DAI", rate: "0.9980", category: "crypto" },
-        { fromBalanceId: 3, toBalanceId: 7, fromCurrency: "TRC20.USDT", toCurrency: "DAI", rate: "0.9980", category: "crypto" },
-        { fromBalanceId: 5, toBalanceId: 7, fromCurrency: "TON.USDT", toCurrency: "DAI", rate: "0.9980", category: "crypto" },
-        { fromBalanceId: 7, toBalanceId: 4, fromCurrency: "DAI", toCurrency: "BEP20.USDT", rate: "0.9980", category: "crypto" },
-        { fromBalanceId: 7, toBalanceId: 3, fromCurrency: "DAI", toCurrency: "TRC20.USDT", rate: "0.9980", category: "crypto" },
-        { fromBalanceId: 7, toBalanceId: 5, fromCurrency: "DAI", toCurrency: "TON.USDT", rate: "0.9980", category: "crypto" },
-        { fromBalanceId: 4, toBalanceId: 8, fromCurrency: "BEP20.USDT", toCurrency: "POL", rate: "2.0500", category: "crypto" },
-        { fromBalanceId: 3, toBalanceId: 8, fromCurrency: "TRC20.USDT", toCurrency: "POL", rate: "2.0500", category: "crypto" },
-        { fromBalanceId: 5, toBalanceId: 8, fromCurrency: "TON.USDT", toCurrency: "POL", rate: "2.0500", category: "crypto" },
-        { fromBalanceId: 8, toBalanceId: 4, fromCurrency: "POL", toCurrency: "BEP20.USDT", rate: "0.4878", category: "crypto" },
-        { fromBalanceId: 8, toBalanceId: 3, fromCurrency: "POL", toCurrency: "TRC20.USDT", rate: "0.4878", category: "crypto" },
-        { fromBalanceId: 8, toBalanceId: 5, fromCurrency: "POL", toCurrency: "TON.USDT", rate: "0.4878", category: "crypto" },
+        { fromBalanceId: 4, toBalanceId: 9, fromCurrency: "BEP20.USDT", toCurrency: "DAI", rate: "0.9980", category: "crypto" },
+        { fromBalanceId: 3, toBalanceId: 9, fromCurrency: "TRC20.USDT", toCurrency: "DAI", rate: "0.9980", category: "crypto" },
+        { fromBalanceId: 6, toBalanceId: 9, fromCurrency: "TON.USDT", toCurrency: "DAI", rate: "0.9980", category: "crypto" },
+        { fromBalanceId: 9, toBalanceId: 4, fromCurrency: "DAI", toCurrency: "BEP20.USDT", rate: "0.9980", category: "crypto" },
+        { fromBalanceId: 9, toBalanceId: 3, fromCurrency: "DAI", toCurrency: "TRC20.USDT", rate: "0.9980", category: "crypto" },
+        { fromBalanceId: 9, toBalanceId: 6, fromCurrency: "DAI", toCurrency: "TON.USDT", rate: "0.9980", category: "crypto" },
+        { fromBalanceId: 4, toBalanceId: 10, fromCurrency: "BEP20.USDT", toCurrency: "POL", rate: "2.0500", category: "crypto" },
+        { fromBalanceId: 3, toBalanceId: 10, fromCurrency: "TRC20.USDT", toCurrency: "POL", rate: "2.0500", category: "crypto" },
+        { fromBalanceId: 6, toBalanceId: 10, fromCurrency: "TON.USDT", toCurrency: "POL", rate: "2.0500", category: "crypto" },
+        { fromBalanceId: 10, toBalanceId: 4, fromCurrency: "POL", toCurrency: "BEP20.USDT", rate: "0.4878", category: "crypto" },
+        { fromBalanceId: 10, toBalanceId: 3, fromCurrency: "POL", toCurrency: "TRC20.USDT", rate: "0.4878", category: "crypto" },
+        { fromBalanceId: 10, toBalanceId: 6, fromCurrency: "POL", toCurrency: "TON.USDT", rate: "0.4878", category: "crypto" },
       ];
       
       let fixed = 0;
@@ -1486,14 +1488,16 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
 
   app.post(`/${adminPath}/api/fix/system-balances`, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
+      // Correct balance IDs: RUB(1), TRY(2), TRC20(3), BEP20(4), USD(5), TON(6), DAI(9), POL(10)
       const systemBalances = [
         { id: 1, title: "Российский рубль", network: null, currency: "RUB", type: "fiat", status: "active" },
         { id: 2, title: "Турецкая лира", network: null, currency: "TRY", type: "fiat", status: "active" },
         { id: 3, title: "USDT TRC20", network: "TRC20", currency: "USDT", type: "crypto", status: "active" },
         { id: 4, title: "USDT BEP20", network: "BEP20", currency: "USDT", type: "crypto", status: "active" },
-        { id: 5, title: "Ton Network", network: "TON", currency: "USDT", type: "crypto", status: "active" },
-        { id: 7, title: "DAI", network: "Polygon", currency: "DAI", type: "crypto", status: "active" },
-        { id: 8, title: "POL", network: "Polygon", currency: "POL", type: "crypto", status: "active" },
+        { id: 5, title: "American Dollar", network: null, currency: "USD", type: "fiat", status: "active" },
+        { id: 6, title: "Ton Network", network: "TON", currency: "USDT", type: "crypto", status: "active" },
+        { id: 9, title: "DAI", network: "Polygon", currency: "DAI", type: "crypto", status: "active" },
+        { id: 10, title: "POL", network: "Polygon", currency: "POL", type: "crypto", status: "active" },
       ];
       
       let fixed = 0;
