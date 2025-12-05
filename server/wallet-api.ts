@@ -3,6 +3,10 @@
 const WALLET_API_URL = process.env.WALLET_API_URL || 'https://pay.swiftx.online/api/wallet/create';
 const WALLET_API_TOKEN = process.env.WALLET_API_KEY || '';
 
+// Debug: log if API key is configured (не показываем сам ключ)
+console.log(`[WalletAPI] URL: ${WALLET_API_URL}`);
+console.log(`[WalletAPI] API Key configured: ${WALLET_API_TOKEN ? 'YES (' + WALLET_API_TOKEN.substring(0, 4) + '...)' : 'NO - MISSING!'}`);
+
 // Map network names to API node names
 const NETWORK_TO_NODE: Record<string, string> = {
   'BEP20': 'BSC',
