@@ -442,7 +442,7 @@ export default function TrackingScreen() {
           </div>
           
           <p className="text-lg mb-16 px-4">
-            Средства были отправлены на вашу карту,<br />
+            Средства были отправлены на ваши реквизиты,<br />
             обмен завершен с двух сторон!
           </p>
           
