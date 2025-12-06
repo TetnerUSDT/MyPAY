@@ -56,6 +56,61 @@ export function formatOrderAmount(amount: string | number): string {
   return num.toFixed(2);
 }
 
+// Check if string is a crypto wallet address
+export function isCryptoAddress(value: string): boolean {
+  if (!value) return false;
+  const trimmed = value.trim();
+  
+  // Ethereum/Polygon/BSC addresses: 0x + 40 hex chars = 42 total
+  if (/^0x[a-fA-F0-9]{40}$/i.test(trimmed)) return true;
+  
+  // TRON addresses: T + 33 base58 chars = 34 total
+  if (/^T[a-zA-Z0-9]{33}$/.test(trimmed)) return true;
+  
+  // TON addresses: EQ/UQ + base64 or raw format
+  if (/^(EQ|UQ)[a-zA-Z0-9_-]{46}$/i.test(trimmed)) return true;
+  if (/^0:[a-fA-F0-9]{64}$/i.test(trimmed)) return true;
+  
+  return false;
+}
+
+// Format crypto wallet address: show first 10 and last 6 chars
+export function formatCryptoAddress(address: string): string {
+  if (!address || address.length < 20) return address;
+  return `${address.slice(0, 10)}...${address.slice(-6)}`;
+}
+
+// Format bank card number: add spaces every 4 digits
+export function formatCardNumber(value: string): string {
+  if (!value) return '';
+  const digits = value.replace(/\D/g, '');
+  const formatted = digits.replace(/(\d{4})(?=\d)/g, '$1 ');
+  return formatted.substring(0, 23); // Max 19 digits + 4 spaces
+}
+
+// Universal format for recipient address: detects crypto vs card
+export function formatRecipientAddress(value: string): string {
+  if (!value) return '';
+  
+  if (isCryptoAddress(value)) {
+    return formatCryptoAddress(value);
+  }
+  
+  // Default to card formatting for numeric-only strings
+  return formatCardNumber(value);
+}
+
+// Get label for recipient address field
+export function getRecipientLabel(value: string): string {
+  if (!value) return 'На номер карты';
+  
+  if (isCryptoAddress(value)) {
+    return 'На адрес кошелька';
+  }
+  
+  return 'На номер карты';
+}
+
 // Format balance - smart trimming:
 // - 1.00005000 -> 1.00005 (trim trailing zeros, keep significant digits)
 // - 10.00000000 -> 10.00 (if all zeros after 2nd decimal, show only 2 decimals)

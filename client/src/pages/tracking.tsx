@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { Clock, ArrowDown, Copy, Check, Loader2, CheckCircle2, XCircle, X } from "lucide-react";
-import { formatCountdown, copyToClipboard, formatOrderAmount } from "@/lib/utils";
+import { formatCountdown, copyToClipboard, formatOrderAmount, formatRecipientAddress, getRecipientLabel } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -108,13 +108,6 @@ export default function TrackingScreen() {
     setLocation("/home");
   };
 
-  // Format card number with spaces every 4 digits
-  const formatCardNumber = (value: string) => {
-    if (!value) return '';
-    const digits = value.replace(/\D/g, '');
-    const formatted = digits.replace(/(\d{4})(?=\d)/g, '$1 ');
-    return formatted.substring(0, 19);
-  };
 
   // Confetti animation for success state
   useEffect(() => {
@@ -367,10 +360,10 @@ export default function TrackingScreen() {
               <span className="text-lg font-semibold text-yellow-400">{orderData.toCurrency}</span>
             </div>
             
-            <div className="text-sm text-muted-foreground mb-2 text-left">На номер карты</div>
+            <div className="text-sm text-muted-foreground mb-2 text-left">{getRecipientLabel(orderData.cardNumber || '')}</div>
             <div className="bg-secondary rounded-lg p-3">
               <span className="font-mono" data-testid="text-card-number">
-                {formatCardNumber(orderData.cardNumber || '') || 'Загрузка...'}
+                {formatRecipientAddress(orderData.cardNumber || '') || 'Загрузка...'}
               </span>
             </div>
           </div>

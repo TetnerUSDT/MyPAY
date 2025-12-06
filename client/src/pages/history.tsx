@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { X, Copy, Check, Clock } from "lucide-react";
-import { copyToClipboard, formatCountdown, formatOrderAmount } from "@/lib/utils";
+import { copyToClipboard, formatCountdown, formatOrderAmount, formatRecipientAddress, getRecipientLabel } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useQuery } from "@tanstack/react-query";
@@ -92,13 +92,6 @@ export default function HistoryScreen() {
     setLocation(`/tracking?order=${orderNumber}`);
   };
 
-  // Format card number with spaces every 4 digits
-  const formatCardNumber = (value: string) => {
-    if (!value) return '';
-    const digits = value.replace(/\D/g, '');
-    const formatted = digits.replace(/(\d{4})(?=\d)/g, '$1 ');
-    return formatted.substring(0, 19);
-  };
 
   // Calculate remaining time for wait status
   const getRemainingTime = (timestamp: string, timeExchange: number) => {
@@ -298,16 +291,16 @@ export default function HistoryScreen() {
                       </div>
                     )}
 
-                    {/* Card Number */}
+                    {/* Card Number / Wallet Address */}
                     {exchange.cardNumber && (
                       <div className="mb-4">
-                        <div className="text-xs text-muted-foreground mb-1">На номер карты</div>
+                        <div className="text-xs text-muted-foreground mb-1">{getRecipientLabel(exchange.cardNumber)}</div>
                         <div className="bg-secondary rounded-lg p-3 flex items-center justify-between">
                           <span 
                             className="font-mono text-sm"
                             data-testid={`exchange-card-${exchange.id}`}
                           >
-                            {formatCardNumber(exchange.cardNumber)}
+                            {formatRecipientAddress(exchange.cardNumber)}
                           </span>
                           <button 
                             className="ml-2 p-1 hover:bg-white/10 rounded"

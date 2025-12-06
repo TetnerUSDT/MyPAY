@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { X, ArrowDown, Copy, Check, Clock } from "lucide-react";
-import { copyToClipboard, formatOrderAmount } from "@/lib/utils";
+import { copyToClipboard, formatOrderAmount, formatRecipientAddress, getRecipientLabel } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -149,17 +149,11 @@ export default function PaymentScreen() {
   // Format currency with network
   const currencyDisplay = `${orderData.fromCurrency} ${orderData.walletNetwork || ''}`.trim();
 
-  // Format card number with spaces every 4 digits
-  const formatCardNumber = (cardNumber: string) => {
-    // Remove all non-digit characters
-    const digits = cardNumber.replace(/\D/g, '');
-    // Add space every 4 digits
-    return digits.replace(/(\d{4})(?=\d)/g, '$1 ');
-  };
-
   const displayCardNumber = orderData.cardNumber 
-    ? formatCardNumber(orderData.cardNumber)
+    ? formatRecipientAddress(orderData.cardNumber)
     : "";
+  
+  const recipientLabel = getRecipientLabel(orderData.cardNumber || '');
 
   return (
     <div className="mobile-screen text-white">
@@ -260,10 +254,10 @@ export default function PaymentScreen() {
             <span className="text-2xl font-bold text-yellow-400">{orderData.toCurrency}</span>
           </div>
           
-          {/* Card Number */}
+          {/* Card Number / Wallet Address */}
           {orderData.cardNumber && (
             <>
-              <div className="text-sm text-muted-foreground mb-2">На номер карты</div>
+              <div className="text-sm text-muted-foreground mb-2">{recipientLabel}</div>
               <div className="bg-secondary rounded-lg p-3">
                 <span 
                   className="font-mono text-sm"
