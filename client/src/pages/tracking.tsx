@@ -376,29 +376,37 @@ export default function TrackingScreen() {
             />
           </div>
 
-          {/* Payment Confirmation Block */}
+          {/* Support Block */}
           <div className="w-full max-w-md crypto-card text-left">
             <h3 className="text-lg font-semibold text-white mb-4">
-              Подтверждение получения платежа <span className="text-muted-foreground text-sm">(каждые 15 минут)</span>
+              Тех. поддержка по вопросам обмена
             </h3>
             
             <p className="text-sm text-muted-foreground mb-3">
-              Пожалуйста, отправьте скриншот из истории платежей вашего банка в чат техподдержки 📩
+              Если вам нужна помощь, наша команда поддержки всегда готова ответить на любые вопросы, связанные с обменом.
+            </p>
+            
+            <p className="text-sm text-white mb-1">Мы поможем:</p>
+            <ul className="text-sm text-muted-foreground mb-4 space-y-1">
+              <li>• Проверить статус сделки</li>
+              <li>• Уточнить детали по оплате</li>
+              <li>• Разобраться с транзакцией</li>
+              <li>• Решить любые технические трудности</li>
+            </ul>
+            
+            <p className="text-sm text-muted-foreground mb-3">
+              Свяжитесь с нами — и мы оперативно вам поможем.
             </p>
             
             <a 
               href="https://t.me/SwiftX11" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="inline-flex items-center text-accent hover:text-accent/80 transition-colors font-medium mb-3"
+              className="inline-flex items-center text-accent hover:text-accent/80 transition-colors font-medium"
               data-testid="link-support"
             >
               👉 @SwiftX11
             </a>
-            
-            <p className="text-xs text-muted-foreground">
-              Это необходимо для подтверждения получения суммы и завершения операции.
-            </p>
           </div>
         </div>
       </div>
