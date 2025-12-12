@@ -795,7 +795,7 @@ export default function ExchangeScreen() {
             disabled={createExchangeMutation.isPending}
             data-testid="button-continue-payment"
           >
-            {createExchangeMutation.isPending ? "Создание заявки..." : "Перейти к оплате"}
+            {createExchangeMutation.isPending ? "Создание заявки..." : "Перейти к обмену"}
             {!createExchangeMutation.isPending && <ArrowRight className="w-5 h-5 ml-2" />}
           </button>
         </div>
