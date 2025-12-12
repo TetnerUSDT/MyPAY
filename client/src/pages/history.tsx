@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { X, Copy, Check, Clock } from "lucide-react";
-import { copyToClipboard, formatCountdown, formatOrderAmount, formatRecipientAddress, getRecipientLabel } from "@/lib/utils";
+import { copyToClipboard, formatCountdown, formatOrderAmount, formatRecipientAddress, getRecipientLabelKey } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useQuery } from "@tanstack/react-query";
@@ -256,11 +256,11 @@ export default function HistoryScreen() {
                     {/* Exchange Info */}
                     <div className="mb-3 flex items-center justify-between">
                       <div>
-                        <div className="text-xs text-muted-foreground">Отправляете</div>
+                        <div className="text-xs text-muted-foreground">{t('history.youSend')}</div>
                         <div className="text-lg font-bold">{formatOrderAmount(exchange.amountFrom)} {exchange.fromCurrency}</div>
                       </div>
                       <div className="text-right">
-                        <div className="text-xs text-muted-foreground">Получаете</div>
+                        <div className="text-xs text-muted-foreground">{t('history.youReceive')}</div>
                         <div className="text-lg font-bold">{formatOrderAmount(exchange.amountTo)} {exchange.toCurrency}</div>
                       </div>
                     </div>
@@ -296,7 +296,7 @@ export default function HistoryScreen() {
                     {/* Card Number / Wallet Address */}
                     {exchange.cardNumber && (
                       <div className="mb-4">
-                        <div className="text-xs text-muted-foreground mb-1">{getRecipientLabel(exchange.cardNumber)}</div>
+                        <div className="text-xs text-muted-foreground mb-1">{t(getRecipientLabelKey(exchange.cardNumber))}</div>
                         <div className="bg-secondary rounded-lg p-3 flex items-center justify-between">
                           <span 
                             className="font-mono text-sm"

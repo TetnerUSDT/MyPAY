@@ -23,7 +23,9 @@
     "copyError": "Copy failed",
     "fillAllFields": "Please fill all required fields",
     "creating": "Creating...",
-    "backToHome": "Back to home"
+    "backToHome": "Back to home",
+    "toCardNumber": "To card number",
+    "toWalletAddress": "To wallet address"
   },
   "nav": {
     "home": "Home",
@@ -209,6 +211,9 @@
     "deposits": "Deposits",
     "withdrawals": "Withdrawals",
     "exchanges": "Exchanges",
+    "youSend": "You send",
+    "youReceive": "You receive",
+    "toWalletAddress": "To wallet address",
     "status": {
       "complete": "Request completed successfully",
       "wait": "Pending",
@@ -410,7 +415,12 @@
     "processing": "Processing...",
     "iHavePaid": "I have paid",
     "loadError": "Failed to load request",
-    "backToExchange": "Back to exchange"
+    "backToExchange": "Back to exchange",
+    "transferAmount": "Transfer amount",
+    "paymentMethod": "Payment method",
+    "sendingFromWallet": "Sending funds from internal wallet...",
+    "toWalletAddress": "To wallet address",
+    "amountToReceive": "Amount to receive"
   },
   "sell": {
     "title": "Send",

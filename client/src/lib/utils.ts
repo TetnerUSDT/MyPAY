@@ -100,15 +100,15 @@ export function formatRecipientAddress(value: string): string {
   return formatCardNumber(value);
 }
 
-// Get label for recipient address field
-export function getRecipientLabel(value: string): string {
-  if (!value) return 'На номер карты';
+// Get label key for recipient address field (returns i18n key)
+export function getRecipientLabelKey(value: string): string {
+  if (!value) return 'common.toCardNumber';
   
   if (isCryptoAddress(value)) {
-    return 'На адрес кошелька';
+    return 'common.toWalletAddress';
   }
   
-  return 'На номер карты';
+  return 'common.toCardNumber';
 }
 
 // Format balance - smart trimming:

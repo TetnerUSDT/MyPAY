@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { X, ArrowDown, Copy, Check, Clock } from "lucide-react";
-import { copyToClipboard, formatOrderAmount, formatRecipientAddress, getRecipientLabel } from "@/lib/utils";
+import { copyToClipboard, formatOrderAmount, formatRecipientAddress, getRecipientLabelKey } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -155,7 +155,7 @@ export default function PaymentScreen() {
     ? formatRecipientAddress(orderData.cardNumber)
     : "";
   
-  const recipientLabel = getRecipientLabel(orderData.cardNumber || '');
+  const recipientLabel = t(getRecipientLabelKey(orderData.cardNumber || ''));
 
   return (
     <div className="mobile-screen text-white">
@@ -192,7 +192,7 @@ export default function PaymentScreen() {
 
         {/* Transfer Amount Section */}
         <div className="crypto-card mb-4">
-          <div className="text-sm text-muted-foreground mb-2">Переведите сумму</div>
+          <div className="text-sm text-muted-foreground mb-2">{t('payment.transferAmount')}</div>
           <div className="flex items-center justify-between mb-4">
             <span className="text-3xl font-bold">{formatOrderAmount(orderData.amountFrom)}</span>
             <div className="flex items-center bg-secondary rounded-lg px-3 py-1">
@@ -203,21 +203,21 @@ export default function PaymentScreen() {
           {/* Wallet Address or Internal Payment */}
           {orderData.tempBalance && parseFloat(orderData.tempBalance) > 0 ? (
             <>
-              <div className="text-sm text-muted-foreground mb-2">Способ оплаты</div>
+              <div className="text-sm text-muted-foreground mb-2">{t('payment.paymentMethod')}</div>
               <div className="flex items-center justify-center bg-secondary rounded-lg p-4">
                 <div className="relative overflow-hidden w-full">
                   <div 
                     className="text-accent font-medium whitespace-nowrap animate-marquee"
                     data-testid="text-internal-payment"
                   >
-                    Идёт отправка средств с внутреннего кошелька...
+                    {t('payment.sendingFromWallet')}
                   </div>
                 </div>
               </div>
             </>
           ) : (
             <>
-              <div className="text-sm text-muted-foreground mb-2">На адрес кошелька</div>
+              <div className="text-sm text-muted-foreground mb-2">{t('payment.toWalletAddress')}</div>
               <div className="flex items-center bg-secondary rounded-lg p-3">
                 <span 
                   className="font-mono text-sm flex-1 break-all"
@@ -250,7 +250,7 @@ export default function PaymentScreen() {
 
         {/* Receive Amount Section */}
         <div className="crypto-card mb-6">
-          <div className="text-sm text-muted-foreground mb-2">Сумма к получению</div>
+          <div className="text-sm text-muted-foreground mb-2">{t('payment.amountToReceive')}</div>
           <div className="flex items-center justify-between mb-4">
             <span className="text-3xl font-bold">{formatOrderAmount(orderData.amountTo)}</span>
             <span className="text-2xl font-bold text-yellow-400">{orderData.toCurrency}</span>

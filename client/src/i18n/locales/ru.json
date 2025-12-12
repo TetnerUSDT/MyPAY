@@ -23,7 +23,9 @@
     "copyError": "Ошибка копирования",
     "fillAllFields": "Заполните все обязательные поля",
     "creating": "Создание...",
-    "backToHome": "Вернуться на главную"
+    "backToHome": "Вернуться на главную",
+    "toCardNumber": "На номер карты",
+    "toWalletAddress": "На адрес кошелька"
   },
   "nav": {
     "home": "Главная",
@@ -209,6 +211,9 @@
     "deposits": "Пополнения",
     "withdrawals": "Выводы",
     "exchanges": "Обмены",
+    "youSend": "Отправляете",
+    "youReceive": "Получаете",
+    "toWalletAddress": "На адрес кошелька",
     "status": {
       "complete": "Заявка выполнена успешно",
       "wait": "В ожидании",
@@ -410,7 +415,12 @@
     "processing": "Обработка...",
     "iHavePaid": "Я оплатил",
     "loadError": "Ошибка загрузки заявки",
-    "backToExchange": "Вернуться к обмену"
+    "backToExchange": "Вернуться к обмену",
+    "transferAmount": "Переведите сумму",
+    "paymentMethod": "Способ оплаты",
+    "sendingFromWallet": "Идёт отправка средств с внутреннего кошелька...",
+    "toWalletAddress": "На адрес кошелька",
+    "amountToReceive": "Сумма к получению"
   },
   "sell": {
     "title": "Отправить",
