@@ -28,9 +28,9 @@ interface Banner {
 const banners: Banner[] = [
   {
     id: 1,
-    title: "Зарабатывайте до 9%",
-    subtitle: "годовых на долларах",
-    link: "/loyalty",
+    title: "Ваучеры SwiftX",
+    subtitle: "Создавай и переводи без комиссий",
+    link: "/vouchers",
     bgGradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
   },
   {
