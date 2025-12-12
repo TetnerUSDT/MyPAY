@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import { Loader2, Coins } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { getBalanceIcon } from "@/lib/balanceIcons";
+import { useTranslation } from "react-i18next";
 
 type CryptoRate = {
   id: string;
@@ -14,6 +15,7 @@ type CryptoRate = {
 };
 
 export default function SelectCountryScreen() {
+  const { t } = useTranslation();
   const { data: cryptoRates = [], isLoading: isLoadingCrypto } = useQuery<CryptoRate[]>({
     queryKey: ["/api/services/crypto"],
   });
@@ -24,7 +26,7 @@ export default function SelectCountryScreen() {
         {/* Title */}
         <div className="text-center pt-8 pb-6">
           <h1 className="text-xl font-semibold" data-testid="text-select-service-title">
-            Выберите направление обмена
+            {t('selectCountry.title')}
           </h1>
         </div>
         
@@ -32,15 +34,15 @@ export default function SelectCountryScreen() {
         {isLoadingCrypto ? (
           <div className="flex flex-col items-center justify-center flex-1">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <p className="mt-4 text-muted-foreground">Загрузка...</p>
+            <p className="mt-4 text-muted-foreground">{t('common.loading')}</p>
           </div>
         ) : (
           <div className="px-6 pb-24">
             {cryptoRates.length === 0 ? (
               <div className="text-center py-12">
                 <Coins className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-white mb-2">Нет доступных обменов</h3>
-                <p className="text-muted-foreground">Криптовалютные обмены пока не настроены</p>
+                <h3 className="text-lg font-semibold text-white mb-2">{t('selectCountry.noExchanges')}</h3>
+                <p className="text-muted-foreground">{t('selectCountry.cryptoNotConfigured')}</p>
               </div>
             ) : (
               cryptoRates.map((rate) => (
