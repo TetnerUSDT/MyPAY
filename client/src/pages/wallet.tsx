@@ -3,6 +3,7 @@ import { Settings, ArrowDownLeft, ArrowUpRight, RotateCcw, CreditCard, Plus, Arr
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { User } from "@shared/schema";
 import { formatBalance } from "@/lib/utils";
@@ -19,6 +20,7 @@ const RefreshIcon = ({ className = "w-6 h-6", ...props }: { className?: string }
 );
 
 export default function WalletScreen() {
+  const { t } = useTranslation();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [blockedBalanceId, setBlockedBalanceId] = useState<number | null>(null);
   const { toast } = useToast();
@@ -50,15 +52,15 @@ export default function WalletScreen() {
       queryClient.invalidateQueries({ queryKey: ["/api/user/crypto-balances"] });
       queryClient.invalidateQueries({ queryKey: ["/api/user/available-networks"] });
       toast({
-        title: "Успешно",
-        description: "Сеть добавлена в ваш кошелёк",
+        title: t('common.success'),
+        description: t('wallet.networkAdded'),
       });
       setIsModalOpen(false);
     },
     onError: () => {
       toast({
-        title: "Ошибка",
-        description: "Не удалось добавить сеть",
+        title: t('common.error'),
+        description: t('wallet.networkAddError'),
         variant: "destructive",
       });
     },
@@ -78,9 +80,9 @@ export default function WalletScreen() {
   }));
 
   const actions = [
-    { icon: ArrowDownLeft, label: "Пополнить", testId: "action-deposit" },
-    { icon: ArrowUpRight, label: "Отправить", testId: "action-send" },
-    { icon: ArrowRightLeft, label: "Обмен", testId: "action-exchange" },
+    { icon: ArrowDownLeft, label: t('wallet.deposit'), testId: "action-deposit" },
+    { icon: ArrowUpRight, label: t('wallet.send'), testId: "action-send" },
+    { icon: ArrowRightLeft, label: t('wallet.exchange'), testId: "action-exchange" },
   ];
 
   return (
@@ -137,7 +139,7 @@ export default function WalletScreen() {
               const Icon = action.icon;
               return (
                 <div key={index} className="flex flex-col items-center">
-                  {action.label === "Обмен" ? (
+                  {action.testId === "action-exchange" ? (
                     <Link href="/select-country">
                       <button 
                         className="w-14 h-14 rounded-full bg-black/20 flex items-center justify-center mb-2"
@@ -146,7 +148,7 @@ export default function WalletScreen() {
                         <Icon className="w-6 h-6 text-white" />
                       </button>
                     </Link>
-                  ) : action.label === "Отправить" ? (
+                  ) : action.testId === "action-send" ? (
                     <Link href="/transfer">
                       <button 
                         className="w-14 h-14 rounded-full bg-black/20 flex items-center justify-center mb-2"
@@ -155,7 +157,7 @@ export default function WalletScreen() {
                         <Icon className="w-6 h-6 text-white" />
                       </button>
                     </Link>
-                  ) : action.label === "Пополнить" ? (
+                  ) : action.testId === "action-deposit" ? (
                     <Link href="/top-up">
                       <button 
                         className="w-14 h-14 rounded-full bg-black/20 flex items-center justify-center mb-2"
@@ -265,7 +267,7 @@ export default function WalletScreen() {
                     }}
                   >
                     <div className={`${wallet.isBlocked ? 'bg-red-900/90 border-red-700' : 'bg-blue-900/90 border-blue-700'} border text-white px-4 py-2 rounded-lg backdrop-blur-sm`}>
-                      <p className="font-medium">{wallet.isBlocked ? '🔒 Баланс заблокирован' : '❄️ Баланс неактивный'}</p>
+                      <p className="font-medium">{wallet.isBlocked ? `🔒 ${t('wallet.balanceBlocked')}` : `❄️ ${t('wallet.balanceInactive')}`}</p>
                     </div>
                   </div>
                 )}
@@ -283,7 +285,7 @@ export default function WalletScreen() {
             data-testid="button-add-network"
           >
             <Plus className="w-5 h-5 mr-2" />
-            Добавить сеть
+            {t('wallet.addNetwork')}
           </button>
         </div>
       </div>
@@ -298,7 +300,7 @@ export default function WalletScreen() {
           
           <div className="relative bg-gradient-to-b from-gray-900 to-gray-800 rounded-2xl border border-gray-700 shadow-2xl max-w-sm w-full mx-4 overflow-hidden">
             <div className="flex items-center justify-between p-6 border-b border-gray-700">
-              <h2 className="text-xl font-semibold text-white">Добавить сеть</h2>
+              <h2 className="text-xl font-semibold text-white">{t('wallet.addNetwork')}</h2>
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="w-8 h-8 rounded-full bg-gray-700/50 flex items-center justify-center hover:bg-gray-600/50 transition-colors"
@@ -310,7 +312,7 @@ export default function WalletScreen() {
 
             <div className="p-6">
               <p className="text-gray-300 text-sm mb-6 text-center">
-                Выберите сеть для добавления
+                {t('wallet.selectNetwork')}
               </p>
               
               <div className="space-y-4 max-h-80 overflow-y-auto">
@@ -348,14 +350,14 @@ export default function WalletScreen() {
                           </div>
                         </div>
                         <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded-full">
-                          Скоро
+                          {t('common.comingSoon')}
                         </span>
                       </div>
                     </div>
                   ))
                 ) : (
                   <div className="text-center py-8">
-                    <p className="text-gray-400">Новые сети появятся в ближайшее время</p>
+                    <p className="text-gray-400">{t('wallet.newNetworksSoon')}</p>
                   </div>
                 )}
               </div>

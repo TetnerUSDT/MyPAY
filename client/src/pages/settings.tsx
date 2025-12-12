@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { Users, Shield, Globe, Smartphone, HelpCircle, Phone, Headphones } from "lucide-react";
+import { Users, Shield, Globe, Smartphone, HelpCircle, Phone, Headphones, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 import BottomNavigation from "@/components/bottom-navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -19,9 +20,16 @@ interface User {
   phone: string | null;
 }
 
+const languages = [
+  { code: 'en', name: 'English', flag: '🇬🇧' },
+  { code: 'ru', name: 'Русский', flag: '🇷🇺' },
+];
+
 export default function SettingsScreen() {
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
 
   const { data: user } = useQuery<User>({
     queryKey: ['/api/auth/me']
@@ -53,14 +61,14 @@ export default function SettingsScreen() {
       setIsPhoneDialogOpen(false);
       setPhoneValue("");
       toast({
-        title: "Успешно!",
-        description: "Телефон успешно сохранен",
+        title: t('common.success'),
+        description: t('settings.phoneSuccess'),
       });
     },
     onError: () => {
       toast({
-        title: "Ошибка",
-        description: "Не удалось сохранить телефон",
+        title: t('common.error'),
+        description: t('settings.phoneError'),
         variant: "destructive",
       });
     },
@@ -69,14 +77,25 @@ export default function SettingsScreen() {
   const handleSavePhone = () => {
     if (!phoneValue) {
       toast({
-        title: "Ошибка",
-        description: "Введите номер телефона",
+        title: t('common.error'),
+        description: t('settings.enterPhone'),
         variant: "destructive",
       });
       return;
     }
     updatePhoneMutation.mutate(phoneValue);
   };
+
+  const handleChangeLanguage = (langCode: string) => {
+    i18n.changeLanguage(langCode);
+    setIsLanguageModalOpen(false);
+    toast({
+      title: t('common.success'),
+      description: languages.find(l => l.code === langCode)?.name,
+    });
+  };
+
+  const currentLanguage = languages.find(l => l.code === i18n.language) || languages[0];
 
   const handleLoyaltyClick = () => {
     setLocation("/loyalty");
@@ -87,10 +106,7 @@ export default function SettingsScreen() {
   };
 
   const handleLanguageClick = () => {
-    toast({
-      title: "Языки",
-      description: "Выбор языка будет доступен в следующей версии",
-    });
+    setIsLanguageModalOpen(true);
   };
 
   const handleDevicesClick = () => {
@@ -147,7 +163,7 @@ export default function SettingsScreen() {
               </div>
               <button 
                 className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center"
-                onClick={() => toast({ title: "Trust Rating", description: "Рейтинг доверия основан на вашей активности" })}
+                onClick={() => toast({ title: t('settings.trustRating'), description: t('settings.trustRatingDesc') })}
                 data-testid="button-trust-info"
               >
                 <HelpCircle className="w-4 h-4 text-accent" />
@@ -161,7 +177,7 @@ export default function SettingsScreen() {
               {/* Phone label row */}
               <div className="flex items-center gap-2">
                 <Phone className="w-4 h-4 text-green-200" />
-                <span className="text-green-200 text-sm font-medium">Телефон</span>
+                <span className="text-green-200 text-sm font-medium">{t('settings.phone')}</span>
               </div>
               
               {/* Phone value or add button row */}
@@ -174,7 +190,7 @@ export default function SettingsScreen() {
                   style={{ borderRadius: '0.5rem' }}
                   data-testid="button-add-phone"
                 >
-                  Добавить
+                  {t('settings.addPhone')}
                 </button>
               )}
             </div>
@@ -192,8 +208,8 @@ export default function SettingsScreen() {
               <Users className="w-9 h-9 text-accent" />
             </div>
             <div className="flex-1 flex flex-col gap-1">
-              <h3 className="text-white font-semibold text-left">Программа лояльности</h3>
-              <p className="text-green-200 text-sm text-left">Зарабатывай приглашая друзей</p>
+              <h3 className="text-white font-semibold text-left">{t('settings.loyaltyProgram')}</h3>
+              <p className="text-green-200 text-sm text-left">{t('settings.loyaltyDesc')}</p>
             </div>
           </div>
         </button>
@@ -210,10 +226,10 @@ export default function SettingsScreen() {
             </div>
             <div className="flex-1 flex flex-col gap-1">
               <div className="flex items-center justify-between w-full">
-                <h3 className="text-white font-semibold text-left">Безопасность</h3>
-                <span className="text-sm text-accent font-medium text-right">Средний уровень</span>
+                <h3 className="text-white font-semibold text-left">{t('settings.security')}</h3>
+                <span className="text-sm text-accent font-medium text-right">{t('settings.securityLevel')}</span>
               </div>
-              <p className="text-green-200 text-sm text-left">Повышайте безопасность аккаунта</p>
+              <p className="text-green-200 text-sm text-left">{t('settings.securityDesc')}</p>
             </div>
           </div>
         </button>
@@ -230,10 +246,10 @@ export default function SettingsScreen() {
             </div>
             <div className="flex-1 flex flex-col gap-1">
               <div className="flex items-center justify-between w-full">
-                <h3 className="text-white font-semibold text-left">Языки</h3>
-                <span className="text-sm text-accent font-medium text-right">Русский</span>
+                <h3 className="text-white font-semibold text-left">{t('settings.language')}</h3>
+                <span className="text-sm text-accent font-medium text-right">{currentLanguage.flag} {currentLanguage.name}</span>
               </div>
-              <p className="text-green-200 text-sm text-left">Выберите язык для смены</p>
+              <p className="text-green-200 text-sm text-left">{t('settings.languageDesc')}</p>
             </div>
           </div>
         </button>
@@ -249,8 +265,8 @@ export default function SettingsScreen() {
               <Smartphone className="w-9 h-9 text-accent" />
             </div>
             <div className="flex-1 flex flex-col gap-1">
-              <h3 className="text-white font-semibold text-left">Устройства</h3>
-              <p className="text-green-200 text-sm text-left">Проверяйте активные сессии</p>
+              <h3 className="text-white font-semibold text-left">{t('settings.devices')}</h3>
+              <p className="text-green-200 text-sm text-left">{t('settings.devicesDesc')}</p>
             </div>
           </div>
         </button>
@@ -267,8 +283,8 @@ export default function SettingsScreen() {
                 <Headphones className="w-9 h-9 text-accent" />
               </div>
               <div className="flex-1 flex flex-col gap-1">
-                <h3 className="text-white font-semibold text-left">Поддержка</h3>
-                <p className="text-green-200 text-sm text-left">Свяжитесь с нашей командой</p>
+                <h3 className="text-white font-semibold text-left">{t('settings.support')}</h3>
+                <p className="text-green-200 text-sm text-left">{t('settings.supportDesc')}</p>
               </div>
             </div>
           </button>
@@ -279,18 +295,18 @@ export default function SettingsScreen() {
       <Dialog open={isPhoneDialogOpen} onOpenChange={setIsPhoneDialogOpen}>
         <DialogContent className="sm:max-w-md bg-gradient-to-br from-green-800 to-green-900 border-green-600/50 text-white">
           <DialogHeader>
-            <DialogTitle className="text-white">Добавить номер телефона</DialogTitle>
+            <DialogTitle className="text-white">{t('settings.phone')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label className="text-sm text-green-200">Номер телефона</label>
+              <label className="text-sm text-green-200">{t('settings.phone')}</label>
               <PhoneInput
                 international
                 defaultCountry="RU"
                 value={phoneValue}
                 onChange={(value) => setPhoneValue(value || "")}
                 className="phone-input-custom"
-                placeholder="Введите номер телефона"
+                placeholder={t('settings.enterPhone')}
               />
             </div>
           </div>
@@ -301,9 +317,40 @@ export default function SettingsScreen() {
               disabled={updatePhoneMutation.isPending}
               className="w-full bg-accent hover:bg-accent/90 text-secondary"
             >
-              {updatePhoneMutation.isPending ? "Сохранение..." : "Сохранить"}
+              {updatePhoneMutation.isPending ? t('common.loading') : t('common.save')}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Language Selection Modal */}
+      <Dialog open={isLanguageModalOpen} onOpenChange={setIsLanguageModalOpen}>
+        <DialogContent className="sm:max-w-md bg-gradient-to-br from-green-800 to-green-900 border-green-600/50 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-white">{t('settings.language')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-4">
+            {languages.map((lang) => (
+              <button
+                key={lang.code}
+                onClick={() => handleChangeLanguage(lang.code)}
+                className={`w-full flex items-center justify-between p-4 rounded-xl transition-all ${
+                  i18n.language === lang.code 
+                    ? 'bg-accent/20 border border-accent' 
+                    : 'bg-black/20 hover:bg-black/30'
+                }`}
+                data-testid={`language-${lang.code}`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">{lang.flag}</span>
+                  <span className="text-white font-medium">{lang.name}</span>
+                </div>
+                {i18n.language === lang.code && (
+                  <Check className="w-5 h-5 text-accent" />
+                )}
+              </button>
+            ))}
+          </div>
         </DialogContent>
       </Dialog>
 

@@ -1,14 +1,16 @@
 import { Link, useLocation } from "wouter";
 import { Home, ArrowRightLeft, Wallet, Ticket } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export default function BottomNavigation() {
   const [location] = useLocation();
+  const { t } = useTranslation();
 
   const navItems = [
-    { path: "/home", icon: Home, label: "Home" },
-    { path: "/select-country", icon: ArrowRightLeft, label: "Exchange" },
-    { path: "/wallet", icon: Wallet, label: "Wallet" },
-    { path: "/vouchers", icon: Ticket, label: "Vouchers" },
+    { path: "/home", icon: Home, label: t('nav.home') },
+    { path: "/select-country", icon: ArrowRightLeft, label: t('nav.exchange') },
+    { path: "/wallet", icon: Wallet, label: t('nav.wallet') },
+    { path: "/vouchers", icon: Ticket, label: t('nav.vouchers') },
   ];
 
   return (

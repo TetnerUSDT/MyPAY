@@ -69,7 +69,7 @@
     "securityLevel": "Medium level",
     "securityDesc": "Increase account security",
     "language": "Language",
-    "languageDesc": "Select language will be available in next version",
+    "languageDesc": "Change interface language",
     "devices": "Devices",
     "devicesDesc": "Manage connected devices",
     "support": "Support",
