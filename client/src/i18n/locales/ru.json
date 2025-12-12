@@ -201,6 +201,21 @@
     "send": "Отправить",
     "noMessages": "Сообщений пока нет"
   },
+  "notifications": {
+    "title": "Уведомления",
+    "unreadCount": "Непрочитанных: {{count}}",
+    "markAllRead": "Прочитать все",
+    "noNotifications": "Нет уведомлений",
+    "noNotificationsDesc": "Здесь будут отображаться ваши уведомления",
+    "watchVideo": "Смотреть видео",
+    "openLink": "Открыть ссылку",
+    "types": {
+      "invoice": "Счет",
+      "exchange": "Обмен",
+      "promotion": "Акция",
+      "info": "Инфо"
+    }
+  },
   "history": {
     "title": "История операций",
     "noTransactions": "Нет транзакций",

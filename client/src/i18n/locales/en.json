@@ -201,6 +201,21 @@
     "send": "Send",
     "noMessages": "No messages yet"
   },
+  "notifications": {
+    "title": "Notifications",
+    "unreadCount": "Unread: {{count}}",
+    "markAllRead": "Mark all read",
+    "noNotifications": "No notifications",
+    "noNotificationsDesc": "Your notifications will appear here",
+    "watchVideo": "Watch video",
+    "openLink": "Open link",
+    "types": {
+      "invoice": "Invoice",
+      "exchange": "Exchange",
+      "promotion": "Promotion",
+      "info": "Info"
+    }
+  },
   "history": {
     "title": "Transaction history",
     "noTransactions": "No transactions",

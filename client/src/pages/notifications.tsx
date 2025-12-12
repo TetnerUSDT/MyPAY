@@ -6,8 +6,9 @@ import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { ru } from "date-fns/locale";
+import { ru, enUS } from "date-fns/locale";
 import { formatBalance } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 interface Notification {
   id: number;
@@ -25,7 +26,9 @@ interface Notification {
 }
 
 export default function NotificationsPage() {
+  const { t, i18n } = useTranslation();
   const [, setLocation] = useLocation();
+  const dateLocale = i18n.language === 'ru' ? ru : enUS;
 
   // Get all notifications
   const { data: notifications = [], isLoading } = useQuery<Notification[]>({
@@ -78,14 +81,15 @@ export default function NotificationsPage() {
   };
 
   const getTypeBadge = (type: string) => {
-    const badges = {
-      invoice: { text: 'Счет', color: 'bg-yellow-500' },
-      exchange: { text: 'Обмен', color: 'bg-blue-500' },
-      promotion: { text: 'Акция', color: 'bg-purple-500' },
-      info: { text: 'Инфо', color: 'bg-gray-500' },
+    const colors = {
+      invoice: 'bg-yellow-500',
+      exchange: 'bg-blue-500',
+      promotion: 'bg-purple-500',
+      info: 'bg-gray-500',
     };
-    const badge = badges[type as keyof typeof badges] || badges.info;
-    return <Badge className={`${badge.color} text-white`}>{badge.text}</Badge>;
+    const color = colors[type as keyof typeof colors] || colors.info;
+    const text = t(`notifications.types.${type}`) || t('notifications.types.info');
+    return <Badge className={`${color} text-white`}>{text}</Badge>;
   };
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
@@ -110,9 +114,9 @@ export default function NotificationsPage() {
               </button>
             </Link>
             <div>
-              <h1 className="text-xl font-bold text-white">Уведомления</h1>
+              <h1 className="text-xl font-bold text-white">{t('notifications.title')}</h1>
               {unreadCount > 0 && (
-                <p className="text-xs text-green-200">Непрочитанных: {unreadCount}</p>
+                <p className="text-xs text-green-200">{t('notifications.unreadCount', { count: unreadCount })}</p>
               )}
             </div>
           </div>
@@ -126,7 +130,7 @@ export default function NotificationsPage() {
               data-testid="button-mark-all-read"
             >
               <CheckCheck className="w-4 h-4 mr-1" />
-              Прочитать все
+              {t('notifications.markAllRead')}
             </Button>
           )}
         </div>
@@ -141,8 +145,8 @@ export default function NotificationsPage() {
         ) : notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <Bell className="w-16 h-16 text-green-300/50 mb-4" />
-            <p className="text-lg font-medium text-white">Нет уведомлений</p>
-            <p className="text-sm text-green-200 mt-2">Здесь будут отображаться ваши уведомления</p>
+            <p className="text-lg font-medium text-white">{t('notifications.noNotifications')}</p>
+            <p className="text-sm text-green-200 mt-2">{t('notifications.noNotificationsDesc')}</p>
           </div>
         ) : (
           notifications.map((notification) => (
@@ -165,7 +169,7 @@ export default function NotificationsPage() {
                   <div className="flex items-center gap-2 mb-1">
                     {getTypeBadge(notification.type)}
                     <span className="text-xs text-green-200">
-                      {format(new Date(notification.createdAt), "dd.MM.yyyy 'в' HH:mm", { locale: ru })}
+                      {format(new Date(notification.createdAt), i18n.language === 'ru' ? "dd.MM.yyyy 'в' HH:mm" : "MM/dd/yyyy 'at' HH:mm", { locale: dateLocale })}
                     </span>
                   </div>
                   
@@ -183,14 +187,14 @@ export default function NotificationsPage() {
                     {notification.videoUrl && (
                       <a href={notification.videoUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-blue-300 hover:text-blue-200">
                         <Video className="w-4 h-4" />
-                        <span className="text-sm">Смотреть видео</span>
+                        <span className="text-sm">{t('notifications.watchVideo')}</span>
                       </a>
                     )}
                     
                     {notification.linkUrl && (
                       <a href={notification.linkUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-blue-300 hover:text-blue-200">
                         <ExternalLink className="w-4 h-4" />
-                        <span className="text-sm">Открыть ссылку</span>
+                        <span className="text-sm">{t('notifications.openLink')}</span>
                       </a>
                     )}
                   </div>
