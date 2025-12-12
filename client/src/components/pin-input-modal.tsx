@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 
 interface PinInputModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ export default function PinInputModal({ isOpen, onClose, onSuccess, mode }: PinI
   const [confirmPin, setConfirmPin] = useState("");
   const [step, setStep] = useState<"enter" | "confirm">("enter");
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (isOpen) {
@@ -35,15 +37,15 @@ export default function PinInputModal({ isOpen, onClose, onSuccess, mode }: PinI
     },
     onSuccess: () => {
       toast({
-        title: "Функция в разработке",
-        description: "Код-пароль будет доступен в следующей версии",
+        title: t('security.featureInDevelopment'),
+        description: t('security.pinCodeAvailableSoon'),
       });
       onSuccess();
     },
     onError: () => {
       toast({
-        title: "Ошибка",
-        description: "Не удалось сохранить код-пароль",
+        title: t('security.error'),
+        description: t('security.failedToSavePin'),
         variant: "destructive",
       });
     },
@@ -70,8 +72,8 @@ export default function PinInputModal({ isOpen, onClose, onSuccess, mode }: PinI
               setPinMutation.mutate(newConfirmPin);
             } else {
               toast({
-                title: "Ошибка",
-                description: "Коды не совпадают. Попробуйте снова.",
+                title: t('security.error'),
+                description: t('security.codesDoNotMatch'),
                 variant: "destructive",
               });
               setPin("");
@@ -111,14 +113,14 @@ export default function PinInputModal({ isOpen, onClose, onSuccess, mode }: PinI
       <div className="flex-1 flex flex-col items-center justify-center px-6 pb-20">
         <h1 className="text-2xl font-bold text-white mb-2 text-center" data-testid="text-pin-title">
           {step === "enter" 
-            ? (mode === "set" ? "Установить код-пароль" : "Введите новый код") 
-            : "Повторите код-пароль"}
+            ? (mode === "set" ? t('security.setPinCode') : t('security.enterNewCode')) 
+            : t('security.repeatPinCode')}
         </h1>
         
         <p className="text-green-200 text-sm mb-12 text-center" data-testid="text-pin-subtitle">
           {step === "enter" 
-            ? "Введите 4-значный код" 
-            : "Подтвердите ваш код"}
+            ? t('security.enter4DigitCode') 
+            : t('security.confirmYourCode')}
         </p>
 
         <div className="flex gap-4 mb-16" data-testid="pin-dots-container">
@@ -159,7 +161,7 @@ export default function PinInputModal({ isOpen, onClose, onSuccess, mode }: PinI
                   className="text-sm text-green-200 hover:text-white transition-colors font-medium"
                   data-testid="button-pin-delete"
                 >
-                  Удалить
+                  {t('security.delete')}
                 </button>
               )}
             </div>

@@ -389,7 +389,18 @@
     "twoFactorDesc": "Additional account protection",
     "biometric": "Biometric authentication",
     "biometricDesc": "Use fingerprint or Face ID",
-    "moreMethodsSoon": "More security methods will be available soon"
+    "moreMethodsSoon": "More security methods will be available soon",
+    "setPinCode": "Set PIN code",
+    "enterNewCode": "Enter new code",
+    "repeatPinCode": "Repeat PIN code",
+    "enter4DigitCode": "Enter 4-digit code",
+    "confirmYourCode": "Confirm your code",
+    "delete": "Delete",
+    "featureInDevelopment": "Feature in development",
+    "pinCodeAvailableSoon": "PIN code will be available in the next version",
+    "error": "Error",
+    "failedToSavePin": "Failed to save PIN code",
+    "codesDoNotMatch": "Codes do not match. Please try again."
   },
   "devices": {
     "title": "Active sessions",
