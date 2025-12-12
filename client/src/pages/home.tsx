@@ -259,13 +259,13 @@ export default function HomeScreen() {
         </div>
 
         {/* Quick Actions */}
-        <div className="px-6 flex-1">
+        <div className="px-6 flex-1 mb-6">
           <h3 className="text-lg font-semibold mb-4">Быстрые действия</h3>
           <div className="grid grid-cols-2 gap-4">
             <Link href="/select-country">
               <div className="crypto-card p-4 text-center cursor-pointer hover:bg-white/10 transition-colors" data-testid="quick-action-exchange">
-                <div className="w-12 h-12 rounded-full bg-accent/20 flex items-center justify-center mx-auto mb-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center mx-auto mb-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M7 16V4m0 0L3 8m4-4l4 4m6 4v12m0 0l4-4m-4 4l-4-4"/>
                   </svg>
                 </div>
@@ -276,8 +276,8 @@ export default function HomeScreen() {
             
             <Link href="/wallet">
               <div className="crypto-card p-4 text-center cursor-pointer hover:bg-white/10 transition-colors" data-testid="quick-action-wallet">
-                <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center mx-auto mb-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
+                <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center mx-auto mb-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M21 18v1c0 1.1-.9 2-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14c1.1 0 2 .9 2 2v1h-9a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2zm-9-2h10V8H12zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5"/>
                   </svg>
                 </div>
@@ -288,8 +288,8 @@ export default function HomeScreen() {
             
             <Link href="/loyalty">
               <div className="crypto-card p-4 text-center cursor-pointer hover:bg-white/10 transition-colors" data-testid="quick-action-loyalty">
-                <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center mx-auto mb-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center mx-auto mb-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                   </svg>
                 </div>
@@ -300,8 +300,8 @@ export default function HomeScreen() {
             
             <Link href="/history">
               <div className="crypto-card p-4 text-center cursor-pointer hover:bg-white/10 transition-colors" data-testid="quick-action-history">
-                <div className="w-12 h-12 rounded-full bg-orange-500/20 flex items-center justify-center mx-auto mb-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center mx-auto mb-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-orange-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="12" cy="12" r="10"/>
                     <polyline points="12,6 12,12 16,14"/>
                   </svg>
