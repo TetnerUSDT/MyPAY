@@ -330,7 +330,7 @@ export default function SupportScreen() {
             {/* Header */}
             <DialogHeader className="px-6 py-4 border-b border-white/10">
               <DialogTitle className="text-white text-lg">
-                Тикет #{ticket?.exchangeNumber}
+                {t('support.ticketTitle', { number: ticket?.exchangeNumber })}
               </DialogTitle>
               <div className="mt-2">
                 {ticket && getStatusBadge(ticket.status)}
@@ -385,7 +385,7 @@ export default function SupportScreen() {
             <div className="px-6 py-4 border-t border-white/10">
               <div className="flex items-center space-x-3">
                 <Input
-                  placeholder="Введите сообщение..."
+                  placeholder={t('support.typeMessage')}
                   value={chatMessage}
                   onChange={(e) => setChatMessage(e.target.value)}
                   onKeyPress={(e) => {

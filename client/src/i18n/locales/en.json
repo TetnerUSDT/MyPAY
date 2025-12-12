@@ -199,6 +199,7 @@
     "chat": "Chat",
     "typeMessage": "Type a message...",
     "send": "Send",
+    "ticketTitle": "Ticket #{{number}}",
     "noMessages": "No messages yet"
   },
   "notifications": {

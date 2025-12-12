@@ -199,6 +199,7 @@
     "chat": "Чат",
     "typeMessage": "Введите сообщение...",
     "send": "Отправить",
+    "ticketTitle": "Тикет #{{number}}",
     "noMessages": "Сообщений пока нет"
   },
   "notifications": {
