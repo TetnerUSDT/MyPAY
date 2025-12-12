@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LottieAnimation } from "@/components/LottieAnimation";
 import shareAnimation from "@/assets/Share_1760211406270.json";
+import { useTranslation } from "react-i18next";
 
 interface User {
   id: number;
@@ -25,6 +26,7 @@ interface Referral {
 }
 
 export default function LoyaltyPage() {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("link");
 
@@ -48,8 +50,8 @@ export default function LoyaltyPage() {
     if (user?.codeRef) {
       navigator.clipboard.writeText(user.codeRef);
       toast({
-        title: "Скопировано!",
-        description: "Реферальный код скопирован в буфер обмена",
+        title: t('common.copied'),
+        description: t('loyalty.referralCode'),
       });
     }
   };
@@ -58,20 +60,20 @@ export default function LoyaltyPage() {
     if (referralLink) {
       navigator.clipboard.writeText(referralLink);
       toast({
-        title: "Скопировано!",
-        description: "Реферальная ссылка скопирована в буфер обмена",
+        title: t('common.copied'),
+        description: t('loyalty.referralLink'),
       });
     }
   };
 
   const handleShareLink = () => {
     if (referralLink && window.Telegram?.WebApp) {
-      const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent("Присоединяйся к SwiftX и получи бонусы!")}`;
+      const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent(t('loyalty.joinAndGetBonuses'))}`;
       window.Telegram.WebApp.openTelegramLink(shareUrl);
     } else {
       toast({
-        title: "Ошибка",
-        description: "Невозможно открыть Telegram в текущей среде",
+        title: t('common.error'),
+        description: t('loyalty.telegramError'),
         variant: "destructive",
       });
     }
@@ -82,7 +84,7 @@ export default function LoyaltyPage() {
       {/* Header */}
       <div className="flex items-center justify-between p-6">
         <h1 className="text-xl font-semibold" data-testid="text-loyalty-title">
-          Программа лояльности
+          {t('loyalty.title')}
         </h1>
         <Link href="/settings">
           <button 
@@ -102,14 +104,14 @@ export default function LoyaltyPage() {
               className="data-[state=active]:bg-accent data-[state=active]:text-secondary"
               data-testid="tab-referral-link"
             >
-              Ссылка
+              {t('loyalty.link')}
             </TabsTrigger>
             <TabsTrigger 
               value="partners" 
               className="data-[state=active]:bg-accent data-[state=active]:text-secondary"
               data-testid="tab-my-partners"
             >
-              Мои партнеры
+              {t('loyalty.partners')}
             </TabsTrigger>
           </TabsList>
 
@@ -139,10 +141,10 @@ export default function LoyaltyPage() {
             <div className="space-y-4 bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-green-500/30">
               {/* Referral Code */}
               <div className="space-y-2">
-                <label className="text-sm text-green-200">Реферальный код</label>
+                <label className="text-sm text-green-200">{t('loyalty.referralCode')}</label>
                 <div className="flex items-center gap-2 bg-white/90 rounded-lg py-2 px-4">
                   <span className="flex-1 text-secondary text-lg font-semibold" data-testid="text-referral-code">
-                    {user?.codeRef || "Загрузка..."}
+                    {user?.codeRef || t('common.loading')}
                   </span>
                   <Button
                     variant="ghost"
@@ -158,10 +160,10 @@ export default function LoyaltyPage() {
 
               {/* Referral Link */}
               <div className="space-y-2">
-                <label className="text-sm text-green-200">Реферальная ссылка</label>
+                <label className="text-sm text-green-200">{t('loyalty.referralLink')}</label>
                 <div className="flex items-center gap-2 bg-white/90 rounded-lg py-2 px-4">
                   <span className="flex-1 text-secondary text-lg font-semibold truncate" data-testid="text-referral-link">
-                    {isLoadingLink ? "Загрузка..." : referralLink || "URL бота не настроен"}
+                    {isLoadingLink ? t('common.loading') : referralLink || t('loyalty.botUrlNotConfigured')}
                   </span>
                   <Button
                     variant="ghost"
@@ -184,7 +186,7 @@ export default function LoyaltyPage() {
                 data-testid="button-share-link"
               >
                 <Share2 className="w-6 h-6 mr-2" />
-                Поделиться ссылкой
+                {t('loyalty.shareLink')}
               </Button>
             </div>
           </TabsContent>
@@ -196,8 +198,8 @@ export default function LoyaltyPage() {
                   <Users className="w-10 h-10 text-accent" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold text-white mb-2">Пока нет партнеров</h3>
-                  <p className="text-green-200">Поделитесь реферальной ссылкой, чтобы пригласить друзей</p>
+                  <h3 className="text-xl font-semibold text-white mb-2">{t('loyalty.noPartners')}</h3>
+                  <p className="text-green-200">{t('loyalty.shareToInvite')}</p>
                 </div>
               </div>
             ) : (

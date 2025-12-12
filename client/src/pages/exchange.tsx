@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 
 interface UserCard {
   id: number;
@@ -56,6 +57,7 @@ interface Bank {
 }
 
 export default function ExchangeScreen() {
+  const { t } = useTranslation();
   const searchParams = new URLSearchParams(useSearch());
   const selectedCountryId = searchParams.get('country');
   const exchangeMode = searchParams.get('mode') || 'bank';
@@ -326,23 +328,23 @@ export default function ExchangeScreen() {
       setSelectedCardIdForBank("");
       setIsAddCardModalOpen(false);
       setSelectedCard(newCard.id.toString());
-      toast({ title: "Карта добавлена успешно" });
+      toast({ title: t('exchange.cardAddedSuccess') });
     },
     onError: () => {
-      toast({ title: "Ошибка при добавлении карты", variant: "destructive" });
+      toast({ title: t('exchange.cardAddError'), variant: "destructive" });
     }
   });
 
   const handleAddCard = () => {
     // Validate: обязательные поля
     if (!cardFormData.name || !cardFormData.country || !cardFormData.firstName || !cardFormData.lastName || !cardFormData.phone || !cardFormData.idCard) {
-      toast({ title: "Заполните все обязательные поля", variant: "destructive" });
+      toast({ title: t('common.fillAllFields'), variant: "destructive" });
       return;
     }
     
     // Требуется хотя бы одно: номер карты или номер счета
     if (!cardFormData.number && !cardFormData.accountNumber) {
-      toast({ title: "Заполните номер карты или номер счета", variant: "destructive" });
+      toast({ title: t('exchange.fillCardOrAccount'), variant: "destructive" });
       return;
     }
 
@@ -379,7 +381,7 @@ export default function ExchangeScreen() {
       setCopiedField(fieldName);
       setTimeout(() => setCopiedField(null), 2000);
     } catch (err) {
-      toast({ title: "Ошибка копирования", variant: "destructive" });
+      toast({ title: t('common.copyError'), variant: "destructive" });
     }
   };
 
@@ -395,8 +397,8 @@ export default function ExchangeScreen() {
     },
     onError: (error: any) => {
       toast({
-        title: "Ошибка",
-        description: error.message || "Не удалось создать заявку на обмен",
+        title: t('common.error'),
+        description: error.message || t('exchange.exchangeError'),
         variant: "destructive",
       });
     }
@@ -406,8 +408,8 @@ export default function ExchangeScreen() {
     // Validate inputs
     if (!payBalanceId || !receiveBalanceId) {
       toast({
-        title: "Ошибка",
-        description: "Выберите валюты для обмена",
+        title: t('common.error'),
+        description: t('exchange.selectCurrencies'),
         variant: "destructive",
       });
       return;
@@ -415,8 +417,8 @@ export default function ExchangeScreen() {
 
     if (!payAmount || parseFloat(payAmount) <= 0) {
       toast({
-        title: "Ошибка",
-        description: "Введите корректную сумму",
+        title: t('common.error'),
+        description: t('exchange.enterValidAmount'),
         variant: "destructive",
       });
       return;
@@ -428,8 +430,8 @@ export default function ExchangeScreen() {
       const availableBalance = userBalance ? parseFloat(userBalance.sum) : 0;
       if (parseFloat(payAmount) > availableBalance) {
         toast({
-          title: "Недостаточно средств",
-          description: `Доступно: ${availableBalance.toFixed(2)} ${selectedPaymentBalance?.currency}`,
+          title: t('exchange.insufficientBalance'),
+          description: `${t('common.available')}: ${availableBalance.toFixed(2)} ${selectedPaymentBalance?.currency}`,
           variant: "destructive",
         });
         return;
@@ -439,8 +441,8 @@ export default function ExchangeScreen() {
     // Card validation only for bank mode
     if (!isCryptoMode && !selectedCard) {
       toast({
-        title: "Ошибка",
-        description: "Выберите или введите карту для получения",
+        title: t('common.error'),
+        description: t('exchange.selectOrEnterCard'),
         variant: "destructive",
       });
       return;
@@ -450,8 +452,8 @@ export default function ExchangeScreen() {
     if (isCryptoMode && paymentMethod === 'blockchain') {
       if (!walletAddress) {
         toast({
-          title: "Ошибка",
-          description: "Введите адрес кошелька для получения",
+          title: t('common.error'),
+          description: t('exchange.enterWalletAddress'),
           variant: "destructive",
         });
         return;
@@ -464,8 +466,8 @@ export default function ExchangeScreen() {
           const pattern = new RegExp(receiveBalance.pattern);
           if (!pattern.test(walletAddress)) {
             toast({
-              title: "Неверный формат адреса",
-              description: `Адрес кошелька должен соответствовать формату сети ${receiveBalance.network || receiveBalance.currency}`,
+              title: t('exchange.invalidAddress'),
+              description: t('exchange.addressMustMatchNetwork', { network: receiveBalance.network || receiveBalance.currency }),
               variant: "destructive",
             });
             return;
@@ -480,8 +482,8 @@ export default function ExchangeScreen() {
     const selectedPaymentBalance = paymentBalances.find(b => b.id === payBalanceId);
     if (!selectedPaymentBalance) {
       toast({
-        title: "Ошибка",
-        description: "Не удалось определить валюту для оплаты",
+        title: t('common.error'),
+        description: t('exchange.cannotDetectPayCurrency'),
         variant: "destructive",
       });
       return;
@@ -491,8 +493,8 @@ export default function ExchangeScreen() {
     const network = selectedPaymentBalance.network;
     if (!network) {
       toast({
-        title: "Ошибка",
-        description: "Не удалось определить сеть для оплаты",
+        title: t('common.error'),
+        description: t('exchange.cannotDetectNetwork'),
         variant: "destructive",
       });
       return;
@@ -528,7 +530,7 @@ export default function ExchangeScreen() {
         {/* Header */}
         <div className="flex items-center justify-between p-6">
           <h1 className="text-xl font-semibold" data-testid="text-exchange-title">
-            Произвести обмен
+            {t('exchange.title')}
           </h1>
           <Link href="/select-country">
             <button 
@@ -553,7 +555,7 @@ export default function ExchangeScreen() {
               data-testid="tab-exchange"
             >
               <RefreshCw className="w-4 h-4 mr-2" />
-              Обмен
+              {t('exchange.tabs.exchange')}
             </button>
             <button
               className={`flex-1 flex items-center justify-center px-6 py-3 rounded-full transition-all ${
@@ -565,7 +567,7 @@ export default function ExchangeScreen() {
               data-testid="tab-settings"
             >
               <SettingsIcon className="w-4 h-4 mr-2" />
-              Настройки
+              {t('exchange.tabs.settings')}
             </button>
           </div>
         </div>
@@ -577,7 +579,7 @@ export default function ExchangeScreen() {
             {/* Pay Amount */}
             <div className="crypto-card">
               <div className="flex items-center justify-between mb-3">
-                <div className="text-sm text-muted-foreground">Платите</div>
+                <div className="text-sm text-muted-foreground">{t('exchange.youPay')}</div>
                 <div className="flex gap-1">
                   <button
                     onClick={() => setPaymentMethod('blockchain')}
@@ -599,7 +601,7 @@ export default function ExchangeScreen() {
                     }`}
                     data-testid="button-payment-balance"
                   >
-                    Баланс
+                    {t('exchange.balance')}
                   </button>
                 </div>
               </div>
@@ -617,7 +619,7 @@ export default function ExchangeScreen() {
                   onValueChange={(value) => setPayBalanceId(parseInt(value))}
                 >
                   <SelectTrigger className="min-w-36 bg-secondary border-0 text-white font-medium px-4 py-2 ml-4" data-testid="select-pay-currency">
-                    <SelectValue placeholder="Выберите валюту" />
+                    <SelectValue placeholder={t('exchange.selectCurrency')} />
                   </SelectTrigger>
                   <SelectContent>
                     {filteredPaymentBalances.map((balance: any) => (
@@ -630,7 +632,7 @@ export default function ExchangeScreen() {
               </div>
               {paymentMethod === 'balance' && userBalance && (
                 <div className="mt-3 text-sm text-muted-foreground">
-                  Доступно: {parseFloat(userBalance.sum).toFixed(2)} {paymentBalances.find(b => b.id === payBalanceId)?.currency}
+                  {t('common.available')}: {parseFloat(userBalance.sum).toFixed(2)} {paymentBalances.find(b => b.id === payBalanceId)?.currency}
                 </div>
               )}
             </div>
@@ -644,7 +646,7 @@ export default function ExchangeScreen() {
 
             {/* Receive Amount */}
             <div className="crypto-card">
-              <div className="text-sm text-muted-foreground mb-3">Получите</div>
+              <div className="text-sm text-muted-foreground mb-3">{t('exchange.youReceive')}</div>
               <div className="flex items-center justify-between">
                 <input
                   type="text"
@@ -658,7 +660,7 @@ export default function ExchangeScreen() {
                   onValueChange={(value) => setReceiveBalanceId(parseInt(value))}
                 >
                   <SelectTrigger className="min-w-36 bg-secondary border-0 text-white font-medium px-4 py-2 ml-4" data-testid="select-receive-currency">
-                    <SelectValue placeholder="Выберите валюту" />
+                    <SelectValue placeholder={t('exchange.selectCurrency')} />
                   </SelectTrigger>
                   <SelectContent>
                     {filteredReceiveBalances.map((balance: any) => (
@@ -683,7 +685,7 @@ export default function ExchangeScreen() {
             {/* Card Selection - Only for Bank Mode */}
             {!isCryptoMode && (
               <div className="crypto-card">
-                <div className="text-sm text-muted-foreground mb-3">Выберите карту</div>
+                <div className="text-sm text-muted-foreground mb-3">{t('exchange.selectCard')}</div>
                 <div className="space-y-3">
                   <Select 
                     value={selectedCard} 
@@ -696,7 +698,7 @@ export default function ExchangeScreen() {
                     }}
                   >
                     <SelectTrigger className="w-full bg-secondary border-0 text-white font-medium" data-testid="select-card">
-                      <SelectValue placeholder="Выберите карту" />
+                      <SelectValue placeholder={t('exchange.selectCard')} />
                     </SelectTrigger>
                     <SelectContent>
                       {cardOptions.map((option) => (
@@ -705,7 +707,7 @@ export default function ExchangeScreen() {
                         </SelectItem>
                       ))}
                       <SelectItem value="add_card">
-                        ➕ Добавить карту
+                        ➕ {t('exchange.addCard')}
                       </SelectItem>
                     </SelectContent>
                   </Select>
@@ -740,7 +742,7 @@ export default function ExchangeScreen() {
             {/* Wallet Address Input - Only for Crypto Mode with Blockchain Payment */}
             {isCryptoMode && paymentMethod === 'blockchain' && (
               <div className="crypto-card">
-                <div className="text-sm text-muted-foreground mb-3">Адрес кошелька для получения</div>
+                <div className="text-sm text-muted-foreground mb-3">{t('exchange.walletAddress')}</div>
                 <div className="space-y-3">
                   <Input
                     value={walletAddress}
@@ -754,16 +756,11 @@ export default function ExchangeScreen() {
                         ? 'EQ...'
                         : filteredReceiveBalances.find(b => b.id === receiveBalanceId)?.network === 'Polygon'
                         ? '0x...'
-                        : 'Введите адрес кошелька'
+                        : t('exchange.enterWalletAddress')
                     }
                     className="w-full bg-secondary border-0 text-white font-medium px-4 py-3 rounded-lg"
                     data-testid="input-wallet-address"
                   />
-                  {walletAddress && (
-                    <div className="text-xs text-muted-foreground">
-                      Убедитесь, что адрес соответствует сети {filteredReceiveBalances.find(b => b.id === receiveBalanceId)?.network}
-                    </div>
-                  )}
                 </div>
               </div>
             )}
@@ -772,8 +769,8 @@ export default function ExchangeScreen() {
             /* Settings Content */
             <div className="text-center py-12">
               <SettingsIcon className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-white mb-2">Настройки</h3>
-              <p className="text-muted-foreground">Здесь будут настройки обмена</p>
+              <h3 className="text-lg font-semibold text-white mb-2">{t('exchange.tabs.settings')}</h3>
+              <p className="text-muted-foreground">{t('common.comingSoon')}</p>
             </div>
           )}
         </div>
@@ -795,7 +792,7 @@ export default function ExchangeScreen() {
             disabled={createExchangeMutation.isPending}
             data-testid="button-continue-payment"
           >
-            {createExchangeMutation.isPending ? "Создание заявки..." : "Перейти к обмену"}
+            {createExchangeMutation.isPending ? t('common.creating') : t('exchange.proceedToExchange')}
             {!createExchangeMutation.isPending && <ArrowRight className="w-5 h-5 ml-2" />}
           </button>
         </div>
@@ -805,7 +802,7 @@ export default function ExchangeScreen() {
       <Dialog open={isAddCardModalOpen} onOpenChange={setIsAddCardModalOpen}>
         <DialogContent className="mobile-screen bg-secondary border-none text-white max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-white">Добавление карты</DialogTitle>
+            <DialogTitle className="text-white">{t('exchange.addCard')}</DialogTitle>
           </DialogHeader>
           
           <div className="crypto-card mt-4">
@@ -820,7 +817,7 @@ export default function ExchangeScreen() {
               {/* Card Name */}
               <div>
                 <Label htmlFor="cardName" className="text-white mb-2 block">
-                  Введите название для карты
+                  {t('exchange.cardName')}
                 </Label>
                 <Input
                   id="cardName"
@@ -835,7 +832,7 @@ export default function ExchangeScreen() {
               {/* First Name */}
               <div>
                 <Label htmlFor="firstName" className="text-white mb-2 block">
-                  Имя (латинницей)
+                  {t('exchange.firstName')}
                 </Label>
                 <Input
                   id="firstName"
@@ -850,7 +847,7 @@ export default function ExchangeScreen() {
               {/* Last Name */}
               <div>
                 <Label htmlFor="lastName" className="text-white mb-2 block">
-                  Фамилия (латинницей)
+                  {t('exchange.lastName')}
                 </Label>
                 <Input
                   id="lastName"
@@ -865,7 +862,7 @@ export default function ExchangeScreen() {
               {/* Phone Number */}
               <div>
                 <Label htmlFor="phone" className="text-white mb-2 block">
-                  Номер телефона
+                  {t('exchange.phone')}
                 </Label>
                 <Input
                   id="phone"
@@ -880,7 +877,7 @@ export default function ExchangeScreen() {
               {/* Country Selection */}
               <div>
                 <Label className="text-white mb-2 block">
-                  Выберите страну
+                  {t('exchange.country')}
                 </Label>
                 <Select
                   value={cardFormData.idCard}
@@ -896,7 +893,7 @@ export default function ExchangeScreen() {
                   }}
                 >
                   <SelectTrigger className="input-field" data-testid="select-country">
-                    <SelectValue placeholder="Выберите страну" />
+                    <SelectValue placeholder={t('exchange.selectCountryCard')} />
                   </SelectTrigger>
                   <SelectContent>
                     {activeCards.map(card => (
@@ -912,7 +909,7 @@ export default function ExchangeScreen() {
               {banks.length > 0 && (
                 <div>
                   <Label className="text-white mb-2 block">
-                    Выберите банк
+                    {t('exchange.selectBank')}
                   </Label>
                   <Select
                     value={cardFormData.idBank}
@@ -924,7 +921,7 @@ export default function ExchangeScreen() {
                     }}
                   >
                     <SelectTrigger className="input-field" data-testid="select-bank">
-                      <SelectValue placeholder="Выберите банк" />
+                      <SelectValue placeholder={t('exchange.selectBank')} />
                     </SelectTrigger>
                     <SelectContent>
                       {banks.map(bank => (
@@ -940,7 +937,7 @@ export default function ExchangeScreen() {
               {/* Card Number */}
               <div>
                 <Label htmlFor="cardNumber" className="text-white mb-2 block">
-                  Введите номер карты (необязательно)
+                  {t('exchange.cardNumber')} ({t('exchange.optional')})
                 </Label>
                 <Input
                   id="cardNumber"
@@ -955,7 +952,7 @@ export default function ExchangeScreen() {
               {/* Account Number */}
               <div>
                 <Label htmlFor="accountNumber" className="text-white mb-2 block">
-                  Номер счета (20 цифр, необязательно)
+                  {t('exchange.accountNumber')} ({t('exchange.optional')})
                 </Label>
                 <Input
                   id="accountNumber"
@@ -966,7 +963,7 @@ export default function ExchangeScreen() {
                   data-testid="input-account-number"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Заполните номер карты и/или номер счета (минимум одно поле)
+                  {t('exchange.fillCardOrAccount')}
                 </p>
               </div>
             </div>
@@ -978,7 +975,7 @@ export default function ExchangeScreen() {
               onClick={handleAddCard}
               data-testid="button-save-card"
             >
-              Сохранить карту
+              {t('common.save')}
             </Button>
           </div>
         </DialogContent>
@@ -988,7 +985,7 @@ export default function ExchangeScreen() {
       <Dialog open={isCardDetailsModalOpen} onOpenChange={setIsCardDetailsModalOpen}>
         <DialogContent className="mobile-screen bg-secondary border-none text-white">
           <DialogHeader>
-            <DialogTitle className="text-white">Реквизиты карты</DialogTitle>
+            <DialogTitle className="text-white">{t('exchange.cardDetails')}</DialogTitle>
           </DialogHeader>
           
           {selectedCard && selectedCard !== 'add_card' && (() => {

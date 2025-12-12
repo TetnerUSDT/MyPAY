@@ -9,6 +9,7 @@ import StyledQRCodeComponent from "@/components/styled-qr-code";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getBalanceIcon } from "@/lib/balanceIcons";
+import { useTranslation } from "react-i18next";
 
 interface ReservedWallet {
   id: number;
@@ -39,6 +40,7 @@ interface UserBalance {
 }
 
 export default function TopUpScreen() {
+  const { t } = useTranslation();
   const [activeBalance, setActiveBalance] = useState<UserBalance | null>(null);
   const [copied, setCopied] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<string>("");
@@ -72,8 +74,8 @@ export default function TopUpScreen() {
     },
     onError: (error: any) => {
       toast({
-        title: "Ошибка",
-        description: error.message || "Не удалось создать заявку на пополнение",
+        title: t('common.error'),
+        description: error.message || t('topUp.createTopupError'),
         variant: "destructive",
       });
     }
@@ -159,14 +161,14 @@ export default function TopUpScreen() {
       await copyToClipboard(displayValue);
       setCopied(true);
       toast({
-        title: "Скопировано!",
-        description: "Адрес кошелька скопирован в буфер обмена",
+        title: t('common.copied'),
+        description: t('topUp.addressCopied'),
       });
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       toast({
-        title: "Ошибка",
-        description: "Не удалось скопировать",
+        title: t('common.error'),
+        description: t('topUp.copyError'),
         variant: "destructive",
       });
     }
@@ -188,7 +190,7 @@ export default function TopUpScreen() {
     <div className="mobile-screen text-white overflow-y-auto pb-20">
       <div className="mobile-content">
         <h1 className="text-2xl font-bold text-center mb-8" data-testid="text-title">
-          Пополнить {activeBalance?.currency || ""}
+          {t('topUp.topUpCurrency', { currency: activeBalance?.currency || "" })}
         </h1>
         
         {/* Crypto Currency Selector Dropdown */}
@@ -204,7 +206,7 @@ export default function TopUpScreen() {
               className="w-full bg-secondary border-0 h-14"
               data-testid="select-crypto-currency"
             >
-              <SelectValue placeholder="Выберите криптовалюту">
+              <SelectValue placeholder={t('topUp.selectCrypto')}>
                 {activeBalance && (
                   <div className="flex items-center">
                     <img 

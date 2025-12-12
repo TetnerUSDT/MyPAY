@@ -17,9 +17,10 @@ import { ru } from "date-fns/locale";
 import Lottie from "lottie-react";
 import voucherAnimation from "@assets/VOUCHER_1761385257411.json";
 import QRScanner, { QRScannerButton } from "@/components/qr-scanner";
+import { useTranslation } from "react-i18next";
 
 // Helper function to get user-friendly error messages
-function getErrorMessage(error: any): string {
+function getErrorMessage(error: any, t: (key: string) => string): string {
   // Try to extract message from different error formats
   let message = '';
   
@@ -40,17 +41,17 @@ function getErrorMessage(error: any): string {
   
   // Common error patterns
   const errorMap: Record<string, string> = {
-    'Voucher not found': 'Ваучер не найден',
-    'Insufficient balance': 'Недостаточно средств',
-    'Invalid voucher code': 'Неверный код ваучера',
-    'Voucher already activated': 'Ваучер уже активирован',
-    'Voucher is not active': 'Ваучер недействителен',
-    'Voucher expired': 'Срок действия ваучера истек',
-    'Invalid security value': 'Неверный PIN-код или пароль',
-    'Security code is required': 'Требуется код защиты',
-    'Invalid security code': 'Неверный код защиты',
-    'Internal server error': 'Ошибка сервера. Попробуйте позже',
-    'Unauthorized': 'Необходима авторизация',
+    'Voucher not found': t('vouchers.errors.voucherNotFound'),
+    'Insufficient balance': t('vouchers.errors.insufficientBalance'),
+    'Invalid voucher code': t('vouchers.errors.invalidCode'),
+    'Voucher already activated': t('vouchers.errors.alreadyActivated'),
+    'Voucher is not active': t('vouchers.errors.notActive'),
+    'Voucher expired': t('vouchers.errors.expired'),
+    'Invalid security value': t('vouchers.errors.invalidSecurity'),
+    'Security code is required': t('vouchers.errors.securityRequired'),
+    'Invalid security code': t('vouchers.errors.invalidSecurityCode'),
+    'Internal server error': t('vouchers.errors.serverError'),
+    'Unauthorized': t('vouchers.errors.unauthorized'),
   };
   
   // Check for exact match
@@ -61,7 +62,7 @@ function getErrorMessage(error: any): string {
   }
   
   // Return original message if no mapping found
-  return message || 'Произошла ошибка';
+  return message || t('vouchers.errors.genericError');
 }
 
 interface Voucher {
@@ -100,6 +101,7 @@ interface VoucherCheckResponse {
 }
 
 export default function VouchersPage() {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("active");
@@ -169,14 +171,14 @@ export default function VouchersPage() {
       setIsCreateDialogOpen(false);
       resetCreateForm();
       toast({
-        title: "Ваучер создан!",
-        description: "Ваучер успешно создан и средства списаны с баланса",
+        title: t('vouchers.voucherCreated'),
+        description: t('vouchers.voucherCreatedDesc'),
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Ошибка",
-        description: getErrorMessage(error),
+        title: t('common.error'),
+        description: getErrorMessage(error, t),
         variant: "destructive",
       });
     },
@@ -190,8 +192,8 @@ export default function VouchersPage() {
     onSuccess: (data: VoucherCheckResponse) => {
       if (data.status !== 'active') {
         toast({
-          title: "Ошибка",
-          description: "Этот ваучер уже был использован или истек",
+          title: t('common.error'),
+          description: t('vouchers.voucherAlreadyUsed'),
           variant: "destructive",
         });
         return;
@@ -208,8 +210,8 @@ export default function VouchersPage() {
     },
     onError: (error: any) => {
       toast({
-        title: "Ошибка",
-        description: getErrorMessage(error),
+        title: t('common.error'),
+        description: getErrorMessage(error, t),
         variant: "destructive",
       });
     },
@@ -229,8 +231,8 @@ export default function VouchersPage() {
       ]);
       
       toast({
-        title: "Успешно!",
-        description: `Ваучер активирован. Начислено ${data.amount} ${data.currency}`,
+        title: t('vouchers.voucherActivated'),
+        description: t('vouchers.voucherActivatedDesc', { amount: data.amount, currency: data.currency }),
       });
       
       setIsSecurityDialogOpen(false);
@@ -239,8 +241,8 @@ export default function VouchersPage() {
     },
     onError: (error: any) => {
       toast({
-        title: "Ошибка",
-        description: getErrorMessage(error),
+        title: t('common.error'),
+        description: getErrorMessage(error, t),
         variant: "destructive",
       });
     },
@@ -262,8 +264,8 @@ export default function VouchersPage() {
   const handleCreateVoucher = () => {
     if (!selectedBalance) {
       toast({
-        title: "Ошибка",
-        description: "Выберите валюту",
+        title: t('common.error'),
+        description: t('vouchers.selectBalance'),
         variant: "destructive",
       });
       return;
@@ -271,8 +273,8 @@ export default function VouchersPage() {
 
     if (!amount || parseFloat(amount) <= 0) {
       toast({
-        title: "Ошибка",
-        description: "Введите корректную сумму",
+        title: t('common.error'),
+        description: t('exchange.enterValidAmount'),
         variant: "destructive",
       });
       return;
@@ -280,8 +282,8 @@ export default function VouchersPage() {
 
     if (securityType !== 'none' && !securityValue) {
       toast({
-        title: "Ошибка",
-        description: securityType === 'pin' ? "Введите PIN-код" : "Введите пароль",
+        title: t('common.error'),
+        description: securityType === 'pin' ? t('vouchers.enterPinCode') : t('vouchers.enterSecurityWord'),
         variant: "destructive",
       });
       return;
@@ -289,8 +291,8 @@ export default function VouchersPage() {
 
     if (securityType === 'pin' && !/^\d{4,6}$/.test(securityValue)) {
       toast({
-        title: "Ошибка",
-        description: "PIN-код должен содержать от 4 до 6 цифр",
+        title: t('common.error'),
+        description: t('vouchers.enterPinCode'),
         variant: "destructive",
       });
       return;
@@ -325,8 +327,8 @@ export default function VouchersPage() {
   const handleCheckVoucher = () => {
     if (!voucherCode || voucherCode.length !== 15) {
       toast({
-        title: "Ошибка",
-        description: "Введите полный код ваучера (15 символов)",
+        title: t('common.error'),
+        description: t('vouchers.enterVoucherCode'),
         variant: "destructive",
       });
       return;
@@ -334,8 +336,8 @@ export default function VouchersPage() {
 
     if (!voucherCode.startsWith('V') || !voucherCode.endsWith('D')) {
       toast({
-        title: "Ошибка",
-        description: "Неверный формат кода ваучера",
+        title: t('common.error'),
+        description: t('vouchers.errors.invalidCode'),
         variant: "destructive",
       });
       return;
@@ -347,8 +349,8 @@ export default function VouchersPage() {
   const handleActivateWithSecurity = () => {
     if (!activationSecurityValue) {
       toast({
-        title: "Ошибка",
-        description: voucherInfo?.securityType === 'pin' ? "Введите PIN-код" : "Введите пароль",
+        title: t('common.error'),
+        description: voucherInfo?.securityType === 'pin' ? t('vouchers.enterPinToActivate') : t('vouchers.enterWordToActivate'),
         variant: "destructive",
       });
       return;

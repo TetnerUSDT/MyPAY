@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
+import { useTranslation } from "react-i18next";
 
 type ExchangeStatus = "wait" | "wait-paid" | "paid" | "complete" | "canceled" | "dispute";
 
@@ -34,6 +35,7 @@ interface ExchangeHistory {
 }
 
 export default function HistoryScreen() {
+  const { t } = useTranslation();
   const [offset, setOffset] = useState(0);
   const [allExchanges, setAllExchanges] = useState<ExchangeHistory[]>([]);
   const [hasMore, setHasMore] = useState(true);
@@ -113,7 +115,7 @@ export default function HistoryScreen() {
             <div className="w-6 h-6 rounded-full bg-green-400 flex items-center justify-center mr-2">
               <Check className="w-4 h-4 text-white" />
             </div>
-            <span className="text-sm">Заявка выполнена успешно</span>
+            <span className="text-sm">{t('history.status.complete')}</span>
           </div>
         );
       case "wait":
@@ -123,7 +125,7 @@ export default function HistoryScreen() {
               <div className="w-6 h-6 rounded-full bg-yellow-400 flex items-center justify-center mr-2">
                 <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
               </div>
-              <span className="text-sm">В ожидании</span>
+              <span className="text-sm">{t('history.status.wait')}</span>
             </div>
             {hasTimer && (
               <div className="flex items-center text-yellow-400">
@@ -139,7 +141,7 @@ export default function HistoryScreen() {
             <div className="w-6 h-6 rounded-full bg-blue-400 flex items-center justify-center mr-2">
               <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
             </div>
-            <span className="text-sm">Ожидаем подтверждения</span>
+            <span className="text-sm">{t('history.status.waitPaid')}</span>
           </div>
         );
       case "paid":
@@ -148,7 +150,7 @@ export default function HistoryScreen() {
             <div className="w-6 h-6 rounded-full bg-green-400 flex items-center justify-center mr-2">
               <div className="w-2 h-2 bg-white rounded-full" />
             </div>
-            <span className="text-sm">Оплачено, обрабатывается</span>
+            <span className="text-sm">{t('history.status.paid')}</span>
           </div>
         );
       case "canceled":
@@ -157,7 +159,7 @@ export default function HistoryScreen() {
             <div className="w-6 h-6 rounded-full bg-red-400 flex items-center justify-center mr-2">
               <X className="w-4 h-4 text-white" />
             </div>
-            <span className="text-sm">Отменена</span>
+            <span className="text-sm">{t('history.status.canceled')}</span>
           </div>
         );
       case "dispute":
@@ -166,7 +168,7 @@ export default function HistoryScreen() {
             <div className="w-6 h-6 rounded-full bg-orange-400 flex items-center justify-center mr-2">
               <div className="w-3 h-3 text-white font-bold">!</div>
             </div>
-            <span className="text-sm">Спор</span>
+            <span className="text-sm">{t('history.status.dispute')}</span>
           </div>
         );
       default:
@@ -181,7 +183,7 @@ export default function HistoryScreen() {
           {/* Header */}
           <div className="flex items-center justify-between p-6">
             <h1 className="text-xl font-semibold" data-testid="text-history-title">
-              История операций
+              {t('history.title')}
             </h1>
             <Link href="/home">
               <button 
@@ -197,11 +199,11 @@ export default function HistoryScreen() {
           <div className="flex-1 px-6 pb-4 overflow-y-auto">
             {isLoading && offset === 0 ? (
               <div className="text-center py-8">
-                <div className="text-muted-foreground">Загрузка...</div>
+                <div className="text-muted-foreground">{t('common.loading')}</div>
               </div>
             ) : allExchanges.length === 0 ? (
               <div className="text-center py-8">
-                <div className="text-muted-foreground">История операций пуста</div>
+                <div className="text-muted-foreground">{t('history.emptyHistory')}</div>
               </div>
             ) : (
               <div className="space-y-4">
@@ -215,7 +217,7 @@ export default function HistoryScreen() {
                     <div className="flex justify-between items-start mb-4">
                       <div>
                         <h3 className="text-sm text-muted-foreground">
-                          Обмен средств
+                          {t('history.exchangeFunds')}
                         </h3>
                         <p className="text-xs text-muted-foreground">
                           {new Date(exchange.timestamp).toLocaleString('ru-RU')}

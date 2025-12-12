@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import BottomNavigation from "@/components/bottom-navigation";
+import { useTranslation } from "react-i18next";
 
 // Images from public directory - use direct URLs
 const supportAvatar = "/uploads/support/avatar.jpg";
@@ -33,6 +34,7 @@ interface Ticket {
 }
 
 export default function SupportScreen() {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [isDisputeModalOpen, setIsDisputeModalOpen] = useState(false);
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
@@ -73,8 +75,8 @@ export default function SupportScreen() {
     },
     onSuccess: () => {
       toast({
-        title: "Тикет создан",
-        description: "Ваш тикет был успешно создан. Поддержка ответит в ближайшее время.",
+        title: t('support.ticketCreated'),
+        description: t('support.ticketCreatedDesc'),
       });
       queryClient.invalidateQueries({ queryKey: ["/api/support/tickets/open"] });
       setTicketNumber("");
@@ -83,8 +85,8 @@ export default function SupportScreen() {
     },
     onError: (error: any) => {
       toast({
-        title: "Ошибка",
-        description: error.message || "Не удалось создать тикет",
+        title: t('common.error'),
+        description: error.message || t('support.ticketCreateError'),
         variant: "destructive",
       });
     },
@@ -103,8 +105,8 @@ export default function SupportScreen() {
     },
     onError: (error: any) => {
       toast({
-        title: "Ошибка",
-        description: error.message || "Не удалось отправить сообщение",
+        title: t('common.error'),
+        description: error.message || t('support.sendMessageError'),
         variant: "destructive",
       });
     },
@@ -113,8 +115,8 @@ export default function SupportScreen() {
   const handleOpenDispute = () => {
     if (!ticketNumber.trim() || !disputeMessage.trim()) {
       toast({
-        title: "Ошибка",
-        description: "Заполните все поля",
+        title: t('common.error'),
+        description: t('common.fillAllFields'),
         variant: "destructive",
       });
       return;
@@ -142,13 +144,13 @@ export default function SupportScreen() {
       case "wait-user":
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-400/20 text-yellow-400">
-            Ожидает вашего ответа
+            {t('support.waitingYourResponse')}
           </span>
         );
       case "wait-support":
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-400/20 text-white">
-            Ожидает ответа
+            {t('support.waitingSupport')}
           </span>
         );
       default:
@@ -165,7 +167,7 @@ export default function SupportScreen() {
       {/* Header */}
       <div className="text-center py-8">
         <h1 className="text-2xl font-bold mb-4" data-testid="text-title">
-          Вы не получили средства?
+          {t('support.title')}
         </h1>
         
         {/* Support Icon */}
@@ -177,7 +179,7 @@ export default function SupportScreen() {
         </div>
         
         <p className="text-sm text-muted-foreground px-6">
-          Если вы уверены что средства на вашу карту не поступили, задайте вопрос консультанту если не поможет, откройте спор
+          {t('support.subtitle')}
         </p>
       </div>
       
@@ -214,7 +216,7 @@ export default function SupportScreen() {
             className="action-button flex items-center justify-between animate-vibrate"
             data-testid="button-telegram-support"
           >
-            <span className="font-medium">Обратиться за помощью</span>
+            <span className="font-medium">{t('support.contactSupport')}</span>
             <svg 
               xmlns="http://www.w3.org/2000/svg" 
               width="24" 
@@ -241,14 +243,14 @@ export default function SupportScreen() {
             data-testid="widget-open-ticket"
           >
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold">Открытый тикет</h3>
+              <h3 className="text-lg font-semibold">{t('support.openTicket')}</h3>
               {getStatusBadge(ticket.status)}
             </div>
             <div className="text-sm text-muted-foreground mb-2">
-              Заявка: <span className="font-mono text-accent">{ticket.exchangeNumber}</span>
+              {t('support.ticketNumber')}: <span className="font-mono text-accent">{ticket.exchangeNumber}</span>
             </div>
             <div className="text-xs text-muted-foreground">
-              Кликните чтобы открыть чат
+              {t('support.clickToOpenChat')}
             </div>
           </div>
         </div>
@@ -264,14 +266,14 @@ export default function SupportScreen() {
               data-testid="button-open-dispute"
               disabled={!!ticket}
             >
-              {ticket ? "У вас уже есть открытый тикет" : "Открыть спор"}
+              {ticket ? t('support.haveOpenTicket') : t('support.openDispute')}
             </button>
           </DialogTrigger>
           <DialogContent className="mobile-screen bg-secondary border-none text-white">
             <DialogHeader>
-              <DialogTitle className="text-white">Открыть спор</DialogTitle>
+              <DialogTitle className="text-white">{t('support.disputeTitle')}</DialogTitle>
               <DialogDescription className="text-gray-300">
-                Заполните форму для открытия спора по вашей заявке
+                {t('support.disputeDesc')}
               </DialogDescription>
             </DialogHeader>
             
@@ -280,11 +282,11 @@ export default function SupportScreen() {
                 {/* Ticket Number */}
                 <div>
                   <Label htmlFor="ticket-number" className="text-white mb-2 block">
-                    Номер заявки
+                    {t('support.ticketNumber')}
                   </Label>
                   <Input
                     id="ticket-number"
-                    placeholder="Введите номер заявки"
+                    placeholder={t('support.enterTicketNumber')}
                     value={ticketNumber}
                     onChange={(e) => setTicketNumber(e.target.value)}
                     className="input-field"
@@ -295,11 +297,11 @@ export default function SupportScreen() {
                 {/* Dispute Message */}
                 <div>
                   <Label htmlFor="dispute-message" className="text-white mb-2 block">
-                    Сообщение
+                    {t('support.message')}
                   </Label>
                   <Textarea
                     id="dispute-message"
-                    placeholder="Опишите вашу проблему..."
+                    placeholder={t('support.describeIssue')}
                     value={disputeMessage}
                     onChange={(e) => setDisputeMessage(e.target.value)}
                     className="input-field"
@@ -315,7 +317,7 @@ export default function SupportScreen() {
                   data-testid="button-submit-dispute"
                   disabled={createTicketMutation.isPending}
                 >
-                  {createTicketMutation.isPending ? "Создание..." : "Открыть спор"}
+                  {createTicketMutation.isPending ? t('common.creating') : t('support.openDispute')}
                 </button>
               </div>
             </div>
