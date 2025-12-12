@@ -443,9 +443,12 @@
     "serviceUnavailable": "Service temporarily unavailable",
     "tryAgainLater": "Please try again later",
     "processing": "Processing...",
-    "submit": "Submit",
+    "submit": "Send",
     "balance": "Balance",
-    "enterAmount": "Enter amount to send"
+    "enterAmount": "Enter amount to send",
+    "enterWalletInNetwork": "Enter wallet in {{network}} network",
+    "enterAddress": "Enter {{network}} address",
+    "feeWillBe": "Fee will be"
   },
   "cards": {
     "addSuccess": "Card added successfully",

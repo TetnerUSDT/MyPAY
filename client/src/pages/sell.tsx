@@ -231,11 +231,11 @@ export default function SellScreen() {
         </div>
         
         <div className="crypto-card mb-6">
-          <div className="text-sm text-muted-foreground mb-2">Введите кошелек в сети {activeNetwork}</div>
+          <div className="text-sm text-muted-foreground mb-2">{t('sell.enterWalletInNetwork', { network: activeNetwork })}</div>
           <div className="bg-secondary rounded-lg px-4 py-3">
             <input
               type="text"
-              placeholder={`Введите адрес ${activeNetwork}`}
+              placeholder={t('sell.enterAddress', { network: activeNetwork })}
               className="w-full bg-transparent font-mono text-sm outline-none input-field"
               value={walletAddress}
               onChange={(e) => setWalletAddress(e.target.value)}
@@ -245,7 +245,7 @@ export default function SellScreen() {
         </div>
         
         <div className="text-center mb-8">
-          <div className="text-sm text-muted-foreground">Комиссия составит</div>
+          <div className="text-sm text-muted-foreground">{t('sell.feeWillBe')}</div>
           <div 
             className="text-lg font-semibold text-yellow-400"
             data-testid="text-commission"
@@ -260,7 +260,7 @@ export default function SellScreen() {
           disabled={!isValidTransaction || sellMutation.isPending}
           data-testid="button-send"
         >
-          {sellMutation.isPending ? "Обработка..." : "Отправить"}
+          {sellMutation.isPending ? t('sell.processing') : t('sell.submit')}
           <ArrowRight className="w-5 h-5 ml-2" />
         </button>
       </div>

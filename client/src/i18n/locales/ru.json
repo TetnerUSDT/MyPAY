@@ -445,7 +445,10 @@
     "processing": "Обработка...",
     "submit": "Отправить",
     "balance": "Баланс",
-    "enterAmount": "Введите сумму отправки"
+    "enterAmount": "Введите сумму отправки",
+    "enterWalletInNetwork": "Введите кошелек в сети {{network}}",
+    "enterAddress": "Введите адрес {{network}}",
+    "feeWillBe": "Комиссия составит"
   },
   "cards": {
     "addSuccess": "Карта добавлена успешно",
