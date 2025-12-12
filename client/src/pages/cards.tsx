@@ -15,6 +15,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { RussiaFlag, TurkeyFlag } from "@/components/flags";
+import { useTranslation } from "react-i18next";
 
 interface Card {
   id: number;
@@ -69,6 +70,7 @@ const CardIcon = () => (
 );
 
 export default function CardsScreen() {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState<string>("");
@@ -122,10 +124,10 @@ export default function CardsScreen() {
       setFormData({ name: "", country: "", number: "", accountNumber: "", firstName: "", lastName: "", phone: "", idCard: "", idBank: "" });
       setSelectedCardId("");
       setIsModalOpen(false);
-      toast({ title: "Карта добавлена успешно" });
+      toast({ title: t('cards.addSuccess') });
     },
     onError: () => {
-      toast({ title: "Ошибка при добавлении карты", variant: "destructive" });
+      toast({ title: t('cards.addError'), variant: "destructive" });
     }
   });
 

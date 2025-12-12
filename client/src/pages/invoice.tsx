@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { format } from "date-fns";
-import { ru } from "date-fns/locale";
+import { ru, enUS } from "date-fns/locale";
 import { formatBalance } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 interface Invoice {
   id: number;
@@ -29,6 +30,7 @@ interface Invoice {
 }
 
 export default function InvoicePage() {
+  const { t, i18n } = useTranslation();
   const [, params] = useRoute("/invoice/:orderNumber");
   const [, setLocation] = useLocation();
   const [showPaymentDrawer, setShowPaymentDrawer] = useState(false);
@@ -60,7 +62,7 @@ export default function InvoicePage() {
       const diff = expires.getTime() - now.getTime();
 
       if (diff <= 0) {
-        setTimeRemaining("Истек");
+        setTimeRemaining(t('invoice.expired'));
         return;
       }
 
@@ -68,7 +70,10 @@ export default function InvoicePage() {
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-      setTimeRemaining(`${hours}ч ${minutes}м ${seconds}с`);
+      const timeLabels = i18n.language === 'ru' 
+        ? { h: 'ч', m: 'м', s: 'с' }
+        : { h: 'h', m: 'm', s: 's' };
+      setTimeRemaining(`${hours}${timeLabels.h} ${minutes}${timeLabels.m} ${seconds}${timeLabels.s}`);
     };
 
     updateTimer();
@@ -84,8 +89,8 @@ export default function InvoicePage() {
     },
     onSuccess: () => {
       toast({
-        title: "Успешно!",
-        description: "Счет успешно оплачен",
+        title: t('common.success'),
+        description: t('invoice.paymentSuccess'),
       });
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
@@ -94,8 +99,8 @@ export default function InvoicePage() {
     },
     onError: (error: any) => {
       toast({
-        title: "Ошибка",
-        description: error.message || "Не удалось оплатить счет",
+        title: t('common.error'),
+        description: error.message || t('invoice.paymentError'),
         variant: "destructive",
       });
     },
@@ -108,8 +113,8 @@ export default function InvoicePage() {
     },
     onSuccess: () => {
       toast({
-        title: "Отменено",
-        description: "Счет успешно отменен",
+        title: t('invoice.cancelled'),
+        description: t('invoice.cancelSuccess'),
       });
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
@@ -117,8 +122,8 @@ export default function InvoicePage() {
     },
     onError: (error: any) => {
       toast({
-        title: "Ошибка",
-        description: error.message || "Не удалось отменить счет",
+        title: t('common.error'),
+        description: error.message || t('invoice.cancelError'),
         variant: "destructive",
       });
     },
@@ -128,8 +133,8 @@ export default function InvoicePage() {
     if (invoice?.orderNumber) {
       navigator.clipboard.writeText(invoice.orderNumber);
       toast({
-        title: "Скопировано",
-        description: "Номер заказа скопирован в буфер обмена",
+        title: t('common.copied'),
+        description: t('invoice.orderCopied'),
       });
     }
   };
@@ -142,8 +147,8 @@ export default function InvoicePage() {
 
       if (userBalanceAmount < invoiceAmount) {
         toast({
-          title: "Недостаточно средств",
-          description: `Требуется ${invoiceAmount} ${invoice?.currency}, доступно ${userBalanceAmount}`,
+          title: t('invoice.insufficientFunds'),
+          description: `${invoiceAmount} ${invoice?.currency} / ${userBalanceAmount}`,
           variant: "destructive",
         });
         return;
@@ -153,8 +158,8 @@ export default function InvoicePage() {
     } else {
       // For blockchain payment, admin needs to verify manually
       toast({
-        title: "Ожидание подтверждения",
-        description: "Отправьте средства на указанный адрес. Оплата будет подтверждена администратором.",
+        title: t('invoice.waitingConfirmation'),
+        description: t('invoice.waitingConfirmationDesc'),
       });
       setShowPaymentDrawer(false);
     }

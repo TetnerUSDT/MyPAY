@@ -13,7 +13,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
-import { ru } from "date-fns/locale";
+import { ru, enUS } from "date-fns/locale";
 import Lottie from "lottie-react";
 import voucherAnimation from "@assets/VOUCHER_1761385257411.json";
 import QRScanner, { QRScannerButton } from "@/components/qr-scanner";
@@ -387,19 +387,19 @@ export default function VouchersPage() {
   const handleCopyCode = (code: string) => {
     navigator.clipboard.writeText(code);
     toast({
-      title: "Скопировано!",
-      description: "Код ваучера скопирован в буфер обмена",
+      title: t('common.copied'),
+      description: t('vouchers.codeCopied'),
     });
   };
 
   const getSecurityLabel = (type: string) => {
     switch (type) {
       case 'pin':
-        return 'PIN-код';
+        return t('vouchers.securityPin');
       case 'word':
-        return 'Пароль';
+        return t('vouchers.securityWord');
       default:
-        return 'Без защиты';
+        return t('vouchers.securityNone');
     }
   };
 
@@ -416,7 +416,7 @@ export default function VouchersPage() {
           <div className="flex items-center gap-2">
             <Ticket className={`w-5 h-5 ${isActive ? 'text-green-400' : 'text-gray-400'}`} />
             <span className={`text-xs font-medium ${isActive ? 'text-green-400' : 'text-gray-400'}`}>
-              {isActive ? 'Активен' : 'Использован'}
+              {isActive ? t('vouchers.active') : t('vouchers.activated')}
             </span>
           </div>
           {isActive && (
@@ -442,13 +442,13 @@ export default function VouchersPage() {
 
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div>
-              <p className="text-green-200 text-xs">Сумма</p>
+              <p className="text-green-200 text-xs">{t('vouchers.amount')}</p>
               <p className="text-white font-semibold" data-testid={`voucher-amount-${voucher.id}`}>
                 {parseFloat(voucher.amount).toFixed(2)} {voucher.currency}
               </p>
             </div>
             <div>
-              <p className="text-green-200 text-xs">Защита</p>
+              <p className="text-green-200 text-xs">{t('vouchers.securityType')}</p>
               <p className="text-white font-semibold">
                 {getSecurityLabel(voucher.securityType)}
               </p>
@@ -456,11 +456,11 @@ export default function VouchersPage() {
           </div>
 
           <div className="text-xs text-green-200">
-            Создан: {format(new Date(voucher.createdAt), "dd MMM yyyy, HH:mm", { locale: ru })}
+            {t('vouchers.created')}: {format(new Date(voucher.createdAt), "dd MMM yyyy, HH:mm", { locale: i18n.language === 'ru' ? ru : enUS })}
           </div>
           {voucher.activatedAt && (
             <div className="text-xs text-gray-400">
-              Активирован: {format(new Date(voucher.activatedAt), "dd MMM yyyy, HH:mm", { locale: ru })}
+              {t('vouchers.activated')}: {format(new Date(voucher.activatedAt), "dd MMM yyyy, HH:mm", { locale: i18n.language === 'ru' ? ru : enUS })}
             </div>
           )}
         </div>
@@ -473,7 +473,7 @@ export default function VouchersPage() {
       {/* Header */}
       <div className="flex items-center justify-between p-6">
         <h1 className="text-xl font-semibold" data-testid="text-vouchers-title">
-          Ваучеры
+          {t('vouchers.title')}
         </h1>
         <Link href="/home">
           <button 
@@ -503,7 +503,7 @@ export default function VouchersPage() {
             data-testid="button-create-voucher"
           >
             <Plus className="w-5 h-5 mr-2" />
-            Создать ваучер
+            {t('vouchers.create')}
           </Button>
           <Button
             onClick={() => handleActivateDialogChange(true)}
@@ -511,7 +511,7 @@ export default function VouchersPage() {
             data-testid="button-activate-voucher"
           >
             <CheckCircle2 className="w-5 h-5 mr-2" />
-            Активировать
+            {t('vouchers.activate')}
           </Button>
         </div>
 
@@ -523,24 +523,24 @@ export default function VouchersPage() {
               className="data-[state=active]:bg-accent data-[state=active]:text-secondary"
               data-testid="tab-active-vouchers"
             >
-              Активные
+              {t('vouchers.tabs.active')}
             </TabsTrigger>
             <TabsTrigger 
               value="completed" 
               className="data-[state=active]:bg-accent data-[state=active]:text-secondary"
               data-testid="tab-completed-vouchers"
             >
-              Завершенные
+              {t('vouchers.tabs.history')}
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="active" className="space-y-4 mt-4">
             {activeLoading ? (
-              <div className="text-center py-8 text-green-200">Загрузка...</div>
+              <div className="text-center py-8 text-green-200">{t('common.loading')}</div>
             ) : activeVouchers.length === 0 ? (
               <div className="text-center py-8 space-y-2">
                 <Ticket className="w-12 h-12 mx-auto text-green-200/50" />
-                <p className="text-green-200">У вас пока нет активных ваучеров</p>
+                <p className="text-green-200">{t('vouchers.noActiveVouchers')}</p>
               </div>
             ) : (
               activeVouchers.map(renderVoucherCard)
@@ -549,11 +549,11 @@ export default function VouchersPage() {
 
           <TabsContent value="completed" className="space-y-4 mt-4">
             {activatedLoading ? (
-              <div className="text-center py-8 text-green-200">Загрузка...</div>
+              <div className="text-center py-8 text-green-200">{t('common.loading')}</div>
             ) : activatedVouchers.length === 0 ? (
               <div className="text-center py-8 space-y-2">
                 <Ticket className="w-12 h-12 mx-auto text-green-200/50" />
-                <p className="text-green-200">У вас пока нет завершенных ваучеров</p>
+                <p className="text-green-200">{t('vouchers.noActivatedVouchers')}</p>
               </div>
             ) : (
               activatedVouchers.map(renderVoucherCard)
@@ -566,25 +566,24 @@ export default function VouchersPage() {
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="bg-gradient-to-br from-green-900 to-green-950 text-white border-green-500/30">
           <DialogHeader>
-            <DialogTitle className="text-xl">Создать ваучер</DialogTitle>
+            <DialogTitle className="text-xl">{t('vouchers.createTitle')}</DialogTitle>
             <DialogDescription className="text-green-200/70">
-              Выберите баланс, укажите сумму и защиту для нового ваучера
+              {t('vouchers.selectBalance')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             {/* Balance Selection */}
             <div className="space-y-2">
-              <Label htmlFor="balance" className="text-green-200">Валюта</Label>
+              <Label htmlFor="balance" className="text-green-200">{t('vouchers.selectCurrency')}</Label>
               {availableBalances.length === 0 ? (
                 <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 text-center">
-                  <p className="text-sm text-yellow-200">У вас нет активных балансов</p>
-                  <p className="text-xs text-yellow-200/70 mt-1">Пополните баланс для создания ваучера</p>
+                  <p className="text-sm text-yellow-200">{t('vouchers.errors.insufficientBalance')}</p>
                 </div>
               ) : (
                 <Select value={selectedBalance} onValueChange={setSelectedBalance}>
                   <SelectTrigger className="bg-white/10 border-green-500/30 text-white" data-testid="select-balance">
-                    <SelectValue placeholder="Выберите валюту" />
+                    <SelectValue placeholder={t('vouchers.selectCurrency')} />
                   </SelectTrigger>
                   <SelectContent>
                     {availableBalances.map((balance) => (
@@ -601,7 +600,7 @@ export default function VouchersPage() {
               <>
                 {/* Amount */}
                 <div className="space-y-2">
-                  <Label htmlFor="amount" className="text-green-200">Сумма</Label>
+                  <Label htmlFor="amount" className="text-green-200">{t('vouchers.amount')}</Label>
                   <Input
                     id="amount"
                     type="number"
@@ -617,22 +616,22 @@ export default function VouchersPage() {
 
                 {/* Security Type */}
                 <div className="space-y-2">
-                  <Label className="text-green-200">Защита</Label>
+                  <Label className="text-green-200">{t('vouchers.securityType')}</Label>
                   <RadioGroup value={securityType} onValueChange={(value: any) => {
                     setSecurityType(value);
                     setSecurityValue("");
                   }}>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="none" id="none" className="border-green-500/50" data-testid="radio-security-none" />
-                      <Label htmlFor="none" className="cursor-pointer">Без защиты</Label>
+                      <Label htmlFor="none" className="cursor-pointer">{t('vouchers.securityNone')}</Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="pin" id="pin" className="border-green-500/50" data-testid="radio-security-pin" />
-                      <Label htmlFor="pin" className="cursor-pointer">PIN-код (4-6 цифр)</Label>
+                      <Label htmlFor="pin" className="cursor-pointer">{t('vouchers.securityPin')} (4-6)</Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="word" id="word" className="border-green-500/50" data-testid="radio-security-word" />
-                      <Label htmlFor="word" className="cursor-pointer">Пароль</Label>
+                      <Label htmlFor="word" className="cursor-pointer">{t('vouchers.securityWord')}</Label>
                     </div>
                   </RadioGroup>
                 </div>
@@ -641,14 +640,14 @@ export default function VouchersPage() {
                 {securityType !== 'none' && (
                   <div className="space-y-2">
                     <Label htmlFor="security" className="text-green-200">
-                      {securityType === 'pin' ? 'PIN-код' : 'Пароль'}
+                      {securityType === 'pin' ? t('vouchers.securityPin') : t('vouchers.securityWord')}
                     </Label>
                     <Input
                       id="security"
                       type={securityType === 'pin' ? 'number' : 'text'}
                       value={securityValue}
                       onChange={(e) => setSecurityValue(e.target.value)}
-                      placeholder={securityType === 'pin' ? '1234' : 'Введите пароль'}
+                      placeholder={securityType === 'pin' ? '1234' : t('vouchers.enterPassword')}
                       maxLength={securityType === 'pin' ? 6 : undefined}
                       className="bg-white/10 border-green-500/30 text-white placeholder:text-white/50"
                       data-testid="input-security-value"
@@ -669,7 +668,7 @@ export default function VouchersPage() {
               className="flex-1 border-green-500/30 text-white hover:bg-white/10"
               data-testid="button-cancel-create"
             >
-              Отмена
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={handleCreateVoucher}
@@ -677,7 +676,7 @@ export default function VouchersPage() {
               className="flex-1 bg-accent hover:bg-accent/90 text-secondary"
               data-testid="button-confirm-create"
             >
-              {createVoucherMutation.isPending ? "Создание..." : "Создать"}
+              {createVoucherMutation.isPending ? t('vouchers.creating') : t('vouchers.createVoucher')}
             </Button>
           </div>
         </DialogContent>
@@ -687,15 +686,15 @@ export default function VouchersPage() {
       <Dialog open={isActivateDialogOpen} onOpenChange={handleActivateDialogChange}>
         <DialogContent className="bg-gradient-to-br from-green-900 to-green-950 text-white border-green-500/30">
           <DialogHeader>
-            <DialogTitle className="text-xl">Активировать ваучер</DialogTitle>
+            <DialogTitle className="text-xl">{t('vouchers.activateVoucher')}</DialogTitle>
             <DialogDescription className="text-green-200/70">
-              Введите или отсканируйте код ваучера для активации
+              {t('vouchers.enterVoucherCode')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="code" className="text-green-200">Код ваучера</Label>
+              <Label htmlFor="code" className="text-green-200">{t('vouchers.voucherCode')}</Label>
               <div className="flex gap-2 items-center">
                 <Input
                   id="code"
@@ -713,7 +712,7 @@ export default function VouchersPage() {
                 />
               </div>
               <p className="text-xs text-green-200 text-center">
-                Введено: {voucherCode.length}/15
+                {t('vouchers.entered')}: {voucherCode.length}/15
               </p>
             </div>
           </div>
@@ -728,7 +727,7 @@ export default function VouchersPage() {
               className="flex-1 border-green-500/30 text-white hover:bg-white/10"
               data-testid="button-cancel-activate"
             >
-              Отмена
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={handleCheckVoucher}
@@ -736,7 +735,7 @@ export default function VouchersPage() {
               className="flex-1 bg-accent hover:bg-accent/90 text-secondary"
               data-testid="button-check-voucher"
             >
-              {checkVoucherMutation.isPending ? "Проверка..." : "Активировать"}
+              {checkVoucherMutation.isPending ? t('vouchers.checking') : t('vouchers.activate')}
             </Button>
           </div>
         </DialogContent>
@@ -748,17 +747,17 @@ export default function VouchersPage() {
           <DialogHeader>
             <DialogTitle className="text-xl flex items-center gap-2">
               <Lock className="w-5 h-5" />
-              Защищенный ваучер
+              {t('vouchers.protectedVoucher')}
             </DialogTitle>
             <DialogDescription className="text-green-200/70">
-              Этот ваучер защищен. Введите {voucherInfo?.securityType === 'word' ? 'слово' : 'PIN-код'} для активации
+              {t('vouchers.enterSecurityCode', { type: voucherInfo?.securityType === 'word' ? t('vouchers.securityWord').toLowerCase() : t('vouchers.securityPin') })}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="text-center space-y-2">
               <p className="text-green-200">
-                Этот ваучер защищен {voucherInfo?.securityType === 'pin' ? 'PIN-кодом' : 'паролем'}
+                {t('vouchers.voucherProtectedBy', { type: voucherInfo?.securityType === 'pin' ? t('vouchers.securityPin') : t('vouchers.securityWord').toLowerCase() })}
               </p>
               <p className="text-2xl font-bold text-accent">
                 {voucherInfo?.amount} {voucherInfo?.currency}
@@ -767,7 +766,7 @@ export default function VouchersPage() {
 
             <div className="space-y-2">
               <Label htmlFor="security" className="text-green-200">
-                {voucherInfo?.securityType === 'pin' ? 'PIN-код' : 'Пароль'}
+                {voucherInfo?.securityType === 'pin' ? t('vouchers.securityPin') : t('vouchers.securityWord')}
               </Label>
               
               {voucherInfo?.securityType === 'pin' ? (
@@ -794,7 +793,7 @@ export default function VouchersPage() {
                   type="password"
                   value={activationSecurityValue}
                   onChange={(e) => setActivationSecurityValue(e.target.value)}
-                  placeholder="Введите пароль"
+                  placeholder={t('vouchers.enterPassword')}
                   className="bg-white/10 border-green-500/30 text-white placeholder:text-white/50"
                   data-testid="input-password"
                 />
@@ -812,7 +811,7 @@ export default function VouchersPage() {
               className="flex-1 border-green-500/30 text-white hover:bg-white/10"
               data-testid="button-cancel-security"
             >
-              Отмена
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={handleActivateWithSecurity}
@@ -820,7 +819,7 @@ export default function VouchersPage() {
               className="flex-1 bg-accent hover:bg-accent/90 text-secondary"
               data-testid="button-confirm-activate"
             >
-              {activateVoucherMutation.isPending ? "Активация..." : "Активировать"}
+              {activateVoucherMutation.isPending ? t('vouchers.activating') : t('vouchers.activate')}
             </Button>
           </div>
         </DialogContent>
@@ -835,17 +834,17 @@ export default function VouchersPage() {
           handleCodeChange(data);
           setIsScannerOpen(false);
           toast({
-            title: "QR-код отсканирован",
-            description: "Код ваучера успешно считан",
+            title: t('vouchers.qrScanned'),
+            description: t('vouchers.qrScannedSuccess'),
           });
         }}
-        title="Сканирование ваучера"
+        title={t('vouchers.scanVoucher')}
         validate={(data) => {
           // Validate voucher format: V + 13 digits + D (total 15 characters)
           const voucherRegex = /^V\d{13}D$/;
           return voucherRegex.test(data);
         }}
-        errorMessage="Неверный формат ваучера."
+        errorMessage={t('vouchers.errors.invalidFormat')}
       />
     </div>
   );

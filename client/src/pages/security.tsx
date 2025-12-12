@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { ArrowLeft, Lock, CheckCircle2 } from "lucide-react";
 import PinInputModal from "@/components/pin-input-modal";
+import { useTranslation } from "react-i18next";
 
 interface User {
   id: number;
@@ -10,6 +11,7 @@ interface User {
 }
 
 export default function SecurityScreen() {
+  const { t } = useTranslation();
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
 
   const { data: user } = useQuery<User>({
@@ -40,13 +42,13 @@ export default function SecurityScreen() {
               </button>
             </Link>
             <h1 className="text-2xl font-bold text-white" data-testid="text-page-title">
-              Безопасность
+              {t('security.title')}
             </h1>
           </div>
 
           <div className="space-y-3">
             <h2 className="text-lg font-semibold text-green-200 px-2">
-              Методы защиты
+              {t('security.pinCodeDesc')}
             </h2>
 
             <div className="crypto-card">
@@ -56,11 +58,11 @@ export default function SecurityScreen() {
                     <Lock className="w-6 h-6 text-accent" />
                   </div>
                   <div className="flex-1 flex flex-col gap-1">
-                    <h3 className="text-white font-semibold text-left">Код-пароль</h3>
+                    <h3 className="text-white font-semibold text-left">{t('security.pinCode')}</h3>
                     <p className="text-green-200 text-sm text-left">
                       {hasPinCode 
-                        ? "Код-пароль установлен" 
-                        : "Защитите аккаунт с помощью 4-значного кода"}
+                        ? t('security.pinCodeSet')
+                        : t('security.pinCodeNotSet')}
                     </p>
                   </div>
                 </div>
@@ -73,7 +75,7 @@ export default function SecurityScreen() {
                     className="px-4 py-2 bg-accent hover:bg-accent/90 text-primary-foreground rounded-lg font-medium transition-colors"
                     data-testid="button-set-pin"
                   >
-                    {hasPinCode ? "Изменить" : "Установить"}
+                    {hasPinCode ? t('security.change') : t('security.set')}
                   </button>
                 </div>
               </div>
@@ -81,7 +83,7 @@ export default function SecurityScreen() {
 
             <div className="mt-6 px-2">
               <p className="text-sm text-green-200/70">
-                В будущем здесь появятся дополнительные методы защиты аккаунта
+                {t('security.moreMethodsSoon')}
               </p>
             </div>
           </div>

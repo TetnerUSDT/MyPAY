@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useNotificationStream } from "@/hooks/use-notification-stream";
+import { useTranslation } from "react-i18next";
 
 interface ExchangeOrder {
   id: number;
@@ -32,6 +33,7 @@ interface ExchangeOrder {
 }
 
 export default function TrackingScreen() {
+  const { t } = useTranslation();
   const searchParams = new URLSearchParams(useSearch());
   const orderNumber = searchParams.get('order');
   const [countdown, setCountdown] = useState(3600); // 1 hour default
@@ -91,14 +93,14 @@ export default function TrackingScreen() {
       await copyToClipboard(txHash);
       setCopied(true);
       toast({
-        title: "Скопировано!",
-        description: "Хеш транзакции скопирован в буфер обмена",
+        title: t('common.copied'),
+        description: t('tracking.hashCopied'),
       });
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       toast({
-        title: "Ошибка",
-        description: "Не удалось скопировать",
+        title: t('common.error'),
+        description: t('common.copyError'),
         variant: "destructive",
       });
     }

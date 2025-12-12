@@ -5,6 +5,7 @@ import { copyToClipboard, formatOrderAmount, formatRecipientAddress, getRecipien
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useTranslation } from "react-i18next";
 
 interface ExchangeOrder {
   id: number;
@@ -29,6 +30,7 @@ interface ExchangeOrder {
 }
 
 export default function PaymentScreen() {
+  const { t } = useTranslation();
   const searchParams = new URLSearchParams(useSearch());
   const orderNumber = searchParams.get('order');
   const [timer, setTimer] = useState(3600); // 1 hour in seconds
@@ -76,8 +78,8 @@ export default function PaymentScreen() {
     },
     onError: (error: any) => {
       toast({
-        title: "Ошибка",
-        description: error.message || "Не удалось обновить статус заявки",
+        title: t('common.error'),
+        description: error.message || t('payment.statusUpdateError'),
         variant: "destructive",
       });
     }
@@ -89,14 +91,14 @@ export default function PaymentScreen() {
       await copyToClipboard(fullWalletAddress);
       setCopied(true);
       toast({
-        title: "Скопировано!",
-        description: "Адрес кошелька скопирован в буфер обмена",
+        title: t('common.copied'),
+        description: t('payment.addressCopied'),
       });
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       toast({
-        title: "Ошибка",
-        description: "Не удалось скопировать адрес",
+        title: t('common.error'),
+        description: t('payment.copyError'),
         variant: "destructive",
       });
     }

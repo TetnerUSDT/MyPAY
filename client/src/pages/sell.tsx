@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useTranslation } from "react-i18next";
 
 type NetworkType = "TRC20" | "BEP20" | "TON" | "Polygon";
 
@@ -23,6 +24,7 @@ interface CryptoBalance {
 }
 
 export default function SellScreen() {
+  const { t } = useTranslation();
   const [sendAmount, setSendAmount] = useState("0");
   const [activeNetwork, setActiveNetwork] = useState<NetworkType>("TRC20");
   const [selectedCurrency, setSelectedCurrency] = useState<string | null>(null);
@@ -130,8 +132,8 @@ export default function SellScreen() {
     },
     onError: () => {
       toast({
-        title: "Ошибка",
-        description: "Не удалось выполнить транзакцию",
+        title: t('common.error'),
+        description: t('sell.transactionError'),
         variant: "destructive",
       });
     },
@@ -139,8 +141,8 @@ export default function SellScreen() {
 
   const handleSell = async () => {
     toast({
-      title: "Сервис временно не доступен",
-      description: "Пожалуйста, попробуйте позже",
+      title: t('sell.serviceUnavailable'),
+      description: t('sell.tryAgainLater'),
       variant: "destructive",
     });
   };

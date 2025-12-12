@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { ArrowLeft, Smartphone, Monitor, Chrome, Clock, Shield } from "lucide-react";
 import BottomNavigation from "@/components/bottom-navigation";
+import { useTranslation } from "react-i18next";
 
 interface DeviceInfo {
   platform: string;
@@ -15,6 +16,7 @@ interface DeviceInfo {
 }
 
 export default function DevicesScreen() {
+  const { t, i18n } = useTranslation();
   const [, setLocation] = useLocation();
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);
   const [currentTime, setCurrentTime] = useState("");
@@ -55,14 +57,14 @@ export default function DevicesScreen() {
 
     setDeviceInfo(info);
     
-    setCurrentTime(new Date().toLocaleString('ru-RU', {
+    setCurrentTime(new Date().toLocaleString(i18n.language === 'ru' ? 'ru-RU' : 'en-US', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
     }));
-  }, []);
+  }, [i18n.language]);
 
   return (
     <div className="mobile-screen gradient-bg text-white pb-24">
@@ -76,7 +78,7 @@ export default function DevicesScreen() {
             <ArrowLeft className="w-6 h-6 text-white" />
           </button>
           <h1 className="text-xl font-bold text-white" data-testid="text-page-title">
-            Активные сессии
+            {t('devices.title')}
           </h1>
           <div className="w-10"></div>
         </div>
@@ -93,12 +95,12 @@ export default function DevicesScreen() {
               </div>
               <div className="flex-1">
                 <h3 className="text-white font-semibold mb-1" data-testid="text-device-name">
-                  Текущее устройство
+                  {t('devices.currentDevice')}
                 </h3>
-                <p className="text-green-200 text-sm">Активно сейчас</p>
+                <p className="text-green-200 text-sm">{t('devices.activeNow')}</p>
               </div>
               <div className="bg-accent/20 px-3 py-1 rounded-full">
-                <span className="text-accent text-xs font-medium">Активно</span>
+                <span className="text-accent text-xs font-medium">{t('devices.active')}</span>
               </div>
             </div>
 
@@ -106,30 +108,30 @@ export default function DevicesScreen() {
               <div className="flex items-center justify-between py-2 border-b border-green-800/30">
                 <div className="flex items-center gap-2">
                   <Shield className="w-4 h-4 text-green-200" />
-                  <span className="text-green-200 text-sm">Платформа</span>
+                  <span className="text-green-200 text-sm">{t('devices.platform')}</span>
                 </div>
                 <span className="text-white text-sm font-medium" data-testid="text-platform">
-                  {deviceInfo?.os || "Загрузка..."}
+                  {deviceInfo?.os || t('devices.loading')}
                 </span>
               </div>
 
               <div className="flex items-center justify-between py-2 border-b border-green-800/30">
                 <div className="flex items-center gap-2">
                   <Chrome className="w-4 h-4 text-green-200" />
-                  <span className="text-green-200 text-sm">Браузер</span>
+                  <span className="text-green-200 text-sm">{t('devices.browser')}</span>
                 </div>
                 <span className="text-white text-sm font-medium" data-testid="text-browser">
-                  {deviceInfo?.browser || "Загрузка..."}
+                  {deviceInfo?.browser || t('devices.loading')}
                 </span>
               </div>
 
               <div className="flex items-center justify-between py-2 border-b border-green-800/30">
                 <div className="flex items-center gap-2">
                   <Monitor className="w-4 h-4 text-green-200" />
-                  <span className="text-green-200 text-sm">Разрешение</span>
+                  <span className="text-green-200 text-sm">{t('devices.screenSize')}</span>
                 </div>
                 <span className="text-white text-sm font-medium" data-testid="text-screen-size">
-                  {deviceInfo?.screenSize || "Загрузка..."}
+                  {deviceInfo?.screenSize || t('devices.loading')}
                 </span>
               </div>
 
@@ -148,7 +150,7 @@ export default function DevicesScreen() {
                   <div className="flex items-center justify-between py-2 border-b border-green-800/30">
                     <div className="flex items-center gap-2">
                       <Shield className="w-4 h-4 text-green-200" />
-                      <span className="text-green-200 text-sm">Версия WebApp</span>
+                      <span className="text-green-200 text-sm">{t('devices.webAppVersion')}</span>
                     </div>
                     <span className="text-white text-sm font-medium" data-testid="text-telegram-version">
                       {deviceInfo.telegramVersion}
@@ -160,7 +162,7 @@ export default function DevicesScreen() {
               <div className="flex items-center justify-between py-2">
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-green-200" />
-                  <span className="text-green-200 text-sm">Последняя активность</span>
+                  <span className="text-green-200 text-sm">{t('devices.lastActivity')}</span>
                 </div>
                 <span className="text-white text-sm font-medium" data-testid="text-last-activity">
                   {currentTime}
@@ -171,7 +173,7 @@ export default function DevicesScreen() {
 
           <div className="bg-green-800/20 border border-green-600/30 rounded-lg p-4">
             <p className="text-green-200 text-sm leading-relaxed">
-              <span className="font-semibold text-white">Информация о безопасности:</span> В настоящее время система поддерживает только одну активную сессию на устройство. Для дополнительной безопасности рекомендуем не передавать доступ к аккаунту третьим лицам.
+              <span className="font-semibold text-white">{t('devices.securityInfo')}:</span> {t('devices.securityInfoDesc')}
             </p>
           </div>
         </div>
