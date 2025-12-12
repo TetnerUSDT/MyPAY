@@ -2,6 +2,7 @@ import { useLocation } from "wouter";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { apiRequest } from "@/lib/queryClient";
 import TelegramLoginButton from "@/components/TelegramLoginButton";
 
@@ -9,6 +10,7 @@ import TelegramLoginButton from "@/components/TelegramLoginButton";
 const swiftxCard = "/uploads/assets/start-bg.png?v=2";
 
 export default function SplashScreen() {
+  const { t } = useTranslation();
   const [, setLocation] = useLocation();
   const [telegramWebApp, setTelegramWebApp] = useState<any>(null);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -109,7 +111,7 @@ export default function SplashScreen() {
       }
     },
     onError: (error) => {
-      setAuthError('Ошибка аутентификации. Попробуйте позже.');
+      setAuthError(t('splash.authError'));
       console.error('Auth failed:', error);
     },
   });
@@ -118,7 +120,7 @@ export default function SplashScreen() {
     try {
       loginMutation.mutate({ initData });
     } catch (error) {
-      setAuthError('Ошибка аутентификации');
+      setAuthError(t('splash.authError'));
     }
   };
 
@@ -127,7 +129,7 @@ export default function SplashScreen() {
       setAuthError(null);
       loginMutation.mutate({ widgetData: user });
     } catch (error) {
-      setAuthError('Ошибка аутентификации через Telegram');
+      setAuthError(t('splash.authErrorTelegram'));
     }
   };
   
@@ -137,8 +139,8 @@ export default function SplashScreen() {
       <div className="mobile-screen gradient-bg text-white">
         <div className="flex flex-col items-center justify-center min-h-screen text-center px-6">
           <Loader2 className="w-12 h-12 mb-6 animate-spin" />
-          <h2 className="text-xl font-semibold mb-2">Вход в систему</h2>
-          <p className="text-sm text-gray-300">Проверяем ваши данные...</p>
+          <h2 className="text-xl font-semibold mb-2">{t('splash.loggingIn')}</h2>
+          <p className="text-sm text-gray-300">{t('splash.checkingData')}</p>
         </div>
       </div>
     );
@@ -162,9 +164,9 @@ export default function SplashScreen() {
             />
           </div>
           
-          <h2 className="text-2xl font-bold mb-4">Добро пожаловать!</h2>
+          <h2 className="text-2xl font-bold mb-4">{t('splash.welcome')}</h2>
           <p className="text-lg text-gray-300 mb-12">
-            {loginMutation.data.user.name || 'Пользователь'}
+            {loginMutation.data.user.name || 'User'}
           </p>
           
           <button 
@@ -175,7 +177,7 @@ export default function SplashScreen() {
             <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
-            {needsAgreement ? 'Перейти к соглашению' : 'Перейти в личный кабинет'}
+            {needsAgreement ? t('splash.goToAgreement') : t('splash.goToAccount')}
           </button>
         </div>
       </div>
@@ -196,8 +198,8 @@ export default function SplashScreen() {
           />
         </div>
         
-        <h2 className="text-2xl font-bold mb-4">Быстрый и надежный</h2>
-        <h3 className="text-xl font-semibold mb-12">обмен криптовалют</h3>
+        <h2 className="text-2xl font-bold mb-4">{t('splash.fastAndReliable')}</h2>
+        <h3 className="text-xl font-semibold mb-12">{t('splash.cryptoExchange')}</h3>
         
         {authError && (
           <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-200 text-sm">
@@ -218,7 +220,7 @@ export default function SplashScreen() {
             </div>
           ) : (
             <div className="text-sm text-gray-300">
-              Загрузка...
+              {t('splash.loading')}
             </div>
           )}
         </div>

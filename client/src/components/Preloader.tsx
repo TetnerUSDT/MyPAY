@@ -7,6 +7,7 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { LottieAnimation } from './LottieAnimation';
 import { loadAnimation, type PreloaderAnimationKey } from '@/lib/preloaderRegistry';
 
@@ -192,6 +193,7 @@ export const usePreloader = () => {
 
 // Preloader Overlay (Full-screen)
 const PreloaderOverlay = () => {
+  const { t } = useTranslation();
   const { states } = usePreloader();
   const [animationData, setAnimationData] = useState<any>(null);
   const [isAnimationLoading, setIsAnimationLoading] = useState(false);
@@ -237,7 +239,7 @@ const PreloaderOverlay = () => {
       className={`fixed inset-0 z-50 flex items-center justify-center ${bgClass} animate-fadeIn`}
       role="status"
       aria-busy="true"
-      aria-label="Загрузка"
+      aria-label={t('splash.loading')}
       data-testid="overlay-preloader"
     >
       {/* Prevent scroll on body when overlay is active */}
@@ -261,7 +263,7 @@ const PreloaderOverlay = () => {
         
         {/* Optional loading text */}
         <div className="text-foreground/80 text-sm font-medium animate-pulse">
-          Загрузка...
+          {t('splash.loading')}
         </div>
       </div>
     </div>,
@@ -312,7 +314,7 @@ export const PreloaderSlot = ({
       className={`flex items-center justify-center pointer-events-none ${className}`}
       role="status"
       aria-busy="true"
-      aria-label="Загрузка"
+      aria-label="Loading"
       data-testid="slot-preloader"
     >
       {isAnimationLoading || !animationData || shouldUseReducedMotion(config) ? (

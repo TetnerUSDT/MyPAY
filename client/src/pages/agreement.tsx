@@ -1,11 +1,13 @@
 import { useLocation } from "wouter";
 import { Check, Loader2 } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { User } from "@shared/schema";
 import { useEffect } from "react";
 
 export default function AgreementScreen() {
+  const { t } = useTranslation();
   const [, setLocation] = useLocation();
   const hasApiKey = !!localStorage.getItem("userApiKey");
   
@@ -94,7 +96,7 @@ export default function AgreementScreen() {
       <div className="mobile-screen gradient-bg text-white flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin" />
-          <p>Загрузка...</p>
+          <p>{t('agreement.loading')}</p>
         </div>
       </div>
     );
@@ -106,7 +108,7 @@ export default function AgreementScreen() {
         {/* Header */}
         <div className="text-center pt-8 pb-4">
           <h1 className="text-xl font-bold text-accent" data-testid="text-agreement-title">
-            Соглашение об использовании услуг<br />обменного сервиса криптовалюты
+            {t('agreement.title')}
           </h1>
         </div>
         
@@ -116,109 +118,109 @@ export default function AgreementScreen() {
             
             {/* Section 1 */}
             <div className="mb-6">
-              <h2 className="text-base font-semibold text-accent mb-3">1. Общие положения</h2>
+              <h2 className="text-base font-semibold text-accent mb-3">{t('agreement.section1Title')}</h2>
               <p className="text-white/90 mb-2">
-                <span className="font-medium">1.1.</span> Настоящее соглашение (далее — Соглашение) регулирует порядок предоставления услуг обменного сервиса (далее — Сервис) по обмену криптовалют и иных цифровых активов между пользователем (далее — Пользователь) и Сервисом.
+                <span className="font-medium">1.1.</span> {t('agreement.section1_1')}
               </p>
               <p className="text-white/90 mb-2">
-                <span className="font-medium">1.2.</span> Использование услуг Сервиса означает полное и безоговорочное согласие Пользователя с условиями данного Соглашения.
+                <span className="font-medium">1.2.</span> {t('agreement.section1_2')}
               </p>
               <p className="text-white/90 mb-2">
-                <span className="font-medium">1.3.</span> Сервис оставляет за собой право вносить изменения в Соглашение без предварительного уведомления. Актуальная версия публикуется на сайте Сервиса.
+                <span className="font-medium">1.3.</span> {t('agreement.section1_3')}
               </p>
               <p className="text-white/90">
-                <span className="font-medium">1.4.</span> Услуги предоставляются только совершеннолетним лицам, имеющим право работать с цифровыми активами согласно законодательству своей юрисдикции.
+                <span className="font-medium">1.4.</span> {t('agreement.section1_4')}
               </p>
             </div>
 
             {/* Section 2 */}
             <div className="mb-6">
-              <h2 className="text-base font-semibold text-accent mb-3">2. Условия обмена</h2>
+              <h2 className="text-base font-semibold text-accent mb-3">{t('agreement.section2Title')}</h2>
               <p className="text-white/90 mb-3">
-                <span className="font-medium">2.1. Срок обработки заявки:</span> Обработка заявки осуществляется в срок до 10 минут с момента получения криптовалюты от Пользователя.
+                <span className="font-medium">2.1. {t('agreement.section2_1_title')}</span> {t('agreement.section2_1')}
               </p>
               <p className="text-white/90 mb-3">
-                <span className="font-medium">2.2. Способ выплаты:</span> Выплата осуществляется исключительно в криптовалюте на адрес кошелька Пользователя.
+                <span className="font-medium">2.2. {t('agreement.section2_2_title')}</span> {t('agreement.section2_2')}
               </p>
               <p className="text-white/90 mb-3">
-                <span className="font-medium">2.3. Контактные данные:</span> Пользователь обязан указывать актуальные данные и корректные криптовалютные адреса. Сервис не несёт ответственности за ошибочно указанные адреса.
+                <span className="font-medium">2.3. {t('agreement.section2_3_title')}</span> {t('agreement.section2_3')}
               </p>
               <p className="text-white/90 mb-3">
-                <span className="font-medium">2.4. Подтверждение транзакций:</span> Для подтверждения входящей транзакции Сервис вправе запросить дополнительные материалы: хеш транзакции, скриншот отправки, видеофиксацию или другие сведения. Обработка заявки может быть приостановлена до получения подтверждений.
+                <span className="font-medium">2.4. {t('agreement.section2_4_title')}</span> {t('agreement.section2_4')}
               </p>
               <p className="text-white/90">
-                <span className="font-medium">2.5. Сетевые риски:</span> Сервис не контролирует работу блокчейн-сетей и не несёт ответственности за задержки подтверждений, перегруженность сети, повышенные комиссии или технические сбои.
+                <span className="font-medium">2.5. {t('agreement.section2_5_title')}</span> {t('agreement.section2_5')}
               </p>
             </div>
 
             {/* Section 3 */}
             <div className="mb-6">
-              <h2 className="text-base font-semibold text-accent mb-3">3. Права и обязанности сторон</h2>
+              <h2 className="text-base font-semibold text-accent mb-3">{t('agreement.section3Title')}</h2>
               <p className="text-white/90 mb-2">
-                <span className="font-medium">3.1. Обязанности Пользователя:</span>
+                <span className="font-medium">3.1. {t('agreement.section3_1_title')}</span>
               </p>
               <ul className="text-white/90 mb-3 pl-4 space-y-1">
-                <li>• Указывать корректные данные и криптовалютные адреса.</li>
-                <li>• Подтверждать отправку криптовалюты при запросе Сервиса.</li>
-                <li>• Использовать Сервис в рамках законодательства своей страны.</li>
+                <li>• {t('agreement.section3_1_item1')}</li>
+                <li>• {t('agreement.section3_1_item2')}</li>
+                <li>• {t('agreement.section3_1_item3')}</li>
               </ul>
               <p className="text-white/90 mb-2">
-                <span className="font-medium">3.2. Обязанности Сервиса:</span>
+                <span className="font-medium">3.2. {t('agreement.section3_2_title')}</span>
               </p>
               <ul className="text-white/90 mb-3 pl-4 space-y-1">
-                <li>• Корректно выполнять обмен согласно заявке Пользователя.</li>
-                <li>• Информировать о статусе заявки и задержках.</li>
-                <li>• Обеспечивать конфиденциальность данных.</li>
+                <li>• {t('agreement.section3_2_item1')}</li>
+                <li>• {t('agreement.section3_2_item2')}</li>
+                <li>• {t('agreement.section3_2_item3')}</li>
               </ul>
               <p className="text-white/90 mb-2">
-                <span className="font-medium">3.3. Права Сервиса:</span>
+                <span className="font-medium">3.3. {t('agreement.section3_3_title')}</span>
               </p>
               <ul className="text-white/90 pl-4 space-y-1">
-                <li>• Приостанавливать обработку заявки до предоставления подтверждений.</li>
-                <li>• Отказать в обслуживании при подозрении на нарушение правил или законодательства.</li>
-                <li>• Изменять условия работы, размещая актуальную информацию на сайте.</li>
+                <li>• {t('agreement.section3_3_item1')}</li>
+                <li>• {t('agreement.section3_3_item2')}</li>
+                <li>• {t('agreement.section3_3_item3')}</li>
               </ul>
             </div>
 
             {/* Section 4 */}
             <div className="mb-6">
-              <h2 className="text-base font-semibold text-accent mb-3">4. Ответственность сторон</h2>
+              <h2 className="text-base font-semibold text-accent mb-3">{t('agreement.section4Title')}</h2>
               <p className="text-white/90 mb-2">
-                <span className="font-medium">4.1.</span> Сервис не несёт ответственности за задержки, вызванные блокчейн-сетями, форками, перегрузками или техническими сбоями.
+                <span className="font-medium">4.1.</span> {t('agreement.section4_1')}
               </p>
               <p className="text-white/90 mb-2">
-                <span className="font-medium">4.2.</span> Пользователь несёт полную ответственность за корректность предоставленных адресов.
+                <span className="font-medium">4.2.</span> {t('agreement.section4_2')}
               </p>
               <p className="text-white/90 mb-2">
-                <span className="font-medium">4.3.</span> Сервис не возвращает криптовалюту, отправленную на неверный адрес по вине Пользователя.
+                <span className="font-medium">4.3.</span> {t('agreement.section4_3')}
               </p>
               <p className="text-white/90">
-                <span className="font-medium">4.4.</span> В случае форс-мажора Сервис вправе временно приостановить работу.
+                <span className="font-medium">4.4.</span> {t('agreement.section4_4')}
               </p>
             </div>
 
             {/* Section 5 */}
             <div className="mb-6">
-              <h2 className="text-base font-semibold text-accent mb-3">5. Конфиденциальность</h2>
+              <h2 className="text-base font-semibold text-accent mb-3">{t('agreement.section5Title')}</h2>
               <p className="text-white/90 mb-2">
-                <span className="font-medium">5.1.</span> Сервис не передаёт личную информацию третьим лицам, кроме случаев, предусмотренных законом.
+                <span className="font-medium">5.1.</span> {t('agreement.section5_1')}
               </p>
               <p className="text-white/90">
-                <span className="font-medium">5.2.</span> Пользователь соглашается на обработку данных для выполнения обмена и обеспечения безопасности.
+                <span className="font-medium">5.2.</span> {t('agreement.section5_2')}
               </p>
             </div>
 
             {/* Section 6 */}
             <div className="mb-6">
-              <h2 className="text-base font-semibold text-accent mb-3">6. Заключительные положения</h2>
+              <h2 className="text-base font-semibold text-accent mb-3">{t('agreement.section6Title')}</h2>
               <p className="text-white/90 mb-2">
-                <span className="font-medium">6.1.</span> Соглашение вступает в силу с момента принятия Пользователем.
+                <span className="font-medium">6.1.</span> {t('agreement.section6_1')}
               </p>
               <p className="text-white/90 mb-2">
-                <span className="font-medium">6.2.</span> Споры решаются путем переговоров, а при невозможности — в соответствии с законодательством юрисдикции Сервиса.
+                <span className="font-medium">6.2.</span> {t('agreement.section6_2')}
               </p>
               <p className="text-white/90">
-                <span className="font-medium">6.3.</span> Сервис не предоставляет налоговых или юридических консультаций. Пользователь самостоятельно отвечает за свои обязательства.
+                <span className="font-medium">6.3.</span> {t('agreement.section6_3')}
               </p>
             </div>
 
@@ -236,12 +238,12 @@ export default function AgreementScreen() {
             {updateAgreementMutation.isPending ? (
               <>
                 <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                Сохранение...
+                {t('agreement.saving')}
               </>
             ) : (
               <>
                 <Check className="w-5 h-5 mr-2" />
-                {hasApiKey ? "Подтвердить согласие" : "Продолжить"}
+                {hasApiKey ? t('agreement.confirmAgreement') : t('agreement.continue')}
               </>
             )}
           </button>
