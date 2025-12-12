@@ -1,12 +1,15 @@
 import { Link } from "wouter";
 import { CheckCircle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export default function TopUpSuccessScreen() {
+  const { t } = useTranslation();
+  
   return (
     <div className="mobile-screen text-white">
       <div className="flex flex-col items-center justify-center min-h-screen text-center px-6">
         <h1 className="text-2xl font-bold mb-16" data-testid="text-title">
-          Ожидайте зачисления
+          {t('topUpSuccess.title')}
         </h1>
         
         {/* Success Animation */}
@@ -18,10 +21,10 @@ export default function TopUpSuccessScreen() {
         </div>
         
         <p className="text-lg mb-2 px-4">
-          Мы получили уведомление, как только мы 
+          {t('topUpSuccess.message1')}
         </p>
         <p className="text-lg mb-16 px-4">
-          получим подтверждения сети, ваш баланс будет пополнен автоматически.
+          {t('topUpSuccess.message2')}
         </p>
         
         <div className="w-full max-w-sm">
@@ -30,7 +33,7 @@ export default function TopUpSuccessScreen() {
               className="action-button"
               data-testid="button-back-home"
             >
-              Вернуться на главную
+              {t('topUpSuccess.backToHome')}
             </button>
           </Link>
         </div>

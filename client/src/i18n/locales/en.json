@@ -255,6 +255,12 @@
     "totalPartners": "Total partners",
     "totalEarnings": "Total earnings"
   },
+  "topUpSuccess": {
+    "title": "Awaiting deposit",
+    "message1": "We have received notification, as soon as we",
+    "message2": "receive network confirmations, your balance will be topped up automatically.",
+    "backToHome": "Back to home"
+  },
   "topUp": {
     "title": "Top up",
     "topUpCurrency": "Top up {{currency}}",
