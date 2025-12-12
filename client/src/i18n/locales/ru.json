@@ -377,11 +377,6 @@
       "invalidFormat": "Неверный формат ваучера"
     }
   },
-  "notifications": {
-    "title": "Уведомления",
-    "markAllRead": "Отметить все как прочитанные",
-    "noNotifications": "Нет уведомлений"
-  },
   "security": {
     "title": "Безопасность",
     "pinCode": "Код-пароль",

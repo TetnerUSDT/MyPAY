@@ -377,11 +377,6 @@
       "invalidFormat": "Invalid voucher format"
     }
   },
-  "notifications": {
-    "title": "Notifications",
-    "markAllRead": "Mark all as read",
-    "noNotifications": "No notifications"
-  },
   "security": {
     "title": "Security",
     "pinCode": "PIN code",
