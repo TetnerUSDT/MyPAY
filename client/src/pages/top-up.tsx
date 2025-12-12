@@ -265,7 +265,7 @@ export default function TopUpScreen() {
               </div>
               
               <div className="text-sm text-muted-foreground mb-2">
-                На адрес кошелька
+                {t('topUp.toWalletAddress')}
               </div>
               <div className="flex items-center bg-secondary rounded-lg p-3 mb-3">
                 <span 
@@ -289,7 +289,7 @@ export default function TopUpScreen() {
               
               {timeRemaining && (
                 <div className="text-sm text-muted-foreground" data-testid="text-timer">
-                  Адрес действителен {timeRemaining}
+                  {t('topUp.addressValidFor')} {timeRemaining}
                 </div>
               )}
             </>
@@ -302,7 +302,7 @@ export default function TopUpScreen() {
           data-testid="button-continue"
           disabled={isLoading || createTopupMutation.isPending || !canContinue}
         >
-          {createTopupMutation.isPending ? "Отправка..." : "Далее"}
+          {createTopupMutation.isPending ? t('topUp.sending') : t('topUp.next')}
           <ArrowRight className="w-5 h-5 ml-2" />
         </Button>
       </div>

@@ -354,7 +354,7 @@ export default function HistoryScreen() {
                 disabled={isLoading}
                 data-testid="button-show-more"
               >
-                {isLoading && offset > 0 ? "Загрузка..." : "Показать больше"}
+                {isLoading && offset > 0 ? t('common.loading') : t('history.loadMore')}
               </button>
             </div>
           )}

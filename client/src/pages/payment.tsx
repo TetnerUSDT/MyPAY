@@ -120,7 +120,7 @@ export default function PaymentScreen() {
     return (
       <div className="mobile-screen text-white flex items-center justify-center">
         <div className="text-center">
-          <div className="text-lg">Загрузка данных заявки...</div>
+          <div className="text-lg">{t('common.loading')}</div>
         </div>
       </div>
     );
@@ -131,12 +131,12 @@ export default function PaymentScreen() {
     return (
       <div className="mobile-screen text-white flex items-center justify-center">
         <div className="text-center">
-          <div className="text-lg text-red-500">Ошибка загрузки заявки</div>
+          <div className="text-lg text-red-500">{t('payment.loadError')}</div>
           <button 
             onClick={() => setLocation("/exchange")}
             className="action-button mt-4"
           >
-            Вернуться к обмену
+            {t('payment.backToExchange')}
           </button>
         </div>
       </div>

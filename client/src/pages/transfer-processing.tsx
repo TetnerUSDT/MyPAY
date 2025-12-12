@@ -1,8 +1,10 @@
 import { Link, useLocation } from "wouter";
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export default function TransferProcessingScreen() {
+  const { t } = useTranslation();
   const [, setLocation] = useLocation();
 
   useEffect(() => {
@@ -19,7 +21,7 @@ export default function TransferProcessingScreen() {
     <div className="mobile-screen text-white">
       <div className="flex flex-col items-center justify-center min-h-screen text-center px-6">
         <h1 className="text-2xl font-bold mb-16" data-testid="text-title">
-          Выполнение платежа
+          {t('transfer.processing')}
         </h1>
         
         {/* Processing Animation */}
@@ -31,7 +33,7 @@ export default function TransferProcessingScreen() {
         </div>
         
         <p className="text-lg mb-16 px-4">
-          Ваш перевод в очереди на выполнение
+          {t('transfer.inQueue')}
         </p>
         
         <div className="w-full max-w-sm">
@@ -40,7 +42,7 @@ export default function TransferProcessingScreen() {
               className="action-button"
               data-testid="button-back-home"
             >
-              Вернуться на главную
+              {t('common.backToHome')}
             </button>
           </Link>
         </div>

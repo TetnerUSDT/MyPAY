@@ -22,7 +22,8 @@
     "available": "Available",
     "copyError": "Copy failed",
     "fillAllFields": "Please fill all required fields",
-    "creating": "Creating..."
+    "creating": "Creating...",
+    "backToHome": "Back to home"
   },
   "nav": {
     "home": "Home",
@@ -144,9 +145,31 @@
     "failed": "Failed",
     "fundsSent": "Funds have been sent to your details",
     "supportTitle": "Technical support for exchange questions",
-    "supportDesc": "If you have questions about your exchange, contact our support",
+    "supportDesc": "If you need help, our support team is always ready to answer any questions related to the exchange.",
     "contactSupport": "Contact support",
-    "hashCopied": "Transaction hash copied to clipboard"
+    "hashCopied": "Transaction hash copied to clipboard",
+    "waitingPayment": "Waiting for payment",
+    "awaitingPayment": "awaiting payment",
+    "verifyingPayment": "Verifying payment",
+    "searchingTransaction": "searching for transaction",
+    "processingOrder": "Processing order",
+    "hashFound": "Transaction hash found",
+    "waitingHash": "Waiting for hash...",
+    "preparingToSend": "Preparing to send",
+    "weCanHelp": "We can help",
+    "checkDealStatus": "Check deal status",
+    "clarifyPaymentDetails": "Clarify payment details",
+    "resolveTransaction": "Resolve transaction issues",
+    "solveTechnicalIssues": "Solve any technical issues",
+    "contactUs": "Contact us and we will help you promptly",
+    "successComplete": "Completed successfully",
+    "exchangeCompleted": "Funds have been sent to your details, exchange completed from both sides!",
+    "notReceivedFunds": "What to do if you didn't receive funds?",
+    "paymentCanceled": "Payment canceled",
+    "exchangeCanceled": "Exchange was canceled",
+    "cancelReason": "Cancellation reason",
+    "disputeOpened": "Dispute opened",
+    "disputeMessage": "A dispute has been opened for this order. Please contact support."
   },
   "support": {
     "title": "Didn't receive funds?",
@@ -228,7 +251,11 @@
     "continue": "Continue",
     "sendToAddress": "Send {{currency}} ({{network}}) to the address below",
     "walletAddress": "Wallet address",
-    "timeRemaining": "Time remaining"
+    "timeRemaining": "Time remaining",
+    "toWalletAddress": "To wallet address",
+    "addressValidFor": "Address valid for",
+    "sending": "Sending...",
+    "next": "Next"
   },
   "transfer": {
     "title": "Transfer",
@@ -239,7 +266,14 @@
     "send": "Send",
     "confirmTransfer": "Confirm transfer",
     "transferSuccess": "Transfer completed successfully",
-    "transferError": "Transfer failed"
+    "transferError": "Transfer failed",
+    "processing": "Processing payment",
+    "inQueue": "Your transfer is in the queue",
+    "success": "Completed successfully",
+    "fundsSent": "Funds have been sent to the specified wallet",
+    "transactionHash": "Transaction hash",
+    "hashCopied": "Transaction hash copied to clipboard",
+    "copyHashError": "Failed to copy transaction hash"
   },
   "vouchers": {
     "title": "Vouchers",
@@ -374,15 +408,19 @@
     "addressCopied": "Wallet address copied to clipboard",
     "copyError": "Failed to copy address",
     "processing": "Processing...",
-    "iHavePaid": "I have paid"
+    "iHavePaid": "I have paid",
+    "loadError": "Failed to load request",
+    "backToExchange": "Back to exchange"
   },
   "sell": {
-    "title": "Sell",
+    "title": "Send",
     "transactionError": "Transaction failed",
     "serviceUnavailable": "Service temporarily unavailable",
     "tryAgainLater": "Please try again later",
     "processing": "Processing...",
-    "submit": "Submit"
+    "submit": "Submit",
+    "balance": "Balance",
+    "enterAmount": "Enter amount to send"
   },
   "cards": {
     "addSuccess": "Card added successfully",

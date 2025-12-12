@@ -101,7 +101,7 @@ interface VoucherCheckResponse {
 }
 
 export default function VouchersPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("active");

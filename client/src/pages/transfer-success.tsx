@@ -3,8 +3,10 @@ import { Copy, Check, CheckCircle } from "lucide-react";
 import { useState } from "react";
 import { copyToClipboard } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 
 export default function TransferSuccessScreen() {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
   const txHash = "jvuv22ev29ev2v92ev9c2ev92ev..."; // Mock transaction hash
@@ -14,14 +16,14 @@ export default function TransferSuccessScreen() {
       await copyToClipboard(txHash);
       setCopied(true);
       toast({
-        title: "Copied!",
-        description: "Transaction hash copied to clipboard",
+        title: t('common.copied'),
+        description: t('transfer.hashCopied'),
       });
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to copy transaction hash",
+        title: t('common.error'),
+        description: t('transfer.copyHashError'),
         variant: "destructive",
       });
     }
@@ -31,7 +33,7 @@ export default function TransferSuccessScreen() {
     <div className="mobile-screen text-white">
       <div className="flex flex-col items-center justify-center min-h-screen text-center px-6">
         <h1 className="text-2xl font-bold mb-16" data-testid="text-title">
-          Выполнена успешно
+          {t('transfer.success')}
         </h1>
         
         {/* Success Animation */}
@@ -43,12 +45,12 @@ export default function TransferSuccessScreen() {
         </div>
         
         <p className="text-lg mb-12 px-4">
-          Средства были отправлены на указанный кошелек
+          {t('transfer.fundsSent')}
         </p>
         
         {/* Transaction Hash Section */}
         <div className="w-full max-w-sm mb-12">
-          <div className="text-sm text-muted-foreground mb-2">Хеш транзакции</div>
+          <div className="text-sm text-muted-foreground mb-2">{t('transfer.transactionHash')}</div>
           <div className="flex items-center bg-secondary rounded-lg p-3">
             <span 
               className="font-mono text-sm flex-1 truncate"
@@ -76,7 +78,7 @@ export default function TransferSuccessScreen() {
               className="action-button"
               data-testid="button-back-home"
             >
-              Вернуться на главную
+              {t('common.backToHome')}
             </button>
           </Link>
         </div>

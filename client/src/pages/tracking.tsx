@@ -192,7 +192,7 @@ export default function TrackingScreen() {
     return (
       <div className="mobile-screen text-white flex items-center justify-center">
         <div className="text-center">
-          <div className="text-lg">Загрузка данных заявки...</div>
+          <div className="text-lg">{t('common.loading')}</div>
         </div>
       </div>
     );
@@ -216,11 +216,11 @@ export default function TrackingScreen() {
         
         <div className="flex flex-col items-center justify-center min-h-screen text-center px-6">
           <h1 className="text-2xl font-bold mb-4" data-testid="text-title">
-            Ожидание платежа
+            {t('tracking.waitingPayment')}
           </h1>
           
           <div className="text-xl text-yellow-400 font-semibold mb-8" data-testid="text-status">
-            ожидаем оплату
+            {t('tracking.awaitingPayment')}
           </div>
           
           {/* Timer */}
@@ -261,11 +261,11 @@ export default function TrackingScreen() {
         
         <div className="flex flex-col items-center justify-center min-h-screen text-center px-6">
           <h1 className="text-2xl font-bold mb-4" data-testid="text-title">
-            Проверка платежа
+            {t('tracking.verifyingPayment')}
           </h1>
           
           <div className="text-xl text-yellow-400 font-semibold mb-8" data-testid="text-status">
-            ищем транзакцию
+            {t('tracking.searchingTransaction')}
           </div>
           
           {/* Timer */}
@@ -306,7 +306,7 @@ export default function TrackingScreen() {
         
         <div className="flex flex-col items-center justify-center min-h-screen text-center px-6">
           <h1 className="text-2xl font-bold mb-4" data-testid="text-title">
-            Выполнение заявки
+            {t('tracking.processingOrder')}
           </h1>
           
           <div className="text-2xl text-yellow-400 font-bold mb-4" data-testid="text-application-number">
@@ -323,7 +323,7 @@ export default function TrackingScreen() {
 
           {/* Transaction Found */}
           <div className="w-full max-w-md crypto-card mb-4">
-            <div className="text-sm text-muted-foreground mb-2 text-left">Хеш транзакции найден</div>
+            <div className="text-sm text-muted-foreground mb-2 text-left">{t('tracking.hashFound')}</div>
             <div className="flex items-center justify-between mb-4">
               <span className="text-3xl font-bold">{formatOrderAmount(orderData.amountFrom)}</span>
               <span className="text-lg font-semibold text-yellow-400">{orderData.fromCurrency}</span>
@@ -331,7 +331,7 @@ export default function TrackingScreen() {
             
             <div className="bg-secondary rounded-lg p-3 mb-2 relative">
               <div className="font-mono text-xs break-all text-left" data-testid="text-transaction-hash">
-                {orderData.paymentHash || 'Ожидание хеша...'}
+                {orderData.paymentHash || t('tracking.waitingHash')}
               </div>
               <button 
                 className="absolute top-2 right-2 p-1 hover:bg-white/10 rounded"
@@ -356,7 +356,7 @@ export default function TrackingScreen() {
 
           {/* Ready to Send */}
           <div className="w-full max-w-md crypto-card mb-8">
-            <div className="text-sm text-muted-foreground mb-2 text-left">Готовим к отправке</div>
+            <div className="text-sm text-muted-foreground mb-2 text-left">{t('tracking.preparingToSend')}</div>
             <div className="flex items-center justify-between mb-4">
               <span className="text-3xl font-bold">{formatOrderAmount(orderData.amountTo)}</span>
               <span className="text-lg font-semibold text-yellow-400">{orderData.toCurrency}</span>
@@ -365,7 +365,7 @@ export default function TrackingScreen() {
             <div className="text-sm text-muted-foreground mb-2 text-left">{getRecipientLabel(orderData.cardNumber || '')}</div>
             <div className="bg-secondary rounded-lg p-3">
               <span className="font-mono" data-testid="text-card-number">
-                {formatRecipientAddress(orderData.cardNumber || '') || 'Загрузка...'}
+                {formatRecipientAddress(orderData.cardNumber || '') || t('common.loading')}
               </span>
             </div>
           </div>
@@ -381,23 +381,23 @@ export default function TrackingScreen() {
           {/* Support Block */}
           <div className="w-full max-w-md crypto-card text-left">
             <h3 className="text-lg font-semibold text-white mb-4">
-              Тех. поддержка по вопросам обмена
+              {t('tracking.supportTitle')}
             </h3>
             
             <p className="text-sm text-muted-foreground mb-3">
-              Если вам нужна помощь, наша команда поддержки всегда готова ответить на любые вопросы, связанные с обменом.
+              {t('tracking.supportDesc')}
             </p>
             
-            <p className="text-sm text-white mb-1">Мы поможем:</p>
+            <p className="text-sm text-white mb-1">{t('tracking.weCanHelp')}:</p>
             <ul className="text-sm text-muted-foreground mb-4 space-y-1">
-              <li>• Проверить статус сделки</li>
-              <li>• Уточнить детали по оплате</li>
-              <li>• Разобраться с транзакцией</li>
-              <li>• Решить любые технические трудности</li>
+              <li>• {t('tracking.checkDealStatus')}</li>
+              <li>• {t('tracking.clarifyPaymentDetails')}</li>
+              <li>• {t('tracking.resolveTransaction')}</li>
+              <li>• {t('tracking.solveTechnicalIssues')}</li>
             </ul>
             
             <p className="text-sm text-muted-foreground mb-3">
-              Свяжитесь с нами — и мы оперативно вам поможем.
+              {t('tracking.contactUs')}
             </p>
             
             <a 
@@ -440,7 +440,7 @@ export default function TrackingScreen() {
         
         <div className="flex flex-col items-center justify-center min-h-screen text-center px-6 relative z-20">
           <h1 className="text-2xl font-bold mb-12" data-testid="text-title">
-            Выполнена успешно
+            {t('tracking.successComplete')}
           </h1>
           
           {/* Success Animation */}
@@ -452,14 +452,13 @@ export default function TrackingScreen() {
           </div>
           
           <p className="text-lg mb-16 px-4">
-            Средства были отправлены на ваши реквизиты,<br />
-            обмен завершен с двух сторон!
+            {t('tracking.exchangeCompleted')}
           </p>
           
           <div className="w-full max-w-sm mb-8">
             <Link href="/support">
               <p className="text-sm text-yellow-400 text-center cursor-pointer hover:underline" data-testid="link-support">
-                Что делать если вы не получили средства?
+                {t('tracking.notReceivedFunds')}
               </p>
             </Link>
           </div>
@@ -470,7 +469,7 @@ export default function TrackingScreen() {
               onClick={handleBackToHome}
               data-testid="button-back-home"
             >
-              Вернуться на главную
+              {t('common.backToHome')}
             </button>
           </div>
         </div>
@@ -496,7 +495,7 @@ export default function TrackingScreen() {
         
         <div className="flex flex-col items-center justify-center min-h-screen text-center px-6 relative z-20">
           <h1 className="text-2xl font-bold mb-12" data-testid="text-title">
-            Платеж отменен
+            {t('tracking.paymentCanceled')}
           </h1>
           
           {/* Cancel Icon */}
@@ -508,12 +507,12 @@ export default function TrackingScreen() {
           </div>
           
           <p className="text-lg mb-8 px-4">
-            Обмен был отменен
+            {t('tracking.exchangeCanceled')}
           </p>
 
           {orderData.cancelReason && (
             <div className="w-full max-w-md mb-12 crypto-card">
-              <div className="text-sm text-muted-foreground mb-2">Причина отмены</div>
+              <div className="text-sm text-muted-foreground mb-2">{t('tracking.cancelReason')}</div>
               <p className="text-base">{orderData.cancelReason}</p>
             </div>
           )}
@@ -521,7 +520,7 @@ export default function TrackingScreen() {
           <div className="w-full max-w-sm mb-8">
             <Link href="/support">
               <p className="text-sm text-yellow-400 text-center cursor-pointer hover:underline" data-testid="link-support">
-                Связаться с поддержкой
+                {t('tracking.contactSupport')}
               </p>
             </Link>
           </div>
@@ -532,7 +531,7 @@ export default function TrackingScreen() {
               onClick={handleBackToHome}
               data-testid="button-back-home"
             >
-              Вернуться на главную
+              {t('common.backToHome')}
             </button>
           </div>
         </div>
@@ -558,7 +557,7 @@ export default function TrackingScreen() {
         
         <div className="flex flex-col items-center justify-center min-h-screen text-center px-6 relative z-20">
           <h1 className="text-2xl font-bold mb-12" data-testid="text-title">
-            Спор открыт
+            {t('tracking.disputeOpened')}
           </h1>
           
           <div className="w-32 h-32 mb-12 flex items-center justify-center">
@@ -569,14 +568,13 @@ export default function TrackingScreen() {
           </div>
           
           <p className="text-lg mb-16 px-4">
-            По данной заявке открыт спор.<br />
-            Пожалуйста, свяжитесь с поддержкой.
+            {t('tracking.disputeMessage')}
           </p>
           
           <div className="w-full max-w-sm mb-8">
             <Link href="/support">
               <button className="action-button" data-testid="button-contact-support">
-                Связаться с поддержкой
+                {t('tracking.contactSupport')}
               </button>
             </Link>
           </div>
@@ -587,7 +585,7 @@ export default function TrackingScreen() {
               onClick={handleBackToHome}
               data-testid="button-back-home"
             >
-              Вернуться на главную
+              {t('common.backToHome')}
             </button>
           </div>
         </div>
@@ -599,7 +597,7 @@ export default function TrackingScreen() {
   return (
     <div className="mobile-screen text-white flex items-center justify-center">
       <div className="text-center">
-        <div className="text-lg">Неизвестный статус заявки</div>
+        <div className="text-lg">{t('tracking.pending')}</div>
       </div>
     </div>
   );

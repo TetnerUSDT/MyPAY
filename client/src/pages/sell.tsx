@@ -151,7 +151,7 @@ export default function SellScreen() {
     <div className="mobile-screen text-white pb-24">
       <div className="px-6 py-8">
         <h1 className="text-2xl font-bold text-center mb-8" data-testid="text-title">
-          Отправить
+          {t('sell.title')}
         </h1>
         
         <div className="flex justify-center mb-8">
@@ -174,9 +174,9 @@ export default function SellScreen() {
         </div>
         
         <div className="text-center mb-8">
-          <div className="text-sm text-muted-foreground">Баланс:</div>
+          <div className="text-sm text-muted-foreground">{t('sell.balance')}:</div>
           {isLoading ? (
-            <div className="text-2xl font-bold text-yellow-400">Загрузка...</div>
+            <div className="text-2xl font-bold text-yellow-400">{t('common.loading')}</div>
           ) : (
             <div 
               className="text-2xl font-bold text-yellow-400"
@@ -188,7 +188,7 @@ export default function SellScreen() {
         </div>
         
         <div className="crypto-card mb-6">
-          <div className="text-sm text-muted-foreground mb-2">Введите сумму отправки</div>
+          <div className="text-sm text-muted-foreground mb-2">{t('sell.enterAmount')}</div>
           <div className="flex items-center bg-secondary rounded-lg">
             <input 
               type="number" 
