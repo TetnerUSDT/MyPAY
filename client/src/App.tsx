@@ -27,13 +27,14 @@ import SecurityScreen from "@/pages/security";
 import LoyaltyScreen from "@/pages/loyalty";
 import DevicesScreen from "@/pages/devices";
 import VouchersScreen from "@/pages/vouchers";
+import WalletScreen from "@/pages/wallet";
 import BottomNavigation from "@/components/bottom-navigation";
 import { useLocation } from "wouter";
 import { AdminRoutes } from "@/components/AdminRouteProvider";
 
 function Router() {
   const [location] = useLocation();
-  const showBottomNav = ["/home", "/exchange", "/transfer", "/top-up", "/vouchers", "/select-country", "/cards", "/loyalty"].includes(location);
+  const showBottomNav = ["/home", "/wallet", "/exchange", "/transfer", "/top-up", "/vouchers", "/select-country", "/cards", "/loyalty"].includes(location);
 
   return (
     <div className="min-h-screen gradient-bg">
@@ -46,6 +47,12 @@ function Router() {
         <Route path="/home">
           <AuthGuard requireAgreement={true}>
             <HomeScreen />
+          </AuthGuard>
+        </Route>
+        
+        <Route path="/wallet">
+          <AuthGuard requireAgreement={true}>
+            <WalletScreen />
           </AuthGuard>
         </Route>
         

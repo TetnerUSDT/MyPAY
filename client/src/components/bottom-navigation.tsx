@@ -1,23 +1,13 @@
 import { Link, useLocation } from "wouter";
 import { Home, ArrowRightLeft, Wallet, Ticket } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 
 export default function BottomNavigation() {
   const [location] = useLocation();
-  const { toast } = useToast();
-
-  const handleWalletClick = () => {
-    toast({
-      title: "Кошелек",
-      description: "Данный сервис станет доступным в ближайшее время",
-      variant: "default",
-    });
-  };
 
   const navItems = [
     { path: "/home", icon: Home, label: "Home" },
     { path: "/select-country", icon: ArrowRightLeft, label: "Exchange" },
-    { path: "/top-up", icon: Wallet, label: "Wallet" },
+    { path: "/wallet", icon: Wallet, label: "Wallet" },
     { path: "/vouchers", icon: Ticket, label: "Vouchers" },
   ];
 
@@ -27,23 +17,6 @@ export default function BottomNavigation() {
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location === item.path;
-          
-          // Special handling for Wallet button
-          if (item.label === "Wallet") {
-            return (
-              <button 
-                key={item.path}
-                onClick={handleWalletClick}
-                className={`flex flex-col items-center p-2 transition-colors ${
-                  isActive ? "text-accent" : "text-muted-foreground hover:text-foreground"
-                }`}
-                data-testid={`nav-${item.label.toLowerCase()}`}
-              >
-                <Icon className="w-5 h-5 mb-1" />
-                <span className="text-xs">{item.label}</span>
-              </button>
-            );
-          }
           
           return (
             <Link 
