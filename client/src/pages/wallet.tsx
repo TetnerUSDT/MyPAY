@@ -89,11 +89,11 @@ export default function WalletScreen() {
     <div className="mobile-screen gradient-bg text-white overflow-y-auto pb-20">
       <div className="flex flex-col min-h-full">
         {/* Header with Profile */}
-        <div className="flex items-center justify-center p-6">
+        <div className="flex items-center justify-center px-6 pt-4 pb-3">
           <div className="flex items-center">
             <Link href="/history">
               <button 
-                className="w-10 h-10 rounded-full bg-black/20 flex items-center justify-center mr-4"
+                className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center mr-4"
                 data-testid="button-history"
               >
                 <RefreshIcon className="w-5 h-5 text-white" />
@@ -102,7 +102,7 @@ export default function WalletScreen() {
             
             <Link href="/notifications">
               <div className="relative">
-                <div className="w-16 h-16 rounded-full overflow-hidden">
+                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white/20">
                   <img 
                     src={user?.img || catImage} 
                     alt="Profile Avatar" 
@@ -124,7 +124,7 @@ export default function WalletScreen() {
           
           <Link href="/settings">
             <button 
-              className="w-10 h-10 rounded-full bg-black/20 flex items-center justify-center ml-4"
+              className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center ml-4"
               data-testid="button-settings"
             >
               <Settings className="w-5 h-5 text-white" />
@@ -133,48 +133,25 @@ export default function WalletScreen() {
         </div>
 
         {/* Action Buttons */}
-        <div className="px-6 mb-8">
+        <div className="px-6 mb-5">
           <div className="grid grid-cols-3 gap-4">
-            {actions.map((action, index) => {
+            {[
+              { icon: ArrowDownLeft, label: t('wallet.deposit'), testId: "action-deposit", href: "/top-up" },
+              { icon: ArrowUpRight, label: t('wallet.send'), testId: "action-send", href: "/transfer" },
+              { icon: ArrowRightLeft, label: t('wallet.exchange'), testId: "action-exchange", href: "/select-country" },
+            ].map((action) => {
               const Icon = action.icon;
               return (
-                <div key={index} className="flex flex-col items-center">
-                  {action.testId === "action-exchange" ? (
-                    <Link href="/select-country">
-                      <button 
-                        className="w-14 h-14 rounded-full bg-black/20 flex items-center justify-center mb-2"
-                        data-testid={action.testId}
-                      >
-                        <Icon className="w-6 h-6 text-white" />
-                      </button>
-                    </Link>
-                  ) : action.testId === "action-send" ? (
-                    <Link href="/transfer">
-                      <button 
-                        className="w-14 h-14 rounded-full bg-black/20 flex items-center justify-center mb-2"
-                        data-testid={action.testId}
-                      >
-                        <Icon className="w-6 h-6 text-white" />
-                      </button>
-                    </Link>
-                  ) : action.testId === "action-deposit" ? (
-                    <Link href="/top-up">
-                      <button 
-                        className="w-14 h-14 rounded-full bg-black/20 flex items-center justify-center mb-2"
-                        data-testid={action.testId}
-                      >
-                        <Icon className="w-6 h-6 text-white" />
-                      </button>
-                    </Link>
-                  ) : (
-                    <button 
-                      className="w-14 h-14 rounded-full bg-black/20 flex items-center justify-center mb-2"
+                <div key={action.testId} className="flex flex-col items-center">
+                  <Link href={action.href}>
+                    <button
+                      className="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center mb-2 hover:bg-white/15 transition-colors"
                       data-testid={action.testId}
                     >
                       <Icon className="w-6 h-6 text-white" />
                     </button>
-                  )}
-                  <span className="text-xs text-white">{action.label}</span>
+                  </Link>
+                  <span className="text-xs text-white/80">{action.label}</span>
                 </div>
               );
             })}
@@ -183,24 +160,24 @@ export default function WalletScreen() {
 
         {/* Wallets List */}
         <div className="flex-1 px-6">
-          <div className="space-y-4">
+          <div className="space-y-2">
             {cryptoLoading ? (
               Array.from({ length: 3 }).map((_, index) => (
                 <div 
                   key={`skeleton-${index}`}
-                  className="crypto-card flex items-center justify-between"
+                  className="crypto-card flex items-center justify-between !p-3"
                   data-testid={`wallet-skeleton-${index}`}
                 >
                   <div className="flex items-center flex-1">
-                    <Skeleton className="w-12 h-12 rounded-full mr-4 bg-white/10" />
+                    <Skeleton className="w-10 h-10 rounded-full mr-3 bg-white/10" />
                     <div className="flex-1">
-                      <Skeleton className="h-5 w-32 mb-2 bg-white/10" />
-                      <Skeleton className="h-4 w-24 bg-white/10" />
+                      <Skeleton className="h-4 w-28 mb-1.5 bg-white/10" />
+                      <Skeleton className="h-3 w-20 bg-white/10" />
                     </div>
                   </div>
                   <div className="flex space-x-2">
-                    <Skeleton className="w-10 h-10 rounded-lg bg-white/10" />
-                    <Skeleton className="w-10 h-10 rounded-lg bg-white/10" />
+                    <Skeleton className="w-8 h-8 rounded-lg bg-white/10" />
+                    <Skeleton className="w-8 h-8 rounded-lg bg-white/10" />
                   </div>
                 </div>
               ))
@@ -208,7 +185,7 @@ export default function WalletScreen() {
               wallets.map((wallet) => (
               <div 
                 key={wallet.id}
-                className={`crypto-card flex items-center justify-between relative ${(wallet.isBlocked || wallet.isFrozen) ? 'opacity-70 cursor-pointer' : ''}`}
+                className={`crypto-card flex items-center justify-between relative !p-3 ${(wallet.isBlocked || wallet.isFrozen) ? 'opacity-70 cursor-pointer' : ''}`}
                 data-testid={`wallet-${wallet.id}`}
                 onClick={() => {
                   if (wallet.isBlocked || wallet.isFrozen) {
@@ -217,19 +194,18 @@ export default function WalletScreen() {
                 }}
               >
                 <div className="flex items-center">
-                  <div className="w-12 h-12 rounded-full flex items-center justify-center mr-4 overflow-hidden">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center mr-3 overflow-hidden">
                     <img 
                       src={wallet.icon} 
                       alt={wallet.name}
                       className="w-full h-full object-cover"
                     />
                   </div>
-                  
                   <div>
-                    <h3 className="font-semibold text-white" data-testid={`wallet-name-${wallet.id}`}>
+                    <h3 className="font-semibold text-white text-sm leading-tight" data-testid={`wallet-name-${wallet.id}`}>
                       {wallet.name}
                     </h3>
-                    <p className="text-muted-foreground text-sm" data-testid={`wallet-amount-${wallet.id}`}>
+                    <p className="text-muted-foreground text-xs mt-0.5" data-testid={`wallet-amount-${wallet.id}`}>
                       {formatBalance(wallet.amount)} {wallet.currency}
                     </p>
                   </div>
@@ -238,7 +214,7 @@ export default function WalletScreen() {
                 <div className="flex space-x-2">
                   <Link href={(wallet.isBlocked || wallet.isFrozen) ? '#' : `/top-up?network=${wallet.network || 'TRC20'}&currency=${wallet.currency || 'USDT'}`}>
                     <button 
-                      className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                       disabled={wallet.isBlocked || wallet.isFrozen}
                       data-testid={`button-deposit-${wallet.id}`}
                       onClick={(e) => (wallet.isBlocked || wallet.isFrozen) && e.preventDefault()}
@@ -248,7 +224,7 @@ export default function WalletScreen() {
                   </Link>
                   <Link href={(wallet.isBlocked || wallet.isFrozen) ? '#' : `/transfer?network=${wallet.network || 'TRC20'}&currency=${wallet.currency || 'USDT'}`}>
                     <button 
-                      className="w-10 h-10 bg-yellow-400 rounded-lg flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-8 h-8 bg-yellow-400 rounded-lg flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                       disabled={wallet.isBlocked || wallet.isFrozen}
                       data-testid={`button-send-${wallet.id}`}
                       onClick={(e) => (wallet.isBlocked || wallet.isFrozen) && e.preventDefault()}
@@ -267,7 +243,7 @@ export default function WalletScreen() {
                     }}
                   >
                     <div className={`${wallet.isBlocked ? 'bg-red-900/90 border-red-700' : 'bg-blue-900/90 border-blue-700'} border text-white px-4 py-2 rounded-lg backdrop-blur-sm`}>
-                      <p className="font-medium">{wallet.isBlocked ? `🔒 ${t('wallet.balanceBlocked')}` : `❄️ ${t('wallet.balanceInactive')}`}</p>
+                      <p className="font-medium text-sm">{wallet.isBlocked ? `🔒 ${t('wallet.balanceBlocked')}` : `❄️ ${t('wallet.balanceInactive')}`}</p>
                     </div>
                   </div>
                 )}
