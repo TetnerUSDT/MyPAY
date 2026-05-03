@@ -198,8 +198,6 @@ export default function SplashScreen() {
           />
         </div>
         
-        <h2 className="text-2xl font-bold mb-4">{t('splash.fastAndReliable')}</h2>
-        <h3 className="text-xl font-semibold mb-12">{t('splash.cryptoExchange')}</h3>
         
         {authError && (
           <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-200 text-sm">
