@@ -193,52 +193,69 @@ mkdir -p public/uploads/assets
 mkdir -p public/uploads/support
 success "Upload directories ready"
 
-# ─── 7. PM2 / Process reload ─────────────────────────────────────────────────
+# ─── 7. Ensure logs directory ────────────────────────────────────────────────
+mkdir -p logs
+
+# ─── 8. PM2 / Process reload ─────────────────────────────────────────────────
 section "Reloading application"
 
+ECOSYSTEM_FILE="ecosystem.config.cjs"
+
 if [ "$PM2_AVAILABLE" = true ]; then
-  # Check if the process already exists in PM2
-  if pm2 describe "$PM2_APP_NAME" &>/dev/null; then
-    log "PM2 process '$PM2_APP_NAME' found — performing graceful reload..."
-    pm2 reload "$PM2_APP_NAME" --update-env
-    success "PM2 process reloaded (zero-downtime)"
+  if [ -f "$ECOSYSTEM_FILE" ]; then
+    log "Using ecosystem config: $ECOSYSTEM_FILE"
+    if pm2 describe "$PM2_APP_NAME" &>/dev/null; then
+      log "PM2 process '$PM2_APP_NAME' found — performing graceful reload..."
+      pm2 reload "$ECOSYSTEM_FILE" --update-env
+      success "PM2 process reloaded (zero-downtime)"
+    else
+      log "PM2 process '$PM2_APP_NAME' not found — starting fresh..."
+      pm2 start "$ECOSYSTEM_FILE"
+      success "PM2 process started: $PM2_APP_NAME"
+      pm2 save
+      log "PM2 startup saved (run 'pm2 startup' once to enable auto-start on reboot)"
+    fi
   else
-    log "PM2 process '$PM2_APP_NAME' not found — starting fresh..."
-    pm2 start dist/index.js \
-      --name "$PM2_APP_NAME" \
-      --node-args="--experimental-vm-modules" \
-      --env production \
-      --restart-delay=3000 \
-      --max-restarts=10 \
-      --wait-ready \
-      --listen-timeout=10000
-    success "PM2 process started: $PM2_APP_NAME"
-    pm2 save
-    log "PM2 startup saved (run 'pm2 startup' once to enable auto-start on reboot)"
+    warn "ecosystem.config.cjs not found — falling back to direct pm2 start"
+    if pm2 describe "$PM2_APP_NAME" &>/dev/null; then
+      pm2 reload "$PM2_APP_NAME" --update-env
+    else
+      pm2 start dist/index.js \
+        --name "$PM2_APP_NAME" \
+        --restart-delay=3000 \
+        --max-restarts=10 \
+        --wait-ready \
+        --listen-timeout=10000
+      pm2 save
+    fi
   fi
 
   # Wait briefly then check status
   sleep 2
-  PM2_STATUS=$(pm2 describe "$PM2_APP_NAME" 2>/dev/null | grep "status" | awk '{print $4}' | head -1)
+  PM2_STATUS=$(pm2 jlist 2>/dev/null | node -e "
+    let d=''; process.stdin.on('data',c=>d+=c).on('end',()=>{
+      try{const a=JSON.parse(d);const p=a.find(x=>x.name==='$PM2_APP_NAME');
+      console.log(p?p.pm2_env.status:'unknown');}catch(e){console.log('unknown');}
+    });
+  " 2>/dev/null || echo "unknown")
   if [ "$PM2_STATUS" = "online" ]; then
     success "Process is ONLINE"
   else
-    warn "Process status: ${PM2_STATUS:-unknown} — check 'pm2 logs $PM2_APP_NAME'"
+    warn "Process status: ${PM2_STATUS} — check: pm2 logs $PM2_APP_NAME"
   fi
 else
-  # Fallback: kill old node process on port 5000 (if any) and restart
+  # Fallback: graceful SIGTERM of old process, then restart
   PORT=${PORT:-5000}
   EXISTING_PID=$(lsof -ti tcp:"$PORT" 2>/dev/null || true)
   if [ -n "$EXISTING_PID" ]; then
-    warn "Killing existing process on port $PORT (PID $EXISTING_PID) ..."
+    warn "Sending SIGTERM to existing process on port $PORT (PID $EXISTING_PID) ..."
     kill -SIGTERM "$EXISTING_PID" 2>/dev/null || true
-    sleep 2
+    sleep 3
   fi
   log "Starting application in background..."
   nohup NODE_ENV=production node dist/index.js >> logs/app.log 2>&1 &
   NEW_PID=$!
-  success "Application started (PID $NEW_PID)"
-  log "Logs: logs/app.log"
+  success "Application started (PID $NEW_PID) — logs: logs/app.log"
 fi
 
 # ─── 8. Summary ───────────────────────────────────────────────────────────────
