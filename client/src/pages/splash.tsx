@@ -193,7 +193,7 @@ export default function SplashScreen() {
           <img 
             src={swiftxCard} 
             alt="SwiftX Card" 
-            className="w-full h-auto rounded-2xl shadow-2xl"
+            className="w-full h-auto"
             data-testid="swiftx-card"
           />
         </div>
