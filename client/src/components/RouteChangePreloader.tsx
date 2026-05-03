@@ -1,68 +1,51 @@
 /**
  * Initial Load Preloader
- * 
- * Shows preloader only on initial page load with guaranteed 3 second minimum display
- * Does NOT show preloader during route transitions
+ *
+ * Shows Lottie preloader only during initial page load.
+ * Hides as soon as React finishes initializing (no forced minimum wait).
  */
 
 import { useLayoutEffect, useRef, useState } from 'react';
 import { usePreloader } from './Preloader';
 
-interface InitialLoadPreloaderProps {
-  /** Guaranteed minimum time to keep preloader visible on initial load */
-  initialMinVisibleMs?: number;
-}
-
-export const RouteChangePreloader = ({ 
-  initialMinVisibleMs = 3000 // 3 seconds guaranteed
-}: InitialLoadPreloaderProps) => {
+export const RouteChangePreloader = () => {
   const { show, hide } = usePreloader();
-  
-  const [currentPreloaderId, setCurrentPreloaderId] = useState<string | null>(null);
   const currentPreloaderIdRef = useRef<string | null>(null);
   const [isInitialRender, setIsInitialRender] = useState<boolean>(true);
 
-  // Hide static preloader and show React preloader for guaranteed 3 seconds
   useLayoutEffect(() => {
+    if (!isInitialRender) return;
+    setIsInitialRender(false);
+
+    // Remove the static HTML preloader (fade out)
     const hideStaticPreloader = () => {
-      const staticPreloader = document.getElementById('static-preloader');
-      if (staticPreloader) {
-        staticPreloader.classList.add('hiding');
-        setTimeout(() => {
-          staticPreloader.remove();
-        }, 500); // Wait for fade out animation
+      const el = document.getElementById('static-preloader');
+      if (el) {
+        el.classList.add('hiding');
+        setTimeout(() => el.remove(), 350);
       }
     };
+    hideStaticPreloader();
 
-    if (isInitialRender) {
-      setIsInitialRender(false);
-      
-      // Hide static preloader first
-      setTimeout(hideStaticPreloader, 300);
-      
-      // Show React preloader for guaranteed 3 seconds
-      const preloaderId = show({
-        scope: 'page',
-        key: 'default',
-        delayMs: 0,
-        minVisibleMs: initialMinVisibleMs,
-        bgVariant: 'solid',
-      });
-      
-      setCurrentPreloaderId(preloaderId);
-      currentPreloaderIdRef.current = preloaderId;
-      
-      // Hide preloader after guaranteed time
-      setTimeout(() => {
-        if (currentPreloaderIdRef.current) {
-          hide(currentPreloaderIdRef.current);
-          setCurrentPreloaderId(null);
-        }
-      }, initialMinVisibleMs);
-    }
-  }, [show, hide, isInitialRender, initialMinVisibleMs]);
+    // Show the React/Lottie preloader
+    const id = show({
+      scope: 'page',
+      key: 'default',
+      delayMs: 0,
+      minVisibleMs: 800,   // short minimum so Lottie is visible briefly
+      bgVariant: 'solid',
+    });
+    currentPreloaderIdRef.current = id;
 
-  // Cleanup on unmount
+    // Hide after 800ms — app content will take over
+    setTimeout(() => {
+      if (currentPreloaderIdRef.current) {
+        hide(currentPreloaderIdRef.current);
+        currentPreloaderIdRef.current = null;
+      }
+    }, 800);
+  }, [show, hide, isInitialRender]);
+
   useLayoutEffect(() => {
     return () => {
       if (currentPreloaderIdRef.current) {
@@ -71,5 +54,5 @@ export const RouteChangePreloader = ({
     };
   }, [hide]);
 
-  return null; // This component doesn't render anything, only manages preloader
+  return null;
 };
