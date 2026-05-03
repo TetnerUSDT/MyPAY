@@ -156,7 +156,7 @@ export default function HomeScreen() {
   ];
 
   return (
-    <div className="mobile-screen gradient-bg text-white flex flex-col overflow-hidden pb-16">
+    <div className="mobile-screen gradient-bg text-white flex flex-col pb-20">
       {/* Header */}
       <div className="flex items-center justify-center px-6 pt-4 pb-3 shrink-0">
         <Link href="/history">
