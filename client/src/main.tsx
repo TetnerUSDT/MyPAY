@@ -2,10 +2,18 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
 import "./i18n/i18n";
-import { loadAnimation } from "./lib/preloaderRegistry";
 
-// Pre-load the default Lottie animation immediately so it's cached
-// by the time React's PreloaderOverlay renders — eliminates spinner flash
-loadAnimation('default');
+const root = createRoot(document.getElementById("root")!);
+root.render(<App />);
 
-createRoot(document.getElementById("root")!).render(<App />);
+// Remove static HTML preloader after the first React paint
+// double-rAF ensures the browser has committed the first frame
+requestAnimationFrame(() => {
+  requestAnimationFrame(() => {
+    const el = document.getElementById('static-preloader');
+    if (el) {
+      el.classList.add('hiding');
+      setTimeout(() => el.remove(), 350);
+    }
+  });
+});
