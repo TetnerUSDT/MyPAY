@@ -46,7 +46,7 @@ export const RouteChangePreloader = ({
         key: 'default',
         delayMs: 0,
         minVisibleMs: initialMinVisibleMs,
-        bgVariant: 'gradient',
+        bgVariant: 'solid',
       });
       
       setCurrentPreloaderId(preloaderId);

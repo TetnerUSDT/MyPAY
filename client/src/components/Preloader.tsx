@@ -245,26 +245,18 @@ const PreloaderOverlay = () => {
       {/* Prevent scroll on body when overlay is active */}
       <style>{`body { overflow: hidden !important; }`}</style>
       
-      <div className="flex flex-col items-center gap-4 animate-scaleIn">
-        {/* Animation or Skeleton */}
-        {isAnimationLoading || !animationData || shouldUseReducedMotion(config) ? (
-          <PreloaderSkeleton config={config} />
-        ) : (
+      <div className="flex flex-col items-center gap-4">
+        {/* Show Lottie only when ready — no spinner fallback to avoid flash */}
+        {!isAnimationLoading && animationData && !shouldUseReducedMotion(config) && (
           <LottieAnimation
             animationData={animationData}
             width={config.width}
             height={config.height}
             loop={getReducedMotionLoop(config)}
             autoplay={getReducedMotionAutoplay(config)}
-            className="drop-shadow-lg"
             data-testid="overlay-preloader-animation"
           />
         )}
-        
-        {/* Optional loading text */}
-        <div className="text-foreground/80 text-sm font-medium animate-pulse">
-          {t('splash.loading')}
-        </div>
       </div>
     </div>,
     document.body
