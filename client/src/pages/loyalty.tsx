@@ -98,7 +98,7 @@ export default function LoyaltyPage() {
 
       <div className="px-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-green-800/60 border border-green-500/40">
+          <TabsList className="grid w-full grid-cols-2 bg-secondary/60 border border-white/10">
             <TabsTrigger 
               value="link" 
               className="data-[state=active]:bg-accent data-[state=active]:text-secondary"
@@ -207,7 +207,7 @@ export default function LoyaltyPage() {
                 {referrals.map((referral) => (
                   <div
                     key={referral.id}
-                    className="bg-gradient-to-r from-green-700/60 to-green-800/60 rounded-xl p-4 border border-green-500/40 backdrop-blur-sm"
+                    className="bg-secondary/60 rounded-xl p-4 border border-green-500/40 backdrop-blur-sm"
                     data-testid={`partner-card-${referral.id}`}
                   >
                     <div className="flex items-center gap-4">

@@ -186,7 +186,7 @@ export default function HomeScreen() {
         {/* Total Balance Card */}
         <div className="px-6 mb-8">
           <div 
-            className="bg-gradient-to-br from-green-600/30 to-green-800/30 rounded-3xl p-6 border border-green-500/20 backdrop-blur-sm"
+            className="bg-card/60 rounded-3xl p-6 border border-border backdrop-blur-sm"
             data-testid="total-balance-card"
           >
             <p className="text-sm text-white/70 mb-2">{t('home.totalBalance')}</p>

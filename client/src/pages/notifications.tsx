@@ -105,7 +105,7 @@ export default function NotificationsPage() {
   return (
     <div className="mobile-screen gradient-bg text-white overflow-y-auto pb-20">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-gradient-to-r from-green-700/95 to-green-800/95 backdrop-blur-sm border-b border-green-600/30">
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-3">
             <Link href="/home">
@@ -153,7 +153,7 @@ export default function NotificationsPage() {
             <div
               key={notification.id}
               onClick={() => handleNotificationClick(notification)}
-              className={`relative bg-gradient-to-r from-green-700/40 to-green-800/40 rounded-xl p-4 border ${
+              className={`relative bg-card/40 rounded-xl p-4 border ${
                 notification.isRead ? 'border-green-600/20' : 'border-yellow-400/50'
               } backdrop-blur-sm cursor-pointer transition-all hover:scale-[1.02]`}
               data-testid={`notification-${notification.id}`}

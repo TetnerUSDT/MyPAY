@@ -72,7 +72,7 @@ export default function DevicesScreen() {
         <div className="flex items-center justify-between mb-4">
           <button
             onClick={() => setLocation("/settings")}
-            className="p-2 hover:bg-green-800/30 rounded-lg transition-colors"
+            className="p-2 hover:bg-secondary/30 rounded-lg transition-colors"
             data-testid="button-back"
           >
             <ArrowLeft className="w-6 h-6 text-white" />
@@ -171,7 +171,7 @@ export default function DevicesScreen() {
             </div>
           </div>
 
-          <div className="bg-green-800/20 border border-green-600/30 rounded-lg p-4">
+          <div className="bg-secondary/20 border border-border rounded-lg p-4">
             <p className="text-green-200 text-sm leading-relaxed">
               <span className="font-semibold text-white">{t('devices.securityInfo')}:</span> {t('devices.securityInfoDesc')}
             </p>

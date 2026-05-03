@@ -507,7 +507,7 @@ export default function VouchersPage() {
           </Button>
           <Button
             onClick={() => handleActivateDialogChange(true)}
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-6 rounded-xl"
+            className="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-6 rounded-xl"
             data-testid="button-activate-voucher"
           >
             <CheckCircle2 className="w-5 h-5 mr-2" />
@@ -517,7 +517,7 @@ export default function VouchersPage() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-green-800/60 border border-green-500/40">
+          <TabsList className="grid w-full grid-cols-2 bg-secondary/60 border border-white/10">
             <TabsTrigger 
               value="active" 
               className="data-[state=active]:bg-accent data-[state=active]:text-secondary"
@@ -564,7 +564,7 @@ export default function VouchersPage() {
 
       {/* Create Voucher Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="bg-gradient-to-br from-green-900 to-green-950 text-white border-green-500/30">
+        <DialogContent className="bg-card text-white border-border">
           <DialogHeader>
             <DialogTitle className="text-xl">{t('vouchers.createTitle')}</DialogTitle>
             <DialogDescription className="text-green-200/70">
@@ -684,7 +684,7 @@ export default function VouchersPage() {
 
       {/* Activate Voucher Dialog */}
       <Dialog open={isActivateDialogOpen} onOpenChange={handleActivateDialogChange}>
-        <DialogContent className="bg-gradient-to-br from-green-900 to-green-950 text-white border-green-500/30">
+        <DialogContent className="bg-card text-white border-border">
           <DialogHeader>
             <DialogTitle className="text-xl">{t('vouchers.activateVoucher')}</DialogTitle>
             <DialogDescription className="text-green-200/70">
@@ -743,7 +743,7 @@ export default function VouchersPage() {
 
       {/* Security Dialog for Activation */}
       <Dialog open={isSecurityDialogOpen} onOpenChange={setIsSecurityDialogOpen}>
-        <DialogContent className="bg-gradient-to-br from-green-900 to-green-950 text-white border-green-500/30">
+        <DialogContent className="bg-card text-white border-border">
           <DialogHeader>
             <DialogTitle className="text-xl flex items-center gap-2">
               <Lock className="w-5 h-5" />

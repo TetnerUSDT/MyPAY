@@ -156,7 +156,7 @@ export default function SettingsScreen() {
             {/* Trust row - compact */}
             <div className="flex items-center gap-2">
               <span className="text-green-200 text-sm font-medium">Trust</span>
-              <div className="bg-green-900/50 border border-green-500/50 rounded-lg px-3 py-1">
+              <div className="bg-secondary/50 border border-primary/20 rounded-lg px-3 py-1">
                 <span className="text-lg font-bold text-accent" data-testid="text-trust-value">
                   {user?.trust || 0}
                 </span>
@@ -293,7 +293,7 @@ export default function SettingsScreen() {
 
       {/* Phone Input Dialog */}
       <Dialog open={isPhoneDialogOpen} onOpenChange={setIsPhoneDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-gradient-to-br from-green-800 to-green-900 border-green-600/50 text-white">
+        <DialogContent className="sm:max-w-md bg-card border-border text-white">
           <DialogHeader>
             <DialogTitle className="text-white">{t('settings.phone')}</DialogTitle>
           </DialogHeader>
@@ -325,7 +325,7 @@ export default function SettingsScreen() {
 
       {/* Language Selection Modal */}
       <Dialog open={isLanguageModalOpen} onOpenChange={setIsLanguageModalOpen}>
-        <DialogContent className="sm:max-w-md bg-gradient-to-br from-green-800 to-green-900 border-green-600/50 text-white">
+        <DialogContent className="sm:max-w-md bg-card border-border text-white">
           <DialogHeader>
             <DialogTitle className="text-white">{t('settings.language')}</DialogTitle>
           </DialogHeader>

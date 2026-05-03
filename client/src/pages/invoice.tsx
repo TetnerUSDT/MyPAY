@@ -227,7 +227,7 @@ export default function InvoicePage() {
   return (
     <div className="mobile-screen gradient-bg text-white overflow-y-auto pb-20">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-gradient-to-r from-green-700/95 to-green-800/95 backdrop-blur-sm border-b border-green-600/30">
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="flex items-center gap-3 p-4">
           <Link href="/notifications">
             <button className="w-10 h-10 rounded-full bg-black/20 flex items-center justify-center" data-testid="button-back">
@@ -246,7 +246,7 @@ export default function InvoicePage() {
       {/* Invoice Details */}
       <div className="p-4 space-y-4">
         {/* Status Card */}
-        <div className="bg-gradient-to-r from-green-700/70 to-green-800/70 rounded-xl p-6 border border-green-500/50 backdrop-blur-sm">
+        <div className="bg-card/80 rounded-xl p-6 border border-border backdrop-blur-sm">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               {getStatusIcon(invoice.status)}
@@ -278,7 +278,7 @@ export default function InvoicePage() {
         </div>
 
         {/* Order Number */}
-        <div className="bg-gradient-to-r from-green-700/70 to-green-800/70 rounded-xl p-4 border border-green-500/50 backdrop-blur-sm">
+        <div className="bg-card/80 rounded-xl p-4 border border-border backdrop-blur-sm">
           <p className="text-sm text-green-200 mb-2">Номер заказа</p>
           <div className="flex items-center justify-between">
             <p className="text-lg font-mono text-white">{invoice.orderNumber}</p>
@@ -294,7 +294,7 @@ export default function InvoicePage() {
 
         {/* Description */}
         {invoice.description && (
-          <div className="bg-gradient-to-r from-green-700/70 to-green-800/70 rounded-xl p-4 border border-green-500/50 backdrop-blur-sm">
+          <div className="bg-card/80 rounded-xl p-4 border border-border backdrop-blur-sm">
             <p className="text-sm text-green-200 mb-2">Описание</p>
             <p className="text-white">{invoice.description}</p>
           </div>
@@ -302,7 +302,7 @@ export default function InvoicePage() {
 
         {/* Balance Info */}
         {userBalance && canPay && (
-          <div className="bg-gradient-to-r from-green-700/70 to-green-800/70 rounded-xl p-4 border border-green-500/50 backdrop-blur-sm">
+          <div className="bg-card/80 rounded-xl p-4 border border-border backdrop-blur-sm">
             <p className="text-sm text-green-200 mb-2">Ваш баланс</p>
             <p className="text-2xl font-bold text-white">
               {formatBalance(userBalance.sum)} {userBalance.currency}
@@ -315,7 +315,7 @@ export default function InvoicePage() {
           <div className="space-y-3">
             <Button
               onClick={() => setShowPaymentDrawer(true)}
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-6 text-lg"
+              className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-6 text-lg"
               data-testid="button-pay-invoice"
             >
               Оплатить счет
@@ -324,7 +324,7 @@ export default function InvoicePage() {
               onClick={() => cancelInvoiceMutation.mutate()}
               disabled={cancelInvoiceMutation.isPending}
               variant="outline"
-              className="w-full border-green-700 text-green-100 hover:bg-green-700/30 hover:text-white hover:border-green-600 transition-colors font-bold py-6 text-lg"
+              className="w-full border-border text-white/80 hover:bg-secondary/30 hover:text-white hover:border-primary/50 transition-colors font-bold py-6 text-lg"
               data-testid="button-cancel-invoice"
             >
               {cancelInvoiceMutation.isPending ? "Отмена..." : "Отменить счет"}
@@ -335,7 +335,7 @@ export default function InvoicePage() {
 
       {/* Payment Method Drawer */}
       <Drawer open={showPaymentDrawer} onOpenChange={setShowPaymentDrawer}>
-        <DrawerContent className="bg-gradient-to-b from-green-800 to-green-900 border-green-600/30">
+        <DrawerContent className="bg-card border-border">
           <DrawerHeader>
             <DrawerTitle className="text-white">Способ оплаты</DrawerTitle>
             <DrawerDescription className="text-green-200">
@@ -350,8 +350,8 @@ export default function InvoicePage() {
                 onClick={() => setSelectedPaymentMethod('balance')}
                 className={`w-full p-4 rounded-xl border-2 transition-all ${
                   selectedPaymentMethod === 'balance'
-                    ? 'border-green-400 bg-green-400/20'
-                    : 'border-green-600/30 bg-green-700/40'
+                    ? 'border-primary bg-primary/20'
+                    : 'border-border bg-secondary/40'
                 }`}
                 data-testid="payment-method-balance"
               >
@@ -375,8 +375,8 @@ export default function InvoicePage() {
                 onClick={() => setSelectedPaymentMethod('blockchain')}
                 className={`w-full p-4 rounded-xl border-2 transition-all ${
                   selectedPaymentMethod === 'blockchain'
-                    ? 'border-green-400 bg-green-400/20'
-                    : 'border-green-600/30 bg-green-700/40'
+                    ? 'border-primary bg-primary/20'
+                    : 'border-border bg-secondary/40'
                 }`}
                 data-testid="payment-method-blockchain"
               >
@@ -398,7 +398,7 @@ export default function InvoicePage() {
             <Button
               onClick={handlePayment}
               disabled={payInvoiceMutation.isPending}
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-6 text-lg"
+              className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-6 text-lg"
               data-testid="button-confirm-payment"
             >
               {payInvoiceMutation.isPending ? "Обработка..." : "Подтвердить оплату"}

@@ -37,7 +37,7 @@ function Router() {
   const showBottomNav = ["/home", "/wallet", "/exchange", "/transfer", "/top-up", "/vouchers", "/select-country", "/cards", "/loyalty"].includes(location);
 
   return (
-    <div className="min-h-screen gradient-bg">
+    <div className="min-h-screen gradient-bg relative z-10">
       <Switch>
         {/* Public routes - no authentication required */}
         <Route path="/" component={SplashScreen} />

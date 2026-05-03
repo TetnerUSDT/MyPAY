@@ -4,45 +4,45 @@
 @tailwind utilities;
 
 :root {
-  --background: hsl(155, 52%, 19%);
-  --foreground: hsl(120, 100%, 98%);
-  --card: hsl(155, 33%, 27%);
-  --card-foreground: hsl(120, 100%, 98%);
-  --popover: hsl(155, 52%, 19%);
-  --popover-foreground: hsl(120, 100%, 98%);
-  --primary: hsl(84, 76%, 50%);
-  --primary-foreground: hsl(155, 30%, 10%);
-  --secondary: hsl(155, 20%, 25%);
-  --secondary-foreground: hsl(120, 100%, 98%);
-  --muted: hsl(155, 20%, 30%);
-  --muted-foreground: hsl(120, 20%, 70%);
-  --accent: hsl(84, 76%, 50%);
-  --accent-foreground: hsl(155, 30%, 10%);
+  --background: hsl(224, 24%, 8%);
+  --foreground: hsl(0, 0%, 95%);
+  --card: hsl(224, 20%, 13%);
+  --card-foreground: hsl(0, 0%, 95%);
+  --popover: hsl(224, 22%, 11%);
+  --popover-foreground: hsl(0, 0%, 95%);
+  --primary: hsl(145, 60%, 42%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(224, 17%, 18%);
+  --secondary-foreground: hsl(0, 0%, 90%);
+  --muted: hsl(224, 16%, 16%);
+  --muted-foreground: hsl(220, 10%, 54%);
+  --accent: hsl(145, 60%, 42%);
+  --accent-foreground: hsl(0, 0%, 100%);
   --destructive: hsl(0, 70%, 60%);
   --destructive-foreground: hsl(0, 0%, 98%);
-  --border: hsl(155, 20%, 30%);
-  --input: hsl(155, 20%, 25%);
-  --ring: hsl(84, 76%, 50%);
-  --chart-1: hsl(84, 76%, 50%);
-  --chart-2: hsl(155, 39%, 41%);
+  --border: hsl(224, 15%, 22%);
+  --input: hsl(224, 17%, 18%);
+  --ring: hsl(145, 60%, 42%);
+  --chart-1: hsl(145, 60%, 42%);
+  --chart-2: hsl(200, 70%, 50%);
   --chart-3: hsl(42, 93%, 56%);
   --chart-4: hsl(147, 78%, 42%);
   --chart-5: hsl(341, 75%, 51%);
-  --sidebar: hsl(155, 33%, 27%);
-  --sidebar-foreground: hsl(120, 100%, 98%);
-  --sidebar-primary: hsl(84, 76%, 50%);
-  --sidebar-primary-foreground: hsl(155, 30%, 10%);
-  --sidebar-accent: hsl(155, 20%, 30%);
-  --sidebar-accent-foreground: hsl(84, 76%, 50%);
-  --sidebar-border: hsl(155, 20%, 30%);
-  --sidebar-ring: hsl(84, 76%, 50%);
+  --sidebar: hsl(224, 20%, 13%);
+  --sidebar-foreground: hsl(0, 0%, 95%);
+  --sidebar-primary: hsl(145, 60%, 42%);
+  --sidebar-primary-foreground: hsl(0, 0%, 100%);
+  --sidebar-accent: hsl(224, 16%, 16%);
+  --sidebar-accent-foreground: hsl(145, 60%, 42%);
+  --sidebar-border: hsl(224, 15%, 22%);
+  --sidebar-ring: hsl(145, 60%, 42%);
   --font-sans: 'Source Sans Pro', system-ui, -apple-system, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
   --radius: 1.2rem;
-  --gradient-primary: linear-gradient(135deg, hsl(155, 52%, 19%) 0%, hsl(155, 33%, 27%) 50%, hsl(155, 39%, 41%) 100%);
-  --gradient-card: linear-gradient(135deg, hsla(155, 33%, 27%, 0.8) 0%, hsla(155, 39%, 41%, 0.6) 100%);
-  --gradient-accent: linear-gradient(135deg, hsl(84, 76%, 50%) 0%, hsl(155, 39%, 41%) 100%);
+  --gradient-primary: linear-gradient(180deg, hsl(224, 24%, 8%) 0%, hsl(224, 22%, 10%) 100%);
+  --gradient-card: linear-gradient(135deg, hsla(224, 20%, 14%, 0.95) 0%, hsla(224, 18%, 17%, 0.85) 100%);
+  --gradient-accent: linear-gradient(135deg, hsl(145, 60%, 42%) 0%, hsl(160, 65%, 35%) 100%);
   
   /* Animation System Variables */
   --motion-duration-fast: 150ms;
@@ -57,10 +57,10 @@
 }
 
 .dark {
-  --background: hsl(155, 52%, 19%);
-  --foreground: hsl(120, 100%, 98%);
-  --card: hsl(155, 33%, 27%);
-  --card-foreground: hsl(120, 100%, 98%);
+  --background: hsl(224, 24%, 8%);
+  --foreground: hsl(0, 0%, 95%);
+  --card: hsl(224, 20%, 13%);
+  --card-foreground: hsl(0, 0%, 95%);
 }
 
 @layer base {
@@ -70,19 +70,43 @@
 
   body {
     @apply font-sans antialiased text-foreground;
-    background: var(--gradient-primary);
+    background-color: var(--background);
+    background-image: var(--gradient-primary);
     min-height: 100vh;
     font-family: var(--font-sans);
+    position: relative;
+  }
+
+  /* Honeycomb grid overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -10%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 500px;
+    height: 60%;
+    background-image: url('./assets/grid.png');
+    background-repeat: no-repeat;
+    background-position: top center;
+    background-size: contain;
+    opacity: 0.18;
+    pointer-events: none;
+    z-index: 0;
+    mix-blend-mode: screen;
   }
 
   .gradient-bg {
     background: var(--gradient-primary);
+    position: relative;
+    z-index: 1;
   }
 
   .gradient-card {
     background: var(--gradient-card);
-    backdrop-filter: blur(10px);
-    border: 1px solid hsla(84, 76%, 50%, 0.2);
+    backdrop-filter: blur(12px);
+    border: 1px solid hsla(224, 15%, 30%, 0.6);
   }
 
   .gradient-accent {
@@ -90,14 +114,14 @@
   }
 
   .glass-effect {
-    background: hsla(155, 33%, 27%, 0.8);
-    backdrop-filter: blur(10px);
-    border: 1px solid hsla(84, 76%, 50%, 0.2);
+    background: hsla(224, 20%, 14%, 0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid hsla(224, 15%, 30%, 0.5);
   }
 
   .countdown-timer {
-    background: hsla(0, 0%, 0%, 0.3);
-    border: 1px solid hsla(84, 76%, 50%, 0.3);
+    background: hsla(0, 0%, 0%, 0.35);
+    border: 1px solid hsla(145, 60%, 42%, 0.3);
   }
 
   .status-indicator {
@@ -127,8 +151,8 @@
   }
 
   .phone-input-custom .PhoneInputInput {
-    background: hsl(155, 20%, 25%);
-    border: 1px solid hsl(155, 20%, 30%);
+    background: hsl(224, 17%, 18%);
+    border: 1px solid hsl(224, 15%, 22%);
     border-radius: 0.5rem;
     padding: 0.5rem 1rem;
     color: white;
@@ -138,8 +162,8 @@
   }
 
   .phone-input-custom .PhoneInputInput:focus {
-    border-color: hsl(84, 76%, 50%);
-    box-shadow: 0 0 0 2px hsla(84, 76%, 50%, 0.2);
+    border-color: hsl(145, 60%, 42%);
+    box-shadow: 0 0 0 2px hsla(145, 60%, 42%, 0.2);
   }
 
   .phone-input-custom .PhoneInputCountry {
@@ -147,15 +171,15 @@
   }
 
   .phone-input-custom .PhoneInputCountrySelect {
-    background: hsl(155, 20%, 25%);
-    border: 1px solid hsl(155, 20%, 30%);
+    background: hsl(224, 17%, 18%);
+    border: 1px solid hsl(224, 15%, 22%);
     border-radius: 0.5rem;
     padding: 0.25rem;
     color: white;
   }
 
   .phone-input-custom .PhoneInputCountrySelectArrow {
-    color: hsl(84, 76%, 50%);
+    color: hsl(145, 60%, 42%);
   }
 
   .chat-bubble {
@@ -438,9 +462,9 @@
   .crypto-card {
     @apply rounded-2xl p-6 text-white;
     background: var(--gradient-card);
-    backdrop-filter: blur(10px);
-    border: 1px solid hsla(84, 76%, 50%, 0.2);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(12px);
+    border: 1px solid hsla(224, 15%, 30%, 0.6);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   }
 
   .action-button {
@@ -565,7 +589,7 @@
   }
 
   .button-interactive:focus:not(:disabled) {
-    box-shadow: 0 0 0 3px rgba(132, 204, 22, 0.2);
+    box-shadow: 0 0 0 3px rgba(51, 200, 110, 0.2);
   }
 
   /* Tab Button Animations */
@@ -575,7 +599,7 @@
   }
 
   .tab-button:hover:not(.active) {
-    background-color: rgba(132, 204, 22, 0.1);
+    background-color: rgba(51, 200, 110, 0.1);
     transform: translateY(-1px);
   }
 
@@ -638,19 +662,19 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: hsl(84, 76%, 50%);
+    background: hsl(145, 60%, 42%);
     border-radius: 2px;
     transition: background 0.2s ease;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(84, 76%, 60%);
+    background: hsl(145, 60%, 52%);
   }
 
   /* Firefox */
   * {
     scrollbar-width: thin;
-    scrollbar-color: hsl(84, 76%, 50%) transparent;
+    scrollbar-color: hsl(145, 60%, 42%) transparent;
   }
 
   /* Marquee animation for internal wallet payment */
