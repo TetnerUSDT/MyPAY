@@ -138,31 +138,31 @@ export default function LoyaltyPage() {
             */}
 
             {/* Referral Code & Link */}
-            <div className="space-y-4 bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-green-500/30">
+            <div className="space-y-3 bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-green-500/30">
               {/* Referral Code */}
-              <div className="space-y-2">
-                <label className="text-sm text-green-200">{t('loyalty.referralCode')}</label>
-                <div className="flex items-center gap-2 bg-white/90 rounded-lg py-2 px-4">
-                  <span className="flex-1 text-secondary text-lg font-semibold" data-testid="text-referral-code">
+              <div className="space-y-1">
+                <label className="text-xs text-green-200">{t('loyalty.referralCode')}</label>
+                <div className="flex items-center gap-2 bg-white/90 rounded-lg py-1.5 px-3">
+                  <span className="flex-1 text-secondary text-base font-semibold" data-testid="text-referral-code">
                     {user?.codeRef || t('common.loading')}
                   </span>
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={handleCopyCode}
-                    className="text-secondary hover:bg-secondary/10"
+                    className="h-7 w-7 text-secondary hover:bg-secondary/10"
                     data-testid="button-copy-code"
                   >
-                    <Copy className="w-5 h-5" />
+                    <Copy className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
 
               {/* Referral Link */}
-              <div className="space-y-2">
-                <label className="text-sm text-green-200">{t('loyalty.referralLink')}</label>
-                <div className="flex items-center gap-2 bg-white/90 rounded-lg py-2 px-4">
-                  <span className="flex-1 text-secondary text-lg font-semibold truncate" data-testid="text-referral-link">
+              <div className="space-y-1">
+                <label className="text-xs text-green-200">{t('loyalty.referralLink')}</label>
+                <div className="flex items-center gap-2 bg-white/90 rounded-lg py-1.5 px-3">
+                  <span className="flex-1 text-secondary text-base font-semibold truncate" data-testid="text-referral-link">
                     {isLoadingLink ? t('common.loading') : referralLink || t('loyalty.botUrlNotConfigured')}
                   </span>
                   <Button
@@ -170,10 +170,10 @@ export default function LoyaltyPage() {
                     size="icon"
                     onClick={handleCopyLink}
                     disabled={!referralLink || isLoadingLink}
-                    className="text-secondary hover:bg-secondary/10 disabled:opacity-50"
+                    className="h-7 w-7 text-secondary hover:bg-secondary/10 disabled:opacity-50"
                     data-testid="button-copy-link"
                   >
-                    <Copy className="w-5 h-5" />
+                    <Copy className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
@@ -182,10 +182,10 @@ export default function LoyaltyPage() {
               <Button
                 onClick={handleShareLink}
                 disabled={!referralLink || isLoadingLink}
-                className="w-full bg-accent hover:bg-accent/90 text-secondary py-6 text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-accent hover:bg-accent/90 text-secondary py-3 text-base font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 data-testid="button-share-link"
               >
-                <Share2 className="w-6 h-6 mr-2" />
+                <Share2 className="w-5 h-5 mr-2" />
                 {t('loyalty.shareLink')}
               </Button>
             </div>
