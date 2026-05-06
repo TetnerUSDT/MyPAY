@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { apiRequest } from "@/lib/queryClient";
 import TelegramLoginButton from "@/components/TelegramLoginButton";
 
-const swiftxCard = "/uploads/assets/start-bg.png?v=2";
+const swiftxCard = "/uploads/assets/start-bg.webp";
 
 export default function SplashScreen() {
   const { t } = useTranslation();
