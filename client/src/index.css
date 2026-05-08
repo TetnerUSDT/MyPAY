@@ -77,19 +77,19 @@
     position: relative;
   }
 
-  /* Honeycomb grid overlay — pinned to top on all pages */
+  /* Honeycomb grid overlay — rotated 90° to cover full height */
   body::before {
     content: '';
     position: fixed;
-    top: 0;
+    top: 50%;
     left: 50%;
-    transform: translateX(-50%);
-    width: 100%;
-    max-width: 500px;
-    height: 65%;
+    /* swap axes: width = screen height, height = screen width */
+    width: 100vh;
+    height: 100vw;
+    transform: translate(-50%, -50%) rotate(90deg);
     background-image: url('./assets/grid.png');
     background-repeat: no-repeat;
-    background-position: top center;
+    background-position: center center;
     background-size: contain;
     opacity: 0.8;
     pointer-events: none;
