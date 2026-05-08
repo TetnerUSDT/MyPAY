@@ -81,7 +81,7 @@ export default function SplashScreen() {
       <div className="flex flex-col items-center justify-center min-h-screen text-center px-6 relative">
 
         {/* Logo / branding — always visible immediately */}
-        <div className="relative z-10 w-full max-w-sm mb-12">
+        <div className="relative z-10 w-56 mb-8">
           <img
             src={swiftxCard}
             alt="MyPay"
