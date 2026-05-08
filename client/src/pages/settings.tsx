@@ -119,7 +119,7 @@ export default function SettingsScreen() {
 
   return (
     <div className="mobile-screen gradient-bg text-white pb-24">
-      <div className="px-4 pt-8 space-y-4">
+      <div className="px-4 pt-4 space-y-3">
         {/* Compact User Profile Header - Avatar left, Username/Trust middle (75%), Phone/Email right (25%) */}
         <div className="flex items-center gap-4">
           {/* Avatar with notification badge and link */}
@@ -200,16 +200,16 @@ export default function SettingsScreen() {
         {/* Loyalty Program */}
         <button
           onClick={handleLoyaltyClick}
-          className="w-full crypto-card hover:opacity-90 transition-all"
+          className="w-full crypto-card !p-3 hover:opacity-90 transition-all"
           data-testid="button-loyalty-settings"
         >
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center shrink-0">
-              <Users className="w-9 h-9 text-accent" />
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center shrink-0">
+              <Users className="w-6 h-6 text-accent" />
             </div>
-            <div className="flex-1 flex flex-col gap-1">
-              <h3 className="text-white font-semibold text-left">{t('settings.loyaltyProgram')}</h3>
-              <p className="text-green-200 text-sm text-left">{t('settings.loyaltyDesc')}</p>
+            <div className="flex-1 flex flex-col gap-0.5">
+              <h3 className="text-white font-semibold text-left text-sm">{t('settings.loyaltyProgram')}</h3>
+              <p className="text-green-200 text-xs text-left">{t('settings.loyaltyDesc')}</p>
             </div>
           </div>
         </button>
@@ -217,19 +217,19 @@ export default function SettingsScreen() {
         {/* Security */}
         <button
           onClick={handleSecurityClick}
-          className="w-full crypto-card hover:opacity-90 transition-all"
+          className="w-full crypto-card !p-3 hover:opacity-90 transition-all"
           data-testid="button-security-settings"
         >
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center shrink-0">
-              <Shield className="w-9 h-9 text-accent" />
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center shrink-0">
+              <Shield className="w-6 h-6 text-accent" />
             </div>
-            <div className="flex-1 flex flex-col gap-1">
+            <div className="flex-1 flex flex-col gap-0.5">
               <div className="flex items-center justify-between w-full">
-                <h3 className="text-white font-semibold text-left">{t('settings.security')}</h3>
-                <span className="text-sm text-accent font-medium text-right">{t('settings.securityLevel')}</span>
+                <h3 className="text-white font-semibold text-left text-sm">{t('settings.security')}</h3>
+                <span className="text-xs text-accent font-medium">{t('settings.securityLevel')}</span>
               </div>
-              <p className="text-green-200 text-sm text-left">{t('settings.securityDesc')}</p>
+              <p className="text-green-200 text-xs text-left">{t('settings.securityDesc')}</p>
             </div>
           </div>
         </button>
@@ -237,19 +237,19 @@ export default function SettingsScreen() {
         {/* Languages */}
         <button
           onClick={handleLanguageClick}
-          className="w-full crypto-card hover:opacity-90 transition-all"
+          className="w-full crypto-card !p-3 hover:opacity-90 transition-all"
           data-testid="button-language-settings"
         >
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center shrink-0">
-              <Globe className="w-9 h-9 text-accent" />
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center shrink-0">
+              <Globe className="w-6 h-6 text-accent" />
             </div>
-            <div className="flex-1 flex flex-col gap-1">
+            <div className="flex-1 flex flex-col gap-0.5">
               <div className="flex items-center justify-between w-full">
-                <h3 className="text-white font-semibold text-left">{t('settings.language')}</h3>
-                <span className="text-sm text-accent font-medium text-right">{currentLanguage.flag} {currentLanguage.name}</span>
+                <h3 className="text-white font-semibold text-left text-sm">{t('settings.language')}</h3>
+                <span className="text-xs text-accent font-medium">{currentLanguage.flag} {currentLanguage.name}</span>
               </div>
-              <p className="text-green-200 text-sm text-left">{t('settings.languageDesc')}</p>
+              <p className="text-green-200 text-xs text-left">{t('settings.languageDesc')}</p>
             </div>
           </div>
         </button>
@@ -257,34 +257,34 @@ export default function SettingsScreen() {
         {/* Devices */}
         <button
           onClick={handleDevicesClick}
-          className="w-full crypto-card hover:opacity-90 transition-all"
+          className="w-full crypto-card !p-3 hover:opacity-90 transition-all"
           data-testid="button-devices-settings"
         >
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center shrink-0">
-              <Smartphone className="w-9 h-9 text-accent" />
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center shrink-0">
+              <Smartphone className="w-6 h-6 text-accent" />
             </div>
-            <div className="flex-1 flex flex-col gap-1">
-              <h3 className="text-white font-semibold text-left">{t('settings.devices')}</h3>
-              <p className="text-green-200 text-sm text-left">{t('settings.devicesDesc')}</p>
+            <div className="flex-1 flex flex-col gap-0.5">
+              <h3 className="text-white font-semibold text-left text-sm">{t('settings.devices')}</h3>
+              <p className="text-green-200 text-xs text-left">{t('settings.devicesDesc')}</p>
             </div>
           </div>
         </button>
 
         {/* Support - Separate block */}
-        <div className="pt-4 border-t border-green-500/20">
+        <div className="pt-2 border-t border-green-500/20">
           <button
             onClick={handleSupportClick}
-            className="w-full crypto-card hover:opacity-90 transition-all"
+            className="w-full crypto-card !p-3 hover:opacity-90 transition-all"
             data-testid="button-support-settings"
           >
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center shrink-0">
-                <Headphones className="w-9 h-9 text-accent" />
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center shrink-0">
+                <Headphones className="w-6 h-6 text-accent" />
               </div>
-              <div className="flex-1 flex flex-col gap-1">
-                <h3 className="text-white font-semibold text-left">{t('settings.support')}</h3>
-                <p className="text-green-200 text-sm text-left">{t('settings.supportDesc')}</p>
+              <div className="flex-1 flex flex-col gap-0.5">
+                <h3 className="text-white font-semibold text-left text-sm">{t('settings.support')}</h3>
+                <p className="text-green-200 text-xs text-left">{t('settings.supportDesc')}</p>
               </div>
             </div>
           </button>
