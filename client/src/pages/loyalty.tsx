@@ -86,14 +86,13 @@ export default function LoyaltyPage() {
         <h1 className="text-xl font-semibold" data-testid="text-loyalty-title">
           {t('loyalty.title')}
         </h1>
-        <Link href="/settings">
-          <button 
-            className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center"
-            data-testid="button-close"
-          >
-            <X className="w-4 h-4 text-white" />
-          </button>
-        </Link>
+        <button 
+          onClick={() => window.history.back()}
+          className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center"
+          data-testid="button-close"
+        >
+          <X className="w-4 h-4 text-white" />
+        </button>
       </div>
 
       <div className="px-4">
