@@ -78,6 +78,8 @@ export default function SplashScreen() {
 
   return (
     <div className="mobile-screen gradient-bg text-white">
+      {/* Grid centered on splash page */}
+      <div className="splash-grid" />
       <div className="flex flex-col items-center justify-center min-h-screen text-center px-6 relative">
 
         {/* Logo / branding — always visible immediately */}

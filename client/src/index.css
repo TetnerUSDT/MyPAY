@@ -77,24 +77,36 @@
     position: relative;
   }
 
-  /* Honeycomb grid overlay */
+  /* Honeycomb grid overlay — pinned to top on all pages */
   body::before {
     content: '';
     position: fixed;
-    top: -10%;
+    top: 0;
     left: 50%;
     transform: translateX(-50%);
     width: 100%;
     max-width: 500px;
-    height: 60%;
+    height: 65%;
     background-image: url('./assets/grid.png');
     background-repeat: no-repeat;
     background-position: top center;
     background-size: contain;
-    opacity: 1;
+    opacity: 0.18;
     pointer-events: none;
-    z-index: 0;
-    mix-blend-mode: screen;
+    z-index: 9998;
+  }
+
+  /* Splash page: grid centered both axes */
+  .splash-grid {
+    position: fixed;
+    inset: 0;
+    background-image: url('./assets/grid.png');
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: contain;
+    opacity: 0.18;
+    pointer-events: none;
+    z-index: 9998;
   }
 
   .gradient-bg {
