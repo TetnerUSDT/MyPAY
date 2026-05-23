@@ -114,6 +114,16 @@
     "minAmount": "Minimum amount",
     "maxAmount": "Maximum amount",
     "proceedToExchange": "Proceed to exchange",
+    "exchangeNow": "Exchange Now",
+    "estimatedTime": "Estimated time",
+    "mode": {
+      "fast": "Fast",
+      "cheap": "Cheap",
+      "smart": "Smart",
+      "etaFast": "~1 min",
+      "etaCheap": "~5 min",
+      "etaSmart": "~2 min"
+    },
     "selectCurrency": "Select currency",
     "selectCard": "Select card",
     "enterAmount": "Enter amount",

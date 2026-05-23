@@ -138,7 +138,7 @@ export default function WalletScreen() {
             {[
               { icon: ArrowDownLeft, label: t('wallet.deposit'), testId: "action-deposit", href: "/top-up" },
               { icon: ArrowUpRight, label: t('wallet.send'), testId: "action-send", href: "/transfer" },
-              { icon: ArrowRightLeft, label: t('wallet.exchange'), testId: "action-exchange", href: "/select-country" },
+              { icon: ArrowRightLeft, label: t('wallet.exchange'), testId: "action-exchange", href: "/exchange" },
             ].map((action) => {
               const Icon = action.icon;
               return (

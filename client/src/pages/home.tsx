@@ -185,7 +185,7 @@ export default function HomeScreen() {
       id: 3,
       title: t('banners.fastExchange'),
       subtitle: t('banners.fastExchangeDesc'),
-      link: "/select-country",
+      link: "/exchange",
       bgGradient: "linear-gradient(135deg, #F2994A 0%, #F2C94C 100%)",
     },
   ];
@@ -245,7 +245,7 @@ export default function HomeScreen() {
 
   const quickActions = [
     {
-      href: "/select-country",
+      href: "/exchange",
       testId: "quick-action-exchange",
       label: t('home.exchange'),
       iconColor: "text-green-500",

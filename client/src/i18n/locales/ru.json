@@ -114,6 +114,16 @@
     "minAmount": "Минимальная сумма",
     "maxAmount": "Максимальная сумма",
     "proceedToExchange": "Перейти к обмену",
+    "exchangeNow": "Обменять",
+    "estimatedTime": "Примерное время",
+    "mode": {
+      "fast": "Быстро",
+      "cheap": "Выгодно",
+      "smart": "Оптимально",
+      "etaFast": "~1 мин",
+      "etaCheap": "~5 мин",
+      "etaSmart": "~2 мин"
+    },
     "selectCurrency": "Выберите валюту",
     "selectCard": "Выберите карту",
     "enterAmount": "Введите сумму",

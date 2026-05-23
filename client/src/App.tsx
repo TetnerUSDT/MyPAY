@@ -1,5 +1,5 @@
 import { Switch, Route } from "wouter";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -13,7 +13,11 @@ import SplashScreen from "@/pages/splash";
 // All other pages load lazily (only when navigated to)
 const AgreementScreen = lazy(() => import("@/pages/agreement"));
 const HomeScreen = lazy(() => import("@/pages/home"));
-const SelectCountryScreen = lazy(() => import("@/pages/select-country"));
+function SelectCountryRedirect() {
+  const [, setLocation] = useLocation();
+  useEffect(() => { setLocation("/exchange"); }, []);
+  return null;
+}
 const ExchangeScreen = lazy(() => import("@/pages/exchange"));
 const TopUpScreen = lazy(() => import("@/pages/top-up"));
 const TrackingScreen = lazy(() => import("@/pages/tracking"));
@@ -67,7 +71,7 @@ function Protected({ children }: { children: React.ReactNode }) {
 
 function Router() {
   const [location] = useLocation();
-  const showBottomNav = ["/home", "/wallet", "/exchange", "/transfer", "/top-up", "/vouchers", "/select-country", "/cards", "/loyalty"].includes(location);
+  const showBottomNav = ["/home", "/wallet", "/exchange", "/transfer", "/top-up", "/vouchers", "/cards", "/loyalty"].includes(location);
 
   return (
     <div className="min-h-screen gradient-bg relative z-10">
@@ -82,7 +86,7 @@ function Router() {
           {/* Protected routes */}
           <Route path="/home"><Protected><HomeScreen /></Protected></Route>
           <Route path="/wallet"><Protected><WalletScreen /></Protected></Route>
-          <Route path="/select-country"><Protected><SelectCountryScreen /></Protected></Route>
+          <Route path="/select-country"><Protected><SelectCountryRedirect /></Protected></Route>
           <Route path="/exchange"><Protected><ExchangeScreen /></Protected></Route>
           <Route path="/top-up"><Protected><TopUpScreen /></Protected></Route>
           <Route path="/tracking"><Protected><TrackingScreen /></Protected></Route>
