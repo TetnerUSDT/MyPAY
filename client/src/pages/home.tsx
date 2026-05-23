@@ -153,6 +153,22 @@ export default function HomeScreen() {
         </svg>
       ),
     },
+    {
+      href: "/transfer",
+      testId: "quick-action-p2p",
+      label: "P2P",
+      iconColor: "text-cyan-400",
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="7" cy="8" r="3"/>
+          <circle cx="17" cy="8" r="3"/>
+          <path d="M1 20v-1a5 5 0 0 1 5-5h2"/>
+          <path d="M16 14h2a5 5 0 0 1 5 5v1"/>
+          <path d="M12 14l2 2-2 2"/>
+          <path d="M14 16H9"/>
+        </svg>
+      ),
+    },
   ];
 
   return (
@@ -262,45 +278,27 @@ export default function HomeScreen() {
         </div>
       </div>
 
-      {/* Quick Actions — horizontal 4-column row */}
-      <div className="px-6 shrink-0">
-        <h3 className="text-sm font-semibold text-white/70 mb-3">{t('home.quickActions')}</h3>
-        <div className="grid grid-cols-4 gap-2">
+      {/* Quick Actions — single horizontally scrollable row */}
+      <div className="shrink-0">
+        <h3 className="text-sm font-semibold text-white/70 mb-3 px-6">{t('home.quickActions')}</h3>
+        <div
+          className="flex gap-2 overflow-x-auto px-6 pb-1 scrollbar-hide"
+          style={{ scrollbarWidth: "none" }}
+          data-testid="quick-actions-scroll"
+        >
           {quickActions.map((action) => (
             <Link href={action.href} key={action.href}>
               <div
-                className="crypto-card !bg-white/20 !border-white/25 p-3 flex flex-col items-center text-center cursor-pointer hover:!bg-white/30 transition-colors"
+                className="crypto-card !bg-white/20 !border-white/25 p-3 flex flex-col items-center text-center cursor-pointer hover:!bg-white/30 transition-colors w-[88px] flex-shrink-0"
                 data-testid={action.testId}
               >
                 <div className={`w-10 h-10 rounded-full bg-white/10 flex items-center justify-center mb-2 ${action.iconColor}`}>
                   {action.icon}
                 </div>
-                <p className="text-xs font-medium text-white leading-tight">{action.label}</p>
+                <p className="text-xs font-medium text-white leading-tight whitespace-nowrap">{action.label}</p>
               </div>
             </Link>
           ))}
-        </div>
-
-        {/* Second row — P2P */}
-        <div className="grid grid-cols-4 gap-2 mt-2">
-          <Link href="/transfer">
-            <div
-              className="crypto-card !bg-white/20 !border-white/25 p-3 flex flex-col items-center text-center cursor-pointer hover:!bg-white/30 transition-colors"
-              data-testid="quick-action-p2p"
-            >
-              <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center mb-2 text-cyan-400">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="7" cy="8" r="3"/>
-                  <circle cx="17" cy="8" r="3"/>
-                  <path d="M1 20v-1a5 5 0 0 1 5-5h2"/>
-                  <path d="M16 14h2a5 5 0 0 1 5 5v1"/>
-                  <path d="M12 14l2 2-2 2"/>
-                  <path d="M14 16H9"/>
-                </svg>
-              </div>
-              <p className="text-xs font-medium text-white leading-tight">P2P</p>
-            </div>
-          </Link>
         </div>
       </div>
     </div>
