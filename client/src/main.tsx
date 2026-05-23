@@ -1,11 +1,9 @@
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
-
-// i18n is loaded LAZILY after first paint so it doesn't block the splash render.
-// Splash itself uses hardcoded strings; other pages call useTranslation() which
-// will pick up translations as soon as the module finishes loading.
-import("./i18n/i18n");
+// i18n must be initialized synchronously — components using useTranslation()
+// otherwise render translation keys (e.g. "nav.home") on first paint.
+import "./i18n/i18n";
 
 const root = createRoot(document.getElementById("root")!);
 root.render(<App />);
