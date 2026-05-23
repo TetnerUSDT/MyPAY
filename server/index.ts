@@ -36,6 +36,9 @@ app.use('/uploads', async (req, res, next) => {
     if (contentTypes[ext]) {
       res.setHeader('Content-Type', contentTypes[ext]);
     }
+
+    // Cache static uploads for 1 hour in browser, 24h on CDN
+    res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400');
     
     // Send the file
     res.sendFile(filePath);

@@ -7,13 +7,12 @@ const root = createRoot(document.getElementById("root")!);
 root.render(<App />);
 
 // Remove static HTML preloader after the first React paint
-// double-rAF ensures the browser has committed the first frame
 requestAnimationFrame(() => {
   requestAnimationFrame(() => {
     const el = document.getElementById('static-preloader');
     if (el) {
       el.classList.add('hiding');
-      setTimeout(() => el.remove(), 350);
+      setTimeout(() => el.remove(), 150);
     }
   });
 });

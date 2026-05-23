@@ -4,9 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preload" href="/uploads/assets/start-bg.webp" as="image" type="image/webp">
     <style>
       /* Static preloader — shown immediately before React mounts */
       #static-preloader {
@@ -17,7 +15,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: opacity 0.3s ease-out, visibility 0.3s ease-out;
+        transition: opacity 0.15s ease-out, visibility 0.15s ease-out;
       }
       #static-preloader.hiding {
         opacity: 0;
