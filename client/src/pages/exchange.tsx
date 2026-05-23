@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useSearch } from "wouter";
-import { ChevronLeft, ArrowLeftRight, ArrowRight, CreditCard, Copy, Check, ChevronDown } from "lucide-react";
+import { ChevronLeft, ArrowUpDown, ArrowRight, CreditCard, Copy, Check, ChevronDown, Zap, Leaf, Sparkles, Clock, ArrowDownUp } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -59,17 +59,17 @@ interface Bank {
 
 type SpeedMode = 'fast' | 'cheap' | 'smart';
 
-const SPEED_MODES: { id: SpeedMode; icon: string; labelKey: string; etaKey: string; eta: string }[] = [
-  { id: 'fast',  icon: '⚡',  labelKey: 'exchange.mode.fast',  etaKey: 'exchange.mode.etaFast',  eta: '~1 мин' },
-  { id: 'cheap', icon: '🍃',  labelKey: 'exchange.mode.cheap', etaKey: 'exchange.mode.etaCheap', eta: '~5 мин' },
-  { id: 'smart', icon: '✨',  labelKey: 'exchange.mode.smart', etaKey: 'exchange.mode.etaSmart', eta: '~2 мин' },
+const SPEED_MODES: { id: SpeedMode; icon: React.ReactNode; labelKey: string; etaKey: string; eta: string }[] = [
+  { id: 'fast',  icon: <Zap className="w-4 h-4" />,  labelKey: 'exchange.mode.fast',  etaKey: 'exchange.mode.etaFast',  eta: '~1 мин' },
+  { id: 'cheap', icon: <Leaf className="w-4 h-4" />,  labelKey: 'exchange.mode.cheap', etaKey: 'exchange.mode.etaCheap', eta: '~5 мин' },
+  { id: 'smart', icon: <Sparkles className="w-4 h-4" />,  labelKey: 'exchange.mode.smart', etaKey: 'exchange.mode.etaSmart', eta: '~2 мин' },
 ];
 
 function CurrencyBadge({ balance }: { balance: Balance | undefined }) {
   if (!balance) return null;
   return (
-    <div className="flex items-center gap-2">
-      <div className="w-10 h-10 rounded-full overflow-hidden bg-white/10 flex-shrink-0">
+    <div className="flex items-center gap-2.5 bg-white/5 hover:bg-white/10 transition-colors py-1.5 pl-1.5 pr-3 rounded-full border border-white/10">
+      <div className="w-7 h-7 rounded-full overflow-hidden bg-black/40 flex-shrink-0 flex items-center justify-center border border-white/5">
         <img
           src={getBalanceIcon(balance.id)}
           alt={balance.currency}
@@ -77,13 +77,13 @@ function CurrencyBadge({ balance }: { balance: Balance | undefined }) {
           onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
         />
       </div>
-      <div className="text-left">
-        <div className="font-semibold text-white text-base leading-tight">{balance.currency}</div>
+      <div className="flex flex-col items-start justify-center">
+        <div className="font-semibold text-white text-sm leading-none tracking-tight">{balance.currency}</div>
         {balance.network && (
-          <div className="text-[11px] text-white/50 leading-tight">{balance.network}</div>
+          <div className="text-[10px] text-white/40 leading-none mt-0.5 font-medium uppercase tracking-wider">{balance.network}</div>
         )}
       </div>
-      <ChevronDown className="w-4 h-4 text-white/50 ml-0.5" />
+      <ChevronDown className="w-3.5 h-3.5 text-white/40 ml-0.5" />
     </div>
   );
 }
@@ -391,174 +391,195 @@ export default function ExchangeScreen() {
   })();
 
   return (
-    <div className="mobile-screen gradient-bg text-white overflow-y-auto pb-8">
+    <div className="mobile-screen bg-[#0B0C10] text-[#E2E8F0] overflow-y-auto pb-8 font-sans selection:bg-accent/30 selection:text-white">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 pt-5 pb-3">
+      <div className="flex items-center justify-between px-5 pt-6 pb-4">
         <Link href="/home">
-          <button className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center" data-testid="button-back">
-            <ChevronLeft className="w-5 h-5 text-white" />
+          <button className="w-10 h-10 rounded-full bg-white/5 border border-white/5 flex items-center justify-center hover:bg-white/10 transition-colors" data-testid="button-back">
+            <ChevronLeft className="w-5 h-5 text-white/70" />
           </button>
         </Link>
-        <h1 className="text-lg font-semibold">{t('exchange.title')}</h1>
-        <div className="w-9" />
+        <h1 className="text-[17px] font-semibold tracking-tight">{t('exchange.title')}</h1>
+        <div className="w-10" />
       </div>
 
-      <div className="px-4 space-y-2">
+      <div className="px-5 space-y-3 mt-2">
+        
+        {/* Trading Panel Container */}
+        <div className="relative">
+          {/* FROM block */}
+          <div className="rounded-3xl bg-[#13151A] border border-white/5 p-5 shadow-2xl shadow-black/40 relative z-0">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-[11px] text-white/40 font-bold uppercase tracking-wider">{t('exchange.youPay')}</span>
+              <div className="flex bg-black/40 rounded-full p-0.5 border border-white/5">
+                <button
+                  onClick={() => setPaymentMethod('blockchain')}
+                  className={`px-3 py-1 text-[11px] font-medium rounded-full transition-all ${paymentMethod === 'blockchain' ? 'bg-[#2A2E37] text-white shadow-sm' : 'text-white/40 hover:text-white/70'}`}
+                  data-testid="button-payment-blockchain"
+                >
+                  Blockchain
+                </button>
+                <button
+                  onClick={() => setPaymentMethod('balance')}
+                  className={`px-3 py-1 text-[11px] font-medium rounded-full transition-all ${paymentMethod === 'balance' ? 'bg-[#2A2E37] text-white shadow-sm' : 'text-white/40 hover:text-white/70'}`}
+                  data-testid="button-payment-balance"
+                >
+                  {t('exchange.balance')}
+                </button>
+              </div>
+            </div>
 
-        {/* FROM block */}
-        <div className="rounded-2xl bg-white/5 border border-white/8 px-4 py-4">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-white/50 font-medium uppercase tracking-wide">{t('exchange.youPay')}</span>
-            <div className="flex gap-1">
-              <button
-                onClick={() => setPaymentMethod('blockchain')}
-                className={`px-3 py-1 text-xs rounded-full transition-all ${paymentMethod === 'blockchain' ? 'bg-accent text-white' : 'bg-white/8 text-white/50'}`}
-                data-testid="button-payment-blockchain"
-              >
-                Blockchain
-              </button>
-              <button
-                onClick={() => setPaymentMethod('balance')}
-                className={`px-3 py-1 text-xs rounded-full transition-all ${paymentMethod === 'balance' ? 'bg-accent text-white' : 'bg-white/8 text-white/50'}`}
-                data-testid="button-payment-balance"
-              >
-                {t('exchange.balance')}
-              </button>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between gap-4">
+                <input
+                  type="number"
+                  value={payAmount}
+                  onChange={(e) => setPayAmount(e.target.value)}
+                  className="w-full bg-transparent text-4xl font-semibold tracking-tight text-white outline-none placeholder-white/20"
+                  placeholder="0.00"
+                  data-testid="input-pay-amount"
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Select value={payBalanceId?.toString()} onValueChange={(v) => setPayBalanceId(parseInt(v))}>
+                    <SelectTrigger className="w-auto min-w-0 bg-transparent border-0 p-0 h-auto focus:ring-0 [&>svg]:hidden" data-testid="select-pay-currency">
+                      <CurrencyBadge balance={currentPayBalance} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1A1D24] border-white/10 text-white rounded-xl">
+                      {filteredPaymentBalances.map((b) => (
+                        <SelectItem key={b.id} value={b.id.toString()} className="focus:bg-white/5 focus:text-white rounded-lg cursor-pointer">
+                          {b.currency}{b.network ? ` • ${b.network}` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {paymentMethod === 'balance' && userBalance && (
+                  <div className="text-[11px] font-medium text-white/30 uppercase tracking-wider">
+                    {t('common.available')}: <span className="text-white/70 ml-1">{parseFloat(userBalance.sum).toFixed(2)} {currentPayBalance?.currency}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <Select value={payBalanceId?.toString()} onValueChange={(v) => setPayBalanceId(parseInt(v))}>
-              <SelectTrigger className="w-auto min-w-0 bg-transparent border-0 p-0 h-auto focus:ring-0 hover:bg-white/5 rounded-xl px-1" data-testid="select-pay-currency">
-                <CurrencyBadge balance={currentPayBalance} />
-              </SelectTrigger>
-              <SelectContent>
-                {filteredPaymentBalances.map((b) => (
-                  <SelectItem key={b.id} value={b.id.toString()}>
-                    {b.currency}{b.network ? `.${b.network}` : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <input
-              type="number"
-              value={payAmount}
-              onChange={(e) => setPayAmount(e.target.value)}
-              className="flex-1 text-right text-3xl font-bold bg-transparent text-white outline-none min-w-0"
-              data-testid="input-pay-amount"
-            />
+          {/* Swap button */}
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center">
+            <div className="w-2 h-2 bg-[#0B0C10] absolute -top-2 rounded-b-full"></div>
+            <button
+              onClick={handleSwap}
+              className="w-12 h-12 rounded-full bg-[#1A1D24] border-[4px] border-[#0B0C10] flex items-center justify-center hover:bg-[#2A2E37] hover:scale-105 active:scale-95 transition-all shadow-xl group"
+              data-testid="button-swap"
+            >
+              <ArrowDownUp className="w-4 h-4 text-accent group-hover:text-accent/80 transition-colors" />
+            </button>
+            <div className="w-2 h-2 bg-[#0B0C10] absolute -bottom-2 rounded-t-full"></div>
           </div>
 
-          {paymentMethod === 'balance' && userBalance && (
-            <div className="mt-2 text-xs text-white/40 text-right">
-              {t('common.available')}: {parseFloat(userBalance.sum).toFixed(2)} {currentPayBalance?.currency}
+          {/* TO block */}
+          <div className="rounded-3xl bg-[#13151A] border border-white/5 p-5 shadow-2xl shadow-black/40 mt-1 relative z-0">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-[11px] text-white/40 font-bold uppercase tracking-wider">{t('exchange.youReceive')}</span>
             </div>
-          )}
-        </div>
 
-        {/* Swap button */}
-        <div className="flex justify-center relative z-10 -my-0.5">
-          <button
-            onClick={handleSwap}
-            className="w-11 h-11 rounded-full bg-[#1a3a2a] border-2 border-accent/40 flex items-center justify-center hover:bg-[#1f4530] transition-colors shadow-lg"
-            data-testid="button-swap"
-          >
-            <ArrowLeftRight className="w-4 h-4 text-accent" />
-          </button>
-        </div>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="w-full text-4xl font-semibold tracking-tight text-white/90 truncate">
+                  {receiveAmount}
+                </div>
+              </div>
 
-        {/* TO block */}
-        <div className="rounded-2xl bg-white/5 border border-white/8 px-4 py-4">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-white/50 font-medium uppercase tracking-wide">{t('exchange.youReceive')}</span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Select value={receiveBalanceId?.toString()} onValueChange={(v) => setReceiveBalanceId(parseInt(v))}>
-              <SelectTrigger className="w-auto min-w-0 bg-transparent border-0 p-0 h-auto focus:ring-0 hover:bg-white/5 rounded-xl px-1" data-testid="select-receive-currency">
-                <CurrencyBadge balance={currentReceiveBalance} />
-              </SelectTrigger>
-              <SelectContent>
-                {filteredReceiveBalances.map((b) => (
-                  <SelectItem key={b.id} value={b.id.toString()}>
-                    {b.currency}{b.network ? `.${b.network}` : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <div className="flex-1 text-right">
-              <div className="text-3xl font-bold text-white">≈ {receiveAmount}</div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Select value={receiveBalanceId?.toString()} onValueChange={(v) => setReceiveBalanceId(parseInt(v))}>
+                    <SelectTrigger className="w-auto min-w-0 bg-transparent border-0 p-0 h-auto focus:ring-0 [&>svg]:hidden" data-testid="select-receive-currency">
+                      <CurrencyBadge balance={currentReceiveBalance} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1A1D24] border-white/10 text-white rounded-xl">
+                      {filteredReceiveBalances.map((b) => (
+                        <SelectItem key={b.id} value={b.id.toString()} className="focus:bg-white/5 focus:text-white rounded-lg cursor-pointer">
+                          {b.currency}{b.network ? ` • ${b.network}` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Rate info block */}
         {exchangeRate && (
-          <div className="rounded-2xl bg-white/5 border border-white/8 px-4 py-3 space-y-2">
+          <div className="rounded-2xl bg-white/[0.03] border border-white/5 p-4 space-y-3 mt-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-accent/20 flex items-center justify-center">
-                  <span className="text-sm">⚡</span>
-                </div>
-                <span className="text-sm text-white/70">{t('exchange.rate')}</span>
+              <div className="text-[13px] text-white/50 font-medium">{t('exchange.rate')}</div>
+              <div className="text-[13px] text-white/90 font-medium font-mono bg-white/5 px-2 py-0.5 rounded-md" data-testid="exchange-rate-display">
+                1 {exchangeRate.fromCurrency} = {exchangeRate.rate.toFixed(4)} {exchangeRate.toCurrency}
               </div>
-              <span className="text-sm text-white font-medium" data-testid="exchange-rate-display">
-                1 {exchangeRate.fromCurrency} ≈ {exchangeRate.rate.toFixed(4)} {exchangeRate.toCurrency}
-              </span>
             </div>
-            <div className="border-t border-white/5 pt-2 space-y-1.5">
-              <div className="flex justify-between text-xs">
-                <span className="text-white/50">{t('exchange.commission')}</span>
-                <span className="text-white/70">0.00 {exchangeRate.fromCurrency}</span>
-              </div>
+            <div className="h-px w-full bg-white/5"></div>
+            <div className="flex items-center justify-between">
+              <div className="text-[13px] text-white/50 font-medium">{t('exchange.commission')}</div>
+              <div className="text-[13px] text-[#3ab368] font-medium">Free</div>
             </div>
           </div>
         )}
 
         {/* Speed mode selector */}
-        <div className="flex gap-2">
-          {SPEED_MODES.map((mode) => (
-            <button
-              key={mode.id}
-              onClick={() => setSpeedMode(mode.id)}
-              className={`flex-1 flex flex-col items-center py-3 px-2 rounded-2xl border transition-all ${
-                speedMode === mode.id
-                  ? 'bg-accent/15 border-accent text-white'
-                  : 'bg-white/5 border-white/10 text-white/60 hover:border-white/20'
-              }`}
-              data-testid={`speed-mode-${mode.id}`}
-            >
-              <span className="text-base mb-0.5">{mode.icon}</span>
-              <span className="text-xs font-semibold">{t(mode.labelKey)}</span>
-              <span className="text-[11px] text-white/40">{mode.eta}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Estimated time */}
-        <div className="flex items-center justify-between px-1">
-          <span className="text-sm text-white/40">⏱ {t('exchange.estimatedTime')}</span>
-          <span className="text-sm text-accent font-medium">{currentSpeedMode.eta}</span>
+        <div className="pt-2">
+          <div className="text-[11px] text-white/40 font-bold uppercase tracking-wider mb-3 px-1">Processing Speed</div>
+          <div className="flex gap-2">
+            {SPEED_MODES.map((mode) => (
+              <button
+                key={mode.id}
+                onClick={() => setSpeedMode(mode.id)}
+                className={`flex-1 flex flex-col items-center py-3.5 px-2 rounded-2xl border transition-all duration-300 relative overflow-hidden ${
+                  speedMode === mode.id
+                    ? 'bg-[#1A2E22] border-[#3ab368]/30 shadow-[0_0_15px_rgba(58,179,104,0.1)]'
+                    : 'bg-[#13151A] border-white/5 text-white/40 hover:bg-white/5 hover:text-white/70'
+                }`}
+                data-testid={`speed-mode-${mode.id}`}
+              >
+                {speedMode === mode.id && (
+                  <div className="absolute inset-0 bg-gradient-to-b from-[#3ab368]/10 to-transparent opacity-50"></div>
+                )}
+                <div className={`mb-1.5 transition-colors duration-300 relative z-10 ${speedMode === mode.id ? 'text-[#3ab368]' : ''}`}>
+                  {mode.icon}
+                </div>
+                <span className={`text-[12px] font-semibold mb-0.5 relative z-10 ${speedMode === mode.id ? 'text-white' : ''}`}>
+                  {t(mode.labelKey)}
+                </span>
+                <span className={`text-[10px] font-medium relative z-10 ${speedMode === mode.id ? 'text-[#3ab368]/80' : 'text-white/30'}`}>
+                  {mode.eta}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Card selection — bank mode only */}
         {!isCryptoMode && (
-          <div className="rounded-2xl bg-white/5 border border-white/8 px-4 py-4">
-            <div className="text-xs text-white/50 font-medium uppercase tracking-wide mb-3">{t('exchange.selectCard')}</div>
+          <div className="rounded-2xl bg-[#13151A] border border-white/5 p-4 mt-2">
+            <div className="text-[11px] text-white/40 font-bold uppercase tracking-wider mb-3">{t('exchange.selectCard')}</div>
             <Select value={selectedCard} onValueChange={(value) => {
               if (value === 'add_card') setIsAddCardModalOpen(true);
               else setSelectedCard(value);
             }}>
-              <SelectTrigger className="w-full bg-white/8 border-0 text-white" data-testid="select-card">
+              <SelectTrigger className="w-full bg-[#1A1D24] border border-white/5 text-white h-12 rounded-xl focus:ring-1 focus:ring-[#3ab368]/50" data-testid="select-card">
                 <SelectValue placeholder={t('exchange.selectCard')} />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-[#1A1D24] border-white/10 text-white rounded-xl">
                 {cardOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                  <SelectItem key={option.value} value={option.value} className="focus:bg-white/5 rounded-lg cursor-pointer my-1">{option.label}</SelectItem>
                 ))}
-                <SelectItem value="add_card">➕ {t('exchange.addCard')}</SelectItem>
+                <div className="h-px bg-white/10 my-1 mx-2"></div>
+                <SelectItem value="add_card" className="focus:bg-[#3ab368]/10 focus:text-[#3ab368] rounded-lg cursor-pointer my-1 font-medium">
+                  + {t('exchange.addCard')}
+                </SelectItem>
               </SelectContent>
             </Select>
             {selectedCard && selectedCard !== 'add_card' && (() => {
@@ -568,9 +589,9 @@ export default function ExchangeScreen() {
               if (card.numberCard) parts.push(formatCardNumber(card.numberCard));
               if (card.accountNumber) parts.push(card.accountNumber);
               return (
-                <button onClick={() => setIsCardDetailsModalOpen(true)} className="w-full mt-2 bg-white/8 rounded-xl px-4 py-3 text-left hover:bg-white/12 transition-colors" data-testid="button-card-details">
-                  <div className="text-accent font-medium text-sm mb-0.5">{card.name}</div>
-                  <div className="text-white font-mono text-sm">{parts.join('  ')}</div>
+                <button onClick={() => setIsCardDetailsModalOpen(true)} className="w-full mt-3 bg-[#1A1D24] border border-white/5 rounded-xl px-4 py-3.5 text-left hover:bg-white/5 transition-all group" data-testid="button-card-details">
+                  <div className="text-white/90 font-medium text-[13px] mb-1 group-hover:text-[#3ab368] transition-colors">{card.name}</div>
+                  <div className="text-white/50 font-mono text-[12px] tracking-wide">{parts.join(' • ')}</div>
                 </button>
               );
             })()}
@@ -579,138 +600,189 @@ export default function ExchangeScreen() {
 
         {/* Wallet address — crypto + blockchain */}
         {isCryptoMode && paymentMethod === 'blockchain' && (
-          <div className="rounded-2xl bg-white/5 border border-white/8 px-4 py-4">
-            <div className="text-xs text-white/50 font-medium uppercase tracking-wide mb-3">{t('exchange.walletAddress')}</div>
+          <div className="rounded-2xl bg-[#13151A] border border-white/5 p-4 mt-2">
+            <div className="text-[11px] text-white/40 font-bold uppercase tracking-wider mb-3 flex items-center justify-between">
+              <span>{t('exchange.walletAddress')}</span>
+              {currentReceiveBalance?.network && (
+                <span className="text-[#3ab368]/80 bg-[#3ab368]/10 px-1.5 py-0.5 rounded text-[9px]">{currentReceiveBalance.network}</span>
+              )}
+            </div>
             <Input
               value={walletAddress}
               onChange={(e) => setWalletAddress(e.target.value)}
               placeholder={walletPlaceholder}
-              className="bg-white/8 border-0 text-white font-mono"
+              className="w-full bg-[#1A1D24] border border-white/5 text-white h-12 rounded-xl focus:ring-1 focus:ring-[#3ab368]/50 focus:border-transparent font-mono text-[13px] placeholder:text-white/20 placeholder:font-sans"
               data-testid="input-wallet-address"
             />
           </div>
         )}
 
         {/* CTA */}
-        <button
-          className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-semibold text-base transition-all bg-accent hover:opacity-90 disabled:opacity-50 text-white mt-2"
-          onClick={handleExchange}
-          disabled={createExchangeMutation.isPending}
-          data-testid="button-continue-payment"
-        >
-          {createExchangeMutation.isPending ? t('common.creating') : t('exchange.exchangeNow')}
-          {!createExchangeMutation.isPending && <ArrowRight className="w-5 h-5" />}
-        </button>
+        <div className="pt-4 pb-6">
+          <button
+            className="w-full relative group overflow-hidden rounded-2xl"
+            onClick={handleExchange}
+            disabled={createExchangeMutation.isPending}
+            data-testid="button-continue-payment"
+          >
+            <div className="absolute inset-0 bg-[#3ab368] transition-transform group-hover:scale-[1.02] group-active:scale-[0.98]"></div>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent mix-blend-overlay"></div>
+            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-white/10 mix-blend-overlay"></div>
+            
+            <div className="relative flex items-center justify-center gap-2 py-4.5 font-semibold text-[15px] text-white tracking-wide shadow-[0_0_20px_rgba(58,179,104,0.3)]">
+              {createExchangeMutation.isPending ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <span>{t('common.creating')}</span>
+                </div>
+              ) : (
+                <>
+                  {t('exchange.exchangeNow')}
+                  <ArrowRight className="w-4 h-4 ml-1 opacity-80 group-hover:translate-x-1 transition-transform" />
+                </>
+              )}
+            </div>
+          </button>
+        </div>
 
       </div>
 
       {/* Add Card Modal */}
       <Dialog open={isAddCardModalOpen} onOpenChange={setIsAddCardModalOpen}>
-        <DialogContent className="mobile-screen bg-secondary border-none text-white max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-white">{t('exchange.addCard')}</DialogTitle>
-          </DialogHeader>
-          <div className="crypto-card mt-4">
-            <div className="flex justify-center mb-6">
-              <div className="w-16 h-16 bg-accent rounded-xl flex items-center justify-center">
-                <CreditCard className="w-8 h-8 text-accent-foreground" />
+        <DialogContent className="w-[92vw] max-w-md rounded-3xl bg-[#13151A] border border-white/10 text-white max-h-[85vh] overflow-y-auto p-0">
+          <div className="px-6 pt-6 pb-4 border-b border-white/5 sticky top-0 bg-[#13151A]/90 backdrop-blur-md z-10">
+            <DialogTitle className="text-lg font-semibold tracking-tight text-white">{t('exchange.addCard')}</DialogTitle>
+          </div>
+          
+          <div className="p-6">
+            <div className="flex justify-center mb-8">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-b from-[#1A2E22] to-[#13151A] border border-[#3ab368]/20 flex items-center justify-center shadow-[0_0_30px_rgba(58,179,104,0.15)] relative">
+                <div className="absolute inset-0 rounded-full bg-[#3ab368] blur-xl opacity-10"></div>
+                <CreditCard className="w-8 h-8 text-[#3ab368] relative z-10" strokeWidth={1.5} />
               </div>
             </div>
+            
             <div className="space-y-4">
-              <div>
-                <Label htmlFor="cardName" className="text-white mb-2 block">{t('exchange.cardName')}</Label>
-                <Input id="cardName" placeholder="Зарплатная карта" value={cardFormData.name} onChange={(e) => setCardFormData({ ...cardFormData, name: e.target.value })} className="input-field" data-testid="input-card-name" />
+              <div className="space-y-1.5">
+                <Label htmlFor="cardName" className="text-[11px] font-medium text-white/50 uppercase tracking-wider ml-1">{t('exchange.cardName')}</Label>
+                <Input id="cardName" placeholder="Зарплатная карта" value={cardFormData.name} onChange={(e) => setCardFormData({ ...cardFormData, name: e.target.value })} className="h-12 bg-[#1A1D24] border-white/5 focus:ring-1 focus:ring-[#3ab368]/50 focus:border-transparent rounded-xl text-sm" data-testid="input-card-name" />
               </div>
-              <div>
-                <Label htmlFor="firstName" className="text-white mb-2 block">{t('exchange.firstName')}</Label>
-                <Input id="firstName" placeholder="Ivan" value={cardFormData.firstName} onChange={handleNameChange('firstName')} className="input-field" data-testid="input-first-name" />
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="firstName" className="text-[11px] font-medium text-white/50 uppercase tracking-wider ml-1">{t('exchange.firstName')}</Label>
+                  <Input id="firstName" placeholder="Ivan" value={cardFormData.firstName} onChange={handleNameChange('firstName')} className="h-12 bg-[#1A1D24] border-white/5 focus:ring-1 focus:ring-[#3ab368]/50 focus:border-transparent rounded-xl text-sm" data-testid="input-first-name" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="lastName" className="text-[11px] font-medium text-white/50 uppercase tracking-wider ml-1">{t('exchange.lastName')}</Label>
+                  <Input id="lastName" placeholder="Petrov" value={cardFormData.lastName} onChange={handleNameChange('lastName')} className="h-12 bg-[#1A1D24] border-white/5 focus:ring-1 focus:ring-[#3ab368]/50 focus:border-transparent rounded-xl text-sm" data-testid="input-last-name" />
+                </div>
               </div>
-              <div>
-                <Label htmlFor="lastName" className="text-white mb-2 block">{t('exchange.lastName')}</Label>
-                <Input id="lastName" placeholder="Petrov" value={cardFormData.lastName} onChange={handleNameChange('lastName')} className="input-field" data-testid="input-last-name" />
+              
+              <div className="space-y-1.5">
+                <Label htmlFor="phone" className="text-[11px] font-medium text-white/50 uppercase tracking-wider ml-1">{t('exchange.phone')}</Label>
+                <Input id="phone" placeholder="+79991234567" value={cardFormData.phone} onChange={handlePhoneChange} className="h-12 bg-[#1A1D24] border-white/5 focus:ring-1 focus:ring-[#3ab368]/50 focus:border-transparent rounded-xl text-sm font-mono" data-testid="input-phone" />
               </div>
-              <div>
-                <Label htmlFor="phone" className="text-white mb-2 block">{t('exchange.phone')}</Label>
-                <Input id="phone" placeholder="+79991234567" value={cardFormData.phone} onChange={handlePhoneChange} className="input-field" data-testid="input-phone" />
-              </div>
-              <div>
-                <Label className="text-white mb-2 block">{t('exchange.country')}</Label>
+              
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-medium text-white/50 uppercase tracking-wider ml-1">{t('exchange.country')}</Label>
                 <Select value={cardFormData.idCard} onValueChange={(value) => {
                   const selectedCountryCard = activeCards.find(c => c.id.toString() === value);
                   setSelectedCardIdForBank(value);
                   setCardFormData({ ...cardFormData, idCard: value, country: selectedCountryCard?.country || "", idBank: "" });
                 }}>
-                  <SelectTrigger className="input-field" data-testid="select-country"><SelectValue placeholder={t('exchange.selectCountryCard')} /></SelectTrigger>
-                  <SelectContent>
+                  <SelectTrigger className="h-12 bg-[#1A1D24] border-white/5 focus:ring-1 focus:ring-[#3ab368]/50 focus:border-transparent rounded-xl text-sm" data-testid="select-country"><SelectValue placeholder={t('exchange.selectCountryCard')} /></SelectTrigger>
+                  <SelectContent className="bg-[#1A1D24] border-white/10 text-white rounded-xl">
                     {activeCards.map(card => (
-                      <SelectItem key={card.id} value={card.id.toString()}>{card.country}</SelectItem>
+                      <SelectItem key={card.id} value={card.id.toString()} className="focus:bg-white/5 rounded-lg my-1">{card.country}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+              
               {banks.length > 0 && (
-                <div>
-                  <Label className="text-white mb-2 block">{t('exchange.selectBank')}</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-medium text-white/50 uppercase tracking-wider ml-1">{t('exchange.selectBank')}</Label>
                   <Select value={cardFormData.idBank} onValueChange={(value) => setCardFormData({ ...cardFormData, idBank: value })}>
-                    <SelectTrigger className="input-field" data-testid="select-bank"><SelectValue placeholder={t('exchange.selectBank')} /></SelectTrigger>
-                    <SelectContent>
+                    <SelectTrigger className="h-12 bg-[#1A1D24] border-white/5 focus:ring-1 focus:ring-[#3ab368]/50 focus:border-transparent rounded-xl text-sm" data-testid="select-bank"><SelectValue placeholder={t('exchange.selectBank')} /></SelectTrigger>
+                    <SelectContent className="bg-[#1A1D24] border-white/10 text-white rounded-xl">
                       {banks.map(bank => (
-                        <SelectItem key={bank.id} value={bank.id.toString()}>{bank.bankName}</SelectItem>
+                        <SelectItem key={bank.id} value={bank.id.toString()} className="focus:bg-white/5 rounded-lg my-1">{bank.bankName}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
               )}
-              <div>
-                <Label htmlFor="cardNumber" className="text-white mb-2 block">{t('exchange.cardNumber')} ({t('exchange.optional')})</Label>
-                <Input id="cardNumber" placeholder="4373 8349 9348 7328" value={formatCardNumber(cardFormData.number)} onChange={handleCardNumberChange} className="input-field" data-testid="input-card-number" />
+              
+              <div className="space-y-1.5 pt-2">
+                <Label htmlFor="cardNumber" className="text-[11px] font-medium text-white/50 uppercase tracking-wider ml-1 flex justify-between">
+                  <span>{t('exchange.cardNumber')}</span>
+                  <span className="text-white/30">{t('exchange.optional')}</span>
+                </Label>
+                <Input id="cardNumber" placeholder="4373 8349 9348 7328" value={formatCardNumber(cardFormData.number)} onChange={handleCardNumberChange} className="h-12 bg-[#1A1D24] border-white/5 focus:ring-1 focus:ring-[#3ab368]/50 focus:border-transparent rounded-xl text-sm font-mono tracking-widest placeholder:tracking-normal" data-testid="input-card-number" />
               </div>
-              <div>
-                <Label htmlFor="accountNumber" className="text-white mb-2 block">{t('exchange.accountNumber')} ({t('exchange.optional')})</Label>
-                <Input id="accountNumber" placeholder="12345678901234567890" value={cardFormData.accountNumber} onChange={handleAccountNumberChange} className="input-field" data-testid="input-account-number" />
-                <p className="text-xs text-muted-foreground mt-1">{t('exchange.fillCardOrAccount')}</p>
+              
+              <div className="space-y-1.5">
+                <Label htmlFor="accountNumber" className="text-[11px] font-medium text-white/50 uppercase tracking-wider ml-1 flex justify-between">
+                  <span>{t('exchange.accountNumber')}</span>
+                  <span className="text-white/30">{t('exchange.optional')}</span>
+                </Label>
+                <Input id="accountNumber" placeholder="12345678901234567890" value={cardFormData.accountNumber} onChange={handleAccountNumberChange} className="h-12 bg-[#1A1D24] border-white/5 focus:ring-1 focus:ring-[#3ab368]/50 focus:border-transparent rounded-xl text-sm font-mono tracking-widest placeholder:tracking-normal" data-testid="input-account-number" />
+                <p className="text-[10px] text-[#3ab368]/80 mt-1 ml-1">{t('exchange.fillCardOrAccount')}</p>
               </div>
             </div>
-          </div>
-          <div className="mt-6">
-            <Button className="action-button" onClick={handleAddCard} data-testid="button-save-card">{t('common.save')}</Button>
+            
+            <div className="mt-8 mb-2">
+              <button 
+                className="w-full bg-[#3ab368] hover:bg-[#329D5B] text-white py-4 rounded-xl font-semibold transition-colors active:scale-[0.98]" 
+                onClick={handleAddCard} 
+                data-testid="button-save-card"
+              >
+                {t('common.save')}
+              </button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Card Details Modal */}
       <Dialog open={isCardDetailsModalOpen} onOpenChange={setIsCardDetailsModalOpen}>
-        <DialogContent className="mobile-screen bg-secondary border-none text-white">
-          <DialogHeader>
-            <DialogTitle className="text-white">{t('exchange.cardDetails')}</DialogTitle>
-          </DialogHeader>
-          {selectedCard && selectedCard !== 'add_card' && (() => {
-            const card = userCards.find(c => c.id.toString() === selectedCard);
-            if (!card) return null;
-            const fields = [
-              { label: 'Название', value: card.name, key: 'name' },
-              { label: 'Имя и Фамилия', value: `${card.firstName} ${card.lastName}`, key: 'fullName' },
-              { label: 'Телефон', value: card.phone, key: 'phone' },
-              ...(card.bankName ? [{ label: 'Банк', value: card.bankName, key: 'bank' }] : []),
-              ...(card.numberCard ? [{ label: 'Номер карты', value: formatCardNumber(card.numberCard), key: 'cardNumber' }] : []),
-              ...(card.accountNumber ? [{ label: 'Номер счёта', value: card.accountNumber, key: 'accountNumber' }] : []),
-            ];
-            return (
-              <div className="space-y-3 mt-4">
-                {fields.map(f => (
-                  <div key={f.key} className="bg-secondary/50 rounded-lg p-3">
-                    <div className="text-xs text-muted-foreground mb-1">{f.label}</div>
-                    <div className="flex items-center justify-between">
-                      <div className="text-white font-medium font-mono">{f.value}</div>
-                      <button onClick={() => copyToClipboard(f.value, f.key)} className="p-2 hover:bg-secondary rounded transition-colors">
-                        {copiedField === f.key ? <Check className="w-4 h-4 text-accent" /> : <Copy className="w-4 h-4 text-muted-foreground" />}
+        <DialogContent className="w-[92vw] max-w-md rounded-3xl bg-[#13151A] border border-white/10 text-white p-0">
+          <div className="px-6 pt-6 pb-4 border-b border-white/5">
+            <DialogTitle className="text-lg font-semibold tracking-tight text-white">{t('exchange.cardDetails')}</DialogTitle>
+          </div>
+          <div className="p-6">
+            {selectedCard && selectedCard !== 'add_card' && (() => {
+              const card = userCards.find(c => c.id.toString() === selectedCard);
+              if (!card) return null;
+              const fields = [
+                { label: 'Название', value: card.name, key: 'name' },
+                { label: 'Имя и Фамилия', value: `${card.firstName} ${card.lastName}`, key: 'fullName' },
+                { label: 'Телефон', value: card.phone, key: 'phone' },
+                ...(card.bankName ? [{ label: 'Банк', value: card.bankName, key: 'bank' }] : []),
+                ...(card.numberCard ? [{ label: 'Номер карты', value: formatCardNumber(card.numberCard), key: 'cardNumber' }] : []),
+                ...(card.accountNumber ? [{ label: 'Номер счёта', value: card.accountNumber, key: 'accountNumber' }] : []),
+              ];
+              return (
+                <div className="space-y-2">
+                  {fields.map(f => (
+                    <div key={f.key} className="bg-[#1A1D24] border border-white/5 rounded-2xl p-4 flex items-center justify-between group">
+                      <div>
+                        <div className="text-[10px] text-white/40 font-semibold uppercase tracking-wider mb-1">{f.label}</div>
+                        <div className="text-[13px] text-white font-medium font-mono">{f.value}</div>
+                      </div>
+                      <button 
+                        onClick={() => copyToClipboard(f.value, f.key)} 
+                        className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-full transition-colors"
+                      >
+                        {copiedField === f.key ? <Check className="w-4 h-4 text-[#3ab368]" /> : <Copy className="w-4 h-4 text-white/30 group-hover:text-white/70" />}
                       </button>
                     </div>
-                  </div>
-                ))}
-              </div>
-            );
-          })()}
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
