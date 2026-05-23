@@ -38,6 +38,8 @@
     "totalBalance": "Total balance",
     "balanceEquivalent": "Equivalent of all assets at current rate",
     "quickActions": "Quick actions",
+    "historyExchange": "Exchange",
+    "historyTo": "To:",
     "exchange": "Exchange",
     "exchangeDesc": "Cryptocurrencies",
     "wallet": "Wallet",

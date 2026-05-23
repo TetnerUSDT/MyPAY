@@ -38,6 +38,8 @@
     "totalBalance": "Общий баланс",
     "balanceEquivalent": "Эквивалент всех активов по текущему курсу",
     "quickActions": "Быстрые действия",
+    "historyExchange": "Обмен",
+    "historyTo": "Кому:",
     "exchange": "Обмен",
     "exchangeDesc": "Криптовалют",
     "wallet": "Кошелёк",

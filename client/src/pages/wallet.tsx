@@ -19,120 +19,6 @@ const RefreshIcon = ({ className = "w-6 h-6", ...props }: { className?: string }
   </svg>
 );
 
-interface ExchangeHistoryItem {
-  id: number;
-  numberOrder: string;
-  fromCurrency: string;
-  toCurrency: string;
-  amountFrom: string;
-  amountTo: string;
-  timestamp: string;
-  status: string;
-  cardNumber: string | null;
-  walletAddress: string | null;
-}
-
-function formatHistoryDate(iso: string, todayLabel: string, yesterdayLabel: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const startOfYesterday = new Date(startOfToday.getTime() - 24 * 60 * 60 * 1000);
-  const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  if (d >= startOfToday) return `${todayLabel}, ${time}`;
-  if (d >= startOfYesterday) return `${yesterdayLabel}, ${time}`;
-  return `${d.toLocaleDateString()} ${time}`;
-}
-
-function trimAmount(s: string): string {
-  if (!s) return "0";
-  const n = parseFloat(s);
-  if (!isFinite(n)) return s;
-  return n.toLocaleString("en-US", { maximumFractionDigits: 4 });
-}
-
-function OperationsHistory() {
-  const { t } = useTranslation();
-  const { data: items = [], isLoading } = useQuery<ExchangeHistoryItem[]>({
-    queryKey: ["/api/exchanges/history?limit=5&offset=0"],
-  });
-
-  return (
-    <div className="px-6 mb-3">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="text-base font-semibold text-white" data-testid="text-history-title">
-          {t("wallet.history")}
-        </h2>
-        <Link href="/history">
-          <button className="text-sm text-accent hover:underline" data-testid="link-history-view-all">
-            {t("wallet.viewAll")}
-          </button>
-        </Link>
-      </div>
-
-      <div className="rounded-2xl bg-white/5 divide-y divide-white/5 overflow-hidden">
-        {isLoading ? (
-          Array.from({ length: 3 }).map((_, i) => (
-            <div key={`hskel-${i}`} className="flex items-center gap-3 px-4 py-3">
-              <Skeleton className="w-10 h-10 rounded-full bg-white/10" />
-              <div className="flex-1">
-                <Skeleton className="h-4 w-24 mb-1.5 bg-white/10" />
-                <Skeleton className="h-3 w-32 bg-white/10" />
-              </div>
-              <div className="text-right">
-                <Skeleton className="h-4 w-20 mb-1.5 bg-white/10 ml-auto" />
-                <Skeleton className="h-3 w-16 bg-white/10 ml-auto" />
-              </div>
-            </div>
-          ))
-        ) : items.length === 0 ? (
-          <div className="text-center text-white/40 text-sm py-6" data-testid="text-history-empty">
-            {t("wallet.noOperations")}
-          </div>
-        ) : (
-          items.slice(0, 5).map((ex) => {
-            const recipient = ex.cardNumber || ex.walletAddress || "";
-            const short = recipient
-              ? recipient.length > 12
-                ? `${recipient.slice(0, 4)}...${recipient.slice(-4)}`
-                : recipient
-              : `#${ex.numberOrder}`;
-            const isCanceled = ex.status === "canceled";
-            return (
-              <Link key={ex.id} href={`/tracking?order=${ex.numberOrder}`}>
-                <div
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors cursor-pointer"
-                  data-testid={`history-item-${ex.id}`}
-                >
-                  <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
-                    <ArrowRightLeft className="w-5 h-5 text-white/80" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-white truncate">
-                      {t("wallet.exchangeShort")}
-                    </div>
-                    <div className="text-xs text-white/50 truncate font-mono">{short}</div>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <div className={`text-sm font-semibold ${isCanceled ? "text-white/40 line-through" : "text-red-400"}`}>
-                      −{trimAmount(ex.amountFrom)} {ex.fromCurrency}
-                    </div>
-                    <div className={`text-xs font-medium ${isCanceled ? "text-white/40 line-through" : "text-green-400"}`}>
-                      +{trimAmount(ex.amountTo)} {ex.toCurrency}
-                    </div>
-                    <div className="text-[11px] text-white/40 mt-0.5">
-                      {formatHistoryDate(ex.timestamp, t("wallet.today"), t("wallet.yesterday"))}
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            );
-          })
-        )}
-      </div>
-    </div>
-  );
-}
-
 export default function WalletScreen() {
   const { t } = useTranslation();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -246,45 +132,31 @@ export default function WalletScreen() {
           </Link>
         </div>
 
-        {/* Quick Actions — compact horizontal scroll row */}
-        <div className="mb-4">
-          <div
-            className="flex gap-2 overflow-x-auto px-6 pb-1 scrollbar-hide"
-            style={{ scrollbarWidth: "none" }}
-            data-testid="quick-actions-scroll"
-          >
+        {/* Action Buttons */}
+        <div className="px-6 mb-5">
+          <div className="grid grid-cols-3 gap-4">
             {[
               { icon: ArrowDownLeft, label: t('wallet.deposit'), testId: "action-deposit", href: "/top-up" },
               { icon: ArrowUpRight, label: t('wallet.send'), testId: "action-send", href: "/transfer" },
               { icon: ArrowRightLeft, label: t('wallet.exchange'), testId: "action-exchange", href: "/select-country" },
-              { icon: CreditCard, label: t('nav.cards') || 'Cards', testId: "action-cards", href: "/cards" },
-              { icon: Plus, label: t('wallet.addNetwork'), testId: "action-add-network", href: "#", onClick: () => setIsModalOpen(true) },
             ].map((action) => {
               const Icon = action.icon;
-              const inner = (
-                <button
-                  className="flex items-center gap-2 bg-white/10 hover:bg-white/15 transition-colors rounded-full pl-3 pr-4 py-2 whitespace-nowrap"
-                  data-testid={action.testId}
-                  onClick={action.onClick}
-                >
-                  <span className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center">
-                    <Icon className="w-4 h-4 text-white" />
-                  </span>
-                  <span className="text-xs text-white/90">{action.label}</span>
-                </button>
-              );
-              return action.href === "#" ? (
-                <div key={action.testId}>{inner}</div>
-              ) : (
-                <Link key={action.testId} href={action.href}>{inner}</Link>
+              return (
+                <div key={action.testId} className="flex flex-col items-center">
+                  <Link href={action.href}>
+                    <button
+                      className="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center mb-2 hover:bg-white/15 transition-colors"
+                      data-testid={action.testId}
+                    >
+                      <Icon className="w-6 h-6 text-white" />
+                    </button>
+                  </Link>
+                  <span className="text-xs text-white/80">{action.label}</span>
+                </div>
               );
             })}
           </div>
         </div>
-
-        {/* Operations History */}
-        <OperationsHistory />
-        
 
         {/* Wallets List */}
         <div className="flex-1 px-6">

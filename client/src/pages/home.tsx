@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Settings, ChevronRight } from "lucide-react";
+import { Settings, ChevronRight, ArrowRightLeft } from "lucide-react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -16,6 +16,147 @@ const RefreshIcon = ({ className = "w-6 h-6", ...props }: { className?: string }
     <path d="m22.69 18.37 1.14-1-1-1.73-1.45.49q-.48-.405-1.08-.63L20 14h-2l-.3 1.49q-.6.225-1.08.63l-1.45-.49-1 1.73 1.14 1c-.08.5-.08.76 0 1.26l-1.14 1 1 1.73 1.45-.49q.48.405 1.08.63L18 24h2l.3-1.49q.6-.225 1.08-.63l1.45.49 1-1.73-1.14-1c.08-.51.08-.77 0-1.27M19 21c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2M11 7v5.41l2.36 2.36 1.04-1.79-1.4-1.39V7zm10 5a9 9 0 0 0-9-9C9.17 3 6.65 4.32 5 6.36V4H3v6h6V8H6.26A7.01 7.01 0 0 1 12 5c3.86 0 7 3.14 7 7zm-10.14 6.91c-2.99-.49-5.35-2.9-5.78-5.91H3.06c.5 4.5 4.31 8 8.94 8h.07z"/>
   </svg>
 );
+
+interface ExchangeHistoryItem {
+  id: number;
+  numberOrder: string;
+  fromCurrency: string;
+  toCurrency: string;
+  amountFrom: string;
+  amountTo: string;
+  timestamp: string;
+  status: "wait" | "wait-paid" | "paid" | "complete" | "canceled" | "dispute";
+  cardNumber: string | null;
+  walletAddress: string | null;
+}
+
+function formatHistoryDate(iso: string, todayLabel: string, yesterdayLabel: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfYesterday = new Date(startOfToday.getTime() - 24 * 60 * 60 * 1000);
+  const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (d >= startOfToday) return `${todayLabel}, ${time}`;
+  if (d >= startOfYesterday) return `${yesterdayLabel}, ${time}`;
+  return `${d.toLocaleDateString()} ${time}`;
+}
+
+function trimAmount(s: string): string {
+  if (!s) return "0";
+  const n = parseFloat(s);
+  if (!isFinite(n)) return s;
+  return n.toLocaleString("en-US", { maximumFractionDigits: 4 });
+}
+
+function shortAddress(s: string | null): string {
+  if (!s) return "";
+  const clean = s.replace(/\s+/g, "");
+  if (clean.length <= 10) return clean;
+  return `${clean.slice(0, 4)}...${clean.slice(-4)}`;
+}
+
+function HomeHistory() {
+  const { t } = useTranslation();
+  const { data: items = [], isLoading } = useQuery<ExchangeHistoryItem[]>({
+    queryKey: ["/api/exchanges/history?limit=10&offset=0"],
+    refetchOnWindowFocus: false,
+  });
+
+  return (
+    <div className="px-6 mt-4 mb-3 shrink-0">
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-base font-semibold text-white" data-testid="text-home-history-title">
+          {t("home.history")}
+        </h2>
+        <Link href="/history">
+          <button className="text-sm text-accent hover:underline" data-testid="link-home-history-view-all">
+            {t("wallet.viewAll")}
+          </button>
+        </Link>
+      </div>
+
+      <div className="rounded-2xl bg-white/5 divide-y divide-white/5 overflow-hidden">
+        {isLoading ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <div key={`hskel-${i}`} className="flex items-center gap-3 px-4 py-3">
+              <Skeleton className="w-10 h-10 rounded-full bg-white/10" />
+              <div className="flex-1">
+                <Skeleton className="h-4 w-24 mb-1.5 bg-white/10" />
+                <Skeleton className="h-3 w-32 bg-white/10" />
+              </div>
+              <div className="text-right">
+                <Skeleton className="h-4 w-20 bg-white/10 ml-auto mb-1.5" />
+                <Skeleton className="h-3 w-16 bg-white/10 ml-auto" />
+              </div>
+            </div>
+          ))
+        ) : items.length === 0 ? (
+          <div className="text-center text-white/40 text-sm py-6" data-testid="text-home-history-empty">
+            {t("wallet.noOperations")}
+          </div>
+        ) : (
+          items.slice(0, 10).map((ex) => {
+            const isCanceled = ex.status === "canceled";
+            const isComplete = ex.status === "complete";
+            const recipient = ex.cardNumber || ex.walletAddress;
+            const recipientShort = shortAddress(recipient);
+            const recipientLabel = ex.cardNumber ? t("home.historyTo") : t("home.historyTo");
+            return (
+              <Link key={ex.id} href={`/tracking?order=${ex.numberOrder}`}>
+                <div
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors cursor-pointer"
+                  data-testid={`home-history-item-${ex.id}`}
+                >
+                  <div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      isComplete ? "bg-green-500/15 text-green-400" : "bg-white/10 text-white/80"
+                    }`}
+                  >
+                    <ArrowRightLeft className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-white truncate">
+                      {t("home.historyExchange")}
+                    </div>
+                    <div className="text-xs text-white/50 truncate">
+                      {recipientShort ? (
+                        <>
+                          <span className="text-white/40">{recipientLabel} </span>
+                          <span className="font-mono">{recipientShort}</span>
+                        </>
+                      ) : (
+                        <span className="text-white/40">#{ex.numberOrder}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div
+                      className={`text-sm font-semibold ${
+                        isCanceled ? "text-white/40 line-through" : "text-red-400"
+                      }`}
+                    >
+                      −{trimAmount(ex.amountFrom)} {ex.fromCurrency}
+                    </div>
+                    <div
+                      className={`text-xs font-medium ${
+                        isCanceled ? "text-white/40 line-through" : "text-green-400"
+                      }`}
+                    >
+                      +{trimAmount(ex.amountTo)} {ex.toCurrency}
+                    </div>
+                    <div className="text-[11px] text-white/40 mt-0.5">
+                      {formatHistoryDate(ex.timestamp, t("wallet.today"), t("wallet.yesterday"))}
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
 
 interface Banner {
   id: number;
@@ -301,6 +442,9 @@ export default function HomeScreen() {
           ))}
         </div>
       </div>
+
+      {/* Recent operations history */}
+      <HomeHistory />
     </div>
   );
 }
