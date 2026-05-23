@@ -75,10 +75,10 @@ function HomeHistory() {
         </Link>
       </div>
 
-      <div className="rounded-2xl bg-white/5 divide-y divide-white/5 overflow-hidden">
+      <div className="flex flex-col gap-1">
         {isLoading ? (
           Array.from({ length: 3 }).map((_, i) => (
-            <div key={`hskel-${i}`} className="flex items-center gap-3 px-4 py-3">
+            <div key={`hskel-${i}`} className="flex items-center gap-3 py-3">
               <Skeleton className="w-10 h-10 rounded-full bg-white/10" />
               <div className="flex-1">
                 <Skeleton className="h-4 w-24 mb-1.5 bg-white/10" />
@@ -97,21 +97,16 @@ function HomeHistory() {
         ) : (
           items.slice(0, 10).map((ex) => {
             const isCanceled = ex.status === "canceled";
-            const isComplete = ex.status === "complete";
             const recipient = ex.cardNumber || ex.walletAddress;
             const recipientShort = shortAddress(recipient);
-            const recipientLabel = ex.cardNumber ? t("home.historyTo") : t("home.historyTo");
+            const recipientLabel = t("home.historyTo");
             return (
               <Link key={ex.id} href={`/tracking?order=${ex.numberOrder}`}>
                 <div
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors cursor-pointer"
+                  className="flex items-center gap-3 py-3 cursor-pointer"
                   data-testid={`home-history-item-${ex.id}`}
                 >
-                  <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      isComplete ? "bg-green-500/15 text-green-400" : "bg-white/10 text-white/80"
-                    }`}
-                  >
+                  <div className="w-10 h-10 rounded-full bg-white/10 text-white/80 flex items-center justify-center flex-shrink-0">
                     <ArrowRightLeft className="w-5 h-5" />
                   </div>
                   <div className="flex-1 min-w-0">
