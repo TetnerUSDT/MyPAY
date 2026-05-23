@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { Users, Shield, Globe, Smartphone, HelpCircle, Phone, Headphones, Check } from "lucide-react";
+import { Users, Shield, Globe, Smartphone, HelpCircle, Phone, Headphones, Check, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import BottomNavigation from "@/components/bottom-navigation";
@@ -118,204 +118,207 @@ export default function SettingsScreen() {
   };
 
   return (
-    <div className="mobile-screen gradient-bg text-white pb-24">
-      <div className="px-4 pt-4 space-y-3">
-        {/* Compact User Profile Header - Avatar left, Username/Trust middle (75%), Phone/Email right (25%) */}
-        <div className="flex items-center gap-4">
-          {/* Avatar with notification badge and link */}
-          <Link href="/notifications">
-            <div className="relative">
-              <div className="w-16 h-16 rounded-full overflow-hidden">
-                <img 
-                  src={user?.img || ""} 
-                  alt="Profile Avatar" 
-                  className="w-full h-full object-cover"
-                  data-testid="profile-avatar"
-                />
-              </div>
-              {unreadCount && unreadCount.count > 0 && (
-                <>
-                  {/* Ripple animation */}
-                  <div className="absolute inset-0 rounded-full animate-ping bg-red-500/50" />
-                  {/* Badge */}
-                  <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center z-10" data-testid="notification-badge">
-                    {unreadCount.count > 9 ? '9+' : unreadCount.count}
-                  </div>
-                </>
-              )}
-            </div>
-          </Link>
+    <div className="min-h-screen bg-[#0B0C10] text-[#E2E8F0] pb-28 font-sans selection:bg-[#3ab368]/30 selection:text-white">
+      {/* Header Title */}
+      <div className="flex items-center justify-center px-5 pt-6 pb-2">
+        <h1 className="text-[17px] font-semibold tracking-tight text-white">{t('settings.settings', 'Settings')}</h1>
+      </div>
 
-          {/* Middle: Username and Trust - 75% width */}
-          <div className="flex-[3]">
-            {/* Username row */}
-            <h2 className="text-lg font-semibold text-white mb-2" data-testid="text-settings-username">
-              {user?.name || "User"}
-            </h2>
-            
-            {/* Trust row - compact */}
-            <div className="flex items-center gap-2">
-              <span className="text-green-200 text-sm font-medium">Trust</span>
-              <div className="bg-secondary/50 border border-primary/20 rounded-lg px-3 py-1">
-                <span className="text-lg font-bold text-accent" data-testid="text-trust-value">
-                  {user?.trust || 0}
-                </span>
+      <div className="px-5 space-y-4 mt-2">
+        {/* Profile Card */}
+        <div className="rounded-3xl bg-[#13151A] border border-white/5 p-5 shadow-2xl shadow-black/40 relative z-0">
+          <div className="flex items-start gap-4">
+            {/* Avatar */}
+            <Link href="/notifications">
+              <div className="relative cursor-pointer shrink-0">
+                <div className={`w-16 h-16 rounded-full overflow-hidden border-2 ${unreadCount && unreadCount.count > 0 ? 'border-red-500/80 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'border-white/10'}`}>
+                  <img 
+                    src={user?.img || ""} 
+                    alt="Profile Avatar" 
+                    className="w-full h-full object-cover"
+                    data-testid="profile-avatar"
+                  />
+                </div>
+                {unreadCount && unreadCount.count > 0 && (
+                  <>
+                    <div className="absolute inset-0 rounded-full animate-ping bg-red-500/30" />
+                    <div className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center z-10 border-2 border-[#13151A]" data-testid="notification-badge">
+                      {unreadCount.count > 9 ? '9+' : unreadCount.count}
+                    </div>
+                  </>
+                )}
               </div>
-              <button 
-                className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center"
-                onClick={() => toast({ title: t('settings.trustRating'), description: t('settings.trustRatingDesc') })}
-                data-testid="button-trust-info"
-              >
-                <HelpCircle className="w-4 h-4 text-accent" />
-              </button>
-            </div>
-          </div>
+            </Link>
 
-          {/* Right: Phone block with border - 25% width */}
-          <div className="flex-[1] border border-green-500/40 rounded-lg" style={{ padding: '0.8rem 1.0rem' }}>
-            <div className="flex flex-col gap-2">
-              {/* Phone label row */}
-              <div className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-green-200" />
-                <span className="text-green-200 text-sm font-medium">{t('settings.phone')}</span>
-              </div>
+            {/* User Info */}
+            <div className="flex-1 flex flex-col pt-1">
+              <h2 className="text-xl font-semibold text-white tracking-tight leading-none mb-2" data-testid="text-settings-username">
+                {user?.name || "User"}
+              </h2>
               
-              {/* Phone value or add button row */}
-              {user?.phone ? (
-                <span className="text-white text-sm" data-testid="text-phone-number">{user.phone}</span>
-              ) : (
-                <button 
-                  onClick={handlePhoneClick}
-                  className="w-full text-accent text-sm py-1 border border-accent hover:bg-accent/10 transition-colors"
-                  style={{ borderRadius: '0.5rem' }}
-                  data-testid="button-add-phone"
-                >
-                  {t('settings.addPhone')}
-                </button>
-              )}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Trust Score Chip */}
+                <div className="flex items-center gap-1.5 bg-[#1A1D24] border border-white/5 rounded-full pl-2.5 pr-1 py-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">Trust</span>
+                  <div className="flex items-center gap-1 bg-[#3ab368]/10 rounded-full px-2 py-0.5">
+                    <span className="text-sm font-bold text-[#3ab368]" data-testid="text-trust-value">
+                      {user?.trust || 0}
+                    </span>
+                    <button 
+                      className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-[#3ab368]/20 transition-colors ml-0.5"
+                      onClick={() => toast({ title: t('settings.trustRating'), description: t('settings.trustRatingDesc') })}
+                      data-testid="button-trust-info"
+                    >
+                      <HelpCircle className="w-3 h-3 text-[#3ab368]" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Phone Inline Block */}
+                <div className="flex items-center gap-2 bg-[#1A1D24] border border-white/5 rounded-full px-3 py-1.5">
+                  <Phone className="w-3.5 h-3.5 text-white/40" />
+                  {user?.phone ? (
+                    <span className="text-xs font-medium text-white/90" data-testid="text-phone-number">{user.phone}</span>
+                  ) : (
+                    <button 
+                      onClick={handlePhoneClick}
+                      className="text-xs font-semibold text-[#3ab368] hover:text-[#3ab368]/80 transition-colors"
+                      data-testid="button-add-phone"
+                    >
+                      {t('settings.addPhone')}
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Loyalty Program */}
-        <button
-          onClick={handleLoyaltyClick}
-          className="w-full crypto-card !p-3 hover:opacity-90 transition-all"
-          data-testid="button-loyalty-settings"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center shrink-0">
-              <Users className="w-6 h-6 text-accent" />
-            </div>
-            <div className="flex-1 flex flex-col gap-0.5">
-              <h3 className="text-white font-semibold text-left text-sm">{t('settings.loyaltyProgram')}</h3>
-              <p className="text-green-200 text-xs text-left">{t('settings.loyaltyDesc')}</p>
-            </div>
-          </div>
-        </button>
-
-        {/* Security */}
-        <button
-          onClick={handleSecurityClick}
-          className="w-full crypto-card !p-3 hover:opacity-90 transition-all"
-          data-testid="button-security-settings"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center shrink-0">
-              <Shield className="w-6 h-6 text-accent" />
-            </div>
-            <div className="flex-1 flex flex-col gap-0.5">
-              <div className="flex items-center justify-between w-full">
-                <h3 className="text-white font-semibold text-left text-sm">{t('settings.security')}</h3>
-                <span className="text-xs text-accent font-medium">{t('settings.securityLevel')}</span>
+        {/* Menu Block 1 */}
+        <div className="rounded-3xl bg-[#13151A] border border-white/5 shadow-2xl shadow-black/40 overflow-hidden relative z-0">
+          <button
+            onClick={handleLoyaltyClick}
+            className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors border-b border-white/5 group"
+            data-testid="button-loyalty-settings"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-2xl bg-[#1A1D24] border border-white/5 flex items-center justify-center shrink-0 group-hover:border-[#3ab368]/30 transition-colors">
+                <Users className="w-4 h-4 text-[#3ab368]" />
               </div>
-              <p className="text-green-200 text-xs text-left">{t('settings.securityDesc')}</p>
-            </div>
-          </div>
-        </button>
-
-        {/* Languages */}
-        <button
-          onClick={handleLanguageClick}
-          className="w-full crypto-card !p-3 hover:opacity-90 transition-all"
-          data-testid="button-language-settings"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center shrink-0">
-              <Globe className="w-6 h-6 text-accent" />
-            </div>
-            <div className="flex-1 flex flex-col gap-0.5">
-              <div className="flex items-center justify-between w-full">
-                <h3 className="text-white font-semibold text-left text-sm">{t('settings.language')}</h3>
-                <span className="text-xs text-accent font-medium">{currentLanguage.flag} {currentLanguage.name}</span>
+              <div className="flex flex-col items-start">
+                <h3 className="text-white font-medium text-sm tracking-tight">{t('settings.loyaltyProgram')}</h3>
+                <span className="text-[11px] text-white/40 font-medium">{t('settings.loyaltyDesc')}</span>
               </div>
-              <p className="text-green-200 text-xs text-left">{t('settings.languageDesc')}</p>
             </div>
-          </div>
-        </button>
+            <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-white/40 transition-colors" />
+          </button>
 
-        {/* Devices */}
-        <button
-          onClick={handleDevicesClick}
-          className="w-full crypto-card !p-3 hover:opacity-90 transition-all"
-          data-testid="button-devices-settings"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center shrink-0">
-              <Smartphone className="w-6 h-6 text-accent" />
+          <button
+            onClick={handleSecurityClick}
+            className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors border-b border-white/5 group"
+            data-testid="button-security-settings"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-2xl bg-[#1A1D24] border border-white/5 flex items-center justify-center shrink-0 group-hover:border-[#3ab368]/30 transition-colors">
+                <Shield className="w-4 h-4 text-[#3ab368]" />
+              </div>
+              <div className="flex flex-col items-start">
+                <h3 className="text-white font-medium text-sm tracking-tight">{t('settings.security')}</h3>
+                <span className="text-[11px] text-white/40 font-medium">{t('settings.securityDesc')}</span>
+              </div>
             </div>
-            <div className="flex-1 flex flex-col gap-0.5">
-              <h3 className="text-white font-semibold text-left text-sm">{t('settings.devices')}</h3>
-              <p className="text-green-200 text-xs text-left">{t('settings.devicesDesc')}</p>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#3ab368]">{t('settings.securityLevel')}</span>
+              <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-white/40 transition-colors" />
             </div>
-          </div>
-        </button>
+          </button>
 
-        {/* Support - Separate block */}
-        <div className="pt-2 border-t border-green-500/20">
+          <button
+            onClick={handleLanguageClick}
+            className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors border-b border-white/5 group"
+            data-testid="button-language-settings"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-2xl bg-[#1A1D24] border border-white/5 flex items-center justify-center shrink-0 group-hover:border-[#3ab368]/30 transition-colors">
+                <Globe className="w-4 h-4 text-[#3ab368]" />
+              </div>
+              <div className="flex flex-col items-start">
+                <h3 className="text-white font-medium text-sm tracking-tight">{t('settings.language')}</h3>
+                <span className="text-[11px] text-white/40 font-medium">{t('settings.languageDesc')}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] font-medium text-white/60">{currentLanguage.flag} {currentLanguage.name}</span>
+              <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-white/40 transition-colors" />
+            </div>
+          </button>
+
+          <button
+            onClick={handleDevicesClick}
+            className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors group"
+            data-testid="button-devices-settings"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-2xl bg-[#1A1D24] border border-white/5 flex items-center justify-center shrink-0 group-hover:border-[#3ab368]/30 transition-colors">
+                <Smartphone className="w-4 h-4 text-[#3ab368]" />
+              </div>
+              <div className="flex flex-col items-start">
+                <h3 className="text-white font-medium text-sm tracking-tight">{t('settings.devices')}</h3>
+                <span className="text-[11px] text-white/40 font-medium">{t('settings.devicesDesc')}</span>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-white/40 transition-colors" />
+          </button>
+        </div>
+
+        {/* Support Block */}
+        <div className="rounded-3xl bg-[#13151A] border border-white/5 shadow-2xl shadow-black/40 overflow-hidden relative z-0">
           <button
             onClick={handleSupportClick}
-            className="w-full crypto-card !p-3 hover:opacity-90 transition-all"
+            className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors group"
             data-testid="button-support-settings"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center shrink-0">
-                <Headphones className="w-6 h-6 text-accent" />
+              <div className="w-9 h-9 rounded-2xl bg-[#1A1D24] border border-white/5 flex items-center justify-center shrink-0 group-hover:border-[#3ab368]/30 transition-colors">
+                <Headphones className="w-4 h-4 text-[#3ab368]" />
               </div>
-              <div className="flex-1 flex flex-col gap-0.5">
-                <h3 className="text-white font-semibold text-left text-sm">{t('settings.support')}</h3>
-                <p className="text-green-200 text-xs text-left">{t('settings.supportDesc')}</p>
+              <div className="flex flex-col items-start">
+                <h3 className="text-white font-medium text-sm tracking-tight">{t('settings.support')}</h3>
+                <span className="text-[11px] text-white/40 font-medium">{t('settings.supportDesc')}</span>
               </div>
             </div>
+            <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-white/40 transition-colors" />
           </button>
         </div>
       </div>
 
       {/* Phone Input Dialog */}
       <Dialog open={isPhoneDialogOpen} onOpenChange={setIsPhoneDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-card border-border text-white">
+        <DialogContent className="sm:max-w-md bg-[#13151A] border-white/10 rounded-3xl text-white">
           <DialogHeader>
-            <DialogTitle className="text-white">{t('settings.phone')}</DialogTitle>
+            <DialogTitle className="text-white text-lg font-semibold tracking-tight">{t('settings.phone')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label className="text-sm text-green-200">{t('settings.phone')}</label>
-              <PhoneInput
-                international
-                defaultCountry="RU"
-                value={phoneValue}
-                onChange={(value) => setPhoneValue(value || "")}
-                className="phone-input-custom"
-                placeholder={t('settings.enterPhone')}
-              />
+              <label className="text-[11px] font-bold uppercase tracking-wider text-white/40">{t('settings.phone')}</label>
+              <div className="bg-[#1A1D24] p-3 rounded-2xl border border-white/5 focus-within:border-[#3ab368]/50 transition-colors">
+                <PhoneInput
+                  international
+                  defaultCountry="RU"
+                  value={phoneValue}
+                  onChange={(value) => setPhoneValue(value || "")}
+                  className="phone-input-custom !bg-transparent"
+                  placeholder={t('settings.enterPhone')}
+                />
+              </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="mt-2">
             <Button
               type="button"
               onClick={handleSavePhone}
               disabled={updatePhoneMutation.isPending}
-              className="w-full bg-accent hover:bg-accent/90 text-secondary"
+              className="w-full h-12 bg-[#3ab368] hover:bg-[#3ab368]/90 text-[#0B0C10] font-semibold text-sm rounded-2xl transition-all"
             >
               {updatePhoneMutation.isPending ? t('common.loading') : t('common.save')}
             </Button>
@@ -325,28 +328,30 @@ export default function SettingsScreen() {
 
       {/* Language Selection Modal */}
       <Dialog open={isLanguageModalOpen} onOpenChange={setIsLanguageModalOpen}>
-        <DialogContent className="sm:max-w-md bg-card border-border text-white">
+        <DialogContent className="sm:max-w-md bg-[#13151A] border-white/10 rounded-3xl text-white">
           <DialogHeader>
-            <DialogTitle className="text-white">{t('settings.language')}</DialogTitle>
+            <DialogTitle className="text-white text-lg font-semibold tracking-tight">{t('settings.language')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-2 py-4">
             {languages.map((lang) => (
               <button
                 key={lang.code}
                 onClick={() => handleChangeLanguage(lang.code)}
-                className={`w-full flex items-center justify-between p-4 rounded-xl transition-all ${
+                className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${
                   i18n.language === lang.code 
-                    ? 'bg-accent/20 border border-accent' 
-                    : 'bg-black/20 hover:bg-black/30'
+                    ? 'bg-[#1A1D24] border-[#3ab368]/30 shadow-[0_0_15px_rgba(58,179,104,0.1)]' 
+                    : 'bg-[#1A1D24]/50 border-white/5 hover:bg-[#1A1D24] hover:border-white/10'
                 }`}
                 data-testid={`language-${lang.code}`}
               >
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">{lang.flag}</span>
-                  <span className="text-white font-medium">{lang.name}</span>
+                  <span className={`font-medium tracking-tight ${i18n.language === lang.code ? 'text-white' : 'text-white/70'}`}>
+                    {lang.name}
+                  </span>
                 </div>
                 {i18n.language === lang.code && (
-                  <Check className="w-5 h-5 text-accent" />
+                  <Check className="w-5 h-5 text-[#3ab368]" />
                 )}
               </button>
             ))}
