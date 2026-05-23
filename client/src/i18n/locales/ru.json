@@ -31,7 +31,8 @@
     "home": "Главная",
     "exchange": "Обмен",
     "wallet": "Кошелёк",
-    "vouchers": "Ваучеры"
+    "vouchers": "Ваучеры",
+    "cards": "Карты"
   },
   "home": {
     "totalBalance": "Общий баланс",
@@ -64,7 +65,13 @@
     "networkAddError": "Не удалось добавить сеть",
     "balanceBlocked": "Баланс заблокирован",
     "balanceInactive": "Баланс неактивный",
-    "newNetworksSoon": "Новые сети появятся в ближайшее время"
+    "newNetworksSoon": "Новые сети появятся в ближайшее время",
+    "history": "История",
+    "viewAll": "Все",
+    "noOperations": "Нет операций",
+    "exchangeShort": "Обмен",
+    "today": "Сегодня",
+    "yesterday": "Вчера"
   },
   "settings": {
     "title": "Настройки",

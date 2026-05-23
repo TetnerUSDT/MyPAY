@@ -78,6 +78,15 @@
 
   /* Honeycomb grid is only shown on the splash/auth page via .splash-grid below. */
 
+  /* Hide native scrollbars on horizontally-scrolling rows (quick actions, etc.) */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
   /* Splash page: grid centered both axes */
   .splash-grid {
     position: fixed;

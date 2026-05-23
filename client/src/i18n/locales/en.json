@@ -31,7 +31,8 @@
     "home": "Home",
     "exchange": "Exchange",
     "wallet": "Wallet",
-    "vouchers": "Vouchers"
+    "vouchers": "Vouchers",
+    "cards": "Cards"
   },
   "home": {
     "totalBalance": "Total balance",
@@ -64,7 +65,13 @@
     "networkAddError": "Failed to add network",
     "balanceBlocked": "Balance blocked",
     "balanceInactive": "Balance inactive",
-    "newNetworksSoon": "New networks coming soon"
+    "newNetworksSoon": "New networks coming soon",
+    "history": "History",
+    "viewAll": "View all",
+    "noOperations": "No operations",
+    "exchangeShort": "Exchange",
+    "today": "Today",
+    "yesterday": "Yesterday"
   },
   "settings": {
     "title": "Settings",
