@@ -38,7 +38,7 @@ export default function SettingsScreen() {
   // Get unread notifications count
   const { data: unreadCount } = useQuery<{ count: number }>({
     queryKey: ["/api/notifications/unread-count"],
-    refetchInterval: 30000,
+    refetchInterval: 60000,
   });
 
   const [isPhoneDialogOpen, setIsPhoneDialogOpen] = useState(false);

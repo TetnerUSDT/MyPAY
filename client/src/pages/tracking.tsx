@@ -50,7 +50,7 @@ export default function TrackingScreen() {
       return response.json();
     },
     enabled: !!orderNumber,
-    refetchInterval: 30000, // Poll every 30 seconds
+    refetchInterval: 60000, // Poll every 60 seconds (SSE pushes real-time updates anyway)
     refetchOnWindowFocus: true, // Refetch when user returns to window
     staleTime: 0, // Always consider data stale to allow refetching
     gcTime: 0, // Don't cache the data

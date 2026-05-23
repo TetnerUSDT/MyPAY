@@ -153,7 +153,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Public endpoint to get Telegram bot username for widget
   app.get("/api/config/telegram-bot", async (req, res) => {
-    res.json({ 
+    // Config never changes at runtime — cache aggressively in browser + CDN
+    res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=3600');
+    res.json({
       botUsername: config.auth.telegram.botUsername,
       authMode: config.auth.mode,
       botUrl: process.env.TELEGRAM_BOT_URL || ""
@@ -257,85 +259,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user = await storage.getUserByTgId(tgId);
         
         if (!user) {
-          // Create new user - try to fetch fresh data from Telegram Bot API
-          try {
-            const telegramData = await telegramService.extractUserData(tgId);
-            user = await storage.createUser({
-              tgId,
-              tgUsername: telegramData.tgUsername || tgUsername,
-              google: null,
-              name: telegramData.name || name,
-              img: telegramData.img || img,
-              status: "active",
-              agreement: 0,
-              blocked: false,
-              idRef: referrerId || undefined
-            });
-          } catch (error) {
-            console.error('Failed to fetch Telegram user data, using provided data:', error);
-            // Fallback to data from initData/widgetData
-            user = await storage.createUser({
-              tgId,
-              tgUsername,
-              google: null,
-              name,
-              img,
-              status: "active",
-              agreement: 0,
-              blocked: false,
-              idRef: referrerId || undefined
-            });
-          }
+          // Create new user using data from initData/widgetData — FAST PATH.
+          // Telegram Bot API (getChat/getUserProfilePhotos) is called in the
+          // background after the response so login is not blocked.
+          user = await storage.createUser({
+            tgId,
+            tgUsername,
+            google: null,
+            name,
+            img,
+            status: "active",
+            agreement: 0,
+            blocked: false,
+            idRef: referrerId || undefined
+          });
         } else {
-          // User exists - update their data
+          // User exists — apply only the cheap updates from initData/widgetData.
+          // Avatar/extra data refresh happens in the background (see below).
           const updates: any = {};
-          
-          // Update username if changed
-          if (tgUsername && user.tgUsername !== tgUsername) {
-            updates.tgUsername = tgUsername;
-          }
-          
-          // Update name if provided and different
-          if (name && user.name !== name) {
-            updates.name = name;
-          }
-          
-          // Try to fetch and update photo from Telegram Bot API
-          try {
-            const telegramData = await telegramService.extractUserData(tgId);
-            
-            // Update username if different
-            if (telegramData.tgUsername && telegramData.tgUsername !== user.tgUsername) {
-              updates.tgUsername = telegramData.tgUsername;
-            }
-            
-            // Update name if different
-            if (telegramData.name && telegramData.name !== user.name) {
-              updates.name = telegramData.name;
-            }
-            
-            // Update avatar if different
-            if (telegramData.img && telegramData.img !== user.img) {
-              updates.img = telegramData.img;
-            }
-          } catch (error) {
-            console.error('Failed to fetch Telegram user data for update:', error);
-            // If Bot API fails, use photo from initData/widgetData if available
-            if (img && img !== user.img) {
-              updates.img = img;
-            }
-          }
-          
-          // Apply updates if any
+          if (tgUsername && user.tgUsername !== tgUsername) updates.tgUsername = tgUsername;
+          if (name && user.name !== name) updates.name = name;
+          if (img && img !== user.img) updates.img = img;
+
           if (Object.keys(updates).length > 0) {
             await storage.updateUser(user.id, updates);
-            // Update user object with new values
             user = { ...user, ...updates };
           }
         }
-        
+
         // Generate API key
         apiKey = await storage.generateApiKey(user.id);
+
+        // Ensure user has all crypto balances (lazy per-user replacement for
+        // the old startup-wide fixExistingUserBalances loop).
+        await storage.ensureUserCryptoBalances(user.id);
+
+        // Fire-and-forget: refresh Telegram profile data in the background
+        // (getChat + getUserProfilePhotos). Doesn't block the login response.
+        const userIdForBg = user.id;
+        const currentImg = user.img;
+        const currentUsername = user.tgUsername;
+        const currentName = user.name;
+        telegramService.extractUserData(tgId)
+          .then(async (telegramData) => {
+            const bgUpdates: any = {};
+            if (telegramData.tgUsername && telegramData.tgUsername !== currentUsername) {
+              bgUpdates.tgUsername = telegramData.tgUsername;
+            }
+            if (telegramData.name && telegramData.name !== currentName) {
+              bgUpdates.name = telegramData.name;
+            }
+            if (telegramData.img && telegramData.img !== currentImg) {
+              bgUpdates.img = telegramData.img;
+            }
+            if (Object.keys(bgUpdates).length > 0) {
+              await storage.updateUser(userIdForBg, bgUpdates);
+            }
+          })
+          .catch(() => {
+            // Telegram API failure is non-fatal — user is already logged in
+          });
       } else {
         // Test mode authentication
         if (!config.auth.test.enabled) {

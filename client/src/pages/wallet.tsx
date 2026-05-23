@@ -35,7 +35,7 @@ export default function WalletScreen() {
 
   const { data: unreadCount } = useQuery<{ count: number }>({
     queryKey: ["/api/notifications/unread-count"],
-    refetchInterval: 30000,
+    refetchInterval: 60000,
   });
 
   const { data: availableNetworks = [], isLoading: networksLoading } = useQuery<any[]>({

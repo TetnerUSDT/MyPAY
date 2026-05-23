@@ -133,7 +133,9 @@ export class DatabaseStorage implements IStorage {
     const instance = storage;
     await instance.initializeBalances();
     await instance.initializeExchangeRates();
-    await instance.fixExistingUserBalances();
+    // NOTE: fixExistingUserBalances() removed from startup — it is an O(N*M) operation
+    // that iterates ALL users * all crypto balances. It is now run lazily on user login
+    // via ensureUserCryptoBalances() when needed.
     await instance.initializeDemoChat();
     await instance.initializeCards();
     await instance.initializeBanks();
@@ -387,44 +389,33 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  private async fixExistingUserBalances() {
+  // Lazy per-user version of the old fixExistingUserBalances() — called once on
+  // login instead of iterating ALL users on every server start.
+  async ensureUserCryptoBalances(userId: number): Promise<void> {
     try {
-      // All actual crypto balances: TRC20(3), BEP20(4), TON(6), DAI(9), POL(10)
       const cryptoBalanceIds = [3, 4, 6, 9, 10];
-      const allUsers = await db.select({ id: users.id }).from(users);
-      let fixed = 0;
-      
-      for (const user of allUsers) {
-        for (const balanceId of cryptoBalanceIds) {
-          try {
-            const [existing] = await db.select()
-              .from(usersBalances)
-              .where(and(
-                eq(usersBalances.idUser, user.id),
-                eq(usersBalances.idBalance, balanceId)
-              ))
-              .limit(1);
-            
-            if (!existing) {
-              await db.insert(usersBalances).values({
-                idUser: user.id,
-                idBalance: balanceId,
-                sum: "0.0",
-                status: "active"
-              });
-              fixed++;
-            }
-          } catch (insertError) {
-            // Ignore duplicate key errors
-          }
-        }
-      }
-      
-      if (fixed > 0) {
-        console.log(`Fixed ${fixed} missing user balances`);
-      }
+
+      // Fetch existing balances in ONE query
+      const existing = await db.select({ idBalance: usersBalances.idBalance })
+        .from(usersBalances)
+        .where(eq(usersBalances.idUser, userId));
+
+      const existingIds = new Set(existing.map((b) => b.idBalance));
+      const missing = cryptoBalanceIds.filter((id) => !existingIds.has(id));
+
+      if (missing.length === 0) return;
+
+      // Bulk insert all missing balances in one statement
+      await db.insert(usersBalances).values(
+        missing.map((balanceId) => ({
+          idUser: userId,
+          idBalance: balanceId,
+          sum: "0.0",
+          status: "active",
+        }))
+      );
     } catch (error) {
-      console.error('Fix existing user balances failed:', error);
+      // Ignore duplicate key errors / non-blocking
     }
   }
 

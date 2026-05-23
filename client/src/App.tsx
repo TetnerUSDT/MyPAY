@@ -5,7 +5,6 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthGuard } from "@/components";
-import { InvoiceNotificationProvider } from "@/contexts/InvoiceNotificationContext";
 import { useLocation } from "wouter";
 
 // Splash loads immediately — critical path
@@ -38,12 +37,31 @@ const BottomNavigation = lazy(() => import("@/components/bottom-navigation"));
 const AdminRouteProvider = lazy(() =>
   import("@/components/AdminRouteProvider").then((m) => ({ default: m.AdminRoutes }))
 );
+// InvoiceNotificationProvider is heavy (SSE connection + Drawer + lucide icons).
+// It is only loaded for authenticated routes, NOT on splash/agreement.
+const InvoiceNotificationProvider = lazy(() =>
+  import("@/contexts/InvoiceNotificationContext").then((m) => ({
+    default: m.InvoiceNotificationProvider,
+  }))
+);
 
 function PageLoader() {
   return (
     <div className="flex items-center justify-center min-h-screen">
       <div className="w-8 h-8 rounded-full border-2 border-white/20 border-t-green-400 animate-spin" />
     </div>
+  );
+}
+
+// Wraps protected pages with auth check + invoice notifications (SSE).
+// SSE & invoice fetching only happen for authenticated users.
+function Protected({ children }: { children: React.ReactNode }) {
+  return (
+    <AuthGuard requireAgreement={true}>
+      <Suspense fallback={null}>
+        <InvoiceNotificationProvider>{children}</InvoiceNotificationProvider>
+      </Suspense>
+    </AuthGuard>
   );
 }
 
@@ -61,132 +79,28 @@ function Router() {
             <AgreementScreen />
           </Route>
 
-          {/* Protected routes - require authentication and agreement */}
-          <Route path="/home">
-            <AuthGuard requireAgreement={true}>
-              <HomeScreen />
-            </AuthGuard>
-          </Route>
-
-          <Route path="/wallet">
-            <AuthGuard requireAgreement={true}>
-              <WalletScreen />
-            </AuthGuard>
-          </Route>
-
-          <Route path="/select-country">
-            <AuthGuard requireAgreement={true}>
-              <SelectCountryScreen />
-            </AuthGuard>
-          </Route>
-
-          <Route path="/exchange">
-            <AuthGuard requireAgreement={true}>
-              <ExchangeScreen />
-            </AuthGuard>
-          </Route>
-
-          <Route path="/top-up">
-            <AuthGuard requireAgreement={true}>
-              <TopUpScreen />
-            </AuthGuard>
-          </Route>
-
-          <Route path="/tracking">
-            <AuthGuard requireAgreement={true}>
-              <TrackingScreen />
-            </AuthGuard>
-          </Route>
-
-          <Route path="/top-up-success">
-            <AuthGuard requireAgreement={true}>
-              <TopUpSuccessScreen />
-            </AuthGuard>
-          </Route>
-
-          <Route path="/transfer-processing">
-            <AuthGuard requireAgreement={true}>
-              <TransferProcessingScreen />
-            </AuthGuard>
-          </Route>
-
-          <Route path="/transfer-success">
-            <AuthGuard requireAgreement={true}>
-              <TransferSuccessScreen />
-            </AuthGuard>
-          </Route>
-
-          <Route path="/payment">
-            <AuthGuard requireAgreement={true}>
-              <PaymentScreen />
-            </AuthGuard>
-          </Route>
-
-          <Route path="/transfer">
-            <AuthGuard requireAgreement={true}>
-              <SellScreen />
-            </AuthGuard>
-          </Route>
-
-          <Route path="/support">
-            <AuthGuard requireAgreement={true}>
-              <SupportScreen />
-            </AuthGuard>
-          </Route>
-
-          <Route path="/cards">
-            <AuthGuard requireAgreement={true}>
-              <CardsScreen />
-            </AuthGuard>
-          </Route>
-
-          <Route path="/history">
-            <AuthGuard requireAgreement={true}>
-              <HistoryScreen />
-            </AuthGuard>
-          </Route>
-
-          <Route path="/notifications">
-            <AuthGuard requireAgreement={true}>
-              <NotificationsScreen />
-            </AuthGuard>
-          </Route>
-
-          <Route path="/invoice/:orderNumber">
-            <AuthGuard requireAgreement={true}>
-              <InvoiceScreen />
-            </AuthGuard>
-          </Route>
-
-          <Route path="/settings">
-            <AuthGuard requireAgreement={true}>
-              <SettingsScreen />
-            </AuthGuard>
-          </Route>
-
-          <Route path="/settings/security">
-            <AuthGuard requireAgreement={true}>
-              <SecurityScreen />
-            </AuthGuard>
-          </Route>
-
-          <Route path="/devices">
-            <AuthGuard requireAgreement={true}>
-              <DevicesScreen />
-            </AuthGuard>
-          </Route>
-
-          <Route path="/loyalty">
-            <AuthGuard requireAgreement={true}>
-              <LoyaltyScreen />
-            </AuthGuard>
-          </Route>
-
-          <Route path="/vouchers">
-            <AuthGuard requireAgreement={true}>
-              <VouchersScreen />
-            </AuthGuard>
-          </Route>
+          {/* Protected routes */}
+          <Route path="/home"><Protected><HomeScreen /></Protected></Route>
+          <Route path="/wallet"><Protected><WalletScreen /></Protected></Route>
+          <Route path="/select-country"><Protected><SelectCountryScreen /></Protected></Route>
+          <Route path="/exchange"><Protected><ExchangeScreen /></Protected></Route>
+          <Route path="/top-up"><Protected><TopUpScreen /></Protected></Route>
+          <Route path="/tracking"><Protected><TrackingScreen /></Protected></Route>
+          <Route path="/top-up-success"><Protected><TopUpSuccessScreen /></Protected></Route>
+          <Route path="/transfer-processing"><Protected><TransferProcessingScreen /></Protected></Route>
+          <Route path="/transfer-success"><Protected><TransferSuccessScreen /></Protected></Route>
+          <Route path="/payment"><Protected><PaymentScreen /></Protected></Route>
+          <Route path="/transfer"><Protected><SellScreen /></Protected></Route>
+          <Route path="/support"><Protected><SupportScreen /></Protected></Route>
+          <Route path="/cards"><Protected><CardsScreen /></Protected></Route>
+          <Route path="/history"><Protected><HistoryScreen /></Protected></Route>
+          <Route path="/notifications"><Protected><NotificationsScreen /></Protected></Route>
+          <Route path="/invoice/:orderNumber"><Protected><InvoiceScreen /></Protected></Route>
+          <Route path="/settings"><Protected><SettingsScreen /></Protected></Route>
+          <Route path="/settings/security"><Protected><SecurityScreen /></Protected></Route>
+          <Route path="/devices"><Protected><DevicesScreen /></Protected></Route>
+          <Route path="/loyalty"><Protected><LoyaltyScreen /></Protected></Route>
+          <Route path="/vouchers"><Protected><VouchersScreen /></Protected></Route>
 
           {/* Admin routes - loaded last to not interfere with main routes */}
           <AdminRouteProvider />
@@ -206,10 +120,8 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <InvoiceNotificationProvider>
-          <Toaster />
-          <Router />
-        </InvoiceNotificationProvider>
+        <Toaster />
+        <Router />
       </TooltipProvider>
     </QueryClientProvider>
   );

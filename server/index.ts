@@ -85,10 +85,13 @@ app.use((req, res, next) => {
   // Validate and log configuration
   validateConfig();
   logConfig();
-  
-  // Initialize database storage
-  await DatabaseStorage.initialize();
-  
+
+  // Initialize database storage in the background — don't block server startup.
+  // Initialization seeds default data and is safe to run after the server starts listening.
+  DatabaseStorage.initialize().catch((err) => {
+    console.error('[Startup] Database initialization failed:', err);
+  });
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

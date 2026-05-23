@@ -59,7 +59,7 @@ export default function HomeScreen() {
   const { data: exchangeRates = [], isLoading: ratesLoading } = useQuery<any[]>({ queryKey: ["/api/services/crypto"] });
   const { data: unreadCount } = useQuery<{ count: number }>({
     queryKey: ["/api/notifications/unread-count"],
-    refetchInterval: 30000,
+    refetchInterval: 60000,
   });
 
   const onSelect = useCallback(() => {
