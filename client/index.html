@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Preconnect to Telegram CDN to speed up the (async) WebApp script load -->
+    <link rel="preconnect" href="https://telegram.org" crossorigin>
+    <!-- async = non-blocking. Splash polls window.Telegram?.WebApp so it tolerates late load. -->
+    <script async src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="preload" href="/uploads/assets/start-bg.webp" as="image" type="image/webp">
     <style>
       /* Static preloader — shown immediately before React mounts */
