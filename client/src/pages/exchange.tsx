@@ -391,7 +391,7 @@ export default function ExchangeScreen() {
   })();
 
   return (
-    <div className="mobile-screen bg-[#0B0C10] text-[#E2E8F0] overflow-y-auto pb-8 font-sans selection:bg-accent/30 selection:text-white">
+    <div className="min-h-screen bg-[#0B0C10] text-[#E2E8F0] pb-28 font-sans selection:bg-accent/30 selection:text-white">
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-6 pb-4">
         <Link href="/home">
@@ -629,7 +629,7 @@ export default function ExchangeScreen() {
             <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent mix-blend-overlay"></div>
             <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-white/10 mix-blend-overlay"></div>
             
-            <div className="relative flex items-center justify-center gap-2 py-4.5 font-semibold text-[15px] text-white tracking-wide shadow-[0_0_20px_rgba(58,179,104,0.3)]">
+            <div className="relative flex items-center justify-center gap-2 py-4 font-semibold text-[15px] text-white tracking-wide shadow-[0_0_20px_rgba(58,179,104,0.3)]">
               {createExchangeMutation.isPending ? (
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
