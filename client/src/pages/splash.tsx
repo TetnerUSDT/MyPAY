@@ -1,5 +1,5 @@
 import { useLocation } from "wouter";
-import { useEffect, useState, useLayoutEffect, lazy, Suspense } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -20,12 +20,6 @@ export default function SplashScreen() {
   const [, setLocation] = useLocation();
   const [isTelegramEnv, setIsTelegramEnv] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
-
-  // Hide the top grid (body::before) while on splash — only centered grid is shown
-  useLayoutEffect(() => {
-    document.body.classList.add('no-top-grid');
-    return () => document.body.classList.remove('no-top-grid');
-  }, []);
 
   // Fetch bot username for browser login widget
   const { data: telegramConfig } = useQuery<{ botUsername: string; authMode: string }>({
