@@ -1,14 +1,12 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { X, Plus, Copy, Ticket, CheckCircle2, Lock } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ChevronLeft, Plus, Copy, Ticket, CheckCircle2, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -407,85 +405,68 @@ export default function VouchersPage() {
     const isActive = voucher.status === 'active';
     
     return (
-      <div
-        key={voucher.id}
-        className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-green-500/30 space-y-3"
-        data-testid={`voucher-card-${voucher.id}`}
-      >
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2">
-            <Ticket className={`w-5 h-5 ${isActive ? 'text-green-400' : 'text-gray-400'}`} />
-            <span className={`text-xs font-medium ${isActive ? 'text-green-400' : 'text-gray-400'}`}>
-              {isActive ? t('vouchers.active') : t('vouchers.activated')}
-            </span>
-          </div>
-          {isActive && (
-            <CheckCircle2 className="w-5 h-5 text-green-400" />
-          )}
+      <div key={voucher.id} className="bg-[#13151A] border border-white/5 rounded-3xl p-5 space-y-4" data-testid={`voucher-card-${voucher.id}`}>
+        {/* Top row: status badge + amount */}
+        <div className="flex items-center justify-between">
+          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[11px] font-bold ${
+            isActive
+              ? 'bg-[#3ab368]/10 border-[#3ab368]/20 text-[#3ab368]'
+              : 'bg-white/5 border-white/10 text-white/40'
+          }`}>
+            <Ticket className="w-3 h-3" />
+            {isActive ? t('vouchers.active') : t('vouchers.activated')}
+          </span>
+          <span className="text-xl font-bold text-white" data-testid={`voucher-amount-${voucher.id}`}>
+            {parseFloat(voucher.amount).toFixed(2)} <span className="text-white/50 text-sm">{voucher.currency}</span>
+          </span>
         </div>
 
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 bg-white/90 rounded-lg py-2 px-3">
-            <span className="flex-1 text-secondary text-sm font-mono font-semibold" data-testid={`voucher-code-${voucher.id}`}>
-              {voucher.code}
-            </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => handleCopyCode(voucher.code)}
-              className="text-secondary hover:bg-secondary/10 h-8 w-8"
-              data-testid={`button-copy-${voucher.id}`}
-            >
-              <Copy className="w-4 h-4" />
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <div>
-              <p className="text-green-200 text-xs">{t('vouchers.amount')}</p>
-              <p className="text-white font-semibold" data-testid={`voucher-amount-${voucher.id}`}>
-                {parseFloat(voucher.amount).toFixed(2)} {voucher.currency}
-              </p>
-            </div>
-            <div>
-              <p className="text-green-200 text-xs">{t('vouchers.securityType')}</p>
-              <p className="text-white font-semibold">
-                {getSecurityLabel(voucher.securityType)}
-              </p>
-            </div>
-          </div>
-
-          <div className="text-xs text-green-200">
-            {t('vouchers.created')}: {format(new Date(voucher.createdAt), "dd MMM yyyy, HH:mm", { locale: i18n.language === 'ru' ? ru : enUS })}
-          </div>
-          {voucher.activatedAt && (
-            <div className="text-xs text-gray-400">
-              {t('vouchers.activated')}: {format(new Date(voucher.activatedAt), "dd MMM yyyy, HH:mm", { locale: i18n.language === 'ru' ? ru : enUS })}
-            </div>
-          )}
+        {/* Code row */}
+        <div className="flex items-center gap-3 bg-[#1A1D24] border border-white/5 rounded-2xl px-4 py-3">
+          <span className="flex-1 font-mono text-sm font-semibold text-white/80 tracking-wider" data-testid={`voucher-code-${voucher.id}`}>
+            {voucher.code}
+          </span>
+          <button
+            onClick={() => handleCopyCode(voucher.code)}
+            className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"
+            data-testid={`button-copy-${voucher.id}`}
+          >
+            <Copy className="w-4 h-4 text-white/40" />
+          </button>
         </div>
+
+        {/* Meta row: security + date */}
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-white/35 uppercase tracking-wider font-bold">{getSecurityLabel(voucher.securityType)}</span>
+          <span className="text-white/30">
+            {format(new Date(voucher.createdAt), "dd MMM yyyy, HH:mm", { locale: i18n.language === 'ru' ? ru : enUS })}
+          </span>
+        </div>
+        {voucher.activatedAt && (
+          <div className="text-[11px] text-white/25">
+            {t('vouchers.activated')}: {format(new Date(voucher.activatedAt), "dd MMM yyyy, HH:mm", { locale: i18n.language === 'ru' ? ru : enUS })}
+          </div>
+        )}
       </div>
     );
   };
 
   return (
-    <div className="mobile-screen gradient-bg text-white pb-24">
+    <div className="min-h-screen bg-[#0B0C10] text-[#E2E8F0] pb-28 font-sans">
       {/* Header */}
-      <div className="flex items-center justify-between p-6">
-        <h1 className="text-xl font-semibold" data-testid="text-vouchers-title">
-          {t('vouchers.title')}
-        </h1>
+      <div className="flex items-center justify-between px-5 pt-6 pb-4">
         <Link href="/home">
-          <button 
-            className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center"
-            data-testid="button-close"
-          >
-            <X className="w-4 h-4 text-white" />
+          <button className="w-10 h-10 rounded-full bg-white/5 border border-white/5 flex items-center justify-center hover:bg-white/10 transition-colors" data-testid="button-close">
+            <ChevronLeft className="w-5 h-5 text-white/70" />
           </button>
         </Link>
+        <h1 className="text-[17px] font-semibold tracking-tight text-white" data-testid="text-vouchers-title">
+          {t('vouchers.title')}
+        </h1>
+        <div className="w-10 h-10" />
       </div>
 
-      <div className="px-4 space-y-4">
+      <div className="px-5 space-y-4">
         {/* Voucher Animation */}
         <div className="flex justify-center -mt-4 mb-2">
           <Lottie 
@@ -496,64 +477,68 @@ export default function VouchersPage() {
         </div>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-3">
-          <Button
+        <div className="grid grid-cols-2 gap-3 px-0">
+          <button
             onClick={() => setIsCreateDialogOpen(true)}
-            className="w-full bg-accent hover:bg-accent/90 text-secondary font-semibold py-6 rounded-xl"
+            className="flex items-center justify-center gap-2 bg-[#3ab368] hover:bg-[#3ab368]/90 text-[#0B0C10] font-bold py-4 rounded-2xl transition-all shadow-lg shadow-[#3ab368]/20 active:scale-[0.98]"
             data-testid="button-create-voucher"
           >
-            <Plus className="w-5 h-5 mr-2" />
+            <Plus className="w-5 h-5" />
             {t('vouchers.create')}
-          </Button>
-          <Button
+          </button>
+          <button
             onClick={() => handleActivateDialogChange(true)}
-            className="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-6 rounded-xl"
+            className="flex items-center justify-center gap-2 bg-[#13151A] border border-white/10 hover:border-white/20 text-white font-bold py-4 rounded-2xl transition-all active:scale-[0.98]"
             data-testid="button-activate-voucher"
           >
-            <CheckCircle2 className="w-5 h-5 mr-2" />
+            <CheckCircle2 className="w-5 h-5 text-[#3ab368]" />
             {t('vouchers.activate')}
-          </Button>
+          </button>
         </div>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-secondary/60 border border-white/10">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-4">
+          <TabsList className="grid w-full grid-cols-2 bg-[#13151A] border border-white/5 rounded-2xl p-1 h-auto">
             <TabsTrigger 
               value="active" 
-              className="data-[state=active]:bg-accent data-[state=active]:text-secondary"
+              className="rounded-xl py-2.5 text-sm font-semibold text-white/40 data-[state=active]:bg-[#1A1D24] data-[state=active]:text-white data-[state=active]:border data-[state=active]:border-white/10 transition-all"
               data-testid="tab-active-vouchers"
             >
               {t('vouchers.tabs.active')}
             </TabsTrigger>
             <TabsTrigger 
               value="completed" 
-              className="data-[state=active]:bg-accent data-[state=active]:text-secondary"
+              className="rounded-xl py-2.5 text-sm font-semibold text-white/40 data-[state=active]:bg-[#1A1D24] data-[state=active]:text-white data-[state=active]:border data-[state=active]:border-white/10 transition-all"
               data-testid="tab-completed-vouchers"
             >
               {t('vouchers.tabs.history')}
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="active" className="space-y-4 mt-4">
+          <TabsContent value="active" className="space-y-4 mt-6">
             {activeLoading ? (
-              <div className="text-center py-8 text-green-200">{t('common.loading')}</div>
+              <div className="text-center py-8 text-white/40">{t('common.loading')}</div>
             ) : activeVouchers.length === 0 ? (
-              <div className="text-center py-8 space-y-2">
-                <Ticket className="w-12 h-12 mx-auto text-green-200/50" />
-                <p className="text-green-200">{t('vouchers.noActiveVouchers')}</p>
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
+                  <Ticket className="w-8 h-8 text-white/10" />
+                </div>
+                <p className="text-white/40 font-medium">{t('vouchers.noActiveVouchers')}</p>
               </div>
             ) : (
               activeVouchers.map(renderVoucherCard)
             )}
           </TabsContent>
 
-          <TabsContent value="completed" className="space-y-4 mt-4">
+          <TabsContent value="completed" className="space-y-4 mt-6">
             {activatedLoading ? (
-              <div className="text-center py-8 text-green-200">{t('common.loading')}</div>
+              <div className="text-center py-8 text-white/40">{t('common.loading')}</div>
             ) : activatedVouchers.length === 0 ? (
-              <div className="text-center py-8 space-y-2">
-                <Ticket className="w-12 h-12 mx-auto text-green-200/50" />
-                <p className="text-green-200">{t('vouchers.noActivatedVouchers')}</p>
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
+                  <Ticket className="w-8 h-8 text-white/10" />
+                </div>
+                <p className="text-white/40 font-medium">{t('vouchers.noActivatedVouchers')}</p>
               </div>
             ) : (
               activatedVouchers.map(renderVoucherCard)
@@ -564,10 +549,10 @@ export default function VouchersPage() {
 
       {/* Create Voucher Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="bg-card text-white border-border">
+        <DialogContent className="bg-[#13151A] text-white border border-white/10 rounded-3xl">
           <DialogHeader>
             <DialogTitle className="text-xl">{t('vouchers.createTitle')}</DialogTitle>
-            <DialogDescription className="text-green-200/70">
+            <DialogDescription className="text-white/40">
               {t('vouchers.selectBalance')}
             </DialogDescription>
           </DialogHeader>
@@ -575,19 +560,19 @@ export default function VouchersPage() {
           <div className="space-y-4 py-4">
             {/* Balance Selection */}
             <div className="space-y-2">
-              <Label htmlFor="balance" className="text-green-200">{t('vouchers.selectCurrency')}</Label>
+              <label htmlFor="balance" className="text-[11px] font-bold uppercase tracking-wider text-white/40">{t('vouchers.selectCurrency')}</label>
               {availableBalances.length === 0 ? (
-                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 text-center">
-                  <p className="text-sm text-yellow-200">{t('vouchers.errors.insufficientBalance')}</p>
+                <div className="bg-[#1A1D24] border border-white/5 rounded-2xl p-4 text-center">
+                  <p className="text-sm text-white/60">{t('vouchers.errors.insufficientBalance')}</p>
                 </div>
               ) : (
                 <Select value={selectedBalance} onValueChange={setSelectedBalance}>
-                  <SelectTrigger className="bg-white/10 border-green-500/30 text-white" data-testid="select-balance">
+                  <SelectTrigger className="bg-[#1A1D24] border-white/10 text-white rounded-2xl" data-testid="select-balance">
                     <SelectValue placeholder={t('vouchers.selectCurrency')} />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-[#13151A] border-white/10 text-white rounded-2xl">
                     {availableBalances.map((balance) => (
-                      <SelectItem key={balance.balanceId} value={balance.balanceId.toString()}>
+                      <SelectItem key={balance.balanceId} value={balance.balanceId.toString()} className="focus:bg-white/10">
                         {balance.balanceName} ({parseFloat(balance.sum).toFixed(2)} {balance.currency})
                       </SelectItem>
                     ))}
@@ -600,7 +585,7 @@ export default function VouchersPage() {
               <>
                 {/* Amount */}
                 <div className="space-y-2">
-                  <Label htmlFor="amount" className="text-green-200">{t('vouchers.amount')}</Label>
+                  <label htmlFor="amount" className="text-[11px] font-bold uppercase tracking-wider text-white/40">{t('vouchers.amount')}</label>
                   <Input
                     id="amount"
                     type="number"
@@ -609,29 +594,29 @@ export default function VouchersPage() {
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     placeholder="0.00"
-                    className="bg-white/10 border-green-500/30 text-white placeholder:text-white/50"
+                    className="bg-[#1A1D24] border border-white/5 text-white placeholder:text-white/25 rounded-2xl focus:border-white/15"
                     data-testid="input-amount"
                   />
                 </div>
 
                 {/* Security Type */}
-                <div className="space-y-2">
-                  <Label className="text-green-200">{t('vouchers.securityType')}</Label>
+                <div className="space-y-2 mt-2">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-white/40">{t('vouchers.securityType')}</label>
                   <RadioGroup value={securityType} onValueChange={(value: any) => {
                     setSecurityType(value);
                     setSecurityValue("");
                   }}>
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="none" id="none" className="border-green-500/50" data-testid="radio-security-none" />
-                      <Label htmlFor="none" className="cursor-pointer">{t('vouchers.securityNone')}</Label>
+                      <RadioGroupItem value="none" id="none" className="border-white/20 text-[#3ab368]" data-testid="radio-security-none" />
+                      <label htmlFor="none" className="cursor-pointer text-white/70 text-sm">{t('vouchers.securityNone')}</label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="pin" id="pin" className="border-green-500/50" data-testid="radio-security-pin" />
-                      <Label htmlFor="pin" className="cursor-pointer">{t('vouchers.securityPin')} (4-6)</Label>
+                      <RadioGroupItem value="pin" id="pin" className="border-white/20 text-[#3ab368]" data-testid="radio-security-pin" />
+                      <label htmlFor="pin" className="cursor-pointer text-white/70 text-sm">{t('vouchers.securityPin')} (4-6)</label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="word" id="word" className="border-green-500/50" data-testid="radio-security-word" />
-                      <Label htmlFor="word" className="cursor-pointer">{t('vouchers.securityWord')}</Label>
+                      <RadioGroupItem value="word" id="word" className="border-white/20 text-[#3ab368]" data-testid="radio-security-word" />
+                      <label htmlFor="word" className="cursor-pointer text-white/70 text-sm">{t('vouchers.securityWord')}</label>
                     </div>
                   </RadioGroup>
                 </div>
@@ -639,9 +624,9 @@ export default function VouchersPage() {
                 {/* Security Value Input */}
                 {securityType !== 'none' && (
                   <div className="space-y-2">
-                    <Label htmlFor="security" className="text-green-200">
+                    <label htmlFor="security" className="text-[11px] font-bold uppercase tracking-wider text-white/40">
                       {securityType === 'pin' ? t('vouchers.securityPin') : t('vouchers.securityWord')}
-                    </Label>
+                    </label>
                     <Input
                       id="security"
                       type={securityType === 'pin' ? 'number' : 'text'}
@@ -649,7 +634,7 @@ export default function VouchersPage() {
                       onChange={(e) => setSecurityValue(e.target.value)}
                       placeholder={securityType === 'pin' ? '1234' : t('vouchers.enterPassword')}
                       maxLength={securityType === 'pin' ? 6 : undefined}
-                      className="bg-white/10 border-green-500/30 text-white placeholder:text-white/50"
+                      className="bg-[#1A1D24] border border-white/5 text-white placeholder:text-white/25 rounded-2xl focus:border-white/15"
                       data-testid="input-security-value"
                     />
                   </div>
@@ -659,42 +644,41 @@ export default function VouchersPage() {
           </div>
 
           <div className="flex gap-2">
-            <Button
-              variant="outline"
+            <button
               onClick={() => {
                 setIsCreateDialogOpen(false);
                 resetCreateForm();
               }}
-              className="flex-1 border-green-500/30 text-white hover:bg-white/10"
+              className="flex-1 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-2xl py-3"
               data-testid="button-cancel-create"
             >
               {t('common.cancel')}
-            </Button>
-            <Button
+            </button>
+            <button
               onClick={handleCreateVoucher}
               disabled={createVoucherMutation.isPending || availableBalances.length === 0}
-              className="flex-1 bg-accent hover:bg-accent/90 text-secondary"
+              className="flex-1 bg-[#3ab368] hover:bg-[#3ab368]/90 text-[#0B0C10] font-bold rounded-2xl py-3 shadow-lg shadow-[#3ab368]/20 disabled:opacity-40"
               data-testid="button-confirm-create"
             >
               {createVoucherMutation.isPending ? t('vouchers.creating') : t('vouchers.createVoucher')}
-            </Button>
+            </button>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Activate Voucher Dialog */}
       <Dialog open={isActivateDialogOpen} onOpenChange={handleActivateDialogChange}>
-        <DialogContent className="bg-card text-white border-border">
+        <DialogContent className="bg-[#13151A] text-white border border-white/10 rounded-3xl">
           <DialogHeader>
             <DialogTitle className="text-xl">{t('vouchers.activateVoucher')}</DialogTitle>
-            <DialogDescription className="text-green-200/70">
+            <DialogDescription className="text-white/40">
               {t('vouchers.enterVoucherCode')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="code" className="text-green-200">{t('vouchers.voucherCode')}</Label>
+              <label htmlFor="code" className="text-[11px] font-bold uppercase tracking-wider text-white/40">{t('vouchers.voucherCode')}</label>
               <div className="flex gap-2 items-center">
                 <Input
                   id="code"
@@ -702,72 +686,71 @@ export default function VouchersPage() {
                   value={formatCodeDisplay(voucherCode)}
                   onChange={(e) => handleCodeChange(e.target.value.replace(/-/g, ''))}
                   placeholder="V-0000-00000-0000-D"
-                  className="bg-white/90 text-secondary text-center text-lg font-mono font-semibold tracking-wider flex-1"
+                  className="bg-[#1A1D24] border border-white/5 text-white text-center text-lg font-mono font-semibold tracking-wider flex-1 rounded-2xl focus:border-white/15"
                   maxLength={19} // 15 chars + 4 dashes
                   data-testid="input-voucher-code"
                 />
                 <QRScannerButton 
                   onClick={() => setIsScannerOpen(true)}
-                  className="border-green-500/30 bg-white/10 hover:bg-white/20 text-white shrink-0"
+                  className="border-white/10 bg-[#1A1D24] hover:bg-white/10 text-white shrink-0 rounded-2xl"
                 />
               </div>
-              <p className="text-xs text-green-200 text-center">
+              <p className="text-[11px] text-white/40 text-center font-bold tracking-wider uppercase">
                 {t('vouchers.entered')}: {voucherCode.length}/15
               </p>
             </div>
           </div>
 
           <div className="flex gap-2">
-            <Button
-              variant="outline"
+            <button
               onClick={() => {
                 handleActivateDialogChange(false);
                 resetActivationForm();
               }}
-              className="flex-1 border-green-500/30 text-white hover:bg-white/10"
+              className="flex-1 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-2xl py-3"
               data-testid="button-cancel-activate"
             >
               {t('common.cancel')}
-            </Button>
-            <Button
+            </button>
+            <button
               onClick={handleCheckVoucher}
               disabled={checkVoucherMutation.isPending || voucherCode.length !== 15}
-              className="flex-1 bg-accent hover:bg-accent/90 text-secondary"
+              className="flex-1 bg-[#3ab368] hover:bg-[#3ab368]/90 text-[#0B0C10] font-bold rounded-2xl py-3 shadow-lg shadow-[#3ab368]/20 disabled:opacity-40"
               data-testid="button-check-voucher"
             >
               {checkVoucherMutation.isPending ? t('vouchers.checking') : t('vouchers.activate')}
-            </Button>
+            </button>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Security Dialog for Activation */}
       <Dialog open={isSecurityDialogOpen} onOpenChange={setIsSecurityDialogOpen}>
-        <DialogContent className="bg-card text-white border-border">
+        <DialogContent className="bg-[#13151A] text-white border border-white/10 rounded-3xl">
           <DialogHeader>
             <DialogTitle className="text-xl flex items-center gap-2">
               <Lock className="w-5 h-5" />
               {t('vouchers.protectedVoucher')}
             </DialogTitle>
-            <DialogDescription className="text-green-200/70">
+            <DialogDescription className="text-white/40">
               {t('vouchers.enterSecurityCode', { type: voucherInfo?.securityType === 'word' ? t('vouchers.securityWord').toLowerCase() : t('vouchers.securityPin') })}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="text-center space-y-2">
-              <p className="text-green-200">
+              <p className="text-white/60">
                 {t('vouchers.voucherProtectedBy', { type: voucherInfo?.securityType === 'pin' ? t('vouchers.securityPin') : t('vouchers.securityWord').toLowerCase() })}
               </p>
-              <p className="text-2xl font-bold text-accent">
+              <p className="text-2xl font-bold text-[#3ab368]">
                 {voucherInfo?.amount} {voucherInfo?.currency}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="security" className="text-green-200">
+              <label htmlFor="security" className="text-[11px] font-bold uppercase tracking-wider text-white/40">
                 {voucherInfo?.securityType === 'pin' ? t('vouchers.securityPin') : t('vouchers.securityWord')}
-              </Label>
+              </label>
               
               {voucherInfo?.securityType === 'pin' ? (
                 <div className="flex justify-center">
@@ -778,12 +761,12 @@ export default function VouchersPage() {
                     data-testid="input-pin-code"
                   >
                     <InputOTPGroup>
-                      <InputOTPSlot index={0} className="bg-white/10 border-green-500/30 text-white" />
-                      <InputOTPSlot index={1} className="bg-white/10 border-green-500/30 text-white" />
-                      <InputOTPSlot index={2} className="bg-white/10 border-green-500/30 text-white" />
-                      <InputOTPSlot index={3} className="bg-white/10 border-green-500/30 text-white" />
-                      <InputOTPSlot index={4} className="bg-white/10 border-green-500/30 text-white" />
-                      <InputOTPSlot index={5} className="bg-white/10 border-green-500/30 text-white" />
+                      <InputOTPSlot index={0} className="bg-[#1A1D24] border-white/10 text-white" />
+                      <InputOTPSlot index={1} className="bg-[#1A1D24] border-white/10 text-white" />
+                      <InputOTPSlot index={2} className="bg-[#1A1D24] border-white/10 text-white" />
+                      <InputOTPSlot index={3} className="bg-[#1A1D24] border-white/10 text-white" />
+                      <InputOTPSlot index={4} className="bg-[#1A1D24] border-white/10 text-white" />
+                      <InputOTPSlot index={5} className="bg-[#1A1D24] border-white/10 text-white" />
                     </InputOTPGroup>
                   </InputOTP>
                 </div>
@@ -794,7 +777,7 @@ export default function VouchersPage() {
                   value={activationSecurityValue}
                   onChange={(e) => setActivationSecurityValue(e.target.value)}
                   placeholder={t('vouchers.enterPassword')}
-                  className="bg-white/10 border-green-500/30 text-white placeholder:text-white/50"
+                  className="bg-[#1A1D24] border border-white/5 text-white placeholder:text-white/25 rounded-2xl focus:border-white/15"
                   data-testid="input-password"
                 />
               )}
@@ -802,25 +785,24 @@ export default function VouchersPage() {
           </div>
 
           <div className="flex gap-2">
-            <Button
-              variant="outline"
+            <button
               onClick={() => {
                 setIsSecurityDialogOpen(false);
                 setActivationSecurityValue("");
               }}
-              className="flex-1 border-green-500/30 text-white hover:bg-white/10"
+              className="flex-1 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-2xl py-3"
               data-testid="button-cancel-security"
             >
               {t('common.cancel')}
-            </Button>
-            <Button
+            </button>
+            <button
               onClick={handleActivateWithSecurity}
               disabled={activateVoucherMutation.isPending}
-              className="flex-1 bg-accent hover:bg-accent/90 text-secondary"
+              className="flex-1 bg-[#3ab368] hover:bg-[#3ab368]/90 text-[#0B0C10] font-bold rounded-2xl py-3 shadow-lg shadow-[#3ab368]/20 disabled:opacity-40"
               data-testid="button-confirm-activate"
             >
               {activateVoucherMutation.isPending ? t('vouchers.activating') : t('vouchers.activate')}
-            </Button>
+            </button>
           </div>
         </DialogContent>
       </Dialog>
