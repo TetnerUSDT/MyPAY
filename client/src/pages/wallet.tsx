@@ -133,26 +133,24 @@ export default function WalletScreen() {
         </div>
 
         {/* Action Buttons */}
-        <div className="px-6 mb-5">
-          <div className="grid grid-cols-3 gap-4">
+        <div className="px-5 mb-5">
+          <div className="grid grid-cols-3 bg-[#13151A] border border-white/5 rounded-2xl overflow-hidden">
             {[
               { icon: ArrowDownLeft, label: t('wallet.deposit'), testId: "action-deposit", href: "/top-up" },
               { icon: ArrowUpRight, label: t('wallet.send'), testId: "action-send", href: "/transfer" },
               { icon: ArrowRightLeft, label: t('wallet.exchange'), testId: "action-exchange", href: "/exchange" },
-            ].map((action) => {
+            ].map((action, idx, arr) => {
               const Icon = action.icon;
               return (
-                <div key={action.testId} className="flex flex-col items-center">
-                  <Link href={action.href}>
-                    <button
-                      className="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center mb-2 hover:bg-white/15 transition-colors"
-                      data-testid={action.testId}
-                    >
-                      <Icon className="w-6 h-6 text-white" />
-                    </button>
-                  </Link>
-                  <span className="text-xs text-white/80">{action.label}</span>
-                </div>
+                <Link key={action.testId} href={action.href}>
+                  <button
+                    className={`w-full flex flex-col items-center justify-center gap-1.5 py-4 hover:bg-white/5 transition-colors ${idx < arr.length - 1 ? 'border-r border-white/5' : ''}`}
+                    data-testid={action.testId}
+                  >
+                    <Icon className="w-5 h-5 text-[#3ab368]" />
+                    <span className="text-xs text-white/70 font-medium">{action.label}</span>
+                  </button>
+                </Link>
               );
             })}
           </div>
