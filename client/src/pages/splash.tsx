@@ -3,7 +3,9 @@ import { useEffect, useState, lazy, Suspense } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
-const swiftxCard = "/uploads/assets/start-bg.webp";
+const logo1 = "/uploads/assets/logo-1.webp";
+const logo2 = "/uploads/assets/logo-2.webp";
+const logo3 = "/uploads/assets/logo-3.webp";
 
 // Telegram widget is heavy (loads external script). Only needed in browser mode,
 // AFTER we know the bot username — lazy-load to keep splash bundle minimal.
@@ -106,12 +108,22 @@ export default function SplashScreen() {
       <div className="splash-grid" />
       <div className="flex flex-col items-center justify-center min-h-screen text-center px-6 relative">
 
-        {/* Logo / branding — always visible immediately */}
-        <div className="relative z-10 w-56 mb-8">
+        {/* Logo / branding — 3 layered images with rotation animations */}
+        <div className="relative z-10 w-56 mb-8" style={{ aspectRatio: "1 / 1" }}>
           <img
-            src={swiftxCard}
-            alt="MyPay"
-            className="w-full h-auto"
+            src={logo1}
+            alt="SwiftX"
+            className="absolute inset-0 w-full h-full object-contain"
+          />
+          <img
+            src={logo2}
+            alt=""
+            className="absolute inset-0 w-full h-full object-contain animate-spin-cw"
+          />
+          <img
+            src={logo3}
+            alt=""
+            className="absolute inset-0 w-full h-full object-contain animate-spin-ccw"
           />
         </div>
 

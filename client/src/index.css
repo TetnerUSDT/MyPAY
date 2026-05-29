@@ -320,6 +320,19 @@
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
   }
+
+  @keyframes spin-ccw {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(-360deg); }
+  }
+
+  .animate-spin-cw {
+    animation: spin 10s linear infinite;
+  }
+
+  .animate-spin-ccw {
+    animation: spin-ccw 14s linear infinite;
+  }
   
   @keyframes bounce {
     0%, 100% { 
