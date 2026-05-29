@@ -1517,4 +1517,264 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
       res.status(500).json({ message: "Internal server error" });
     }
   });
+
+  // ========== P2P ADMIN ==========
+
+  // Disputes list
+  app.get(`/${adminPath}/api/p2p/disputes`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const { status } = req.query;
+      const rows = await db.execute(sql`
+        SELECT d.*,
+          o.asset_amount, o.fiat_amount, o.price,
+          b.currency AS asset_currency,
+          buyer.id AS buyer_id, buyer.name AS buyer_name, buyer.tg_username AS buyer_username,
+          seller.id AS seller_id, seller.name AS seller_name, seller.tg_username AS seller_username,
+          opener.name AS opened_by_name,
+          mod.name AS moderator_name
+        FROM p2p_disputes d
+        LEFT JOIN p2p_orders o ON o.id = d.order_id
+        LEFT JOIN balances b ON b.id = o.asset_balance_id
+        LEFT JOIN users buyer ON buyer.id = o.buyer_id
+        LEFT JOIN users seller ON seller.id = o.seller_id
+        LEFT JOIN users opener ON opener.id = d.opened_by
+        LEFT JOIN users mod ON mod.id = d.moderator_id
+        WHERE ${status ? sql`d.status = ${status}` : sql`1=1`}
+        ORDER BY d.created_at DESC
+        LIMIT 200
+      `);
+      res.json((rows[0] as any[]).map((r: any) => {
+        const o: any = {};
+        for (const k of Object.keys(r)) {
+          const ck = k.replace(/_([a-z])/g, (_: any, l: string) => l.toUpperCase());
+          o[ck] = r[k];
+        }
+        return o;
+      }));
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // Resolve dispute
+  app.post(`/${adminPath}/api/p2p/disputes/:id/resolve`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    const disputeId = parseInt(req.params.id);
+    const { winner, comment } = req.body;
+    if (!winner || !["buyer", "seller"].includes(winner)) {
+      return res.status(400).json({ message: "winner must be buyer or seller" });
+    }
+    const adminId = req.admin!.id;
+
+    try {
+      await db.transaction(async (tx) => {
+        const dRows = await tx.execute(sql`SELECT * FROM p2p_disputes WHERE id = ${disputeId} AND status = 'open' FOR UPDATE`);
+        const dispute: any = (dRows[0] as any[])[0];
+        if (!dispute) throw new Error("Спор не найден или уже решён");
+
+        const oRows = await tx.execute(sql`SELECT * FROM p2p_orders WHERE id = ${dispute.order_id} FOR UPDATE`);
+        const order: any = (oRows[0] as any[])[0];
+        if (!order) throw new Error("Сделка не найдена");
+
+        const lRows = await tx.execute(sql`SELECT * FROM p2p_balance_locks WHERE order_id = ${dispute.order_id} FOR UPDATE`);
+        const lock: any = (lRows[0] as any[])[0];
+
+        if (lock) {
+          const amount = parseFloat(lock.amount);
+          const balanceId = lock.balance_id;
+          if (winner === "buyer") {
+            await tx.execute(sql`UPDATE users_balances SET sum = sum - ${amount} WHERE id_user = ${order.seller_id} AND id_balance = ${balanceId}`);
+            await tx.execute(sql`INSERT INTO users_balances (id_user, id_balance, sum) VALUES (${order.buyer_id}, ${balanceId}, ${amount}) ON DUPLICATE KEY UPDATE sum = sum + ${amount}`);
+          }
+          await tx.execute(sql`UPDATE p2p_balance_locks SET status = 'released', updated_at = NOW() WHERE id = ${lock.id}`);
+        }
+
+        const newStatus = winner === "buyer" ? "released" : "refunded";
+        const disputeStatus = winner === "buyer" ? "resolved_buyer" : "resolved_seller";
+        await tx.execute(sql`UPDATE p2p_orders SET status = ${newStatus}, updated_at = NOW() WHERE id = ${dispute.order_id}`);
+        await tx.execute(sql`
+          UPDATE p2p_disputes SET status = ${disputeStatus}, moderator_id = ${adminId},
+            resolution_comment = ${comment ?? null}, resolved_at = NOW()
+          WHERE id = ${disputeId}
+        `);
+        await tx.execute(sql`
+          INSERT INTO p2p_order_messages (order_id, sender_id, message, type, created_at) VALUES
+          (${dispute.order_id}, ${adminId},
+           ${`[Модератор] Спор решён в пользу ${winner === "buyer" ? "покупателя" : "продавца"}. ${comment ?? ""}`},
+           'system', NOW())
+        `);
+      });
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // All orders
+  app.get(`/${adminPath}/api/p2p/orders`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const { status, limit = 100 } = req.query;
+      const rows = await db.execute(sql`
+        SELECT o.*,
+          b.currency AS asset_currency, b.title AS asset_title,
+          buyer.name AS buyer_name, buyer.tg_username AS buyer_username,
+          seller.name AS seller_name, seller.tg_username AS seller_username,
+          pm.title AS payment_method_title
+        FROM p2p_orders o
+        LEFT JOIN balances b ON b.id = o.asset_balance_id
+        LEFT JOIN users buyer ON buyer.id = o.buyer_id
+        LEFT JOIN users seller ON seller.id = o.seller_id
+        LEFT JOIN p2p_payment_methods pm ON pm.id = o.payment_method_id
+        WHERE ${status ? sql`o.status = ${status}` : sql`1=1`}
+        ORDER BY o.created_at DESC
+        LIMIT ${parseInt(limit as string)}
+      `);
+      res.json((rows[0] as any[]).map((r: any) => {
+        const o: any = {};
+        for (const k of Object.keys(r)) {
+          const ck = k.replace(/_([a-z])/g, (_: any, l: string) => l.toUpperCase());
+          o[ck] = r[k];
+        }
+        return o;
+      }));
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // Merchants list
+  app.get(`/${adminPath}/api/p2p/merchants`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const rows = await db.execute(sql`
+        SELECT u.id, u.name, u.tg_username, u.img, u.blocked, u.created_at,
+          COALESCE(s.total_orders, 0) AS total_orders,
+          COALESCE(s.completed_orders, 0) AS completed_orders,
+          COALESCE(s.cancelled_orders, 0) AS cancelled_orders,
+          COALESCE(s.disputes_total, 0) AS disputes_total,
+          COALESCE(s.successful_percent, 0) AS successful_percent,
+          COALESCE(s.rating, 0) AS rating,
+          COALESCE(s.avg_release_time_seconds, 0) AS avg_release_time_seconds,
+          COALESCE(s.is_merchant, 0) AS is_merchant,
+          COALESCE(s.merchant_level, 'none') AS merchant_level,
+          (SELECT COUNT(*) FROM p2p_ads WHERE user_id = u.id AND status = 'active') AS active_ads
+        FROM users u
+        LEFT JOIN p2p_user_stats s ON s.user_id = u.id
+        WHERE s.total_orders > 0 OR s.is_merchant = 1
+        ORDER BY s.total_orders DESC, u.id DESC
+        LIMIT 300
+      `);
+      res.json((rows[0] as any[]).map((r: any) => {
+        const o: any = {};
+        for (const k of Object.keys(r)) {
+          const ck = k.replace(/_([a-z])/g, (_: any, l: string) => l.toUpperCase());
+          o[ck] = r[k];
+        }
+        return o;
+      }));
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // Set merchant level
+  app.post(`/${adminPath}/api/p2p/merchants/:id/set-level`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const { level } = req.body;
+      const validLevels = ["none", "basic", "verified", "pro"];
+      if (!validLevels.includes(level)) return res.status(400).json({ message: "Invalid level" });
+      const isMerchant = level !== "none" ? 1 : 0;
+      await db.execute(sql`
+        INSERT INTO p2p_user_stats (user_id, is_merchant, merchant_level, updated_at)
+        VALUES (${userId}, ${isMerchant}, ${level}, NOW())
+        ON DUPLICATE KEY UPDATE is_merchant = ${isMerchant}, merchant_level = ${level}, updated_at = NOW()
+      `);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // Block/unblock merchant from P2P
+  app.post(`/${adminPath}/api/p2p/merchants/:id/block`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const { blocked } = req.body;
+      await db.execute(sql`UPDATE users SET blocked = ${blocked ? 1 : 0} WHERE id = ${userId}`);
+      await db.execute(sql`
+        INSERT INTO p2p_logs (user_id, action, data, created_at) VALUES
+        (${userId}, ${blocked ? 'admin_block' : 'admin_unblock'}, ${JSON.stringify({ byAdmin: req.admin!.id })}, NOW())
+      `);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // All ads
+  app.get(`/${adminPath}/api/p2p/ads`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const { status } = req.query;
+      const rows = await db.execute(sql`
+        SELECT a.*,
+          b.currency AS asset_currency, b.title AS asset_title,
+          u.name AS user_name, u.tg_username AS user_username
+        FROM p2p_ads a
+        LEFT JOIN balances b ON b.id = a.asset_balance_id
+        LEFT JOIN users u ON u.id = a.user_id
+        WHERE ${status ? sql`a.status = ${status}` : sql`1=1`}
+        ORDER BY a.created_at DESC
+        LIMIT 300
+      `);
+      res.json((rows[0] as any[]).map((r: any) => {
+        const o: any = {};
+        for (const k of Object.keys(r)) {
+          const ck = k.replace(/_([a-z])/g, (_: any, l: string) => l.toUpperCase());
+          o[ck] = r[k];
+        }
+        return o;
+      }));
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // Set ad status
+  app.post(`/${adminPath}/api/p2p/ads/:id/status`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const adId = parseInt(req.params.id);
+      const { status } = req.body;
+      const valid = ["active", "paused", "blocked", "cancelled"];
+      if (!valid.includes(status)) return res.status(400).json({ message: "Invalid status" });
+      await db.execute(sql`UPDATE p2p_ads SET status = ${status}, updated_at = NOW() WHERE id = ${adId}`);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // P2P logs
+  app.get(`/${adminPath}/api/p2p/logs`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const { action, userId, limit = 200 } = req.query;
+      const rows = await db.execute(sql`
+        SELECT l.*, u.name AS user_name, u.tg_username AS user_username
+        FROM p2p_logs l
+        LEFT JOIN users u ON u.id = l.user_id
+        WHERE (${action ? sql`l.action = ${action}` : sql`1=1`})
+          AND (${userId ? sql`l.user_id = ${parseInt(userId as string)}` : sql`1=1`})
+        ORDER BY l.created_at DESC
+        LIMIT ${parseInt(limit as string)}
+      `);
+      res.json((rows[0] as any[]).map((r: any) => {
+        const o: any = {};
+        for (const k of Object.keys(r)) {
+          const ck = k.replace(/_([a-z])/g, (_: any, l: string) => l.toUpperCase());
+          o[ck] = r[k];
+        }
+        return o;
+      }));
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
 }

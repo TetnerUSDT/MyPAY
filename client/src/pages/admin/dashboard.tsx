@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { adminRequest, getAdminCredentials, clearAdminCredentials, getAdminPath } from "@/lib/adminApi";
 import { 
   Users, Wallet, ArrowRightLeft, CreditCard, DollarSign, 
-  MessageSquare, Settings, LogOut, LayoutDashboard, Landmark, TrendingUp, Bell, Send
+  MessageSquare, Settings, LogOut, LayoutDashboard, Landmark, TrendingUp, Bell, Send, Shield
 } from "lucide-react";
 
 interface AdminInfo {
@@ -58,6 +58,7 @@ export default function AdminDashboard() {
     { icon: Users, title: "Пользователи", description: "Управление пользователями", path: `/${adminPath}/users` },
     { icon: Wallet, title: "Кошельки", description: "Управление кошельками", path: `/${adminPath}/wallets` },
     { icon: Send, title: "Telegram Bot", description: "Настройка Telegram бота", path: `/${adminPath}/telegram` },
+    { icon: Shield, title: "P2P Обменник", description: "Споры, мерчанты, сделки, логи", path: `/${adminPath}/p2p` },
   ];
 
   if (!adminInfo) {
