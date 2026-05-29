@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, ArrowRightLeft, Wallet, Ticket } from "lucide-react";
+import { Home, ArrowRightLeft, Wallet, Users2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export default function BottomNavigation() {
@@ -9,8 +9,8 @@ export default function BottomNavigation() {
   const navItems = [
     { path: "/home", icon: Home, label: t('nav.home') },
     { path: "/exchange", icon: ArrowRightLeft, label: t('nav.exchange') },
+    { path: "/p2p", icon: Users2, label: t('nav.p2p') },
     { path: "/wallet", icon: Wallet, label: t('nav.wallet') },
-    { path: "/vouchers", icon: Ticket, label: t('nav.vouchers') },
   ];
 
   return (

@@ -37,6 +37,7 @@ const LoyaltyScreen = lazy(() => import("@/pages/loyalty"));
 const DevicesScreen = lazy(() => import("@/pages/devices"));
 const VouchersScreen = lazy(() => import("@/pages/vouchers"));
 const WalletScreen = lazy(() => import("@/pages/wallet"));
+const P2PScreen = lazy(() => import("@/pages/p2p"));
 const BottomNavigation = lazy(() => import("@/components/bottom-navigation"));
 const AdminRouteProvider = lazy(() =>
   import("@/components/AdminRouteProvider").then((m) => ({ default: m.AdminRoutes }))
@@ -71,7 +72,7 @@ function Protected({ children }: { children: React.ReactNode }) {
 
 function Router() {
   const [location] = useLocation();
-  const showBottomNav = ["/home", "/wallet", "/exchange", "/transfer", "/top-up", "/vouchers", "/cards", "/loyalty"].includes(location);
+  const showBottomNav = ["/home", "/wallet", "/exchange", "/transfer", "/top-up", "/vouchers", "/cards", "/loyalty", "/p2p"].includes(location);
 
   return (
     <div className="min-h-screen gradient-bg relative z-10">
@@ -105,6 +106,7 @@ function Router() {
           <Route path="/devices"><Protected><DevicesScreen /></Protected></Route>
           <Route path="/loyalty"><Protected><LoyaltyScreen /></Protected></Route>
           <Route path="/vouchers"><Protected><VouchersScreen /></Protected></Route>
+          <Route path="/p2p"><Protected><P2PScreen /></Protected></Route>
 
           {/* Admin routes - loaded last to not interfere with main routes */}
           <AdminRouteProvider />

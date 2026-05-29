@@ -30,6 +30,7 @@
   "nav": {
     "home": "Главная",
     "exchange": "Обмен",
+    "p2p": "P2P",
     "wallet": "Кошелёк",
     "vouchers": "Ваучеры",
     "cards": "Карты"

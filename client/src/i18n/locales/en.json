@@ -30,6 +30,7 @@
   "nav": {
     "home": "Home",
     "exchange": "Exchange",
+    "p2p": "P2P",
     "wallet": "Wallet",
     "vouchers": "Vouchers",
     "cards": "Cards"
