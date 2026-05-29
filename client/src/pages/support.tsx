@@ -326,7 +326,7 @@ export default function SupportScreen() {
 
         {/* Chat Modal — full screen */}
         <Dialog open={isChatModalOpen} onOpenChange={setIsChatModalOpen}>
-          <DialogContent className="fixed inset-0 w-full h-full max-w-none max-h-none rounded-none bg-[#0B0C10] border-0 p-0 flex flex-col text-[#E2E8F0] translate-x-0 translate-y-0 data-[state=open]:animate-none">
+          <DialogContent className="fixed inset-0 w-full h-full max-w-none max-h-none rounded-none bg-[#0B0C10] border-0 p-0 flex flex-col text-[#E2E8F0] translate-x-0 translate-y-0 data-[state=open]:animate-none [&>button]:!hidden">
             {/* Header */}
             <div className="flex items-center justify-between px-5 pt-6 pb-4 border-b border-white/5 shrink-0">
               {/* Left: Ticket label + number (two lines) */}

@@ -254,13 +254,13 @@ export default function WalletScreen() {
         </div>
 
         {/* Add Wallet Button */}
-        <div className="p-6">
-          <button 
-            className="action-button"
+        <div className="px-5 pb-4">
+          <button
+            className="w-full flex items-center justify-center gap-2 bg-[#13151A] border border-white/5 hover:border-[#3ab368]/30 hover:bg-[#3ab368]/5 text-white/70 hover:text-white rounded-2xl py-3 text-sm font-medium transition-all active:scale-[0.98]"
             onClick={() => setIsModalOpen(true)}
             data-testid="button-add-network"
           >
-            <Plus className="w-5 h-5 mr-2" />
+            <Plus className="w-4 h-4 text-[#3ab368]" />
             {t('wallet.addNetwork')}
           </button>
         </div>
