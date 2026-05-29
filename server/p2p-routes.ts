@@ -542,13 +542,25 @@ export function registerP2PRoutes(app: Express, requireApiKey: any) {
         await tx.execute(sql`UPDATE p2p_orders SET status = 'released', released_at = NOW(), updated_at = NOW() WHERE id = ${id}`);
         // System message
         await tx.execute(sql`INSERT INTO p2p_order_messages (order_id, sender_id, message, type, created_at) VALUES (${id}, ${userId}, 'Продавец подтвердил оплату. Криптовалюта переведена покупателю.', 'system', NOW())`);
-        // Update stats
+        // Update stats (release time + completed orders + successful percent)
+        const releaseSeconds = Math.floor((Date.now() - new Date(order.created_at).getTime()) / 1000);
         await tx.execute(sql`
           UPDATE p2p_user_stats
           SET completed_orders = completed_orders + 1,
-              successful_percent = ROUND(completed_orders * 100.0 / NULLIF(total_orders, 0), 2),
+              successful_percent = ROUND((completed_orders + 1) * 100.0 / NULLIF(total_orders, 0), 2),
+              avg_release_time_seconds = CASE WHEN avg_release_time_seconds = 0
+                THEN ${releaseSeconds}
+                ELSE ROUND((avg_release_time_seconds + ${releaseSeconds}) / 2)
+              END,
               updated_at = NOW()
-          WHERE user_id IN (${buyerId}, ${sellerId})
+          WHERE user_id = ${sellerId}
+        `);
+        await tx.execute(sql`
+          UPDATE p2p_user_stats
+          SET completed_orders = completed_orders + 1,
+              successful_percent = ROUND((completed_orders + 1) * 100.0 / NULLIF(total_orders, 0), 2),
+              updated_at = NOW()
+          WHERE user_id = ${buyerId}
         `);
       });
       await logP2P(userId, id, "release");
@@ -690,33 +702,32 @@ export function registerP2PRoutes(app: Express, requireApiKey: any) {
       const order: any = (oRows[0] as any[])[0];
       if (!order) return res.status(404).json({ message: "Completed order not found" });
 
-      // Determine who is being reviewed
-      const reviewedId = order.buyer_id === userId ? order.seller_id : order.buyer_id;
+      const toUserId = order.buyer_id === userId ? order.seller_id : order.buyer_id;
 
       // Check not already reviewed
       const existing = await db.execute(sql`
-        SELECT id FROM p2p_reviews WHERE order_id = ${orderId} AND reviewer_id = ${userId}
+        SELECT id FROM p2p_reviews WHERE order_id = ${orderId} AND from_user_id = ${userId}
       `);
       if ((existing[0] as any[]).length > 0) {
         return res.status(400).json({ message: "Вы уже оставили отзыв" });
       }
 
       await db.execute(sql`
-        INSERT INTO p2p_reviews (order_id, reviewer_id, reviewed_id, rating, comment, created_at)
-        VALUES (${orderId}, ${userId}, ${reviewedId}, ${rating}, ${comment ?? null}, NOW())
+        INSERT INTO p2p_reviews (order_id, from_user_id, to_user_id, rating, comment, created_at)
+        VALUES (${orderId}, ${userId}, ${toUserId}, ${rating}, ${comment ?? null}, NOW())
       `);
 
       // Update stats rating
       const ratingRows = await db.execute(sql`
-        SELECT AVG(rating) as avg_rating FROM p2p_reviews WHERE reviewed_id = ${reviewedId}
+        SELECT AVG(rating) as avg_rating FROM p2p_reviews WHERE to_user_id = ${toUserId}
       `);
       const avgRating = (ratingRows[0] as any[])[0]?.avg_rating ?? 0;
       await db.execute(sql`
-        INSERT INTO p2p_user_stats (user_id, rating) VALUES (${reviewedId}, ${avgRating})
+        INSERT INTO p2p_user_stats (user_id, rating) VALUES (${toUserId}, ${avgRating})
         ON DUPLICATE KEY UPDATE rating = ${avgRating}, updated_at = NOW()
       `);
 
-      await logP2P(userId, orderId, "review", { rating, reviewedId });
+      await logP2P(userId, orderId, "review", { rating, toUserId });
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ message: "Server error" });
@@ -728,23 +739,126 @@ export function registerP2PRoutes(app: Express, requireApiKey: any) {
       const userId = req.user.id;
       const orderId = parseInt(req.params.id);
       const rows = await db.execute(sql`
-        SELECT r.*, u.name AS reviewer_name
-        FROM p2p_reviews r LEFT JOIN users u ON u.id = r.reviewer_id
+        SELECT r.*, u.name AS from_user_name
+        FROM p2p_reviews r LEFT JOIN users u ON u.id = r.from_user_id
         WHERE r.order_id = ${orderId}
       `);
-      // Check if current user already reviewed
-      const myReview = (rows[0] as any[]).find((r: any) => r.reviewer_id === userId);
+      const myReview = (rows[0] as any[]).find((r: any) => r.from_user_id === userId);
       res.json({ reviews: (rows[0] as any[]).map(snakeToCamel), myReview: !!myReview });
     } catch (err) {
       res.status(500).json({ message: "Server error" });
     }
   });
 
-  // Fix orders list: include isCurrentUserBuyer
-  // (Already handled in the GET /api/p2p/orders endpoint above via buyer_id/seller_id comparison in frontend)
-  // Patch the orders list to include is_current_user_buyer field
-  app.get("/api/p2p/orders-check", requireApiKey, async (req: any, res) => {
-    res.json({ ok: true });
+  // ── User Disputes ─────────────────────────────────────────────────────────────
+
+  app.get("/api/p2p/disputes", requireApiKey, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const rows = await db.execute(sql`
+        SELECT d.*,
+          o.asset_amount, o.fiat_amount,
+          b.currency AS asset_currency,
+          buyer.name AS buyer_name, seller.name AS seller_name,
+          opener.name AS opened_by_name
+        FROM p2p_disputes d
+        LEFT JOIN p2p_orders o ON o.id = d.order_id
+        LEFT JOIN balances b ON b.id = o.asset_balance_id
+        LEFT JOIN users buyer ON buyer.id = o.buyer_id
+        LEFT JOIN users seller ON seller.id = o.seller_id
+        LEFT JOIN users opener ON opener.id = d.opened_by
+        WHERE o.buyer_id = ${userId} OR o.seller_id = ${userId}
+        ORDER BY d.created_at DESC
+        LIMIT 50
+      `);
+      res.json((rows[0] as any[]).map(snakeToCamel));
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.get("/api/p2p/disputes/:id", requireApiKey, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const id = parseInt(req.params.id);
+      const rows = await db.execute(sql`
+        SELECT d.*,
+          o.asset_amount, o.fiat_amount, o.buyer_id, o.seller_id,
+          b.currency AS asset_currency,
+          buyer.name AS buyer_name, seller.name AS seller_name,
+          opener.name AS opened_by_name,
+          mod.name AS moderator_name
+        FROM p2p_disputes d
+        LEFT JOIN p2p_orders o ON o.id = d.order_id
+        LEFT JOIN balances b ON b.id = o.asset_balance_id
+        LEFT JOIN users buyer ON buyer.id = o.buyer_id
+        LEFT JOIN users seller ON seller.id = o.seller_id
+        LEFT JOIN users opener ON opener.id = d.opened_by
+        LEFT JOIN users mod ON mod.id = d.moderator_id
+        WHERE d.id = ${id} AND (o.buyer_id = ${userId} OR o.seller_id = ${userId})
+      `);
+      const dispute = (rows[0] as any[])[0];
+      if (!dispute) return res.status(404).json({ message: "Dispute not found" });
+      res.json(snakeToCamel(dispute));
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // ── Merchant Profile ───────────────────────────────────────────────────────────
+
+  app.get("/api/p2p/user/:id", requireApiKey, async (req: any, res) => {
+    try {
+      const targetId = parseInt(req.params.id);
+
+      const userRows = await db.execute(sql`
+        SELECT u.id, u.name, u.img, u.tg_username,
+          u.created_at AS registered_at,
+          COALESCE(s.total_orders, 0) AS total_orders,
+          COALESCE(s.completed_orders, 0) AS completed_orders,
+          COALESCE(s.cancelled_orders, 0) AS cancelled_orders,
+          COALESCE(s.disputes_total, 0) AS disputes_total,
+          COALESCE(s.successful_percent, 0) AS successful_percent,
+          COALESCE(s.rating, 0) AS rating,
+          COALESCE(s.avg_release_time_seconds, 0) AS avg_release_time_seconds,
+          COALESCE(s.is_merchant, 0) AS is_merchant,
+          COALESCE(s.merchant_level, 'none') AS merchant_level
+        FROM users u
+        LEFT JOIN p2p_user_stats s ON s.user_id = u.id
+        WHERE u.id = ${targetId}
+      `);
+      const user = (userRows[0] as any[])[0];
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      // Get reviews
+      const reviewRows = await db.execute(sql`
+        SELECT r.rating, r.comment, r.created_at,
+          u.name AS from_name, u.img AS from_img
+        FROM p2p_reviews r
+        LEFT JOIN users u ON u.id = r.from_user_id
+        WHERE r.to_user_id = ${targetId}
+        ORDER BY r.created_at DESC
+        LIMIT 10
+      `);
+
+      // Active ads count
+      const adsRows = await db.execute(sql`
+        SELECT COUNT(*) AS cnt FROM p2p_ads WHERE user_id = ${targetId} AND status = 'active'
+      `);
+
+      const result = snakeToCamel(user);
+      result.reviews = (reviewRows[0] as any[]).map(snakeToCamel);
+      result.activeAdsCount = (adsRows[0] as any[])[0]?.cnt ?? 0;
+
+      // Positive/negative reviews breakdown
+      const reviews = reviewRows[0] as any[];
+      result.positiveReviews = reviews.filter((r: any) => r.rating >= 4).length;
+      result.negativeReviews = reviews.filter((r: any) => r.rating <= 2).length;
+
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
+    }
   });
 
   // ── Admin: Disputes ────────────────────────────────────────────────────────────
@@ -815,8 +929,8 @@ export function registerP2PRoutes(app: Express, requireApiKey: any) {
         const disputeStatus = winner === "buyer" ? "resolved_buyer" : "resolved_seller";
         await tx.execute(sql`UPDATE p2p_orders SET status = ${newOrderStatus}, updated_at = NOW() WHERE id = ${dispute.order_id}`);
         await tx.execute(sql`
-          UPDATE p2p_disputes SET status = ${disputeStatus}, resolved_by = ${adminId},
-            resolution = ${resolution ?? null}, updated_at = NOW()
+          UPDATE p2p_disputes SET status = ${disputeStatus}, moderator_id = ${adminId},
+            resolution_comment = ${resolution ?? null}, resolved_at = NOW()
           WHERE id = ${disputeId}
         `);
         await tx.execute(sql`

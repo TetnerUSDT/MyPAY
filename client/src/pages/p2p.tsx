@@ -368,15 +368,21 @@ export default function P2PScreen() {
             >
               {/* Trader info */}
               <div className="flex items-center gap-3 mb-3">
-                <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0"
+                <button
+                  onClick={() => setLocation(`/p2p/user/${traderId}`)}
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0 active:opacity-70 transition-opacity"
                   style={{ backgroundColor: avatarColor(traderId) }}
                 >
                   {traderName.substring(0, 2).toUpperCase()}
-                </div>
+                </button>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <span className="font-semibold text-white text-sm truncate">{traderName}</span>
+                    <button
+                      onClick={() => setLocation(`/p2p/user/${traderId}`)}
+                      className="font-semibold text-white text-sm truncate hover:text-[#3ab368] transition-colors"
+                    >
+                      {traderName}
+                    </button>
                     {isMerchant && <CheckCircle2 className="w-3.5 h-3.5 text-[#3ab368] shrink-0" />}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">

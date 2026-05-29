@@ -245,7 +245,13 @@ export default function P2POrderScreen() {
 
       <div className="flex-1 overflow-y-auto px-5 space-y-4 pb-6">
         {/* Partner card */}
-        <div className="bg-[#13151A] border border-white/5 rounded-3xl p-4">
+        <button
+          className="w-full bg-[#13151A] border border-white/5 rounded-3xl p-4 text-left active:opacity-80 transition-opacity"
+          onClick={() => {
+            const partnerId = isBuyer ? order.sellerId : order.buyerId;
+            if (partnerId) setLocation(`/p2p/user/${partnerId}`);
+          }}
+        >
           <div className="flex items-center gap-3">
             <div
               className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0"
@@ -253,12 +259,13 @@ export default function P2POrderScreen() {
             >
               {partnerInitial}
             </div>
-            <div>
+            <div className="flex-1">
               <div className="font-semibold text-white text-sm">{partnerName || "Пользователь"}</div>
               <div className="text-xs text-white/40 mt-0.5">{isBuyer ? "Продавец" : "Покупатель"}</div>
             </div>
+            <ChevronLeft className="w-4 h-4 text-white/20 rotate-180" />
           </div>
-        </div>
+        </button>
 
         {/* Amounts */}
         <div className="bg-[#13151A] border border-white/5 rounded-3xl p-4 space-y-3">
