@@ -9,8 +9,8 @@ export default function BottomNavigation() {
   const navItems = [
     { path: "/home", icon: Home, label: t('nav.home') },
     { path: "/exchange", icon: ArrowRightLeft, label: t('nav.exchange') },
-    { path: "/p2p", icon: Users2, label: t('nav.p2p') },
     { path: "/wallet", icon: Wallet, label: t('nav.wallet') },
+    { path: "/p2p", icon: Users2, label: t('nav.p2p') },
   ];
 
   return (

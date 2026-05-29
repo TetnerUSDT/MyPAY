@@ -98,6 +98,7 @@ export default function P2PScreen() {
   const { toast } = useToast();
   
   const [tab, setTab] = useState<'buy' | 'sell'>('buy');
+  const [expandedPayments, setExpandedPayments] = useState<Set<string>>(new Set());
   const [currency, setCurrency] = useState('USDT');
   const [amount, setAmount] = useState('any');
   const [payment, setPayment] = useState('any');
@@ -277,21 +278,41 @@ export default function P2PScreen() {
               {/* Right Column */}
               <div className="flex flex-col justify-end items-end md:w-32 gap-3 shrink-0 border-t border-white/5 pt-3 md:border-t-0 md:pt-0">
                 <div className="flex flex-wrap justify-end gap-1.5 w-full">
-                  {offer.paymentMethods.map((method, idx) => (
-                    <div 
-                      key={idx} 
+                  {(expandedPayments.has(offer.id)
+                    ? offer.paymentMethods
+                    : offer.paymentMethods.slice(0, 2)
+                  ).map((method, idx) => (
+                    <div
+                      key={idx}
                       className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#1A1D24] border border-white/5 text-white/70 shadow-sm"
                     >
                       {method}
                     </div>
                   ))}
+                  {offer.paymentMethods.length > 2 && (
+                    <button
+                      onClick={() =>
+                        setExpandedPayments(prev => {
+                          const next = new Set(prev);
+                          if (next.has(offer.id)) next.delete(offer.id);
+                          else next.add(offer.id);
+                          return next;
+                        })
+                      }
+                      className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#1A1D24] border border-[#3ab368]/30 text-[#3ab368] hover:bg-[#3ab368]/10 transition-colors"
+                    >
+                      {expandedPayments.has(offer.id)
+                        ? 'Скрыть'
+                        : `+${offer.paymentMethods.length - 2} ещё`}
+                    </button>
+                  )}
                 </div>
-                <button 
+                <button
                   onClick={handleOpenTrade}
                   className={`w-full py-2.5 px-4 rounded-xl text-sm font-semibold transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 ${
-                    tab === 'buy' 
-                      ? 'bg-[#3ab368] hover:bg-[#3ab368]/90 text-[#0B0C10] shadow-[#3ab368]/20' 
-                      : 'bg-white hover:bg-white/90 text-[#0B0C10] shadow-white/10'
+                    tab === 'buy'
+                      ? 'bg-[#3ab368] hover:bg-[#3ab368]/90 text-[#0B0C10] shadow-[#3ab368]/20'
+                      : 'bg-[#f97316] hover:bg-[#f97316]/90 text-white shadow-[#f97316]/20'
                   }`}
                 >
                   {tab === 'buy' ? 'Buy' : 'Sell'} {offer.currency}
