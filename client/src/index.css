@@ -328,10 +328,27 @@
 
   .animate-spin-cw {
     animation: spin 10s linear infinite;
+    transform-origin: center center;
   }
 
   .animate-spin-ccw {
     animation: spin-ccw 14s linear infinite;
+    transform-origin: center center;
+  }
+
+  @keyframes spin-cw-scaled {
+    from { transform: scale(0.85) rotate(0deg); }
+    to   { transform: scale(0.85) rotate(360deg); }
+  }
+
+  @keyframes spin-ccw-full {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(-360deg); }
+  }
+
+  .animate-spin-cw-85 {
+    animation: spin-cw-scaled 10s linear infinite;
+    transform-origin: center center;
   }
   
   @keyframes bounce {
