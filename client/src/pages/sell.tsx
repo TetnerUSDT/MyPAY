@@ -1,16 +1,11 @@
 import { useState, useMemo, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { X, ArrowDown, ArrowRight, ChevronDown } from "lucide-react";
+import { ChevronLeft, ArrowDown, ArrowRight, ChevronDown, Wallet } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { useTranslation } from "react-i18next";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type NetworkType = "TRC20" | "BEP20" | "TON" | "Polygon";
 
@@ -148,120 +143,137 @@ export default function SellScreen() {
   };
 
   return (
-    <div className="mobile-screen text-white pb-24">
-      <div className="px-6 py-8">
-        <h1 className="text-2xl font-bold text-center mb-8" data-testid="text-title">
-          {t('sell.title')}
-        </h1>
-        
-        <div className="flex justify-center mb-8">
-          <div className="flex bg-secondary rounded-lg p-1 flex-wrap gap-1">
-            {(["TRC20", "BEP20", "TON", "Polygon"] as NetworkType[]).map((network) => (
-              <button
-                key={network}
-                onClick={() => handleNetworkChange(network)}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-all ${
-                  activeNetwork === network
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                data-testid={`button-network-${network.toLowerCase()}`}
-              >
-                {network}
-              </button>
-            ))}
-          </div>
-        </div>
-        
-        <div className="text-center mb-8">
-          <div className="text-sm text-muted-foreground">{t('sell.balance')}:</div>
-          {isLoading ? (
-            <div className="text-2xl font-bold text-yellow-400">{t('common.loading')}</div>
-          ) : (
-            <div 
-              className="text-2xl font-bold text-yellow-400"
-              data-testid="text-balance"
+    <div className="min-h-screen bg-[#0B0C10] text-[#E2E8F0] pb-28 font-sans selection:bg-[#3ab368]/30 selection:text-white">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 pt-6 pb-4">
+        <Link href="/home">
+          <button className="w-10 h-10 rounded-full bg-white/5 border border-white/5 flex items-center justify-center hover:bg-white/10 transition-colors">
+            <ChevronLeft className="w-5 h-5 text-white/70" />
+          </button>
+        </Link>
+        <h1 className="text-[17px] font-semibold tracking-tight text-white">{t('sell.title')}</h1>
+        <div className="w-10 h-10" />
+      </div>
+
+      {/* Network Tabs */}
+      <div className="px-5 mb-5 flex justify-center">
+        <div className="bg-[#13151A] border border-white/5 rounded-2xl p-1 flex gap-1 w-full">
+          {(["TRC20", "BEP20", "TON", "Polygon"] as NetworkType[]).map((network) => (
+            <button
+              key={network}
+              onClick={() => handleNetworkChange(network)}
+              className={`flex-1 px-3 py-2 text-xs font-semibold transition-all ${
+                activeNetwork === network
+                  ? "bg-[#1A1D24] border border-white/10 text-white rounded-xl shadow-sm"
+                  : "text-white/40 hover:text-white/70 rounded-xl"
+              }`}
+              data-testid={`button-network-${network.toLowerCase()}`}
             >
-              {currentBalance} {currentCurrency}
-            </div>
+              {network}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Main Card */}
+      <div className="bg-[#13151A] border border-white/5 rounded-3xl p-5 mx-5 shadow-2xl shadow-black/40">
+        
+        {/* Balance Row */}
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-wider text-white/40 mb-1">{t('sell.balance')}</div>
+            {isLoading ? (
+              <div className="text-sm font-bold text-white/70">{t('common.loading')}</div>
+            ) : (
+              <div className="font-bold text-white text-base" data-testid="text-balance">
+                {currentBalance} {currentCurrency}
+              </div>
+            )}
+          </div>
+
+          {hasMultipleCurrencies && (
+            <Select value={selectedCurrency || undefined} onValueChange={(val) => setSelectedCurrency(val)}>
+              <SelectTrigger className="w-auto min-w-[100px] bg-[#1A1D24] border-white/5 rounded-xl h-8 text-xs focus:ring-0">
+                <SelectValue placeholder={currentCurrency} />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1A1D24] border-white/10 text-white rounded-xl">
+                {networkBalances.map((balance) => (
+                  <SelectItem key={balance.id} value={balance.currency} className="focus:bg-white/5 focus:text-white rounded-lg cursor-pointer text-xs">
+                    {balance.currency}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
         </div>
-        
-        <div className="crypto-card mb-6">
-          <div className="text-sm text-muted-foreground mb-2">{t('sell.enterAmount')}</div>
-          <div className="flex items-center bg-secondary rounded-lg">
+
+        {/* Amount Input */}
+        <div className="mb-2">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-white/40 mb-2">{t('sell.enterAmount')}</div>
+          <div className="flex items-center gap-2 mb-2 relative">
             <input 
-              type="number" 
-              placeholder="0" 
-              className="flex-1 bg-transparent text-3xl font-bold px-4 py-3 outline-none input-field"
+              type="number"
+              placeholder="0"
+              className="text-4xl font-bold bg-transparent outline-none text-white w-full placeholder:text-white/20"
               value={sendAmount}
               onChange={(e) => setSendAmount(e.target.value)}
               data-testid="input-send-amount"
             />
-            {hasMultipleCurrencies ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger className="bg-secondary rounded-lg px-4 py-2 mr-2 flex items-center cursor-pointer hover:bg-secondary/80 transition-colors">
-                  <span className="font-semibold">{currentCurrency}</span>
-                  <ChevronDown className="w-4 h-4 ml-2" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-secondary border-green-700">
-                  {networkBalances.map((balance) => (
-                    <DropdownMenuItem
-                      key={balance.id}
-                      onClick={() => setSelectedCurrency(balance.currency)}
-                      className={`cursor-pointer ${balance.currency === currentCurrency ? 'bg-accent text-accent-foreground' : ''}`}
-                    >
-                      {balance.currency}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <div className="bg-secondary rounded-lg px-4 py-2 mr-2 flex items-center">
-                <span className="font-semibold">{currentCurrency}</span>
-              </div>
-            )}
+            <div className="flex flex-col items-end gap-1 absolute right-0 top-1/2 -translate-y-1/2">
+              <div className="text-white/50 text-sm font-semibold">{currentCurrency}</div>
+              <button 
+                onClick={() => setSendAmount(currentBalance)}
+                className="bg-[#3ab368]/10 text-[#3ab368] text-[10px] font-bold px-2 py-0.5 rounded-full hover:bg-[#3ab368]/20 transition-colors"
+              >
+                MAX
+              </button>
+            </div>
+          </div>
+          <div className="border-b border-white/5 w-full"></div>
+        </div>
+
+        {/* Swap arrow */}
+        <div className="flex items-center justify-center py-3">
+          <div className="w-8 h-8 rounded-full bg-[#1A1D24] border border-white/5 flex items-center justify-center">
+            <ArrowDown className="w-4 h-4 text-white/40" />
           </div>
         </div>
-        
-        <div className="flex justify-center -mt-[25px] -mb-[25px] relative z-20">
-          <div className="w-12 h-12 bg-accent rounded-full flex items-center justify-center border-[6px] relative -top-2" style={{borderColor: '#2a4c3b'}}>
-            <ArrowDown className="w-6 h-6 text-accent-foreground" />
+
+        {/* Wallet address */}
+        <div className="mb-6">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-white/40 mb-2">
+            {t('sell.enterWalletInNetwork', { network: activeNetwork })}
           </div>
-        </div>
-        
-        <div className="crypto-card mb-6">
-          <div className="text-sm text-muted-foreground mb-2">{t('sell.enterWalletInNetwork', { network: activeNetwork })}</div>
-          <div className="bg-secondary rounded-lg px-4 py-3">
+          <div className="bg-[#1A1D24] rounded-2xl px-4 py-3 border border-white/5 focus-within:border-white/15 transition-colors flex items-center gap-3">
+            <Wallet className="w-4 h-4 text-white/30 shrink-0" />
             <input
               type="text"
               placeholder={t('sell.enterAddress', { network: activeNetwork })}
-              className="w-full bg-transparent font-mono text-sm outline-none input-field"
+              className="w-full bg-transparent font-mono text-sm outline-none text-white/90 placeholder:text-white/20"
               value={walletAddress}
               onChange={(e) => setWalletAddress(e.target.value)}
               data-testid="input-recipient-wallet"
             />
           </div>
         </div>
-        
-        <div className="text-center mb-8">
-          <div className="text-sm text-muted-foreground">{t('sell.feeWillBe')}</div>
-          <div 
-            className="text-lg font-semibold text-yellow-400"
-            data-testid="text-commission"
-          >
+
+        {/* Commission */}
+        <div className="flex items-center justify-between mb-1 px-1">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-white/40">{t('sell.feeWillBe')}</div>
+          <div className="text-sm font-semibold text-white/60" data-testid="text-commission">
             {commission} {currentCurrency}
           </div>
         </div>
-        
-        <button 
-          className={`action-button ${!isValidTransaction ? 'opacity-50 cursor-not-allowed' : ''}`}
+
+        {/* Submit Button */}
+        <button
+          className="w-full bg-[#3ab368] hover:bg-[#3ab368]/90 disabled:opacity-40 disabled:cursor-not-allowed text-[#0B0C10] font-bold py-4 rounded-2xl transition-all shadow-lg shadow-[#3ab368]/20 active:scale-[0.98] flex items-center justify-center gap-2 mt-5"
           onClick={handleSell}
           disabled={!isValidTransaction || sellMutation.isPending}
           data-testid="button-send"
         >
           {sellMutation.isPending ? t('sell.processing') : t('sell.submit')}
-          <ArrowRight className="w-5 h-5 ml-2" />
+          <ArrowRight className="w-5 h-5" />
         </button>
       </div>
     </div>
