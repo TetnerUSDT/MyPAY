@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { ChevronLeft, Clock, Send, MessageCircle, Headphones, AlertCircle, MessageSquare } from "lucide-react";
+import { ChevronLeft, Clock, Send, MessageCircle, Headphones, AlertCircle, MessageSquare, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -324,16 +324,32 @@ export default function SupportScreen() {
           </Dialog>
         </div>
 
-        {/* Chat Modal */}
+        {/* Chat Modal — full screen */}
         <Dialog open={isChatModalOpen} onOpenChange={setIsChatModalOpen}>
-          <DialogContent className="sm:max-w-md bg-[#13151A] border-white/10 rounded-3xl text-white max-h-[90vh] flex flex-col p-0">
+          <DialogContent className="fixed inset-0 w-full h-full max-w-none max-h-none rounded-none bg-[#0B0C10] border-0 p-0 flex flex-col text-[#E2E8F0] translate-x-0 translate-y-0 data-[state=open]:animate-none">
             {/* Header */}
-            <DialogHeader className="px-5 py-4 border-b border-white/5">
-              <DialogTitle className="text-white tracking-tight flex items-center justify-between">
-                <span>{t('support.ticketTitle', { number: ticket?.exchangeNumber })}</span>
+            <div className="flex items-center justify-between px-5 pt-6 pb-4 border-b border-white/5 shrink-0">
+              {/* Left: Ticket label + number (two lines) */}
+              <div className="flex flex-col justify-center">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-white/35 leading-none mb-1">
+                  Ticket
+                </span>
+                <span className="text-[15px] font-bold font-mono text-white tracking-tight leading-none">
+                  #{ticket?.exchangeNumber}
+                </span>
+              </div>
+
+              {/* Right: status badge + close */}
+              <div className="flex items-center gap-3">
                 {ticket && getStatusBadge(ticket.status)}
-              </DialogTitle>
-            </DialogHeader>
+                <button
+                  onClick={() => setIsChatModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-white/5 border border-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
+                >
+                  <X className="w-4 h-4 text-white/50" />
+                </button>
+              </div>
+            </div>
 
             {/* Messages */}
             <ScrollArea className="flex-1 px-5 py-4">
@@ -344,32 +360,18 @@ export default function SupportScreen() {
                     className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
                     data-testid={`message-${msg.sender}-${msg.id}`}
                   >
-                    <div className={`flex items-end space-x-2 max-w-[85%] ${msg.sender === "user" ? "flex-row-reverse space-x-reverse" : ""}`}>
-                      {/* Avatar */}
+                    <div className={`flex items-end gap-2 max-w-[80%] ${msg.sender === "user" ? "flex-row-reverse" : ""}`}>
                       <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-white/10">
                         {msg.sender === "user" ? (
-                          <img 
-                            src={getUserAvatar()} 
-                            alt="User" 
-                            className="w-full h-full object-cover"
-                          />
+                          <img src={getUserAvatar()} alt="User" className="w-full h-full object-cover" />
                         ) : (
-                          <img 
-                            src={supportAvatar} 
-                            alt="Support" 
-                            className="w-full h-full object-cover"
-                          />
+                          <img src={supportAvatar} alt="Support" className="w-full h-full object-cover" />
                         )}
                       </div>
-                      
-                      {/* Message bubble */}
-                      <div className={`rounded-2xl px-4 py-2.5 ${msg.sender === "user" ? "bg-[#3ab368]/10 border border-[#3ab368]/20 text-white rounded-br-sm" : "bg-[#1A1D24] border border-white/5 text-white/90 rounded-bl-sm"}`}>
-                        <p className="text-sm">{msg.message}</p>
-                        <p className={`text-[10px] mt-1 text-right ${msg.sender === "user" ? "text-[#3ab368]/70" : "text-white/40"}`}>
-                          {new Date(msg.createdAt).toLocaleTimeString("ru-RU", { 
-                            hour: "2-digit", 
-                            minute: "2-digit" 
-                          })}
+                      <div className={`rounded-2xl px-4 py-2.5 ${msg.sender === "user" ? "bg-[#3ab368]/10 border border-[#3ab368]/20 rounded-br-sm" : "bg-[#13151A] border border-white/5 rounded-bl-sm"}`}>
+                        <p className="text-sm text-white">{msg.message}</p>
+                        <p className={`text-[10px] mt-1 text-right ${msg.sender === "user" ? "text-[#3ab368]/60" : "text-white/30"}`}>
+                          {new Date(msg.createdAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
                         </p>
                       </div>
                     </div>
@@ -380,8 +382,8 @@ export default function SupportScreen() {
             </ScrollArea>
 
             {/* Input */}
-            <div className="p-4 border-t border-white/5 bg-[#1A1D24]/50 rounded-b-3xl">
-              <div className="flex items-center space-x-2 bg-[#13151A] border border-white/5 rounded-2xl p-1 pr-2">
+            <div className="p-4 border-t border-white/5 shrink-0 bg-[#0B0C10]">
+              <div className="flex items-center gap-2 bg-[#13151A] border border-white/5 rounded-2xl p-1.5 pr-2">
                 <Input
                   placeholder={t('support.typeMessage')}
                   value={chatMessage}
@@ -392,13 +394,13 @@ export default function SupportScreen() {
                       handleSendMessage();
                     }
                   }}
-                  className="bg-transparent border-0 focus-visible:ring-0 text-white placeholder-white/30 h-10 px-3 text-sm"
+                  className="bg-transparent border-0 focus-visible:ring-0 text-white placeholder:text-white/25 h-10 px-3 text-sm"
                   data-testid="input-chat-message"
                 />
                 <button
                   onClick={handleSendMessage}
                   disabled={!chatMessage.trim() || sendMessageMutation.isPending}
-                  className="w-8 h-8 bg-[#3ab368] hover:bg-[#3ab368]/90 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl flex items-center justify-center transition-all flex-shrink-0"
+                  className="w-9 h-9 bg-[#3ab368] hover:bg-[#3ab368]/90 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl flex items-center justify-center transition-all flex-shrink-0 shadow-lg shadow-[#3ab368]/20"
                   data-testid="button-send-message"
                 >
                   <Send className="w-4 h-4 text-[#0B0C10]" />
