@@ -228,13 +228,17 @@ export default function SettingsScreen() {
               <div className="w-9 h-9 rounded-2xl bg-[#1A1D24] border border-white/5 flex items-center justify-center shrink-0 group-hover:border-[#3ab368]/30 transition-colors">
                 <Shield className="w-4 h-4 text-[#3ab368]" />
               </div>
-              <div className="flex flex-col items-start">
+              <div className="flex flex-col items-start text-left">
                 <h3 className="text-white font-medium text-sm tracking-tight">{t('settings.security')}</h3>
-                <span className="text-[11px] text-white/40 font-medium">{t('settings.securityDesc')}</span>
+                <span className="text-[11px] text-white/40 font-medium text-left">{t('settings.securityDesc')}</span>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#3ab368]">{t('settings.securityLevel')}</span>
+              <div className="flex items-end gap-[3px]">
+                <div className="w-1.5 h-2.5 rounded-sm bg-red-500" />
+                <div className="w-1.5 h-3.5 rounded-sm bg-orange-400" />
+                <div className="w-1.5 h-5 rounded-sm bg-white/15" />
+              </div>
               <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-white/40 transition-colors" />
             </div>
           </button>
