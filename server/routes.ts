@@ -11,6 +11,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { config, isTestMode, isTelegramMode, isDevelopment } from "./config";
 import { createWalletViaAPI } from "./wallet-api";
 import { registerAdminRoutes } from "./admin-routes";
+import { registerP2PRoutes, initP2PPaymentMethods } from "./p2p-routes";
 import { telegramService } from "./telegram-service";
 import { notificationService } from "./notification-service";
 import { requireSuperAdmin, type AdminRequest } from "./admin-middleware";
@@ -2063,6 +2064,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Internal server error" });
     }
   });
+
+  // Register P2P routes
+  registerP2PRoutes(app, requireApiKey);
+  initP2PPaymentMethods();
 
   // Register admin routes
   registerAdminRoutes(app, storage);

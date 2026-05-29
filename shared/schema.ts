@@ -356,6 +356,161 @@ export const insertBotCommandReactionSchema = createInsertSchema(botCommandReact
 export const insertBotMenuSchema = createInsertSchema(botMenus).omit({ id: true, createdAt: true });
 export const insertBotMenuButtonSchema = createInsertSchema(botMenuButtons).omit({ id: true, createdAt: true });
 
+// ─── P2P Module ───────────────────────────────────────────────────────────────
+
+export const p2pPaymentMethods = mysqlTable("p2p_payment_methods", {
+  id: int("id").primaryKey().autoincrement(),
+  title: varchar("title", { length: 100 }).notNull(),
+  code: varchar("code", { length: 50 }).notNull().unique(),
+  country: varchar("country", { length: 10 }),
+  currency: varchar("currency", { length: 10 }),
+  status: varchar("status", { length: 20 }).notNull().default("active"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const p2pAds = mysqlTable("p2p_ads", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: int("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  side: varchar("side", { length: 10 }).notNull(),
+  assetBalanceId: int("asset_balance_id").notNull().references(() => balances.id),
+  fiatBalanceId: int("fiat_balance_id").references(() => balances.id),
+  price: decimal("price", { precision: 18, scale: 8 }).notNull(),
+  minAmount: decimal("min_amount", { precision: 18, scale: 8 }).notNull(),
+  maxAmount: decimal("max_amount", { precision: 18, scale: 8 }).notNull(),
+  availableAmount: decimal("available_amount", { precision: 18, scale: 8 }).notNull(),
+  paymentTimeMinutes: int("payment_time_minutes").default(15),
+  status: varchar("status", { length: 20 }).notNull().default("active"),
+  terms: text("terms"),
+  autoReply: text("auto_reply"),
+  sortPriority: int("sort_priority").default(0),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const p2pUserPaymentMethods = mysqlTable("p2p_user_payment_methods", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: int("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  methodId: int("method_id").notNull().references(() => p2pPaymentMethods.id),
+  accountName: varchar("account_name", { length: 255 }),
+  accountNumber: varchar("account_number", { length: 255 }),
+  bankName: varchar("bank_name", { length: 255 }),
+  details: json("details"),
+  status: varchar("status", { length: 20 }).notNull().default("active"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const p2pAdPaymentMethods = mysqlTable("p2p_ad_payment_methods", {
+  id: int("id").primaryKey().autoincrement(),
+  adId: int("ad_id").notNull().references(() => p2pAds.id, { onDelete: "cascade" }),
+  methodId: int("method_id").notNull().references(() => p2pPaymentMethods.id),
+});
+
+export const p2pOrders = mysqlTable("p2p_orders", {
+  id: int("id").primaryKey().autoincrement(),
+  adId: int("ad_id").notNull().references(() => p2pAds.id),
+  buyerId: int("buyer_id").notNull().references(() => users.id),
+  sellerId: int("seller_id").notNull().references(() => users.id),
+  assetBalanceId: int("asset_balance_id").notNull().references(() => balances.id),
+  fiatBalanceId: int("fiat_balance_id").references(() => balances.id),
+  assetAmount: decimal("asset_amount", { precision: 18, scale: 8 }).notNull(),
+  fiatAmount: decimal("fiat_amount", { precision: 18, scale: 8 }).notNull(),
+  price: decimal("price", { precision: 18, scale: 8 }).notNull(),
+  paymentMethodId: int("payment_method_id").references(() => p2pPaymentMethods.id),
+  status: varchar("status", { length: 30 }).notNull().default("created"),
+  paymentDeadline: timestamp("payment_deadline"),
+  paidAt: timestamp("paid_at"),
+  releasedAt: timestamp("released_at"),
+  cancelledAt: timestamp("cancelled_at"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const p2pBalanceLocks = mysqlTable("p2p_balance_locks", {
+  id: int("id").primaryKey().autoincrement(),
+  orderId: int("order_id").notNull().references(() => p2pOrders.id).unique(),
+  userId: int("user_id").notNull().references(() => users.id),
+  userBalanceId: int("user_balance_id").notNull().references(() => usersBalances.id),
+  balanceId: int("balance_id").notNull().references(() => balances.id),
+  amount: decimal("amount", { precision: 18, scale: 8 }).notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("locked"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const p2pOrderMessages = mysqlTable("p2p_order_messages", {
+  id: int("id").primaryKey().autoincrement(),
+  orderId: int("order_id").notNull().references(() => p2pOrders.id, { onDelete: "cascade" }),
+  senderId: int("sender_id").notNull().references(() => users.id),
+  message: text("message"),
+  attachmentUrl: varchar("attachment_url", { length: 500 }),
+  type: varchar("type", { length: 20 }).notNull().default("text"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const p2pDisputes = mysqlTable("p2p_disputes", {
+  id: int("id").primaryKey().autoincrement(),
+  orderId: int("order_id").notNull().references(() => p2pOrders.id),
+  openedBy: int("opened_by").notNull().references(() => users.id),
+  reason: varchar("reason", { length: 255 }).notNull(),
+  description: text("description"),
+  status: varchar("status", { length: 30 }).notNull().default("open"),
+  moderatorId: int("moderator_id").references(() => users.id),
+  resolutionComment: text("resolution_comment"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  resolvedAt: timestamp("resolved_at"),
+});
+
+export const p2pReviews = mysqlTable("p2p_reviews", {
+  id: int("id").primaryKey().autoincrement(),
+  orderId: int("order_id").notNull().references(() => p2pOrders.id),
+  fromUserId: int("from_user_id").notNull().references(() => users.id),
+  toUserId: int("to_user_id").notNull().references(() => users.id),
+  rating: int("rating").notNull(),
+  comment: text("comment"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const p2pUserStats = mysqlTable("p2p_user_stats", {
+  userId: int("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  totalOrders: int("total_orders").default(0),
+  completedOrders: int("completed_orders").default(0),
+  cancelledOrders: int("cancelled_orders").default(0),
+  disputesTotal: int("disputes_total").default(0),
+  successfulPercent: decimal("successful_percent", { precision: 5, scale: 2 }).default("0"),
+  rating: decimal("rating", { precision: 3, scale: 2 }).default("0"),
+  avgReleaseTimeSeconds: int("avg_release_time_seconds").default(0),
+  isMerchant: int("is_merchant").default(0),
+  merchantLevel: varchar("merchant_level", { length: 20 }).default("none"),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const p2pLogs = mysqlTable("p2p_logs", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: int("user_id").references(() => users.id),
+  orderId: int("order_id").references(() => p2pOrders.id),
+  action: varchar("action", { length: 100 }).notNull(),
+  data: json("data"),
+  ip: varchar("ip", { length: 100 }),
+  userAgent: varchar("user_agent", { length: 500 }),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const insertP2PAdSchema = createInsertSchema(p2pAds).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertP2POrderSchema = createInsertSchema(p2pOrders).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertP2PMessageSchema = createInsertSchema(p2pOrderMessages).omit({ id: true, createdAt: true });
+export const insertP2PPaymentMethodSchema = createInsertSchema(p2pPaymentMethods).omit({ id: true, createdAt: true });
+export const insertP2PUserPaymentMethodSchema = createInsertSchema(p2pUserPaymentMethods).omit({ id: true, createdAt: true });
+
+export type P2PAd = typeof p2pAds.$inferSelect;
+export type InsertP2PAd = z.infer<typeof insertP2PAdSchema>;
+export type P2POrder = typeof p2pOrders.$inferSelect;
+export type InsertP2POrder = z.infer<typeof insertP2POrderSchema>;
+export type P2POrderMessage = typeof p2pOrderMessages.$inferSelect;
+export type P2PPaymentMethod = typeof p2pPaymentMethods.$inferSelect;
+export type P2PUserPaymentMethod = typeof p2pUserPaymentMethods.$inferSelect;
+export type P2PUserStats = typeof p2pUserStats.$inferSelect;
+export type P2PDispute = typeof p2pDisputes.$inferSelect;
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertBalance = z.infer<typeof insertBalanceSchema>;

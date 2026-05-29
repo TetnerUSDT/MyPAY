@@ -38,6 +38,7 @@ const DevicesScreen = lazy(() => import("@/pages/devices"));
 const VouchersScreen = lazy(() => import("@/pages/vouchers"));
 const WalletScreen = lazy(() => import("@/pages/wallet"));
 const P2PScreen = lazy(() => import("@/pages/p2p"));
+const P2POrderScreen = lazy(() => import("@/pages/p2p-order"));
 const BottomNavigation = lazy(() => import("@/components/bottom-navigation"));
 const AdminRouteProvider = lazy(() =>
   import("@/components/AdminRouteProvider").then((m) => ({ default: m.AdminRoutes }))
@@ -107,6 +108,7 @@ function Router() {
           <Route path="/loyalty"><Protected><LoyaltyScreen /></Protected></Route>
           <Route path="/vouchers"><Protected><VouchersScreen /></Protected></Route>
           <Route path="/p2p"><Protected><P2PScreen /></Protected></Route>
+          <Route path="/p2p/order/:id"><Protected><P2POrderScreen /></Protected></Route>
 
           {/* Admin routes - loaded last to not interfere with main routes */}
           <AdminRouteProvider />
