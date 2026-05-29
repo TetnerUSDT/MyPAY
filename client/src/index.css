@@ -350,6 +350,23 @@
     animation: spin-cw-scaled 10s linear infinite;
     transform-origin: center center;
   }
+
+  @keyframes glitch-logo1 {
+    0%, 80%    { transform: scale(0.49) translate(0,0) skewX(0deg); filter: none; opacity: 1; }
+    81%        { transform: scale(0.49) translate(-5px, 1px) skewX(4deg); filter: hue-rotate(90deg) saturate(5) brightness(1.3); opacity: 0.85; }
+    82%        { transform: scale(0.49) translate(5px, -2px) skewX(-4deg); filter: hue-rotate(-90deg) saturate(5) brightness(1.5); opacity: 1; }
+    83%        { transform: scale(0.49) translate(-3px, 2px) skewX(2deg); filter: hue-rotate(180deg) saturate(8); opacity: 0.7; }
+    84%        { transform: scale(0.49) translate(4px, 0) skewX(-2deg); filter: hue-rotate(270deg) saturate(6) brightness(1.4); opacity: 0.9; }
+    85%        { transform: scale(0.49) translate(0,0) skewX(0deg); filter: none; opacity: 1; }
+    87%        { transform: scale(0.49) translate(3px, -1px); filter: hue-rotate(45deg) saturate(4); opacity: 0.8; }
+    88%        { transform: scale(0.49) translate(-4px, 1px) skewX(3deg); filter: hue-rotate(-45deg) saturate(4) brightness(1.2); opacity: 0.95; }
+    89%, 100%  { transform: scale(0.49) translate(0,0) skewX(0deg); filter: none; opacity: 1; }
+  }
+
+  .animate-glitch-logo1 {
+    animation: glitch-logo1 4s steps(1) infinite;
+    transform-origin: center center;
+  }
   
   @keyframes bounce {
     0%, 100% { 

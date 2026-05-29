@@ -113,8 +113,7 @@ export default function SplashScreen() {
           <img
             src={logo1}
             alt="SwiftX"
-            className="absolute inset-0 w-full h-full object-contain"
-            style={{ transform: "scale(0.49)", transformOrigin: "center center" }}
+            className="absolute inset-0 w-full h-full object-contain animate-glitch-logo1"
           />
           <img
             src={logo2}
