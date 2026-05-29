@@ -1,9 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeft, HelpCircle, CheckCircle2, Star, SlidersHorizontal,
-  Plus, Clock, TrendingUp, X
+  Plus, Clock, TrendingUp, X, CreditCard, History, Megaphone
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
@@ -197,13 +197,13 @@ export default function P2PScreen() {
       if (payment !== "any") params.set("payment_method_id", payment);
       if (amount !== "any") params.set("amount", amount);
       return fetch(`/api/p2p/ads?${params}`, {
-        headers: { "x-api-key": localStorage.getItem("apiKey") || "" },
+        headers: { "x-api-key": localStorage.getItem("userApiKey") || "" },
       }).then(r => r.json());
     },
     refetchInterval: 15000,
   });
 
-  const ads = adsQuery.data ?? [];
+  const ads = Array.isArray(adsQuery.data) ? adsQuery.data : [];
   const isLoading = adsQuery.isLoading;
 
   return (
@@ -295,6 +295,31 @@ export default function P2PScreen() {
 
         <button className="h-9 w-9 bg-[#1A1D24] border border-white/5 rounded-xl flex items-center justify-center flex-shrink-0">
           <SlidersHorizontal className="w-4 h-4 text-white/70" />
+        </button>
+      </div>
+
+      {/* Quick nav */}
+      <div className="px-5 mb-4 grid grid-cols-3 gap-2">
+        <button
+          onClick={() => setLocation("/p2p/orders")}
+          className="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-[#13151A] border border-white/5 hover:border-white/10 transition-colors"
+        >
+          <History className="w-4 h-4 text-white/50" />
+          <span className="text-[10px] text-white/40 font-medium">Сделки</span>
+        </button>
+        <button
+          onClick={() => setLocation("/p2p/my-ads")}
+          className="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-[#13151A] border border-white/5 hover:border-white/10 transition-colors"
+        >
+          <Megaphone className="w-4 h-4 text-white/50" />
+          <span className="text-[10px] text-white/40 font-medium">Объявления</span>
+        </button>
+        <button
+          onClick={() => setLocation("/p2p/my-payment-methods")}
+          className="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-[#13151A] border border-white/5 hover:border-white/10 transition-colors"
+        >
+          <CreditCard className="w-4 h-4 text-white/50" />
+          <span className="text-[10px] text-white/40 font-medium">Реквизиты</span>
         </button>
       </div>
 

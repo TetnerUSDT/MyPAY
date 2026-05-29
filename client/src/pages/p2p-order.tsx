@@ -1,9 +1,67 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, Clock, AlertTriangle, CheckCircle2, Send, Shield, Copy, XCircle } from "lucide-react";
+import { ChevronLeft, Clock, AlertTriangle, CheckCircle2, Send, Shield, Copy, XCircle, Star } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+
+function ReviewForm({ orderId, onDone }: { orderId: string; onDone: () => void }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+  const [hovered, setHovered] = useState(0);
+
+  const submitReview = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/p2p/orders/${orderId}/review`, { rating, comment }).then(r => r.json()),
+    onSuccess: () => {
+      toast({ title: "Отзыв оставлен" });
+      qc.invalidateQueries({ queryKey: ["/api/p2p/orders", orderId, "reviews"] });
+      onDone();
+    },
+    onError: (err: any) => toast({ title: "Ошибка", description: err.message, variant: "destructive" }),
+  });
+
+  return (
+    <div className="bg-[#13151A] border border-[#3ab368]/20 rounded-3xl p-4 space-y-3">
+      <h3 className="text-sm font-semibold text-white">Оставить отзыв</h3>
+      <div className="flex gap-1.5 justify-center py-1">
+        {[1,2,3,4,5].map(s => (
+          <button
+            key={s}
+            onClick={() => setRating(s)}
+            onMouseEnter={() => setHovered(s)}
+            onMouseLeave={() => setHovered(0)}
+            className="transition-transform active:scale-90"
+          >
+            <Star
+              className={`w-8 h-8 ${(hovered || rating) >= s ? "text-[#e9c46a] fill-[#e9c46a]" : "text-white/20"}`}
+            />
+          </button>
+        ))}
+      </div>
+      <textarea
+        value={comment}
+        onChange={e => setComment(e.target.value)}
+        placeholder="Комментарий (необязательно)..."
+        rows={2}
+        className="w-full bg-[#1A1D24] border border-white/5 rounded-2xl px-3 py-2.5 text-sm text-white placeholder-white/30 outline-none resize-none"
+      />
+      <div className="flex gap-2">
+        <button onClick={onDone} className="flex-1 py-2.5 rounded-xl border border-white/10 text-white/50 text-sm">
+          Позже
+        </button>
+        <button
+          onClick={() => submitReview.mutate()}
+          disabled={submitReview.isPending}
+          className="flex-1 py-2.5 rounded-xl bg-[#3ab368] text-[#0B0C10] text-sm font-bold disabled:opacity-40"
+        >
+          {submitReview.isPending ? "..." : "Отправить"}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function Timer({ deadline }: { deadline: string | null }) {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
@@ -63,11 +121,12 @@ export default function P2POrderScreen() {
   const [msgText, setMsgText] = useState("");
   const [showDispute, setShowDispute] = useState(false);
   const [disputeReason, setDisputeReason] = useState("");
+  const [showReview, setShowReview] = useState(true);
 
   const { data: order, isLoading } = useQuery<any>({
     queryKey: ["/api/p2p/orders", id],
     queryFn: () => fetch(`/api/p2p/orders/${id}`, {
-      headers: { "x-api-key": localStorage.getItem("apiKey") || "" }
+      headers: { "x-api-key": localStorage.getItem("userApiKey") || "" }
     }).then(r => r.json()),
     refetchInterval: 5000,
   });
@@ -75,7 +134,7 @@ export default function P2POrderScreen() {
   const { data: messages = [] } = useQuery<any[]>({
     queryKey: ["/api/p2p/orders", id, "messages"],
     queryFn: () => fetch(`/api/p2p/orders/${id}/messages`, {
-      headers: { "x-api-key": localStorage.getItem("apiKey") || "" }
+      headers: { "x-api-key": localStorage.getItem("userApiKey") || "" }
     }).then(r => r.json()),
     refetchInterval: 3000,
     enabled: !!order,
@@ -395,7 +454,10 @@ export default function P2POrderScreen() {
       )}
 
       {isDone && (
-        <div className="px-5 pb-8 pt-3 border-t border-white/5 bg-[#0B0C10] shrink-0">
+        <div className="px-5 pb-8 pt-3 border-t border-white/5 bg-[#0B0C10] shrink-0 space-y-3">
+          {status === "released" && showReview && (
+            <ReviewForm orderId={id!} onDone={() => setShowReview(false)} />
+          )}
           <button
             onClick={() => setLocation("/p2p")}
             className="w-full py-3 rounded-2xl bg-white/5 border border-white/5 text-white/60 text-sm font-semibold"

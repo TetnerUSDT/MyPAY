@@ -1,0 +1,673 @@
+Ниже — ТЗ модуля P2P-обменника для Node.js-проекта, с учетом текущей БД:
+- users — уже есть пользователи.
+- balances — справочник валют/сетей.
+- users_balances.sum — личный баланс пользователя.
+- связь: users_balances.id_user → users.id, users_balances.id_balance → balances.id.
+- все новые таблицы создаем с префиксом p2p_.
+---
+
+ТЗ: модуль P2P-обменника
+
+
+1. Цель модуля
+
+Создать полноценный P2P-модуль, где пользователи смогут:
+- создавать объявления на покупку/продажу;
+- покупать и продавать активы между собой;
+- использовать внутренний баланс users_balances.sum;
+- блокировать средства продавца на время сделки;
+- общаться в чате сделки;
+- открывать споры;
+- получать рейтинг и статистику;
+- работать как обычный пользователь или мерчант.
+Главный принцип архитектуры:
+P2P-модуль не заменяет текущие балансы, а работает поверх users_balances, используя отдельные таблицы для ордеров, блокировок, сделок, чатов, споров и рейтинга.
+---
+
+2. Главный риск текущей архитектуры
+
+Сейчас в users_balances есть только поле:
+```
+sum decimal(18,8)
+
+```
+Но для P2P нужно разделить деньги на:
+- доступные;
+- заблокированные в сделке;
+- ожидающие;
+- спорные.
+Менять текущую таблицу можно, но безопаснее для модульности создать отдельную таблицу блокировок.
+---
+
+3. Ключевая логика балансов
+
+
+Что должно происходить при продаже USDT
+
+Продавец создает объявление на продажу USDT.
+Когда покупатель открывает сделку:
+1. система проверяет баланс продавца в users_balances.sum;
+2. нужная сумма блокируется в p2p_balance_locks;
+3. доступный баланс продавца уменьшается логически;
+4. покупатель переводит фиат продавцу;
+5. продавец подтверждает получение;
+6. заблокированные USDT списываются у продавца;
+7. USDT начисляются покупателю;
+8. блокировка закрывается.
+Важно: все операции с балансами должны проходить через транзакции MySQL.
+---
+
+4. Новые таблицы
+
+
+p2p_ads
+
+Объявления пользователей.
+```
+CREATE TABLE p2p_ads (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  side ENUM('buy', 'sell') NOT NULL,
+  asset_balance_id INT NOT NULL,
+  fiat_balance_id INT NULL,
+  price DECIMAL(18,8) NOT NULL,
+  min_amount DECIMAL(18,8) NOT NULL,
+  max_amount DECIMAL(18,8) NOT NULL,
+  available_amount DECIMAL(18,8) NOT NULL,
+  payment_time_minutes INT DEFAULT 15,
+  status ENUM('active','paused','completed','cancelled','blocked') DEFAULT 'active',
+  terms TEXT NULL,
+  auto_reply TEXT NULL,
+  sort_priority INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NULL DEFAULT NULL,
+
+  INDEX(user_id),
+  INDEX(asset_balance_id),
+  INDEX(status),
+  INDEX(side)
+);
+
+```
+Назначение:
+- хранит объявления;
+- показывает курс, лимиты, доступный объем;
+- используется для списка как на скриншоте.
+---
+
+p2p_payment_methods
+
+Справочник способов оплаты.
+```
+CREATE TABLE p2p_payment_methods (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(100) NOT NULL,
+  code VARCHAR(50) NOT NULL,
+  country VARCHAR(10) NULL,
+  currency VARCHAR(10) NULL,
+  status ENUM('active','disabled') DEFAULT 'active',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  UNIQUE(code)
+);
+
+```
+Примеры:
+- Сбербанк
+- Тинькофф
+- QIWI
+- ЮMoney
+- Карта РФ
+- СБП
+---
+
+p2p_user_payment_methods
+
+Платежные реквизиты пользователя.
+```
+CREATE TABLE p2p_user_payment_methods (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  method_id INT NOT NULL,
+  account_name VARCHAR(255) NULL,
+  account_number VARCHAR(255) NULL,
+  bank_name VARCHAR(255) NULL,
+  details JSON NULL,
+  status ENUM('active','hidden','blocked') DEFAULT 'active',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  INDEX(user_id),
+  INDEX(method_id)
+);
+
+```
+
+---
+
+p2p_ad_payment_methods
+
+Связь объявления и способов оплаты.
+```
+CREATE TABLE p2p_ad_payment_methods (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  ad_id INT NOT NULL,
+  method_id INT NOT NULL,
+
+  UNIQUE(ad_id, method_id),
+  INDEX(method_id)
+);
+
+```
+
+---
+
+p2p_orders
+
+Сделки между покупателем и продавцом.
+```
+CREATE TABLE p2p_orders (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  ad_id INT NOT NULL,
+  buyer_id INT NOT NULL,
+  seller_id INT NOT NULL,
+
+  asset_balance_id INT NOT NULL,
+  fiat_balance_id INT NULL,
+
+  asset_amount DECIMAL(18,8) NOT NULL,
+  fiat_amount DECIMAL(18,8) NOT NULL,
+  price DECIMAL(18,8) NOT NULL,
+
+  payment_method_id INT NULL,
+
+  status ENUM(
+    'created',
+    'waiting_payment',
+    'paid',
+    'released',
+    'cancelled',
+    'dispute',
+    'refunded',
+    'expired'
+  ) DEFAULT 'created',
+
+  payment_deadline TIMESTAMP NULL,
+  paid_at TIMESTAMP NULL,
+  released_at TIMESTAMP NULL,
+  cancelled_at TIMESTAMP NULL,
+
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NULL DEFAULT NULL,
+
+  INDEX(ad_id),
+  INDEX(buyer_id),
+  INDEX(seller_id),
+  INDEX(status)
+);
+
+```
+
+---
+
+p2p_balance_locks
+
+Блокировки средств под P2P-сделки.
+```
+CREATE TABLE p2p_balance_locks (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  order_id INT NOT NULL,
+  user_id INT NOT NULL,
+  user_balance_id INT NOT NULL,
+  balance_id INT NOT NULL,
+  amount DECIMAL(18,8) NOT NULL,
+  status ENUM('locked','released','cancelled','disputed') DEFAULT 'locked',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NULL DEFAULT NULL,
+
+  UNIQUE(order_id),
+  INDEX(user_id),
+  INDEX(user_balance_id),
+  INDEX(status)
+);
+
+```
+Это одна из самых важных таблиц.
+Она нужна, чтобы не дать продавцу вывести или потратить актив, который уже участвует в сделке.
+---
+
+p2p_order_messages
+
+Чат сделки.
+```
+CREATE TABLE p2p_order_messages (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  order_id INT NOT NULL,
+  sender_id INT NOT NULL,
+  message TEXT NULL,
+  attachment_url VARCHAR(500) NULL,
+  type ENUM('text','image','system') DEFAULT 'text',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  INDEX(order_id),
+  INDEX(sender_id)
+);
+
+```
+
+---
+
+p2p_disputes
+
+Споры.
+```
+CREATE TABLE p2p_disputes (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  order_id INT NOT NULL,
+  opened_by INT NOT NULL,
+  reason VARCHAR(255) NOT NULL,
+  description TEXT NULL,
+  status ENUM('open','review','resolved_buyer','resolved_seller','cancelled') DEFAULT 'open',
+  moderator_id INT NULL,
+  resolution_comment TEXT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  resolved_at TIMESTAMP NULL,
+
+  INDEX(order_id),
+  INDEX(opened_by),
+  INDEX(status)
+);
+
+```
+
+---
+
+p2p_reviews
+
+Отзывы после сделки.
+```
+CREATE TABLE p2p_reviews (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  order_id INT NOT NULL,
+  from_user_id INT NOT NULL,
+  to_user_id INT NOT NULL,
+  rating TINYINT NOT NULL,
+  comment TEXT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  UNIQUE(order_id, from_user_id),
+  INDEX(to_user_id)
+);
+
+```
+
+---
+
+p2p_user_stats
+
+Статистика пользователя в P2P.
+```
+CREATE TABLE p2p_user_stats (
+  user_id INT PRIMARY KEY,
+  total_orders INT DEFAULT 0,
+  completed_orders INT DEFAULT 0,
+  cancelled_orders INT DEFAULT 0,
+  disputes_total INT DEFAULT 0,
+  successful_percent DECIMAL(5,2) DEFAULT 0,
+  rating DECIMAL(3,2) DEFAULT 0,
+  avg_release_time_seconds INT DEFAULT 0,
+  is_merchant TINYINT DEFAULT 0,
+  merchant_level ENUM('none','basic','verified','pro') DEFAULT 'none',
+  updated_at TIMESTAMP NULL DEFAULT NULL
+);
+
+```
+
+---
+
+p2p_logs
+
+Журнал действий.
+```
+CREATE TABLE p2p_logs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NULL,
+  order_id INT NULL,
+  action VARCHAR(100) NOT NULL,
+  data JSON NULL,
+  ip VARCHAR(100) NULL,
+  user_agent VARCHAR(500) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  INDEX(user_id),
+  INDEX(order_id),
+  INDEX(action)
+);
+
+```
+
+---
+
+5. Основные API-маршруты
+
+
+Объявления
+
+```
+GET    /api/p2p/ads
+GET    /api/p2p/ads/:id
+POST   /api/p2p/ads
+PATCH  /api/p2p/ads/:id
+DELETE /api/p2p/ads/:id
+
+```
+Фильтры:
+```
+side
+asset_balance_id
+fiat_balance_id
+amount
+payment_method_id
+status
+
+```
+
+---
+
+Сделки
+
+```
+POST   /api/p2p/orders
+GET    /api/p2p/orders
+GET    /api/p2p/orders/:id
+POST   /api/p2p/orders/:id/mark-paid
+POST   /api/p2p/orders/:id/release
+POST   /api/p2p/orders/:id/cancel
+POST   /api/p2p/orders/:id/dispute
+
+```
+
+---
+
+Чат
+
+```
+GET  /api/p2p/orders/:id/messages
+POST /api/p2p/orders/:id/messages
+
+```
+
+---
+
+Споры
+
+```
+GET   /api/p2p/disputes
+GET   /api/p2p/disputes/:id
+POST  /api/p2p/disputes/:id/resolve-buyer
+POST  /api/p2p/disputes/:id/resolve-seller
+
+```
+
+---
+
+Платежные методы
+
+```
+GET    /api/p2p/payment-methods
+POST   /api/p2p/user-payment-methods
+GET    /api/p2p/user-payment-methods
+PATCH  /api/p2p/user-payment-methods/:id
+DELETE /api/p2p/user-payment-methods/:id
+
+```
+
+---
+
+6. Архитектура Node.js-модуля
+
+Рекомендуемая структура:
+```
+/src
+  /modules
+    /p2p
+      p2p.routes.js
+      p2p.controller.js
+      p2p.service.js
+      p2p.repository.js
+      p2p.validators.js
+      p2p.constants.js
+      p2p.events.js
+      p2p.jobs.js
+      p2p.permissions.js
+
+```
+Разделение ответственности:
+```
+controller — принимает запрос
+validator — проверяет данные
+service — бизнес-логика
+repository — SQL-запросы
+jobs — фоновые задачи
+events — уведомления и системные события
+permissions — права доступа
+
+```
+
+---
+
+7. Критически важные бизнес-правила
+
+
+Создание сделки
+
+При создании сделки:
+- объявление должно быть активно;
+- сумма должна быть в пределах лимитов;
+- продавец не может купить у себя;
+- у продавца должен быть достаточный баланс;
+- сумма должна быть заблокирована;
+- создается p2p_order;
+- создается p2p_balance_lock;
+- создается системное сообщение в чат.
+---
+
+Отметка “Я оплатил”
+
+Покупатель может нажать “Я оплатил” только если:
+- он участник сделки;
+- сделка в статусе waiting_payment;
+- дедлайн оплаты не истек.
+После этого статус:
+```
+paid
+
+```
+
+---
+
+Подтверждение продавцом
+
+Продавец может отпустить криптовалюту только если:
+- он продавец в сделке;
+- сделка в статусе paid;
+- средства заблокированы.
+После подтверждения:
+- сумма списывается у продавца;
+- сумма начисляется покупателю;
+- блокировка закрывается;
+- статус сделки становится released.
+---
+
+Отмена сделки
+
+Покупатель может отменить сделку, если:
+- он еще не нажал “Я оплатил”;
+- статус waiting_payment.
+После отмены:
+- блокировка снимается;
+- объявление получает обратно доступный объем;
+- сделка становится cancelled.
+---
+
+Спор
+
+Спор можно открыть, если:
+- пользователь является участником сделки;
+- сделка в статусе paid;
+- сделка еще не завершена.
+После открытия:
+```
+p2p_orders.status = 'dispute'
+p2p_balance_locks.status = 'disputed'
+
+```
+
+---
+
+8. Очередь приоритетов разработки
+
+
+Этап 1 — ядро
+
+1. Таблицы p2p_ads.
+2. Таблицы способов оплаты.
+3. Создание объявлений.
+4. Список объявлений.
+5. Создание сделки.
+6. Блокировка средств.
+7. Завершение сделки.
+
+Этап 2 — безопасность
+
+1. Споры.
+2. Логи.
+3. Ограничения по пользователям.
+4. Проверка балансов.
+5. Проверка лимитов.
+
+Этап 3 — удобство
+
+1. Чат сделки.
+2. Уведомления.
+3. Отзывы.
+4. Рейтинг.
+5. Статистика мерчанта.
+
+Этап 4 — админка
+
+1. Модерация объявлений.
+2. Решение споров.
+3. Блокировка пользователей.
+4. Управление платежными методами.
+5. Просмотр логов.
+---
+
+9. Важные особенности для Replit
+
+Так как разработка будет в Replit:
+- не хранить секреты в коде;
+- использовать .env;
+- подключение к MySQL через переменные окружения;
+- все миграции хранить отдельными SQL-файлами;
+- не делать тяжелые фоновые процессы внутри одного запроса;
+- для таймеров сделок использовать p2p_jobs.js;
+- обязательно логировать критические действия;
+- не держать приватные ключи в открытом виде;
+
+---
+
+10. Что добавить в интерфейс
+
+По примеру текущего дизайна нужны блоки:
+
+Главный экран P2P
+
+- вкладки Купить / Продать;
+- выбор валюты;
+- выбор суммы;
+- выбор метода оплаты;
+- список объявлений;
+- сортировка по курсу;
+- фильтр по рейтингу;
+- фильтр по лимитам.
+
+Карточка объявления
+
+Показывать:
+- имя мерчанта;
+- рейтинг;
+- количество ордеров;
+- процент успешных сделок;
+- курс;
+- доступный объем;
+- лимиты;
+- методы оплаты;
+- кнопку покупки/продажи.
+
+Экран сделки
+
+Показывать:
+- сумма к оплате;
+- количество криптовалюты;
+- реквизиты продавца;
+- таймер оплаты;
+- кнопка “Я оплатил”;
+- кнопка “Отменить”;
+- чат;
+- кнопка “Открыть спор”.
+---
+
+11. Самый важный архитектурный принцип
+
+Все операции с деньгами должны быть атомарными.
+То есть:
+```
+проверка баланса
+создание сделки
+создание блокировки
+изменение доступного объема объявления
+
+```
+должны выполняться в одной SQL-транзакции.
+Иначе возможны ошибки:
+- двойная продажа;
+- отрицательный баланс;
+- продажа одного и того же USDT двум покупателям;
+- потеря блокировки;
+- спор без замороженных средств.
+---
+
+12. Итоговая схема модуля
+
+Минимально обязательные таблицы:
+```
+p2p_ads
+p2p_payment_methods
+p2p_user_payment_methods
+p2p_ad_payment_methods
+p2p_orders
+p2p_balance_locks
+p2p_order_messages
+p2p_disputes
+p2p_reviews
+p2p_user_stats
+p2p_logs
+
+```
+Главная логика:
+```
+users
+  ↓
+users_balances
+  ↓
+p2p_ads
+  ↓
+p2p_orders
+  ↓
+p2p_balance_locks
+  ↓
+p2p_release / p2p_cancel / p2p_dispute
+
+```
+Главный приоритет:
+сначала безопасная сделка и блокировка средств, потом интерфейс, потом рейтинги и мерчанты.
