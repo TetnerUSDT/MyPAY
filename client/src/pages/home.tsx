@@ -305,6 +305,20 @@ export default function HomeScreen() {
         </svg>
       ),
     },
+    {
+      href: "/vouchers",
+      testId: "quick-action-vouchers",
+      label: t('home.vouchers'),
+      iconColor: "text-yellow-400",
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M2 9V7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v2"/>
+          <path d="M2 15v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2"/>
+          <path d="M2 12h20"/>
+          <path d="M12 9v6"/>
+        </svg>
+      ),
+    },
   ];
 
   return (

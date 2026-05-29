@@ -47,6 +47,8 @@
     "walletDesc": "My assets",
     "bonuses": "Bonuses",
     "bonusesDesc": "Referral program",
+    "vouchers": "Vouchers",
+    "vouchersDesc": "Create or activate",
     "history": "History",
     "historyDesc": "My transactions"
   },
