@@ -254,7 +254,7 @@ export default function WalletScreen() {
         </div>
 
         {/* Add Wallet Button */}
-        <div className="px-5 pb-4">
+        <div className="px-5 pb-4 mt-[15px]">
           <button
             className="w-full flex items-center justify-center gap-2 bg-[#13151A] border border-white/5 hover:border-[#3ab368]/30 hover:bg-[#3ab368]/5 text-white/70 hover:text-white rounded-2xl py-3 text-sm font-medium transition-all active:scale-[0.98]"
             onClick={() => setIsModalOpen(true)}
