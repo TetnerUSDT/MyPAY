@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { Users, Shield, Globe, Smartphone, HelpCircle, Phone, Headphones, Check, ChevronRight } from "lucide-react";
+import { Users, Shield, Globe, Smartphone, HelpCircle, Phone, Headphones, Check, ChevronRight, ChevronLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import BottomNavigation from "@/components/bottom-navigation";
@@ -21,8 +21,8 @@ interface User {
 }
 
 const languages = [
-  { code: 'en', name: 'English', flag: '🇬🇧' },
-  { code: 'ru', name: 'Русский', flag: '🇷🇺' },
+  { code: 'en', name: 'English', flag: '🇬🇧', flagUrl: 'https://flagcdn.com/w40/gb.png' },
+  { code: 'ru', name: 'Русский', flag: '🇷🇺', flagUrl: 'https://flagcdn.com/w40/ru.png' },
 ];
 
 export default function SettingsScreen() {
@@ -119,9 +119,15 @@ export default function SettingsScreen() {
 
   return (
     <div className="min-h-screen bg-[#0B0C10] text-[#E2E8F0] pb-28 font-sans selection:bg-[#3ab368]/30 selection:text-white">
-      {/* Header Title */}
-      <div className="flex items-center justify-center px-5 pt-6 pb-2">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 pt-6 pb-2">
+        <Link href="/home">
+          <button className="w-10 h-10 rounded-full bg-white/5 border border-white/5 flex items-center justify-center hover:bg-white/10 transition-colors">
+            <ChevronLeft className="w-5 h-5 text-white/70" />
+          </button>
+        </Link>
         <h1 className="text-[17px] font-semibold tracking-tight text-white">{t('settings.settings', 'Settings')}</h1>
+        <div className="w-10 h-10" />
       </div>
 
       <div className="px-5 space-y-4 mt-2">
@@ -248,7 +254,10 @@ export default function SettingsScreen() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[12px] font-medium text-white/60">{currentLanguage.flag} {currentLanguage.name}</span>
+              <div className="flex items-center gap-1.5">
+                <img src={currentLanguage.flagUrl} alt={currentLanguage.name} className="w-5 h-3.5 object-cover rounded-sm shadow-sm" />
+                <span className="text-[12px] font-medium text-white/60">{currentLanguage.name}</span>
+              </div>
               <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-white/40 transition-colors" />
             </div>
           </button>
@@ -345,7 +354,7 @@ export default function SettingsScreen() {
                 data-testid={`language-${lang.code}`}
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">{lang.flag}</span>
+                  <img src={lang.flagUrl} alt={lang.name} className="w-8 h-5 object-cover rounded shadow-sm" />
                   <span className={`font-medium tracking-tight ${i18n.language === lang.code ? 'text-white' : 'text-white/70'}`}>
                     {lang.name}
                   </span>

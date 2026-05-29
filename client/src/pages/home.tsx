@@ -267,13 +267,18 @@ export default function HomeScreen() {
       ),
     },
     {
-      href: "/loyalty",
-      testId: "quick-action-loyalty",
-      label: t('home.bonuses'),
-      iconColor: "text-purple-400",
+      href: "/p2p",
+      testId: "quick-action-p2p",
+      label: "P2P",
+      iconColor: "text-cyan-400",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+          <circle cx="7" cy="8" r="3"/>
+          <circle cx="17" cy="8" r="3"/>
+          <path d="M1 20v-1a5 5 0 0 1 5-5h2"/>
+          <path d="M16 14h2a5 5 0 0 1 5 5v1"/>
+          <path d="M12 14l2 2-2 2"/>
+          <path d="M14 16H9"/>
         </svg>
       ),
     },
@@ -290,18 +295,13 @@ export default function HomeScreen() {
       ),
     },
     {
-      href: "/transfer",
-      testId: "quick-action-p2p",
-      label: "P2P",
-      iconColor: "text-cyan-400",
+      href: "/loyalty",
+      testId: "quick-action-loyalty",
+      label: t('home.bonuses'),
+      iconColor: "text-purple-400",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="7" cy="8" r="3"/>
-          <circle cx="17" cy="8" r="3"/>
-          <path d="M1 20v-1a5 5 0 0 1 5-5h2"/>
-          <path d="M16 14h2a5 5 0 0 1 5 5v1"/>
-          <path d="M12 14l2 2-2 2"/>
-          <path d="M14 16H9"/>
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
         </svg>
       ),
     },
