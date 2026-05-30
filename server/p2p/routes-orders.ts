@@ -45,11 +45,29 @@ export function registerOrdersRoutes(app: Express, requireApiKey: any) {
         const lockerUserId = ad.side === "sell" ? sellerId : buyerId;
         const lockerBalId  = ad.asset_balance_id;
 
-        const ubRows = await tx.execute(sql`
-          SELECT * FROM users_balances WHERE id_user = ${lockerUserId} AND id_balance = ${lockerBalId} FOR UPDATE
-        `);
-        const ub: any = (ubRows[0] as any[])[0];
-        if (!ub || parseFloat(ub.sum) < assetAmt) throw new Error("Недостаточно средств на балансе");
+        // Для sell-объявлений с заморозкой баланс уже списан при создании объявления.
+        // Для buy-объявлений (и sell без заморозки) — проверяем и списываем сейчас.
+        const balancePreLocked = ad.side === "sell" && ad.balance_locked;
+
+        let ubId: number;
+        if (balancePreLocked) {
+          // Находим строку баланса без списания
+          const ubRows = await tx.execute(sql`
+            SELECT id FROM users_balances WHERE id_user = ${lockerUserId} AND id_balance = ${lockerBalId}
+          `);
+          const ub: any = (ubRows[0] as any[])[0];
+          if (!ub) throw new Error("Баланс продавца не найден");
+          ubId = ub.id;
+        } else {
+          const ubRows = await tx.execute(sql`
+            SELECT * FROM users_balances WHERE id_user = ${lockerUserId} AND id_balance = ${lockerBalId} FOR UPDATE
+          `);
+          const ub: any = (ubRows[0] as any[])[0];
+          if (!ub || parseFloat(ub.sum) < assetAmt) throw new Error("Недостаточно средств на балансе");
+          ubId = ub.id;
+          // Списываем только если баланс не был предзаморожен
+          await tx.execute(sql`UPDATE users_balances SET sum = sum - ${assetAmt} WHERE id = ${ubId}`);
+        }
 
         const pmId = paymentMethodId ? parseInt(paymentMethodId) : null;
         await tx.execute(sql`
@@ -67,9 +85,8 @@ export function registerOrdersRoutes(app: Express, requireApiKey: any) {
         await tx.execute(sql`
           INSERT INTO p2p_balance_locks
             (order_id, user_id, user_balance_id, balance_id, amount, status, created_at)
-          VALUES (${newOrder.id}, ${lockerUserId}, ${ub.id}, ${lockerBalId}, ${assetAmt}, 'locked', NOW())
+          VALUES (${newOrder.id}, ${lockerUserId}, ${ubId}, ${lockerBalId}, ${assetAmt}, 'locked', NOW())
         `);
-        await tx.execute(sql`UPDATE users_balances SET sum = sum - ${assetAmt} WHERE id = ${ub.id}`);
         await tx.execute(sql`UPDATE p2p_ads SET available_amount = available_amount - ${assetAmt}, updated_at = NOW() WHERE id = ${ad.id}`);
         await tx.execute(sql`INSERT INTO p2p_order_messages (order_id, sender_id, message, type, created_at) VALUES (${newOrder.id}, ${buyerId}, 'Сделка открыта. Ожидается оплата.', 'system', NOW())`);
         await tx.execute(sql`INSERT INTO p2p_user_stats (user_id, total_orders) VALUES (${buyerId}, 1) ON DUPLICATE KEY UPDATE total_orders = total_orders + 1`);
@@ -263,11 +280,20 @@ export function registerOrdersRoutes(app: Express, requireApiKey: any) {
         if (order.status !== "waiting_payment") throw new Error("Отмена возможна только до подтверждения оплаты");
         if (order.buyer_id !== userId) throw new Error("Только покупатель может отменить сделку");
 
+        // Проверяем, был ли баланс предзаморожен на уровне объявления
+        const adRow = await tx.execute(sql`SELECT balance_locked FROM p2p_ads WHERE id = ${order.ad_id}`);
+        const adBalanceLocked = (adRow[0] as any[])[0]?.balance_locked;
+
         const lRows = await tx.execute(sql`SELECT * FROM p2p_balance_locks WHERE order_id = ${id} FOR UPDATE`);
         const lock: any = (lRows[0] as any[])[0];
         if (lock) {
           await tx.execute(sql`UPDATE p2p_balance_locks SET status = 'cancelled', updated_at = NOW() WHERE id = ${lock.id}`);
-          await tx.execute(sql`UPDATE users_balances SET sum = sum + ${parseFloat(lock.amount)} WHERE id_user = ${lock.user_id} AND id_balance = ${lock.balance_id}`);
+          // Если баланс предзаморожен на уровне объявления — НЕ возвращаем на баланс;
+          // средства остаются в пуле объявления (available_amount восстанавливается ниже).
+          // Если freeze на уровне ордера — возвращаем на баланс.
+          if (!adBalanceLocked) {
+            await tx.execute(sql`UPDATE users_balances SET sum = sum + ${parseFloat(lock.amount)} WHERE id_user = ${lock.user_id} AND id_balance = ${lock.balance_id}`);
+          }
         }
         await tx.execute(sql`UPDATE p2p_ads SET available_amount = available_amount + ${parseFloat(order.asset_amount)}, updated_at = NOW() WHERE id = ${order.ad_id}`);
         await tx.execute(sql`UPDATE p2p_orders SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW() WHERE id = ${id}`);

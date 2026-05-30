@@ -83,6 +83,9 @@ export async function runP2PMigrations() {
     if (!await columnExists("p2p_ads", "auto_reply")) {
       await db.execute(sql`ALTER TABLE p2p_ads ADD COLUMN auto_reply TEXT NULL`);
     }
+    if (!await columnExists("p2p_ads", "balance_locked")) {
+      await db.execute(sql`ALTER TABLE p2p_ads ADD COLUMN balance_locked TINYINT(1) NOT NULL DEFAULT 0`);
+    }
 
     // ── KYC upload dir ──────────────────────────────────────────────────────────
     await fs.mkdir("public/uploads/kyc", { recursive: true });

@@ -253,17 +253,40 @@ export function registerAdsRoutes(app: Express, requireApiKey: any) {
         }
       }
 
+      // ── Для sell-объявления: проверяем баланс и сразу замораживаем средства ──
+      const balId = parseInt(assetBalanceId);
+      const avail = parseFloat(availableAmount);
+
+      if (side === "sell") {
+        const ubCheck = await db.execute(sql`
+          SELECT id, sum FROM users_balances WHERE id_user = ${userId} AND id_balance = ${balId}
+        `);
+        const ub: any = (ubCheck[0] as any[])[0];
+        if (!ub || parseFloat(ub.sum) < avail) {
+          throw new Error(`Недостаточно средств на балансе. Доступно: ${ub ? parseFloat(ub.sum).toFixed(4) : 0}`);
+        }
+      }
+
       const adRows = await db.execute(sql`
         INSERT INTO p2p_ads
           (user_id, side, asset_balance_id, fiat_balance_id, price, min_amount, max_amount,
            available_amount, payment_time_minutes, terms, status, created_at, updated_at)
         VALUES
-          (${userId}, ${side}, ${parseInt(assetBalanceId)}, ${fiatBalanceId ? parseInt(fiatBalanceId) : null},
+          (${userId}, ${side}, ${balId}, ${fiatBalanceId ? parseInt(fiatBalanceId) : null},
            ${parseFloat(price)}, ${parseFloat(minAmount)}, ${parseFloat(maxAmount)},
-           ${parseFloat(availableAmount)}, ${paymentTimeMinutes ?? 15}, ${terms ?? null},
+           ${avail}, ${paymentTimeMinutes ?? 15}, ${terms ?? null},
            'active', NOW(), NOW())
       `);
       const adId = (adRows[0] as any).insertId;
+
+      // ── Заморозить баланс продавца сразу при создании объявления ──────────────
+      if (side === "sell") {
+        await db.execute(sql`
+          UPDATE users_balances SET sum = sum - ${avail}
+          WHERE id_user = ${userId} AND id_balance = ${balId}
+        `);
+        await db.execute(sql`UPDATE p2p_ads SET balance_locked = 1 WHERE id = ${adId}`);
+      }
 
       if (paymentMethodIds?.length) {
         for (const pmId of paymentMethodIds) {
@@ -273,7 +296,7 @@ export function registerAdsRoutes(app: Express, requireApiKey: any) {
       }
 
       await recalculateSortPriority(userId);
-      await logP2P(userId, null, "create_ad", { adId, side, price });
+      await logP2P(userId, null, "create_ad", { adId, side, price, balanceLocked: side === "sell" });
       await updateLastSeen(userId);
 
       const newAd = await db.execute(sql`SELECT * FROM p2p_ads WHERE id = ${adId}`);
@@ -326,6 +349,26 @@ export function registerAdsRoutes(app: Express, requireApiKey: any) {
     try {
       const userId = req.user.id;
       const id = parseInt(req.params.id);
+
+      // Если это sell-объявление с заморозкой — вернуть остаток на баланс
+      const adRows = await db.execute(sql`
+        SELECT side, balance_locked, available_amount, asset_balance_id
+        FROM p2p_ads WHERE id = ${id} AND user_id = ${userId}
+      `);
+      const ad: any = (adRows[0] as any[])[0];
+      if (!ad) return res.status(404).json({ message: "Объявление не найдено" });
+
+      if (ad.side === "sell" && ad.balance_locked) {
+        const remaining = parseFloat(ad.available_amount);
+        if (remaining > 0) {
+          await db.execute(sql`
+            INSERT INTO users_balances (id_user, id_balance, sum)
+            VALUES (${userId}, ${ad.asset_balance_id}, ${remaining})
+            ON DUPLICATE KEY UPDATE sum = sum + ${remaining}
+          `);
+        }
+      }
+
       await db.execute(sql`UPDATE p2p_ads SET status = 'cancelled', updated_at = NOW() WHERE id = ${id} AND user_id = ${userId}`);
       res.json({ success: true });
     } catch (err) {
