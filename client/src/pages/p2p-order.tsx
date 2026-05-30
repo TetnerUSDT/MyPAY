@@ -272,7 +272,7 @@ export default function P2POrderScreen() {
           <h3 className="text-xs font-semibold text-white/40 uppercase tracking-wider">Детали сделки</h3>
           <div className="flex justify-between text-sm">
             <span className="text-white/50">Криптовалюта</span>
-            <span className="font-semibold text-white">{parseFloat(order.assetAmount).toFixed(4)} {order.assetCurrency}</span>
+            <span className="font-semibold text-white">{parseFloat(order.assetAmount).toFixed(2)} {order.assetCurrency}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-white/50">Сумма (фиат)</span>

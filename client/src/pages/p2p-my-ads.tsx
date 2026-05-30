@@ -65,7 +65,7 @@ function CancelSheet({ ad, onConfirm, onClose, isPending }: CancelSheetProps) {
               Средства вернутся на ваш баланс:
             </p>
             <p className="text-2xl font-bold text-[#3ab368] mt-1">
-              {remaining.toFixed(4)}{" "}
+              {remaining.toFixed(2)}{" "}
               <span className="text-base font-semibold text-[#3ab368]/60">
                 {ad.assetCurrency}
               </span>
@@ -93,7 +93,7 @@ function CancelSheet({ ad, onConfirm, onClose, isPending }: CancelSheetProps) {
           {isPending
             ? "Закрываем..."
             : isSell && isLocked && remaining > 0
-              ? `Закрыть и вернуть ${remaining.toFixed(4)} ${ad.assetCurrency}`
+              ? `Закрыть и вернуть ${remaining.toFixed(2)} ${ad.assetCurrency}`
               : "Закрыть объявление"}
         </button>
         <button
@@ -136,7 +136,7 @@ export default function P2PMyAdsScreen() {
       const remaining = parseFloat(ad?.availableAmount ?? ad?.available_amount ?? 0);
       const isLocked = ad?.balance_locked || ad?.balanceLocked;
       if (ad?.side === "sell" && isLocked && remaining > 0) {
-        toast({ title: `Возвращено ${remaining.toFixed(4)} ${ad.assetCurrency}`, description: "Средства зачислены на баланс" });
+        toast({ title: `Возвращено ${remaining.toFixed(2)} ${ad.assetCurrency}`, description: "Средства зачислены на баланс" });
       } else {
         toast({ title: "Объявление закрыто" });
       }
@@ -254,7 +254,7 @@ export default function P2PMyAdsScreen() {
                 <div className="bg-[#1A1D24] rounded-2xl p-2.5">
                   <div className="text-[10px] text-white/30 mb-0.5">Доступно</div>
                   <div className="text-sm font-semibold text-white">
-                    {remaining.toFixed(4)} {ad.assetCurrency}
+                    {remaining.toFixed(2)} {ad.assetCurrency}
                   </div>
                 </div>
                 <div className="bg-[#1A1D24] rounded-2xl p-2.5">
@@ -268,7 +268,7 @@ export default function P2PMyAdsScreen() {
               {ad.side === "sell" && isLocked && canManage && (
                 <div className="mt-2 text-[11px] text-amber-400/60 flex items-center gap-1">
                   <span>💡</span>
-                  <span>Нажмите ✕ чтобы закрыть объявление и вернуть {remaining.toFixed(4)} {ad.assetCurrency} на баланс</span>
+                  <span>Нажмите ✕ чтобы закрыть объявление и вернуть {remaining.toFixed(2)} {ad.assetCurrency} на баланс</span>
                 </div>
               )}
 

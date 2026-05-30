@@ -104,7 +104,7 @@ export default function P2POrdersScreen() {
               <div className="flex items-end justify-between mt-3">
                 <div>
                   <div className="text-xl font-bold text-white">
-                    {parseFloat(order.assetAmount).toFixed(4)}
+                    {parseFloat(order.assetAmount).toFixed(2)}
                     <span className="text-sm font-semibold text-white/50 ml-1.5">{order.assetCurrency}</span>
                   </div>
                   <div className="text-[#3ab368] text-sm font-semibold mt-0.5">

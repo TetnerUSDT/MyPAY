@@ -466,7 +466,7 @@ export default function P2PCreateAdScreen() {
                   <span className={`text-xs font-semibold tabular-nums ${
                     isSelected ? "text-[#3ab368]/80" : "text-white/30"
                   }`}>
-                    {userBal > 0 ? `${userBal.toFixed(4)} USDT` : "нет средств"}
+                    {userBal > 0 ? `${userBal.toFixed(2)} USDT` : "нет средств"}
                   </span>
                 </button>
               );
@@ -558,7 +558,7 @@ export default function P2PCreateAdScreen() {
               return (
                 <p className="text-[11px] text-red-400/80 mt-1.5 flex items-start gap-1">
                   <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
-                  Недостаточно средств. На выбранном балансе: {selectedBal.toFixed(4)} USDT
+                  Недостаточно средств. На выбранном балансе: {selectedBal.toFixed(2)} USDT
                 </p>
               );
             }
@@ -566,7 +566,7 @@ export default function P2PCreateAdScreen() {
               <p className="text-[11px] text-white/30 mt-1.5 flex items-start gap-1">
                 <Info className="w-3 h-3 shrink-0 mt-0.5" />
                 {entered > 0
-                  ? `Заморозится ${entered.toFixed(4)} USDT с вашего баланса ${selectedBalance?.network ?? ""}`
+                  ? `Заморозится ${entered.toFixed(2)} USDT с вашего баланса ${selectedBalance?.network ?? ""}`
                   : "При продаже средства заморозятся на балансе до завершения сделки"}
               </p>
             );

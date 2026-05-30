@@ -49,7 +49,7 @@ function AdRow({ ad, onToggle, onPromote }: any) {
           {ad.isPromoted && <span className="text-[10px] text-[#e9c46a] font-bold">★ Продвинуто</span>}
         </div>
         <div className="text-sm font-semibold text-white">{parseFloat(ad.price || 0).toFixed(2)} ₽</div>
-        <div className="text-[11px] text-white/30">Доступно: {parseFloat(ad.availableAmount || ad.available_amount || 0).toFixed(4)}</div>
+        <div className="text-[11px] text-white/30">Доступно: {parseFloat(ad.availableAmount || ad.available_amount || 0).toFixed(2)}</div>
       </div>
       <div className="flex items-center gap-2">
         <button
@@ -351,7 +351,7 @@ export default function P2PDashboardScreen() {
                           </span>
                         </div>
                         <div className="text-sm font-semibold text-white">
-                          {parseFloat(order.assetAmount || order.asset_amount || 0).toFixed(4)} {order.assetCurrency || order.asset_currency}
+                          {parseFloat(order.assetAmount || order.asset_amount || 0).toFixed(2)} {order.assetCurrency || order.asset_currency}
                         </div>
                         <div className="text-[11px] text-white/30">
                           {parseFloat(order.fiatAmount || order.fiat_amount || 0).toFixed(2)} ₽

@@ -138,7 +138,7 @@ function CreateOrderSheet({ ad, onClose }: CreateOrderSheetProps) {
 
           {/* Limits */}
           <div className="text-xs text-white/30 bg-[#13151A] rounded-xl p-3">
-            Доступно: <span className="text-white/50">{parseFloat(ad.availableAmount).toFixed(4)} {ad.assetCurrency}</span>
+            Доступно: <span className="text-white/50">{parseFloat(ad.availableAmount).toFixed(2)} {ad.assetCurrency}</span>
             {" · "}Лимиты: <span className="text-white/50">{minAmt.toLocaleString("ru-RU")} – {maxAmt.toLocaleString("ru-RU")}</span>
           </div>
         </div>
@@ -443,7 +443,7 @@ export default function P2PScreen() {
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-white/40">Доступно</span>
                   <span className="text-white/80 font-semibold">
-                    {parseFloat(ad.availableAmount).toFixed(4)} {ad.assetCurrency}
+                    {parseFloat(ad.availableAmount).toFixed(2)} {ad.assetCurrency}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-[11px]">

@@ -642,7 +642,7 @@ function AdsTab() {
                   </TableCell>
                   <TableCell className="text-sm font-medium">{a.assetCurrency}</TableCell>
                   <TableCell className="text-sm">{fmt(a.price)} ₽</TableCell>
-                  <TableCell className="text-sm">{parseFloat(a.availableAmount || 0).toFixed(4)}</TableCell>
+                  <TableCell className="text-sm">{parseFloat(a.availableAmount || 0).toFixed(2)}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {parseFloat(a.minAmount || 0).toFixed(0)} – {parseFloat(a.maxAmount || 0).toFixed(0)}
                   </TableCell>
