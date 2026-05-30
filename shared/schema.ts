@@ -394,7 +394,6 @@ export const p2pUserPaymentMethods = mysqlTable("p2p_user_payment_methods", {
   accountName: varchar("account_name", { length: 255 }),
   accountNumber: varchar("account_number", { length: 255 }),
   bankName: varchar("bank_name", { length: 255 }),
-  details: json("details"),
   status: varchar("status", { length: 20 }).notNull().default("active"),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 });

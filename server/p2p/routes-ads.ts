@@ -45,11 +45,18 @@ export function registerAdsRoutes(app: Express, requireApiKey: any) {
       const userId = req.user.id;
       const { methodId, accountName, accountNumber, bankName } = req.body;
       if (!methodId) return res.status(400).json({ message: "methodId is required" });
-      const result = await insertAndReturn<any>(
-        db.insert(p2pUserPaymentMethods).values({ userId, methodId, accountName, accountNumber, bankName }),
-        "p2p_user_payment_methods"
-      );
-      res.json(result);
+      const insertResult = await db.execute(sql`
+        INSERT INTO p2p_user_payment_methods (user_id, method_id, account_name, account_number, bank_name, status)
+        VALUES (${userId}, ${methodId}, ${accountName ?? null}, ${accountNumber ?? null}, ${bankName ?? null}, 'active')
+      `);
+      const insertId = (insertResult[0] as any).insertId;
+      const rows = await db.execute(sql`
+        SELECT upm.*, pm.title AS method_title, pm.code AS method_code
+        FROM p2p_user_payment_methods upm
+        LEFT JOIN p2p_payment_methods pm ON pm.id = upm.method_id
+        WHERE upm.id = ${insertId}
+      `);
+      res.json((rows[0] as any[])[0]);
     } catch (err: any) {
       console.error("[POST user-payment-methods]", err?.message, err?.sqlMessage);
       res.status(500).json({ message: err?.message || "Server error" });
