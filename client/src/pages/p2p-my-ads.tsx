@@ -265,12 +265,6 @@ export default function P2PMyAdsScreen() {
                 </div>
               </div>
 
-              {ad.side === "sell" && isLocked && canManage && (
-                <div className="mt-2 text-[11px] text-amber-400/60 flex items-center gap-1">
-                  <span>💡</span>
-                  <span>Нажмите ✕ чтобы закрыть объявление и вернуть {remaining.toFixed(2)} {ad.assetCurrency} на баланс</span>
-                </div>
-              )}
 
               <div className="mt-2 text-[11px] text-white/30">
                 #{ad.id} · {new Date(ad.createdAt).toLocaleDateString("ru-RU")}
