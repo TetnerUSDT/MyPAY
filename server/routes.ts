@@ -2068,8 +2068,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Register P2P routes
   registerP2PRoutes(app, requireApiKey);
-  initP2PPaymentMethods();
-  runP2PMigrations().catch(console.error);
+  // Migrations must run before seeding (they add columns the seed depends on)
+  runP2PMigrations()
+    .then(() => initP2PPaymentMethods())
+    .catch(console.error);
 
   // Auto-expiration job: cancel unpaid orders past deadline every 60 seconds
   setInterval(async () => {

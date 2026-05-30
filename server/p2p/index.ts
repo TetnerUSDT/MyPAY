@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { db } from "../db";
-import { eq } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { p2pPaymentMethods } from "@shared/schema";
 import { registerAdsRoutes } from "./routes-ads";
 import { registerOrdersRoutes } from "./routes-orders";
@@ -19,12 +19,15 @@ const DEFAULT_PAYMENT_METHODS = [
 
 export async function initP2PPaymentMethods() {
   try {
-    const existing = await db.select().from(p2pPaymentMethods).limit(1);
-    if (existing.length > 0) return;
+    // Always upsert defaults by code — ensures table is never empty and stays in sync
     for (const m of DEFAULT_PAYMENT_METHODS) {
-      await db.insert(p2pPaymentMethods).values(m).onDuplicateKeyUpdate({ set: { title: m.title } });
+      await db.execute(sql`
+        INSERT INTO p2p_payment_methods (title, code, country, currency, status, sort_order)
+        VALUES (${m.title}, ${m.code}, ${m.country}, ${m.currency}, 'active', 0)
+        ON DUPLICATE KEY UPDATE title = VALUES(title), country = VALUES(country), currency = VALUES(currency)
+      `);
     }
-    console.log("[P2P] Default payment methods seeded");
+    console.log("[P2P] Payment methods synced");
   } catch (err) {
     console.error("[P2P] Failed to seed payment methods:", err);
   }

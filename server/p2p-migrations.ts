@@ -87,6 +87,14 @@ export async function runP2PMigrations() {
       await db.execute(sql`ALTER TABLE p2p_ads ADD COLUMN balance_locked TINYINT(1) NOT NULL DEFAULT 0`);
     }
 
+    // ── p2p_payment_methods — ensure status column exists ───────────────────────
+    if (!await columnExists("p2p_payment_methods", "status")) {
+      await db.execute(sql`ALTER TABLE p2p_payment_methods ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'active'`);
+    }
+    if (!await columnExists("p2p_payment_methods", "sort_order")) {
+      await db.execute(sql`ALTER TABLE p2p_payment_methods ADD COLUMN sort_order INT DEFAULT 0`);
+    }
+
     // ── p2p_user_payment_methods — ensure table + columns exist ─────────────────
     if (!await tableExists("p2p_user_payment_methods")) {
       await db.execute(sql`
