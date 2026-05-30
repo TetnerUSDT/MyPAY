@@ -60,7 +60,7 @@ function CreateOrderSheet({ ad, onClose }: CreateOrderSheetProps) {
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-12 pb-4 border-b border-white/5">
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-white/5">
           <div>
             <h2 className="text-lg font-bold text-white">
               {ad.side === "sell" ? "Купить" : "Продать"} {ad.assetCurrency}
@@ -143,8 +143,8 @@ function CreateOrderSheet({ ad, onClose }: CreateOrderSheetProps) {
           </div>
         </div>
 
-        {/* Submit — pinned to bottom */}
-        <div className="px-5 pb-8 pt-4 border-t border-white/5">
+        {/* Submit — pinned to bottom, above nav bar */}
+        <div className="px-5 pt-4 pb-[84px] border-t border-white/5">
           <button
             onClick={() => createOrder.mutate()}
             disabled={!isValid || createOrder.isPending}
