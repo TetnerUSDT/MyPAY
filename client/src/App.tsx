@@ -44,6 +44,8 @@ const P2PMyAdsScreen = lazy(() => import("@/pages/p2p-my-ads"));
 const P2PPaymentMethodsScreen = lazy(() => import("@/pages/p2p-payment-methods"));
 const P2POrdersScreen = lazy(() => import("@/pages/p2p-orders"));
 const P2PMerchantScreen = lazy(() => import("@/pages/p2p-merchant"));
+const P2PDashboardScreen = lazy(() => import("@/pages/p2p-dashboard"));
+const P2PVerifyScreen = lazy(() => import("@/pages/p2p-verify"));
 const BottomNavigation = lazy(() => import("@/components/bottom-navigation"));
 const AdminRouteProvider = lazy(() =>
   import("@/components/AdminRouteProvider").then((m) => ({ default: m.AdminRoutes }))
@@ -119,6 +121,8 @@ function Router() {
           <Route path="/p2p/my-payment-methods"><Protected><P2PPaymentMethodsScreen /></Protected></Route>
           <Route path="/p2p/orders"><Protected><P2POrdersScreen /></Protected></Route>
           <Route path="/p2p/user/:id"><Protected><P2PMerchantScreen /></Protected></Route>
+          <Route path="/p2p/dashboard"><Protected><P2PDashboardScreen /></Protected></Route>
+          <Route path="/p2p/verify"><Protected><P2PVerifyScreen /></Protected></Route>
 
           {/* Admin routes - loaded last to not interfere with main routes */}
           <AdminRouteProvider />

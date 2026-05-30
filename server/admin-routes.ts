@@ -1777,4 +1777,121 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
       res.status(500).json({ message: "Server error" });
     }
   });
+
+  // ── P2P Payment Methods Management ────────────────────────────────────────────
+
+  app.get(`/${adminPath}/api/p2p/payment-methods`, requireSuperAdmin, async (_req, res) => {
+    try {
+      const rows = await db.execute(sql`SELECT * FROM p2p_payment_methods ORDER BY sort_order ASC, id ASC`);
+      res.json((rows[0] as any[]));
+    } catch (err) { res.status(500).json({ message: "Server error" }); }
+  });
+
+  app.post(`/${adminPath}/api/p2p/payment-methods`, requireSuperAdmin, async (req, res) => {
+    try {
+      const { title, code, country, currency, sortOrder } = req.body;
+      if (!title || !code) return res.status(400).json({ message: "title and code required" });
+      await db.execute(sql`INSERT INTO p2p_payment_methods (title, code, country, currency, sort_order) VALUES (${title}, ${code}, ${country ?? "RU"}, ${currency ?? "RUB"}, ${sortOrder ?? 0})`);
+      const rows = await db.execute(sql`SELECT * FROM p2p_payment_methods WHERE id = LAST_INSERT_ID()`);
+      res.json((rows[0] as any[])[0]);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.patch(`/${adminPath}/api/p2p/payment-methods/:id`, requireSuperAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { title, code, country, currency, status, sortOrder } = req.body;
+      await db.execute(sql`
+        UPDATE p2p_payment_methods SET
+          title    = COALESCE(${title    ?? null}, title),
+          code     = COALESCE(${code     ?? null}, code),
+          country  = COALESCE(${country  ?? null}, country),
+          currency = COALESCE(${currency ?? null}, currency),
+          status   = COALESCE(${status   ?? null}, status),
+          sort_order = COALESCE(${sortOrder ?? null}, sort_order)
+        WHERE id = ${id}
+      `);
+      res.json({ success: true });
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.delete(`/${adminPath}/api/p2p/payment-methods/:id`, requireSuperAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.execute(sql`DELETE FROM p2p_payment_methods WHERE id = ${id}`);
+      res.json({ success: true });
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  // ── P2P Verification Requests ──────────────────────────────────────────────────
+
+  app.get(`/${adminPath}/api/p2p/verifications`, requireSuperAdmin, async (req, res) => {
+    try {
+      const { status } = req.query;
+      const rows = await db.execute(sql`
+        SELECT vr.*, u.name AS user_name, u.tg_username, u.img AS user_img,
+          s.total_orders, s.successful_percent, s.rating, s.disputes_total
+        FROM p2p_verification_requests vr
+        JOIN users u ON u.id = vr.user_id
+        LEFT JOIN p2p_user_stats s ON s.user_id = vr.user_id
+        WHERE (${status ? sql`vr.status = ${status as string}` : sql`1=1`})
+        ORDER BY vr.created_at DESC LIMIT 100
+      `);
+      res.json((rows[0] as any[]).map((r: any) => { const o: any = {}; for (const k of Object.keys(r)) { o[k.replace(/_([a-z])/g, (_:any,l:string)=>l.toUpperCase())] = r[k]; } return o; }));
+    } catch (err) { res.status(500).json({ message: "Server error" }); }
+  });
+
+  app.patch(`/${adminPath}/api/p2p/verifications/:id`, requireSuperAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status, adminComment } = req.body;
+      if (!["approved","rejected"].includes(status)) return res.status(400).json({ message: "Invalid status" });
+      const vrRows = await db.execute(sql`SELECT * FROM p2p_verification_requests WHERE id = ${id}`);
+      const vr: any = (vrRows[0] as any[])[0];
+      if (!vr) return res.status(404).json({ message: "Not found" });
+      await db.execute(sql`UPDATE p2p_verification_requests SET status = ${status}, admin_comment = ${adminComment ?? null}, updated_at = NOW() WHERE id = ${id}`);
+      if (status === "approved") {
+        await db.execute(sql`INSERT INTO p2p_user_stats (user_id, merchant_level) VALUES (${vr.user_id}, ${vr.requested_level}) ON DUPLICATE KEY UPDATE merchant_level = ${vr.requested_level}, updated_at = NOW()`);
+        try {
+          const uRows = await db.execute(sql`SELECT tg_id FROM users WHERE id = ${vr.user_id}`);
+          const u: any = (uRows[0] as any[])[0];
+          if (u?.tg_id) await telegramService.sendMessage({ chatId: u.tg_id, text: `✅ <b>Верификация одобрена!</b>\nВаш уровень повышен до: <b>${vr.requested_level}</b>`, parseMode: "HTML" });
+        } catch { /* non-critical */ }
+      } else {
+        try {
+          const uRows = await db.execute(sql`SELECT tg_id FROM users WHERE id = ${vr.user_id}`);
+          const u: any = (uRows[0] as any[])[0];
+          if (u?.tg_id) await telegramService.sendMessage({ chatId: u.tg_id, text: `❌ Заявка на верификацию отклонена.\n${adminComment ? `Причина: ${adminComment}` : ""}`, parseMode: "HTML" });
+        } catch { /* non-critical */ }
+      }
+      res.json({ success: true });
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  // ── P2P Complaints ─────────────────────────────────────────────────────────────
+
+  app.get(`/${adminPath}/api/p2p/complaints`, requireSuperAdmin, async (req, res) => {
+    try {
+      const { status } = req.query;
+      const rows = await db.execute(sql`
+        SELECT c.*, fu.name AS from_name, fu.tg_username AS from_username, tu.name AS to_name, tu.tg_username AS to_username
+        FROM p2p_complaints c
+        JOIN users fu ON fu.id = c.from_user_id
+        JOIN users tu ON tu.id = c.to_user_id
+        WHERE (${status ? sql`c.status = ${status as string}` : sql`1=1`})
+        ORDER BY c.created_at DESC LIMIT 100
+      `);
+      res.json((rows[0] as any[]).map((r: any) => { const o: any = {}; for (const k of Object.keys(r)) { o[k.replace(/_([a-z])/g, (_:any,l:string)=>l.toUpperCase())] = r[k]; } return o; }));
+    } catch (err) { res.status(500).json({ message: "Server error" }); }
+  });
+
+  app.patch(`/${adminPath}/api/p2p/complaints/:id`, requireSuperAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status } = req.body;
+      if (!["reviewed","resolved","dismissed"].includes(status)) return res.status(400).json({ message: "Invalid status" });
+      await db.execute(sql`UPDATE p2p_complaints SET status = ${status} WHERE id = ${id}`);
+      res.json({ success: true });
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
 }

@@ -1,0 +1,4 @@
+- [P2P DB migrations](p2p-db-migrations.md) — new tables/columns added via raw SQL, not drizzle-kit push; always check schema before running migrations.
+- [P2P routes pattern](p2p-routes-pattern.md) — helper functions (updateLastSeen, recalculateSortPriority, sendP2PNotification, logP2P, snakeToCamel) live at top of p2p-routes.ts; all new P2P API routes appended before closing `}` of registerP2PRoutes.
+- [Admin routes pattern](admin-routes-pattern.md) — adminPath = process.env.ADMIN_URL || 'admin'; routes use requireSuperAdmin; append before closing `}` of registerAdminRoutes in admin-routes.ts.
+- [Admin P2P tabs](admin-p2p-tabs.md) — admin/p2p.tsx has 8 tabs: disputes, orders, merchants, ads, payment-methods, verifications, complaints, logs; TABS const drives badge counts map in AdminP2P component.

@@ -14,7 +14,8 @@ import { queryClient } from "@/lib/queryClient";
 import {
   RefreshCw, Eye, CheckCircle, XCircle, Shield, ShieldCheck,
   ShieldOff, Users, ArrowRightLeft, Megaphone, ScrollText,
-  AlertTriangle, Clock, BadgeCheck, Ban, User
+  AlertTriangle, Clock, BadgeCheck, Ban, User,
+  CreditCard, Flag, Plus, Pencil, Trash2, CheckSquare
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -746,15 +747,336 @@ function LogsTab() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PaymentMethodsTab
+// ─────────────────────────────────────────────────────────────────────────────
+
+function PaymentMethodsTab() {
+  const { toast } = useToast();
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [form, setForm] = useState({ title: "", code: "", country: "RU", currency: "RUB", status: "active" });
+
+  const { data: methods = [], isLoading, refetch } = useQuery<any[]>({
+    queryKey: ["/admin/api/p2p/payment-methods"],
+    queryFn: () => adminRequest("/p2p/payment-methods"),
+  });
+
+  const saveMethod = useMutation({
+    mutationFn: () => editId
+      ? adminRequest(`/p2p/payment-methods/${editId}`, { method: "PATCH", body: JSON.stringify(form) })
+      : adminRequest("/p2p/payment-methods", { method: "POST", body: JSON.stringify(form) }),
+    onSuccess: () => { toast({ title: editId ? "Обновлено" : "Добавлено" }); refetch(); setShowForm(false); setEditId(null); setForm({ title: "", code: "", country: "RU", currency: "RUB", status: "active" }); },
+    onError: (e: any) => toast({ title: "Ошибка", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteMethod = useMutation({
+    mutationFn: (id: number) => adminRequest(`/p2p/payment-methods/${id}`, { method: "DELETE" }),
+    onSuccess: () => { toast({ title: "Удалено" }); refetch(); },
+    onError: (e: any) => toast({ title: "Ошибка", description: e.message, variant: "destructive" }),
+  });
+
+  const toggleStatus = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) =>
+      adminRequest(`/p2p/payment-methods/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }),
+    onSuccess: () => refetch(),
+    onError: (e: any) => toast({ title: "Ошибка", description: e.message, variant: "destructive" }),
+  });
+
+  const startEdit = (m: any) => { setEditId(m.id); setForm({ title: m.title, code: m.code, country: m.country, currency: m.currency, status: m.status }); setShowForm(true); };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-lg font-semibold">Методы оплаты P2P</h2>
+        <Button size="sm" onClick={() => { setEditId(null); setForm({ title: "", code: "", country: "RU", currency: "RUB", status: "active" }); setShowForm(true); }}>
+          <Plus className="h-4 w-4 mr-1" />Добавить
+        </Button>
+      </div>
+
+      {showForm && (
+        <div className="border rounded-lg p-4 bg-card space-y-3">
+          <h3 className="font-medium">{editId ? "Редактировать" : "Новый метод оплаты"}</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="text-xs text-muted-foreground mb-1 block">Название</label>
+              <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Сбербанк" /></div>
+            <div><label className="text-xs text-muted-foreground mb-1 block">Код</label>
+              <Input value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} placeholder="sberbank" /></div>
+            <div><label className="text-xs text-muted-foreground mb-1 block">Страна</label>
+              <Input value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))} /></div>
+            <div><label className="text-xs text-muted-foreground mb-1 block">Валюта</label>
+              <Input value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))} /></div>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={() => saveMethod.mutate()} disabled={saveMethod.isPending || !form.title || !form.code}>
+              {saveMethod.isPending ? "..." : editId ? "Сохранить" : "Добавить"}
+            </Button>
+            <Button variant="outline" onClick={() => setShowForm(false)}>Отмена</Button>
+          </div>
+        </div>
+      )}
+
+      {isLoading ? <div className="text-center py-8 text-muted-foreground">Загрузка...</div> : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>ID</TableHead>
+              <TableHead>Название</TableHead>
+              <TableHead>Код</TableHead>
+              <TableHead>Страна</TableHead>
+              <TableHead>Статус</TableHead>
+              <TableHead>Действия</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {methods.map((m: any) => (
+              <TableRow key={m.id}>
+                <TableCell className="text-muted-foreground">{m.id}</TableCell>
+                <TableCell className="font-medium">{m.title}</TableCell>
+                <TableCell><code className="text-xs">{m.code}</code></TableCell>
+                <TableCell>{m.country} / {m.currency}</TableCell>
+                <TableCell>
+                  <Badge variant={m.status === "active" ? "default" : "secondary"}>
+                    {m.status === "active" ? "Активен" : "Неактивен"}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button size="sm" variant="ghost" onClick={() => startEdit(m)}><Pencil className="h-3.5 w-3.5" /></Button>
+                    <Button size="sm" variant="ghost" onClick={() => toggleStatus.mutate({ id: m.id, status: m.status === "active" ? "inactive" : "active" })}>
+                      {m.status === "active" ? <XCircle className="h-3.5 w-3.5 text-destructive" /> : <CheckCircle className="h-3.5 w-3.5 text-green-600" />}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => { if (confirm("Удалить?")) deleteMethod.mutate(m.id); }}>
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VerificationsTab
+// ─────────────────────────────────────────────────────────────────────────────
+
+function VerificationsTab() {
+  const { toast } = useToast();
+  const [statusFilter, setStatusFilter] = useState("pending");
+  const [selectedVr, setSelectedVr] = useState<any>(null);
+  const [comment, setComment] = useState("");
+
+  const { data: verifications = [], isLoading, refetch } = useQuery<any[]>({
+    queryKey: ["/admin/api/p2p/verifications", statusFilter],
+    queryFn: () => adminRequest(`/p2p/verifications${statusFilter ? `?status=${statusFilter}` : ""}`),
+  });
+
+  const resolveVr = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) =>
+      adminRequest(`/p2p/verifications/${id}`, { method: "PATCH", body: JSON.stringify({ status, adminComment: comment }) }),
+    onSuccess: (_, { status }) => { toast({ title: status === "approved" ? "Одобрено" : "Отклонено" }); refetch(); setSelectedVr(null); setComment(""); },
+    onError: (e: any) => toast({ title: "Ошибка", description: e.message, variant: "destructive" }),
+  });
+
+  const LEVEL_LABEL: Record<string, string> = { none: "Обычный", basic: "Мерчант", verified: "Верифицир.", pro: "Про" };
+  const STATUS_COLOR: Record<string, string> = { pending: "text-yellow-600", approved: "text-green-600", rejected: "text-red-600" };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-lg font-semibold">Заявки на верификацию</h2>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="pending">Ожидают</SelectItem>
+            <SelectItem value="approved">Одобрены</SelectItem>
+            <SelectItem value="rejected">Отклонены</SelectItem>
+            <SelectItem value="">Все</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {isLoading ? <div className="text-center py-8 text-muted-foreground">Загрузка...</div> :
+       verifications.length === 0 ? <div className="text-center py-12 text-muted-foreground">Заявок нет</div> : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Пользователь</TableHead>
+              <TableHead>Текущий уровень</TableHead>
+              <TableHead>Запрошен</TableHead>
+              <TableHead>Сделок / %</TableHead>
+              <TableHead>Статус</TableHead>
+              <TableHead>Действия</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {verifications.map((vr: any) => (
+              <TableRow key={vr.id}>
+                <TableCell>
+                  <div className="font-medium">{vr.userName}</div>
+                  <div className="text-xs text-muted-foreground">@{vr.tgUsername}</div>
+                </TableCell>
+                <TableCell><Badge variant="secondary">{LEVEL_LABEL[vr.currentLevel] || vr.currentLevel}</Badge></TableCell>
+                <TableCell><Badge>{LEVEL_LABEL[vr.requestedLevel] || vr.requestedLevel}</Badge></TableCell>
+                <TableCell>{vr.totalOrders ?? 0} / {parseFloat(vr.successfulPercent || 0).toFixed(1)}%</TableCell>
+                <TableCell><span className={`text-sm font-semibold ${STATUS_COLOR[vr.status] || ""}`}>{vr.status}</span></TableCell>
+                <TableCell>
+                  {vr.status === "pending" && (
+                    <Button size="sm" variant="outline" onClick={() => { setSelectedVr(vr); setComment(""); }}>
+                      <Eye className="h-3.5 w-3.5 mr-1" />Рассмотреть
+                    </Button>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+
+      <Dialog open={!!selectedVr} onOpenChange={() => setSelectedVr(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Заявка на верификацию</DialogTitle></DialogHeader>
+          {selectedVr && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><span className="text-muted-foreground">Пользователь:</span> <strong>{selectedVr.userName}</strong></div>
+                <div><span className="text-muted-foreground">Уровень:</span> <strong>{LEVEL_LABEL[selectedVr.requestedLevel]}</strong></div>
+                <div><span className="text-muted-foreground">Сделок:</span> <strong>{selectedVr.totalOrders ?? 0}</strong></div>
+                <div><span className="text-muted-foreground">Успешность:</span> <strong>{parseFloat(selectedVr.successfulPercent || 0).toFixed(1)}%</strong></div>
+                <div><span className="text-muted-foreground">Рейтинг:</span> <strong>{parseFloat(selectedVr.rating || 0).toFixed(1)}</strong></div>
+                <div><span className="text-muted-foreground">Споры:</span> <strong>{selectedVr.disputesTotal ?? 0}</strong></div>
+              </div>
+              {selectedVr.note && <div className="text-sm bg-muted p-3 rounded"><span className="text-muted-foreground">Примечание:</span> {selectedVr.note}</div>}
+              <div>
+                <label className="text-sm text-muted-foreground mb-1 block">Комментарий администратора</label>
+                <Textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Причина решения..." rows={2} />
+              </div>
+              <div className="flex gap-2">
+                <Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={() => resolveVr.mutate({ id: selectedVr.id, status: "approved" })} disabled={resolveVr.isPending}>
+                  <CheckCircle className="h-4 w-4 mr-1" />Одобрить
+                </Button>
+                <Button variant="destructive" className="flex-1" onClick={() => resolveVr.mutate({ id: selectedVr.id, status: "rejected" })} disabled={resolveVr.isPending}>
+                  <XCircle className="h-4 w-4 mr-1" />Отклонить
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ComplaintsTab
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ComplaintsTab() {
+  const { toast } = useToast();
+  const [statusFilter, setStatusFilter] = useState("pending");
+
+  const { data: complaints = [], isLoading, refetch } = useQuery<any[]>({
+    queryKey: ["/admin/api/p2p/complaints", statusFilter],
+    queryFn: () => adminRequest(`/p2p/complaints${statusFilter ? `?status=${statusFilter}` : ""}`),
+  });
+
+  const updateStatus = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) =>
+      adminRequest(`/p2p/complaints/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }),
+    onSuccess: () => { toast({ title: "Статус обновлён" }); refetch(); },
+    onError: (e: any) => toast({ title: "Ошибка", description: e.message, variant: "destructive" }),
+  });
+
+  const CAT_LABEL: Record<string, string> = {
+    fraud: "Мошенничество", false_payment: "Ложная оплата",
+    abuse: "Оскорбления", spam: "Спам", other: "Другое",
+  };
+  const STATUS_VARIANT: Record<string, "default"|"secondary"|"destructive"|"outline"> = {
+    pending: "destructive", reviewed: "secondary", resolved: "default", dismissed: "outline",
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-lg font-semibold">Жалобы</h2>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="pending">Новые</SelectItem>
+            <SelectItem value="reviewed">На рассмотрении</SelectItem>
+            <SelectItem value="resolved">Решены</SelectItem>
+            <SelectItem value="dismissed">Отклонены</SelectItem>
+            <SelectItem value="">Все</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {isLoading ? <div className="text-center py-8 text-muted-foreground">Загрузка...</div> :
+       complaints.length === 0 ? <div className="text-center py-12 text-muted-foreground">Жалоб нет</div> : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>От</TableHead>
+              <TableHead>На</TableHead>
+              <TableHead>Категория</TableHead>
+              <TableHead>Описание</TableHead>
+              <TableHead>Дата</TableHead>
+              <TableHead>Статус</TableHead>
+              <TableHead>Действия</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {complaints.map((c: any) => (
+              <TableRow key={c.id}>
+                <TableCell>
+                  <div className="text-sm font-medium">{c.fromName}</div>
+                  <div className="text-xs text-muted-foreground">@{c.fromUsername}</div>
+                </TableCell>
+                <TableCell>
+                  <div className="text-sm font-medium">{c.toName}</div>
+                  <div className="text-xs text-muted-foreground">@{c.toUsername}</div>
+                </TableCell>
+                <TableCell><Badge variant="outline">{CAT_LABEL[c.category] || c.category}</Badge></TableCell>
+                <TableCell className="max-w-[200px]">
+                  <span className="text-xs text-muted-foreground line-clamp-2">{c.description || "—"}</span>
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground">{fmtDate(c.createdAt)}</TableCell>
+                <TableCell><Badge variant={STATUS_VARIANT[c.status] || "outline"}>{c.status}</Badge></TableCell>
+                <TableCell>
+                  <Select value={c.status} onValueChange={(v) => updateStatus.mutate({ id: c.id, status: v })}>
+                    <SelectTrigger className="w-32 h-7 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="reviewed">На рассмотрении</SelectItem>
+                      <SelectItem value="resolved">Решена</SelectItem>
+                      <SelectItem value="dismissed">Отклонена</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main page
 // ─────────────────────────────────────────────────────────────────────────────
 
 const TABS = [
-  { id: "disputes",  label: "Споры",         icon: AlertTriangle,   badge: "disputes" },
-  { id: "orders",    label: "Сделки",        icon: ArrowRightLeft,  badge: null },
-  { id: "merchants", label: "Мерчанты",      icon: Users,           badge: null },
-  { id: "ads",       label: "Объявления",    icon: Megaphone,       badge: null },
-  { id: "logs",      label: "Логи",          icon: ScrollText,      badge: null },
+  { id: "disputes",       label: "Споры",         icon: AlertTriangle,   badge: "disputes" },
+  { id: "orders",         label: "Сделки",        icon: ArrowRightLeft,  badge: null },
+  { id: "merchants",      label: "Мерчанты",      icon: Users,           badge: null },
+  { id: "ads",            label: "Объявления",    icon: Megaphone,       badge: null },
+  { id: "payment-methods",label: "Методы оплаты", icon: CreditCard,      badge: null },
+  { id: "verifications",  label: "Верификации",   icon: CheckSquare,     badge: "verifications" },
+  { id: "complaints",     label: "Жалобы",        icon: Flag,            badge: "complaints" },
+  { id: "logs",           label: "Логи",          icon: ScrollText,      badge: null },
 ] as const;
 
 type TabId = typeof TABS[number]["id"];
@@ -769,8 +1091,22 @@ export default function AdminP2P() {
     refetchInterval: 30000,
   });
 
+  const { data: pendingVerifications = [] } = useQuery<any[]>({
+    queryKey: ["/admin/api/p2p/verifications", "pending"],
+    queryFn: () => adminRequest("/p2p/verifications?status=pending"),
+    refetchInterval: 60000,
+  });
+
+  const { data: pendingComplaints = [] } = useQuery<any[]>({
+    queryKey: ["/admin/api/p2p/complaints", "pending"],
+    queryFn: () => adminRequest("/p2p/complaints?status=pending"),
+    refetchInterval: 60000,
+  });
+
   const badgeCounts: Record<string, number> = {
     disputes: openDisputes.length,
+    verifications: pendingVerifications.length,
+    complaints: pendingComplaints.length,
   };
 
   return (
@@ -844,11 +1180,14 @@ export default function AdminP2P() {
 
         {/* Tab content */}
         <div>
-          {activeTab === "disputes"  && <DisputesTab />}
-          {activeTab === "orders"    && <OrdersTab />}
-          {activeTab === "merchants" && <MerchantsTab />}
-          {activeTab === "ads"       && <AdsTab />}
-          {activeTab === "logs"      && <LogsTab />}
+          {activeTab === "disputes"        && <DisputesTab />}
+          {activeTab === "orders"          && <OrdersTab />}
+          {activeTab === "merchants"       && <MerchantsTab />}
+          {activeTab === "ads"             && <AdsTab />}
+          {activeTab === "payment-methods" && <PaymentMethodsTab />}
+          {activeTab === "verifications"   && <VerificationsTab />}
+          {activeTab === "complaints"      && <ComplaintsTab />}
+          {activeTab === "logs"            && <LogsTab />}
         </div>
       </div>
     </AdminLayout>

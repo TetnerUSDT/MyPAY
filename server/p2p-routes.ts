@@ -8,6 +8,10 @@ import {
   usersBalances,
 } from "@shared/schema";
 import { insertAndReturn } from "./mysql-helpers";
+import { telegramService } from "./telegram-service";
+
+const P2P_COMMISSION = parseFloat(process.env.P2P_COMMISSION_PERCENT ?? "0.2") / 100;
+const P2P_PLATFORM_USER_ID = process.env.P2P_PLATFORM_USER_ID ? parseInt(process.env.P2P_PLATFORM_USER_ID) : null;
 
 function snakeToCamel(obj: any): any {
   if (!obj || typeof obj !== "object") return obj;
@@ -23,6 +27,42 @@ function snakeToCamel(obj: any): any {
 async function logP2P(userId: number | null, orderId: number | null, action: string, data?: any) {
   try {
     await db.insert(p2pLogs).values({ userId, orderId, action, data: data ?? null });
+  } catch { /* non-critical */ }
+}
+
+async function sendP2PNotification(tgId: string, text: string) {
+  try {
+    await telegramService.sendMessage({ chatId: tgId, text, parseMode: "HTML" });
+  } catch { /* non-critical */ }
+}
+
+async function updateLastSeen(userId: number) {
+  try {
+    await db.execute(sql`
+      INSERT INTO p2p_user_stats (user_id, last_seen) VALUES (${userId}, NOW())
+      ON DUPLICATE KEY UPDATE last_seen = NOW()
+    `);
+  } catch { /* non-critical */ }
+}
+
+async function recalculateSortPriority(userId: number) {
+  try {
+    await db.execute(sql`
+      UPDATE p2p_ads a
+      JOIN p2p_user_stats s ON s.user_id = a.user_id
+      SET a.sort_priority = ROUND(
+        COALESCE(s.rating, 0) * 30 +
+        COALESCE(s.successful_percent, 0) * 0.3 +
+        CASE
+          WHEN s.avg_release_time_seconds > 0 AND s.avg_release_time_seconds < 300  THEN 20
+          WHEN s.avg_release_time_seconds >= 300 AND s.avg_release_time_seconds < 900 THEN 10
+          ELSE 0
+        END +
+        COALESCE(s.total_orders, 0) * 0.1 +
+        CASE WHEN a.is_promoted = 1 AND (a.promoted_until IS NULL OR a.promoted_until > NOW()) THEN 50 ELSE 0 END
+      )
+      WHERE a.user_id = ${userId} AND a.status = 'active'
+    `);
   } catch { /* non-critical */ }
 }
 
@@ -341,6 +381,13 @@ export function registerP2PRoutes(app: Express, requireApiKey: any) {
         const sellerId: number = ad.user_id;
         if (sellerId === buyerId) throw new Error("Нельзя торговать с самим собой");
 
+        // Auto-restrictions: block users with too many disputes
+        const rStatsRows = await tx.execute(sql`SELECT disputes_total, total_orders FROM p2p_user_stats WHERE user_id = ${buyerId}`);
+        const rStats: any = (rStatsRows[0] as any[])[0];
+        if (rStats && (rStats.disputes_total || 0) >= 5) {
+          throw new Error("Ваш аккаунт временно ограничен из-за большого количества споров");
+        }
+
         const assetAmt = parseFloat(assetAmount);
         if (assetAmt <= 0) throw new Error("Некорректная сумма");
         if (assetAmt < parseFloat(ad.min_amount)) throw new Error(`Минимальная сумма: ${ad.min_amount}`);
@@ -411,6 +458,14 @@ export function registerP2PRoutes(app: Express, requireApiKey: any) {
       });
 
       await logP2P(buyerId, order.id, "create_order", { adId, assetAmount });
+      await updateLastSeen(buyerId);
+      try {
+        const sTgRows = await db.execute(sql`SELECT tg_id FROM users WHERE id = ${order.seller_id}`);
+        const sTg: any = (sTgRows[0] as any[])[0];
+        if (sTg?.tg_id) {
+          await sendP2PNotification(sTg.tg_id, `🔔 <b>Новая сделка #${order.id}</b>\nПокупают у вас: <b>${parseFloat(order.asset_amount)} USDT</b> за <b>${parseFloat(order.fiat_amount).toFixed(2)} ₽</b>`);
+        }
+      } catch { /* non-critical */ }
       res.json(snakeToCamel(order));
     } catch (err: any) {
       res.status(400).json({ message: err.message });
@@ -501,6 +556,14 @@ export function registerP2PRoutes(app: Express, requireApiKey: any) {
       await db.execute(sql`UPDATE p2p_orders SET status = 'paid', paid_at = NOW(), updated_at = NOW() WHERE id = ${id}`);
       await db.execute(sql`INSERT INTO p2p_order_messages (order_id, sender_id, message, type, created_at) VALUES (${id}, ${userId}, 'Покупатель подтвердил оплату. Ожидается подтверждение продавца.', 'system', NOW())`);
       await logP2P(userId, id, "mark_paid");
+      await updateLastSeen(userId);
+      try {
+        const sTgRows = await db.execute(sql`SELECT tg_id FROM users WHERE id = ${order.seller_id}`);
+        const sTg: any = (sTgRows[0] as any[])[0];
+        if (sTg?.tg_id) {
+          await sendP2PNotification(sTg.tg_id, `💳 <b>Оплата подтверждена по сделке #${id}</b>\nПокупатель отметил оплату. Проверьте поступление и подтвердите.`);
+        }
+      } catch { /* non-critical */ }
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ message: "Server error" });
@@ -526,16 +589,25 @@ export function registerP2PRoutes(app: Express, requireApiKey: any) {
         const balanceId = lock.balance_id;
         const sellerId = order.seller_id;
         const buyerId  = order.buyer_id;
+        const commission = parseFloat((amount * P2P_COMMISSION).toFixed(8));
+        const buyerAmount = parseFloat((amount - commission).toFixed(8));
 
         // Deduct from seller
         await tx.execute(sql`
           UPDATE users_balances SET sum = sum - ${amount} WHERE id_user = ${sellerId} AND id_balance = ${balanceId}
         `);
-        // Credit buyer (insert or add)
+        // Credit buyer minus commission
         await tx.execute(sql`
-          INSERT INTO users_balances (id_user, id_balance, sum) VALUES (${buyerId}, ${balanceId}, ${amount})
-          ON DUPLICATE KEY UPDATE sum = sum + ${amount}
+          INSERT INTO users_balances (id_user, id_balance, sum) VALUES (${buyerId}, ${balanceId}, ${buyerAmount})
+          ON DUPLICATE KEY UPDATE sum = sum + ${buyerAmount}
         `);
+        // Commission to platform wallet (if configured)
+        if (P2P_PLATFORM_USER_ID && commission > 0) {
+          await tx.execute(sql`
+            INSERT INTO users_balances (id_user, id_balance, sum) VALUES (${P2P_PLATFORM_USER_ID}, ${balanceId}, ${commission})
+            ON DUPLICATE KEY UPDATE sum = sum + ${commission}
+          `);
+        }
         // Release lock
         await tx.execute(sql`UPDATE p2p_balance_locks SET status = 'released', updated_at = NOW() WHERE id = ${lock.id}`);
         // Complete order
@@ -564,6 +636,16 @@ export function registerP2PRoutes(app: Express, requireApiKey: any) {
         `);
       });
       await logP2P(userId, id, "release");
+      await updateLastSeen(userId);
+      await recalculateSortPriority(userId);
+      try {
+        const bTgRows = await db.execute(sql`SELECT o.buyer_id, u.tg_id FROM p2p_orders o JOIN users u ON u.id = o.buyer_id WHERE o.id = ${id}`);
+        const bInfo: any = (bTgRows[0] as any[])[0];
+        if (bInfo?.tg_id) {
+          await sendP2PNotification(bInfo.tg_id, `✅ <b>Сделка #${id} завершена!</b>\nПродавец подтвердил получение оплаты. Средства зачислены на ваш счёт.`);
+          await recalculateSortPriority(bInfo.buyer_id);
+        }
+      } catch { /* non-critical */ }
       res.json({ success: true });
     } catch (err: any) {
       res.status(400).json({ message: err.message });
@@ -625,6 +707,15 @@ export function registerP2PRoutes(app: Express, requireApiKey: any) {
       await db.execute(sql`INSERT INTO p2p_order_messages (order_id, sender_id, message, type, created_at) VALUES (${id}, ${userId}, 'Открыт спор. Ожидается решение модератора.', 'system', NOW())`);
       await db.execute(sql`UPDATE p2p_user_stats SET disputes_total = disputes_total + 1, updated_at = NOW() WHERE user_id IN (${order.buyer_id}, ${order.seller_id})`);
       await logP2P(userId, id, "dispute", { reason });
+      await updateLastSeen(userId);
+      try {
+        const otherId = order.buyer_id === userId ? order.seller_id : order.buyer_id;
+        const otherRows = await db.execute(sql`SELECT tg_id FROM users WHERE id = ${otherId}`);
+        const other: any = (otherRows[0] as any[])[0];
+        if (other?.tg_id) {
+          await sendP2PNotification(other.tg_id, `⚠️ <b>Открыт спор по сделке #${id}</b>\nОжидается решение модератора. Средства в безопасности.`);
+        }
+      } catch { /* non-critical */ }
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ message: "Server error" });
@@ -887,6 +978,152 @@ export function registerP2PRoutes(app: Express, requireApiKey: any) {
       res.status(500).json({ message: "Server error" });
     }
   });
+
+  // ── Favorites ─────────────────────────────────────────────────────────────────
+
+  app.get("/api/p2p/favorites", requireApiKey, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const rows = await db.execute(sql`
+        SELECT f.id, f.merchant_id, u.name AS merchant_name, u.img AS merchant_img, u.tg_username AS merchant_username,
+          s.rating, s.successful_percent, s.total_orders, s.merchant_level, s.last_seen
+        FROM p2p_favorites f
+        JOIN users u ON u.id = f.merchant_id
+        LEFT JOIN p2p_user_stats s ON s.user_id = f.merchant_id
+        WHERE f.user_id = ${userId}
+        ORDER BY f.created_at DESC
+      `);
+      res.json((rows[0] as any[]).map(snakeToCamel));
+    } catch (err) { res.status(500).json({ message: "Server error" }); }
+  });
+
+  app.post("/api/p2p/favorites/:merchantId", requireApiKey, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const merchantId = parseInt(req.params.merchantId);
+      if (userId === merchantId) return res.status(400).json({ message: "Нельзя добавить себя" });
+      await db.execute(sql`INSERT IGNORE INTO p2p_favorites (user_id, merchant_id) VALUES (${userId}, ${merchantId})`);
+      await db.execute(sql`INSERT INTO p2p_user_stats (user_id, followers_count) VALUES (${merchantId}, 1) ON DUPLICATE KEY UPDATE followers_count = followers_count + 1`);
+      res.json({ success: true });
+    } catch (err) { res.status(500).json({ message: "Server error" }); }
+  });
+
+  app.delete("/api/p2p/favorites/:merchantId", requireApiKey, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const merchantId = parseInt(req.params.merchantId);
+      await db.execute(sql`DELETE FROM p2p_favorites WHERE user_id = ${userId} AND merchant_id = ${merchantId}`);
+      await db.execute(sql`UPDATE p2p_user_stats SET followers_count = GREATEST(0, followers_count - 1) WHERE user_id = ${merchantId}`);
+      res.json({ success: true });
+    } catch (err) { res.status(500).json({ message: "Server error" }); }
+  });
+
+  // ── Complaints ───────────────────────────────────────────────────────────────
+
+  app.post("/api/p2p/complaints", requireApiKey, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { toUserId, orderId, category, description } = req.body;
+      if (!toUserId || !category) return res.status(400).json({ message: "toUserId and category are required" });
+      if (userId === parseInt(toUserId)) return res.status(400).json({ message: "Нельзя пожаловаться на себя" });
+      await db.execute(sql`INSERT INTO p2p_complaints (from_user_id, to_user_id, order_id, category, description) VALUES (${userId}, ${parseInt(toUserId)}, ${orderId ?? null}, ${category}, ${description ?? null})`);
+      await logP2P(userId, orderId ?? null, "complaint", { toUserId, category });
+      res.json({ success: true });
+    } catch (err) { res.status(500).json({ message: "Server error" }); }
+  });
+
+  // ── Verification requests ─────────────────────────────────────────────────────
+
+  app.get("/api/p2p/verify", requireApiKey, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const rows = await db.execute(sql`SELECT * FROM p2p_verification_requests WHERE user_id = ${userId} ORDER BY created_at DESC LIMIT 10`);
+      res.json({ requests: (rows[0] as any[]).map(snakeToCamel) });
+    } catch (err) { res.status(500).json({ message: "Server error" }); }
+  });
+
+  app.post("/api/p2p/verify", requireApiKey, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { requestedLevel, note } = req.body;
+      if (!requestedLevel || !["basic","verified","pro"].includes(requestedLevel)) {
+        return res.status(400).json({ message: "Invalid level" });
+      }
+      const existing = await db.execute(sql`SELECT id FROM p2p_verification_requests WHERE user_id = ${userId} AND requested_level = ${requestedLevel} AND status = 'pending'`);
+      if ((existing[0] as any[]).length > 0) return res.status(400).json({ message: "У вас уже есть активная заявка на этот уровень" });
+      const statsRows = await db.execute(sql`SELECT merchant_level FROM p2p_user_stats WHERE user_id = ${userId}`);
+      const stats: any = (statsRows[0] as any[])[0];
+      const currentLevel = stats?.merchant_level || "none";
+      await db.execute(sql`INSERT INTO p2p_verification_requests (user_id, requested_level, current_level, note) VALUES (${userId}, ${requestedLevel}, ${currentLevel}, ${note ?? null})`);
+      res.json({ success: true });
+    } catch (err) { res.status(500).json({ message: "Server error" }); }
+  });
+
+  // ── Bulk ads update ────────────────────────────────────────────────────────────
+
+  app.patch("/api/p2p/ads/bulk", requireApiKey, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { status, priceMultiplier } = req.body;
+      if (status) {
+        if (!["active","paused"].includes(status)) return res.status(400).json({ message: "Invalid status" });
+        await db.execute(sql`UPDATE p2p_ads SET status = ${status}, updated_at = NOW() WHERE user_id = ${userId} AND status NOT IN ('cancelled','completed')`);
+      }
+      if (priceMultiplier) {
+        const mult = parseFloat(priceMultiplier);
+        if (isNaN(mult) || mult <= 0 || mult > 2) return res.status(400).json({ message: "Invalid multiplier" });
+        await db.execute(sql`UPDATE p2p_ads SET price = ROUND(price * ${mult}, 4), updated_at = NOW() WHERE user_id = ${userId} AND status = 'active'`);
+      }
+      res.json({ success: true });
+    } catch (err) { res.status(500).json({ message: "Server error" }); }
+  });
+
+  // ── Ad promotion ──────────────────────────────────────────────────────────────
+
+  app.post("/api/p2p/ads/:id/promote", requireApiKey, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const id = parseInt(req.params.id);
+      const adRows = await db.execute(sql`SELECT * FROM p2p_ads WHERE id = ${id} AND user_id = ${userId}`);
+      const ad: any = (adRows[0] as any[])[0];
+      if (!ad) return res.status(404).json({ message: "Объявление не найдено" });
+      const promotedUntil = new Date(Date.now() + 24 * 3600 * 1000).toISOString().slice(0, 19).replace("T", " ");
+      await db.execute(sql`UPDATE p2p_ads SET is_promoted = 1, promoted_until = ${promotedUntil}, updated_at = NOW() WHERE id = ${id}`);
+      await recalculateSortPriority(userId);
+      await logP2P(userId, null, "promote_ad", { adId: id });
+      res.json({ success: true });
+    } catch (err) { res.status(500).json({ message: "Server error" }); }
+  });
+
+  // ── Merchant dashboard stats ───────────────────────────────────────────────────
+
+  app.get("/api/p2p/dashboard", requireApiKey, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      await updateLastSeen(userId);
+      const statsRows = await db.execute(sql`
+        SELECT s.*,
+          (SELECT COUNT(*) FROM p2p_reviews r WHERE r.to_user_id = ${userId} AND r.rating >= 4) AS positive_reviews,
+          (SELECT COUNT(*) FROM p2p_reviews r WHERE r.to_user_id = ${userId} AND r.rating <= 2) AS negative_reviews,
+          (SELECT COUNT(*) FROM p2p_reviews r WHERE r.to_user_id = ${userId}) AS reviews_count
+        FROM p2p_user_stats s WHERE s.user_id = ${userId}
+      `);
+      const stats: any = (statsRows[0] as any[])[0];
+      if (!stats) return res.json({ totalOrders: 0, completedOrders: 0, successfulPercent: "0", rating: "0", disputesTotal: 0, merchantLevel: "none" });
+      res.json(snakeToCamel(stats));
+    } catch (err) { res.status(500).json({ message: "Server error" }); }
+  });
+
+  // ── Online ping ───────────────────────────────────────────────────────────────
+
+  app.post("/api/p2p/ping", requireApiKey, async (req: any, res) => {
+    try {
+      await updateLastSeen(req.user.id);
+      res.json({ ok: true });
+    } catch (err) { res.status(500).json({ message: "Server error" }); }
+  });
+
+  // ── Admin: Disputes ────────────────────────────────────────────────────────────
 
   app.post("/api/p2p/admin/disputes/:id/resolve", requireApiKey, async (req: any, res) => {
     const disputeId = parseInt(req.params.id);

@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeft, HelpCircle, CheckCircle2, Star, SlidersHorizontal,
-  Plus, Clock, TrendingUp, X, CreditCard, History, Megaphone
+  Plus, Clock, TrendingUp, X, CreditCard, History, Megaphone, BarChart3
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
@@ -217,6 +217,13 @@ export default function P2PScreen() {
         </Link>
         <h1 className="text-[17px] font-semibold tracking-tight text-white">P2P Exchange</h1>
         <div className="flex items-center gap-1">
+          <button
+            onClick={() => setLocation("/p2p/dashboard")}
+            className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/5 transition-colors"
+            title="Кабинет мерчанта"
+          >
+            <BarChart3 className="w-4 h-4 text-white/40" />
+          </button>
           <button
             onClick={() => setLocation("/p2p/my-ads")}
             className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/5 transition-colors"
