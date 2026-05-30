@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, Info, AlertTriangle, ExternalLink, Lock } from "lucide-react";
+import { ChevronLeft, Info, AlertTriangle, Lock, Plus, X, Check, Trash2, Pencil, CreditCard } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -12,10 +12,288 @@ const CRYPTO_BALANCES = [
 ];
 
 interface CryptoBalance { id: number; currency: string; network: string; sum: string | number; }
-
 interface PaymentMethod { id: number; title: string; code: string; }
-interface UserMethod    { id: number; methodId: number; methodTitle: string; accountNumber: string | null; }
+interface UserMethod {
+  id: number;
+  methodId: number;
+  methodTitle: string;
+  accountNumber: string | null;
+  accountName: string | null;
+  bankName: string | null;
+}
 
+// ── Форма добавления/редактирования реквизита ─────────────────────────────────
+function RequisiteForm({
+  methods,
+  initial,
+  onSave,
+  onCancel,
+  saving,
+}: {
+  methods: PaymentMethod[];
+  initial?: Partial<UserMethod>;
+  onSave: (data: any) => void;
+  onCancel: () => void;
+  saving: boolean;
+}) {
+  const [methodId, setMethodId] = useState<string>(initial?.methodId?.toString() ?? "");
+  const [accountNumber, setAccountNumber] = useState(initial?.accountNumber ?? "");
+  const [accountName, setAccountName] = useState(initial?.accountName ?? "");
+  const [bankName, setBankName] = useState(initial?.bankName ?? "");
+
+  const isValid = methodId && accountNumber.trim();
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className="text-xs text-white/40 mb-2 block">Способ оплаты</label>
+        <div className="flex flex-wrap gap-2">
+          {methods.map(m => (
+            <button
+              key={m.id}
+              onClick={() => setMethodId(m.id.toString())}
+              className={`text-sm px-3 py-2 rounded-2xl border font-medium transition-colors ${
+                methodId === m.id.toString()
+                  ? "bg-[#3ab368]/20 border-[#3ab368]/50 text-[#3ab368]"
+                  : "bg-[#1A1D24] border-white/5 text-white/60"
+              }`}
+            >
+              {m.title}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <label className="text-xs text-white/40 mb-1 block">Номер карты / счёта / телефон *</label>
+        <input
+          value={accountNumber}
+          onChange={e => setAccountNumber(e.target.value)}
+          placeholder="1234 5678 9012 3456"
+          className="w-full bg-[#1A1D24] border border-white/5 rounded-2xl px-4 py-3 text-white text-sm outline-none placeholder-white/20"
+        />
+      </div>
+
+      <div>
+        <label className="text-xs text-white/40 mb-1 block">Имя получателя</label>
+        <input
+          value={accountName}
+          onChange={e => setAccountName(e.target.value)}
+          placeholder="Иван Иванов"
+          className="w-full bg-[#1A1D24] border border-white/5 rounded-2xl px-4 py-3 text-white text-sm outline-none placeholder-white/20"
+        />
+      </div>
+
+      <div>
+        <label className="text-xs text-white/40 mb-1 block">Банк / комментарий</label>
+        <input
+          value={bankName}
+          onChange={e => setBankName(e.target.value)}
+          placeholder="Необязательно"
+          className="w-full bg-[#1A1D24] border border-white/5 rounded-2xl px-4 py-3 text-white text-sm outline-none placeholder-white/20"
+        />
+      </div>
+
+      <div className="flex gap-3 pt-1">
+        <button
+          onClick={onCancel}
+          className="flex-1 py-3 rounded-2xl border border-white/10 text-white/60 text-sm font-semibold"
+        >
+          Отмена
+        </button>
+        <button
+          onClick={() => onSave({ methodId: parseInt(methodId), accountNumber, accountName, bankName })}
+          disabled={!isValid || saving}
+          className="flex-1 py-3 rounded-2xl bg-[#3ab368] text-[#0B0C10] text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40"
+        >
+          <Check className="w-4 h-4" /> {saving ? "Сохранение..." : "Сохранить"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Модальное окно управления реквизитами ─────────────────────────────────────
+function RequisitesModal({ onClose }: { onClose: () => void }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [showAdd, setShowAdd] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+
+  const { data: methods = [] } = useQuery<PaymentMethod[]>({ queryKey: ["/api/p2p/payment-methods"] });
+  const { data: userMethods = [], isLoading } = useQuery<UserMethod[]>({ queryKey: ["/api/p2p/user-payment-methods"] });
+
+  const addMethod = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/p2p/user-payment-methods", data).then(r => r.json()),
+    onSuccess: () => {
+      toast({ title: "Реквизит добавлен" });
+      setShowAdd(false);
+      qc.invalidateQueries({ queryKey: ["/api/p2p/user-payment-methods"] });
+    },
+    onError: (err: any) => toast({ title: "Ошибка", description: err.message, variant: "destructive" }),
+  });
+
+  const updateMethod = useMutation({
+    mutationFn: ({ id, ...data }: any) => apiRequest("PATCH", `/api/p2p/user-payment-methods/${id}`, data).then(r => r.json()),
+    onSuccess: () => {
+      toast({ title: "Реквизит обновлён" });
+      setEditingId(null);
+      qc.invalidateQueries({ queryKey: ["/api/p2p/user-payment-methods"] });
+    },
+    onError: (err: any) => toast({ title: "Ошибка", description: err.message, variant: "destructive" }),
+  });
+
+  const deleteMethod = useMutation({
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/p2p/user-payment-methods/${id}`),
+    onSuccess: () => {
+      toast({ title: "Реквизит удалён" });
+      qc.invalidateQueries({ queryKey: ["/api/p2p/user-payment-methods"] });
+    },
+    onError: (err: any) => toast({ title: "Ошибка", description: err.message, variant: "destructive" }),
+  });
+
+  const list = userMethods as UserMethod[];
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col justify-end" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      <div
+        className="relative bg-[#13151A] border-t border-white/10 rounded-t-3xl flex flex-col"
+        style={{ maxHeight: "90vh" }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Handle + header */}
+        <div className="px-5 pt-4 pb-3 shrink-0">
+          <div className="w-10 h-1 rounded-full bg-white/10 mx-auto mb-4" />
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-white">Мои реквизиты</h2>
+            <div className="flex items-center gap-2">
+              {!showAdd && editingId === null && (
+                <button
+                  onClick={() => setShowAdd(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#3ab368]/15 border border-[#3ab368]/30 text-[#3ab368] text-xs font-bold"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Добавить
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center"
+              >
+                <X className="w-4 h-4 text-white/50" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Scrollable content */}
+        <div className="overflow-y-auto flex-1 px-5 pb-8 space-y-3">
+          {/* Add form */}
+          {showAdd && (
+            <div className="bg-[#1A1D24] border border-[#3ab368]/20 rounded-3xl p-4">
+              <p className="text-xs font-semibold text-[#3ab368] mb-3">Новый реквизит</p>
+              <RequisiteForm
+                methods={methods as PaymentMethod[]}
+                onSave={(data) => addMethod.mutate(data)}
+                onCancel={() => setShowAdd(false)}
+                saving={addMethod.isPending}
+              />
+            </div>
+          )}
+
+          {/* Skeleton */}
+          {isLoading && (
+            <div className="space-y-3">
+              {[1, 2].map(i => (
+                <div key={i} className="bg-[#1A1D24] rounded-3xl border border-white/5 p-4 animate-pulse">
+                  <div className="h-3 bg-white/5 rounded-full w-20 mb-3" />
+                  <div className="h-4 bg-white/5 rounded-full w-40" />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!isLoading && list.length === 0 && !showAdd && (
+            <div className="py-10 flex flex-col items-center">
+              <div className="w-14 h-14 rounded-full bg-white/5 flex items-center justify-center mb-3">
+                <CreditCard className="w-6 h-6 text-white/20" />
+              </div>
+              <p className="text-white/40 text-sm font-medium">Нет реквизитов</p>
+              <p className="text-white/25 text-xs mt-1 mb-5 text-center max-w-xs">
+                Добавьте банковские данные — покупатели будут переводить на них деньги
+              </p>
+              <button
+                onClick={() => setShowAdd(true)}
+                className="px-6 py-3 rounded-2xl bg-[#3ab368] text-[#0B0C10] font-bold text-sm shadow-lg shadow-[#3ab368]/20"
+              >
+                Добавить реквизит
+              </button>
+            </div>
+          )}
+
+          {/* List */}
+          {!isLoading && list.map((um: UserMethod) => (
+            <div key={um.id}>
+              {editingId === um.id ? (
+                <div className="bg-[#1A1D24] border border-[#3ab368]/20 rounded-3xl p-4">
+                  <p className="text-xs font-semibold text-[#3ab368] mb-3">Редактирование</p>
+                  <RequisiteForm
+                    methods={methods as PaymentMethod[]}
+                    initial={um}
+                    onSave={(data) => updateMethod.mutate({ id: um.id, ...data })}
+                    onCancel={() => setEditingId(null)}
+                    saving={updateMethod.isPending}
+                  />
+                </div>
+              ) : (
+                <div className="bg-[#1A1D24] border border-white/5 rounded-3xl p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <span className="text-xs font-bold text-[#3ab368] px-2.5 py-0.5 bg-[#3ab368]/10 rounded-full">
+                      {um.methodTitle}
+                    </span>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => { setEditingId(um.id); setShowAdd(false); }}
+                        className="w-7 h-7 rounded-full bg-white/5 flex items-center justify-center"
+                      >
+                        <Pencil className="w-3 h-3 text-white/50" />
+                      </button>
+                      <button
+                        onClick={() => deleteMethod.mutate(um.id)}
+                        disabled={deleteMethod.isPending}
+                        className="w-7 h-7 rounded-full bg-red-500/10 flex items-center justify-center"
+                      >
+                        <Trash2 className="w-3 h-3 text-red-400/70" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="font-mono text-white text-base">{um.accountNumber}</div>
+                  {um.accountName && <div className="text-sm text-white/60 mt-0.5">{um.accountName}</div>}
+                  {um.bankName && <div className="text-xs text-white/40 mt-0.5">{um.bankName}</div>}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Footer — close button if has requisites */}
+        {list.length > 0 && !showAdd && editingId === null && (
+          <div className="px-5 pb-8 pt-2 shrink-0">
+            <button
+              onClick={onClose}
+              className="w-full py-3.5 rounded-2xl bg-[#3ab368] text-[#0B0C10] font-bold text-sm shadow-lg shadow-[#3ab368]/20"
+            >
+              Готово
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Основная страница создания объявления ─────────────────────────────────────
 export default function P2PCreateAdScreen() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -30,6 +308,7 @@ export default function P2PCreateAdScreen() {
   const [paymentTime, setPaymentTime] = useState("15");
   const [terms, setTerms] = useState("");
   const [selectedMethods, setSelectedMethods] = useState<number[]>([]);
+  const [showRequisitesModal, setShowRequisitesModal] = useState(false);
 
   const { data: methods = [] } = useQuery<PaymentMethod[]>({
     queryKey: ["/api/p2p/payment-methods"],
@@ -43,14 +322,12 @@ export default function P2PCreateAdScreen() {
     queryKey: ["/api/user/crypto-balances"],
   });
 
-  // IDs методов, для которых у пользователя есть сохранённые реквизиты
   const userMethodIds = new Set((userMethods as UserMethod[]).map(m => m.methodId));
+  const hasAnyRequisites = userMethodIds.size > 0;
 
-  // Карта: balance_id → сумма на балансе
   const balanceMap = new Map<number, number>(
     (cryptoBalances as CryptoBalance[]).map(b => [b.id, parseFloat(String(b.sum ?? 0))])
   );
-  const hasAnyRequisites = userMethodIds.size > 0;
 
   const createAd = useMutation({
     mutationFn: () => apiRequest("POST", "/api/p2p/ads", {
@@ -74,14 +351,12 @@ export default function P2PCreateAdScreen() {
   });
 
   const toggleMethod = (id: number) => {
-    // Для объявлений продажи — можно выбрать только методы с реквизитами
     if (side === "sell" && !userMethodIds.has(id)) return;
     setSelectedMethods(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
   };
 
-  // При смене типа — сбрасываем выбранные методы, т.к. ограничения разные
   const handleSideChange = (s: "sell" | "buy") => {
     setSide(s);
     setSelectedMethods([]);
@@ -96,7 +371,6 @@ export default function P2PCreateAdScreen() {
     parseFloat(availableAmount) > 0 &&
     parseFloat(availableAmount) >= parseFloat(maxAmount) &&
     selectedMethods.length > 0 &&
-    // Для продажи — обязательно наличие реквизитов
     (side !== "sell" || hasAnyRequisites);
 
   return (
@@ -145,10 +419,10 @@ export default function P2PCreateAdScreen() {
                 Для размещения объявления о продаже нужно добавить хотя бы один банковский реквизит — покупатели будут переводить на него деньги.
               </p>
               <button
-                onClick={() => setLocation("/p2p/payment-methods")}
+                onClick={() => setShowRequisitesModal(true)}
                 className="mt-3 flex items-center gap-1.5 text-xs font-bold text-amber-300 bg-amber-500/15 px-3 py-1.5 rounded-xl"
               >
-                <ExternalLink className="w-3.5 h-3.5" />
+                <Plus className="w-3.5 h-3.5" />
                 Добавить реквизиты
               </button>
             </div>
@@ -162,7 +436,7 @@ export default function P2PCreateAdScreen() {
             <p className="text-xs text-white/50 leading-relaxed">
               Выбрать можно только методы, для которых у вас добавлены реквизиты.{" "}
               <button
-                onClick={() => setLocation("/p2p/payment-methods")}
+                onClick={() => setShowRequisitesModal(true)}
                 className="text-[#3ab368] underline-offset-2 underline"
               >
                 Управлять реквизитами
@@ -392,11 +666,7 @@ export default function P2PCreateAdScreen() {
         <button
           onClick={() => {
             if (side === "sell" && !hasAnyRequisites) {
-              toast({
-                title: "Нет реквизитов",
-                description: "Добавьте банковские реквизиты перед размещением объявления о продаже.",
-                variant: "destructive",
-              });
+              setShowRequisitesModal(true);
               return;
             }
             createAd.mutate();
@@ -407,6 +677,11 @@ export default function P2PCreateAdScreen() {
           {createAd.isPending ? "Создание..." : "Разместить объявление"}
         </button>
       </div>
+
+      {/* Requisites modal */}
+      {showRequisitesModal && (
+        <RequisitesModal onClose={() => setShowRequisitesModal(false)} />
+      )}
     </div>
   );
 }
