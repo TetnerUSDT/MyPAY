@@ -493,9 +493,16 @@ export default function P2PCreateAdScreen() {
 
         {/* Limits */}
         <div>
-          <label className="text-xs text-white/40 font-medium mb-2 block">
-            Лимиты ({selectedBalance?.currency})
-          </label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs text-white/40 font-medium">
+              Лимиты ({selectedBalance?.currency})
+            </label>
+            {availableAmount && parseFloat(availableAmount) > 0 && (
+              <span className="text-[10px] text-white/25">
+                макс. = доступный объём ({parseFloat(availableAmount).toFixed(2)})
+              </span>
+            )}
+          </div>
           <div className="flex gap-3">
             <input
               type="number"
@@ -504,14 +511,28 @@ export default function P2PCreateAdScreen() {
               placeholder="От"
               className="flex-1 min-w-0 bg-[#13151A] border border-white/5 rounded-2xl px-4 py-3.5 text-white text-base outline-none placeholder-white/20"
             />
-            <input
-              type="number"
-              value={maxAmount}
-              onChange={e => setMaxAmount(e.target.value)}
-              placeholder="До"
-              className="flex-1 min-w-0 bg-[#13151A] border border-white/5 rounded-2xl px-4 py-3.5 text-white text-base outline-none placeholder-white/20"
-            />
+            <div className="flex-1 min-w-0 relative">
+              <input
+                type="number"
+                value={maxAmount}
+                onChange={e => setMaxAmount(e.target.value)}
+                placeholder="До"
+                className={`w-full bg-[#13151A] rounded-2xl px-4 py-3.5 text-white text-base outline-none placeholder-white/20 border ${
+                  maxAmount && availableAmount &&
+                  parseFloat(maxAmount) > parseFloat(availableAmount)
+                    ? "border-red-500/50"
+                    : "border-white/5"
+                }`}
+              />
+            </div>
           </div>
+          {maxAmount && availableAmount &&
+           parseFloat(maxAmount) > parseFloat(availableAmount) && (
+            <p className="text-[11px] text-red-400/80 mt-1.5 flex items-start gap-1">
+              <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+              «До» не может превышать доступный объём ({parseFloat(availableAmount).toFixed(2)} {selectedBalance?.currency})
+            </p>
+          )}
         </div>
 
         {/* Available amount */}
