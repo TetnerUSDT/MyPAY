@@ -907,7 +907,7 @@ function VerificationsTab() {
 
   const { data: verifications = [], isLoading, refetch } = useQuery<any[]>({
     queryKey: ["/admin/api/p2p/verifications", statusFilter],
-    queryFn: () => adminRequest(`/p2p/verifications${statusFilter ? `?status=${statusFilter}` : ""}`),
+    queryFn: () => adminRequest(`/p2p/verifications${statusFilter && statusFilter !== "all" ? `?status=${statusFilter}` : ""}`),
   });
 
   const resolveVr = useMutation({
@@ -930,7 +930,7 @@ function VerificationsTab() {
             <SelectItem value="pending">Ожидают</SelectItem>
             <SelectItem value="approved">Одобрены</SelectItem>
             <SelectItem value="rejected">Отклонены</SelectItem>
-            <SelectItem value="">Все</SelectItem>
+            <SelectItem value="all">Все</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -1046,7 +1046,7 @@ function ComplaintsTab() {
 
   const { data: complaints = [], isLoading, refetch } = useQuery<any[]>({
     queryKey: ["/admin/api/p2p/complaints", statusFilter],
-    queryFn: () => adminRequest(`/p2p/complaints${statusFilter ? `?status=${statusFilter}` : ""}`),
+    queryFn: () => adminRequest(`/p2p/complaints${statusFilter && statusFilter !== "all" ? `?status=${statusFilter}` : ""}`),
   });
 
   const updateStatus = useMutation({
@@ -1075,7 +1075,7 @@ function ComplaintsTab() {
             <SelectItem value="reviewed">На рассмотрении</SelectItem>
             <SelectItem value="resolved">Решены</SelectItem>
             <SelectItem value="dismissed">Отклонены</SelectItem>
-            <SelectItem value="">Все</SelectItem>
+            <SelectItem value="all">Все</SelectItem>
           </SelectContent>
         </Select>
       </div>
