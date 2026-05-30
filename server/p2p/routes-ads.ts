@@ -50,8 +50,9 @@ export function registerAdsRoutes(app: Express, requireApiKey: any) {
         "p2p_user_payment_methods"
       );
       res.json(result);
-    } catch (err) {
-      res.status(500).json({ message: "Server error" });
+    } catch (err: any) {
+      console.error("[POST user-payment-methods]", err?.message, err?.sqlMessage);
+      res.status(500).json({ message: err?.message || "Server error" });
     }
   });
 

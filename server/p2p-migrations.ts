@@ -87,6 +87,29 @@ export async function runP2PMigrations() {
       await db.execute(sql`ALTER TABLE p2p_ads ADD COLUMN balance_locked TINYINT(1) NOT NULL DEFAULT 0`);
     }
 
+    // ── p2p_user_payment_methods — ensure table + columns exist ─────────────────
+    if (!await tableExists("p2p_user_payment_methods")) {
+      await db.execute(sql`
+        CREATE TABLE p2p_user_payment_methods (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          user_id INT NOT NULL,
+          method_id INT NOT NULL,
+          account_name VARCHAR(255) NULL,
+          account_number VARCHAR(255) NULL,
+          bank_name VARCHAR(255) NULL,
+          details JSON NULL,
+          status VARCHAR(20) NOT NULL DEFAULT 'active',
+          created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+    }
+    if (!await columnExists("p2p_user_payment_methods", "status")) {
+      await db.execute(sql`ALTER TABLE p2p_user_payment_methods ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'active'`);
+    }
+    if (!await columnExists("p2p_user_payment_methods", "details")) {
+      await db.execute(sql`ALTER TABLE p2p_user_payment_methods ADD COLUMN details JSON NULL`);
+    }
+
     // ── KYC upload dir ──────────────────────────────────────────────────────────
     await fs.mkdir("public/uploads/kyc", { recursive: true });
 
