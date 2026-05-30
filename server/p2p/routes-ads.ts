@@ -235,6 +235,24 @@ export function registerAdsRoutes(app: Express, requireApiKey: any) {
         return res.status(400).json({ message: "side must be buy or sell" });
       }
 
+      // ── T010: Для продажи проверяем наличие реквизитов по выбранным методам ──
+      if (side === "sell" && paymentMethodIds?.length) {
+        const reqRows = await db.execute(sql`
+          SELECT DISTINCT method_id FROM p2p_user_payment_methods
+          WHERE user_id = ${userId} AND status = 'active'
+        `);
+        const savedMethodIds = new Set((reqRows[0] as any[]).map((r: any) => r.method_id));
+
+        if (savedMethodIds.size === 0) {
+          throw new Error("Для размещения объявления о продаже сначала добавьте банковские реквизиты в разделе «Реквизиты»");
+        }
+
+        const missingMethods = (paymentMethodIds as number[]).filter(id => !savedMethodIds.has(id));
+        if (missingMethods.length > 0) {
+          throw new Error("У вас нет сохранённых реквизитов для некоторых выбранных методов оплаты");
+        }
+      }
+
       const adRows = await db.execute(sql`
         INSERT INTO p2p_ads
           (user_id, side, asset_balance_id, fiat_balance_id, price, min_amount, max_amount,
