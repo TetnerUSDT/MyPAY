@@ -307,6 +307,24 @@ export function registerAdsRoutes(app: Express, requireApiKey: any) {
     }
   });
 
+  // ── Bulk ads update (MUST be before /:id to avoid Express capturing "bulk" as id)
+  app.patch("/api/p2p/ads/bulk", requireApiKey, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { status, priceMultiplier } = req.body;
+      if (status) {
+        if (!["active","paused"].includes(status)) return res.status(400).json({ message: "Invalid status" });
+        await db.execute(sql`UPDATE p2p_ads SET status = ${status}, updated_at = NOW() WHERE user_id = ${userId} AND status NOT IN ('cancelled','completed')`);
+      }
+      if (priceMultiplier) {
+        const mult = parseFloat(priceMultiplier);
+        if (isNaN(mult) || mult <= 0 || mult > 2) return res.status(400).json({ message: "Invalid multiplier" });
+        await db.execute(sql`UPDATE p2p_ads SET price = ROUND(price * ${mult}, 4), updated_at = NOW() WHERE user_id = ${userId} AND status = 'active'`);
+      }
+      res.json({ success: true });
+    } catch (err) { res.status(500).json({ message: "Server error" }); }
+  });
+
   app.patch("/api/p2p/ads/:id", requireApiKey, async (req: any, res) => {
     try {
       const userId = req.user.id;
@@ -374,25 +392,6 @@ export function registerAdsRoutes(app: Express, requireApiKey: any) {
     } catch (err) {
       res.status(500).json({ message: "Server error" });
     }
-  });
-
-  // ── Bulk ads update ────────────────────────────────────────────────────────────
-
-  app.patch("/api/p2p/ads/bulk", requireApiKey, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const { status, priceMultiplier } = req.body;
-      if (status) {
-        if (!["active","paused"].includes(status)) return res.status(400).json({ message: "Invalid status" });
-        await db.execute(sql`UPDATE p2p_ads SET status = ${status}, updated_at = NOW() WHERE user_id = ${userId} AND status NOT IN ('cancelled','completed')`);
-      }
-      if (priceMultiplier) {
-        const mult = parseFloat(priceMultiplier);
-        if (isNaN(mult) || mult <= 0 || mult > 2) return res.status(400).json({ message: "Invalid multiplier" });
-        await db.execute(sql`UPDATE p2p_ads SET price = ROUND(price * ${mult}, 4), updated_at = NOW() WHERE user_id = ${userId} AND status = 'active'`);
-      }
-      res.json({ success: true });
-    } catch (err) { res.status(500).json({ message: "Server error" }); }
   });
 
   // ── Ad promotion ──────────────────────────────────────────────────────────────
