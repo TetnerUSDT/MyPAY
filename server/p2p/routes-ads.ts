@@ -261,6 +261,7 @@ export function registerAdsRoutes(app: Express, requireApiKey: any) {
       const newAd = await db.execute(sql`SELECT * FROM p2p_ads WHERE id = ${adId}`);
       res.status(201).json(snakeToCamel((newAd[0] as any[])[0]));
     } catch (err: any) {
+      console.error("[P2P] POST /ads error:", err);
       res.status(400).json({ message: err.message || "Server error" });
     }
   });
