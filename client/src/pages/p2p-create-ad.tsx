@@ -11,6 +11,8 @@ const CRYPTO_BALANCES = [
   { id: 6, label: "USDT TON",   currency: "USDT", network: "TON" },
 ];
 
+interface CryptoBalance { id: number; currency: string; network: string; sum: string | number; }
+
 interface PaymentMethod { id: number; title: string; code: string; }
 interface UserMethod    { id: number; methodId: number; methodTitle: string; accountNumber: string | null; }
 
@@ -37,8 +39,17 @@ export default function P2PCreateAdScreen() {
     queryKey: ["/api/p2p/user-payment-methods"],
   });
 
+  const { data: cryptoBalances = [] } = useQuery<CryptoBalance[]>({
+    queryKey: ["/api/user/crypto-balances"],
+  });
+
   // IDs методов, для которых у пользователя есть сохранённые реквизиты
   const userMethodIds = new Set((userMethods as UserMethod[]).map(m => m.methodId));
+
+  // Карта: balance_id → сумма на балансе
+  const balanceMap = new Map<number, number>(
+    (cryptoBalances as CryptoBalance[]).map(b => [b.id, parseFloat(String(b.sum ?? 0))])
+  );
   const hasAnyRequisites = userMethodIds.size > 0;
 
   const createAd = useMutation({
@@ -162,21 +173,30 @@ export default function P2PCreateAdScreen() {
 
         {/* Asset */}
         <div>
-          <label className="text-xs text-white/40 font-medium mb-2 block">Криптовалюта</label>
-          <div className="flex gap-2 flex-wrap">
-            {CRYPTO_BALANCES.map(b => (
-              <button
-                key={b.id}
-                onClick={() => setAssetBalanceId(b.id.toString())}
-                className={`text-sm px-4 py-2.5 rounded-2xl border font-medium transition-colors ${
-                  assetBalanceId === b.id.toString()
-                    ? "bg-[#3ab368]/20 border-[#3ab368]/50 text-[#3ab368]"
-                    : "bg-[#13151A] border-white/5 text-white/60"
-                }`}
-              >
-                {b.label}
-              </button>
-            ))}
+          <label className="text-xs text-white/40 font-medium mb-2 block">Криптовалюта и сеть</label>
+          <div className="flex flex-col gap-2">
+            {CRYPTO_BALANCES.map(b => {
+              const userBal = balanceMap.get(b.id) ?? 0;
+              const isSelected = assetBalanceId === b.id.toString();
+              return (
+                <button
+                  key={b.id}
+                  onClick={() => setAssetBalanceId(b.id.toString())}
+                  className={`flex items-center justify-between px-4 py-3 rounded-2xl border font-medium transition-colors ${
+                    isSelected
+                      ? "bg-[#3ab368]/15 border-[#3ab368]/50 text-[#3ab368]"
+                      : "bg-[#13151A] border-white/5 text-white/60"
+                  }`}
+                >
+                  <span className="text-sm">{b.label}</span>
+                  <span className={`text-xs font-semibold tabular-nums ${
+                    isSelected ? "text-[#3ab368]/80" : "text-white/30"
+                  }`}>
+                    {userBal > 0 ? `${userBal.toFixed(4)} USDT` : "нет средств"}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -235,12 +255,27 @@ export default function P2PCreateAdScreen() {
             />
             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 text-sm font-medium">{selectedBalance?.currency}</span>
           </div>
-          {side === "sell" && (
-            <p className="text-[11px] text-white/30 mt-1.5 flex items-start gap-1">
-              <Info className="w-3 h-3 shrink-0 mt-0.5" />
-              При продаже средства будут заблокированы на балансе до завершения сделки
-            </p>
-          )}
+          {side === "sell" && (() => {
+            const selectedBal = balanceMap.get(parseInt(assetBalanceId)) ?? 0;
+            const entered = parseFloat(availableAmount) || 0;
+            const insufficient = entered > 0 && entered > selectedBal;
+            if (insufficient) {
+              return (
+                <p className="text-[11px] text-red-400/80 mt-1.5 flex items-start gap-1">
+                  <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+                  Недостаточно средств. На выбранном балансе: {selectedBal.toFixed(4)} USDT
+                </p>
+              );
+            }
+            return (
+              <p className="text-[11px] text-white/30 mt-1.5 flex items-start gap-1">
+                <Info className="w-3 h-3 shrink-0 mt-0.5" />
+                {entered > 0
+                  ? `Заморозится ${entered.toFixed(4)} USDT с вашего баланса ${selectedBalance?.network ?? ""}`
+                  : "При продаже средства заморозятся на балансе до завершения сделки"}
+              </p>
+            );
+          })()}
         </div>
 
         {/* Payment time */}

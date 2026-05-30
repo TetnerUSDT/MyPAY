@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, Plus, Power, PowerOff, Trash2 } from "lucide-react";
+import { ChevronLeft, Plus, Power, PowerOff, X, AlertTriangle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -27,10 +28,90 @@ function AdCardSkeleton() {
   );
 }
 
+interface CancelSheetProps {
+  ad: any;
+  onConfirm: () => void;
+  onClose: () => void;
+  isPending: boolean;
+}
+
+function CancelSheet({ ad, onConfirm, onClose, isPending }: CancelSheetProps) {
+  const isSell = ad.side === "sell";
+  const isLocked = ad.balance_locked || ad.balanceLocked;
+  const remaining = parseFloat(ad.availableAmount ?? ad.available_amount ?? 0);
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col justify-end" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div
+        className="relative bg-[#13151A] border border-white/10 rounded-t-3xl px-5 pt-5 pb-10"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="w-10 h-1 rounded-full bg-white/10 mx-auto mb-5" />
+
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+            <AlertTriangle className="w-5 h-5 text-red-400" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-white">Закрыть объявление?</h3>
+            <p className="text-xs text-white/40">#{ad.id} · {ad.assetTitle || ad.assetCurrency}</p>
+          </div>
+        </div>
+
+        {isSell && isLocked && remaining > 0 ? (
+          <div className="bg-[#3ab368]/8 border border-[#3ab368]/20 rounded-2xl p-4 mb-5">
+            <p className="text-sm text-white/70 leading-relaxed">
+              Средства вернутся на ваш баланс:
+            </p>
+            <p className="text-2xl font-bold text-[#3ab368] mt-1">
+              {remaining.toFixed(4)}{" "}
+              <span className="text-base font-semibold text-[#3ab368]/60">
+                {ad.assetCurrency}
+              </span>
+            </p>
+          </div>
+        ) : isSell && isLocked && remaining === 0 ? (
+          <div className="bg-white/3 border border-white/8 rounded-2xl p-4 mb-5">
+            <p className="text-sm text-white/50 leading-relaxed">
+              Все средства из этого объявления уже используются в активных сделках. Возврата нет.
+            </p>
+          </div>
+        ) : (
+          <div className="bg-white/3 border border-white/8 rounded-2xl p-4 mb-5">
+            <p className="text-sm text-white/50 leading-relaxed">
+              Объявление будет закрыто. Действие нельзя отменить.
+            </p>
+          </div>
+        )}
+
+        <button
+          onClick={onConfirm}
+          disabled={isPending}
+          className="w-full py-4 rounded-2xl bg-red-500/90 text-white font-bold text-sm shadow-lg shadow-red-500/20 disabled:opacity-50 mb-3 active:scale-95 transition-transform"
+        >
+          {isPending
+            ? "Закрываем..."
+            : isSell && isLocked && remaining > 0
+              ? `Закрыть и вернуть ${remaining.toFixed(4)} ${ad.assetCurrency}`
+              : "Закрыть объявление"}
+        </button>
+        <button
+          onClick={onClose}
+          className="w-full py-3 rounded-2xl bg-white/5 text-white/60 font-semibold text-sm"
+        >
+          Отмена
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function P2PMyAdsScreen() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const qc = useQueryClient();
+  const [cancelTarget, setCancelTarget] = useState<any | null>(null);
 
   const { data: ads = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/p2p/my-ads"],
@@ -50,10 +131,22 @@ export default function P2PMyAdsScreen() {
     mutationFn: (id: number) =>
       apiRequest("DELETE", `/api/p2p/ads/${id}`),
     onSuccess: () => {
-      toast({ title: "Объявление удалено" });
+      const ad = cancelTarget;
+      setCancelTarget(null);
+      const remaining = parseFloat(ad?.availableAmount ?? ad?.available_amount ?? 0);
+      const isLocked = ad?.balance_locked || ad?.balanceLocked;
+      if (ad?.side === "sell" && isLocked && remaining > 0) {
+        toast({ title: `Возвращено ${remaining.toFixed(4)} ${ad.assetCurrency}`, description: "Средства зачислены на баланс" });
+      } else {
+        toast({ title: "Объявление закрыто" });
+      }
       qc.invalidateQueries({ queryKey: ["/api/p2p/my-ads"] });
+      qc.invalidateQueries({ queryKey: ["/api/user/crypto-balances"] });
     },
-    onError: (err: any) => toast({ title: "Ошибка", description: err.message, variant: "destructive" }),
+    onError: (err: any) => {
+      setCancelTarget(null);
+      toast({ title: "Ошибка", description: err.message, variant: "destructive" });
+    },
   });
 
   return (
@@ -98,6 +191,11 @@ export default function P2PMyAdsScreen() {
 
         {!isLoading && (ads as any[]).map((ad: any) => {
           const isActive = ad.status === "active";
+          const isPaused = ad.status === "paused";
+          const canManage = isActive || isPaused;
+          const remaining = parseFloat(ad.availableAmount ?? ad.available_amount ?? 0);
+          const isLocked = ad.balance_locked || ad.balanceLocked;
+
           return (
             <div key={ad.id} className="bg-[#13151A] border border-white/5 rounded-3xl p-4 mb-3 shadow-2xl shadow-black/30">
               <div className="flex items-start justify-between mb-3">
@@ -113,11 +211,16 @@ export default function P2PMyAdsScreen() {
                     <span className={`text-xs font-medium ${STATUS_COLOR[ad.status] || "text-white/40"}`}>
                       {STATUS_LABEL[ad.status] || ad.status}
                     </span>
+                    {ad.side === "sell" && isLocked && canManage && (
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                        🔒 заморожено
+                      </span>
+                    )}
                   </div>
                   <div className="text-white/50 text-xs">{ad.assetTitle || ad.assetCurrency}</div>
                 </div>
                 <div className="flex items-center gap-1">
-                  {(isActive || ad.status === "paused") && (
+                  {canManage && (
                     <button
                       onClick={() => updateAd.mutate({ id: ad.id, status: isActive ? "paused" : "active" })}
                       disabled={updateAd.isPending}
@@ -130,14 +233,13 @@ export default function P2PMyAdsScreen() {
                       }
                     </button>
                   )}
-                  {ad.status !== "cancelled" && (
+                  {canManage && (
                     <button
-                      onClick={() => deleteAd.mutate(ad.id)}
-                      disabled={deleteAd.isPending}
-                      className="w-8 h-8 rounded-full bg-white/5 border border-white/5 flex items-center justify-center"
-                      title="Удалить"
+                      onClick={() => setCancelTarget(ad)}
+                      className="w-8 h-8 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center"
+                      title="Закрыть объявление"
                     >
-                      <Trash2 className="w-3.5 h-3.5 text-red-400/70" />
+                      <X className="w-3.5 h-3.5 text-red-400" />
                     </button>
                   )}
                 </div>
@@ -152,7 +254,7 @@ export default function P2PMyAdsScreen() {
                 <div className="bg-[#1A1D24] rounded-2xl p-2.5">
                   <div className="text-[10px] text-white/30 mb-0.5">Доступно</div>
                   <div className="text-sm font-semibold text-white">
-                    {parseFloat(ad.availableAmount).toFixed(4)} {ad.assetCurrency}
+                    {remaining.toFixed(4)} {ad.assetCurrency}
                   </div>
                 </div>
                 <div className="bg-[#1A1D24] rounded-2xl p-2.5">
@@ -163,6 +265,13 @@ export default function P2PMyAdsScreen() {
                 </div>
               </div>
 
+              {ad.side === "sell" && isLocked && canManage && (
+                <div className="mt-2 text-[11px] text-amber-400/60 flex items-center gap-1">
+                  <span>💡</span>
+                  <span>Нажмите ✕ чтобы закрыть объявление и вернуть {remaining.toFixed(4)} {ad.assetCurrency} на баланс</span>
+                </div>
+              )}
+
               <div className="mt-2 text-[11px] text-white/30">
                 #{ad.id} · {new Date(ad.createdAt).toLocaleDateString("ru-RU")}
               </div>
@@ -170,6 +279,15 @@ export default function P2PMyAdsScreen() {
           );
         })}
       </div>
+
+      {cancelTarget && (
+        <CancelSheet
+          ad={cancelTarget}
+          onClose={() => setCancelTarget(null)}
+          onConfirm={() => deleteAd.mutate(cancelTarget.id)}
+          isPending={deleteAd.isPending}
+        />
+      )}
     </div>
   );
 }
