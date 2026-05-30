@@ -53,104 +53,110 @@ function CreateOrderSheet({ ad, onClose }: CreateOrderSheetProps) {
   const quickAmounts = [minAmt, Math.round((minAmt + maxAmt) / 3), Math.round((minAmt + maxAmt) * 2 / 3), maxAmt].filter(Boolean);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+    <div className="fixed inset-0 z-50 flex flex-col">
+      <div className="absolute inset-0 bg-black/90" />
       <div
-        className="relative w-full bg-[#13151A] border-t border-white/5 rounded-t-3xl p-5 pb-10 space-y-5 max-h-[85vh] overflow-y-auto"
+        className="relative w-full h-full bg-[#0B0C10] flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between px-5 pt-12 pb-4 border-b border-white/5">
           <div>
-            <h2 className="text-base font-bold text-white">
+            <h2 className="text-lg font-bold text-white">
               {ad.side === "sell" ? "Купить" : "Продать"} {ad.assetCurrency}
             </h2>
             <p className="text-xs text-white/40 mt-0.5">у {ad.traderName || "мерчанта"}</p>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
+          <button onClick={onClose} className="w-9 h-9 rounded-full bg-white/5 flex items-center justify-center">
             <X className="w-4 h-4 text-white/60" />
           </button>
         </div>
 
-        {/* Price info */}
-        <div className="bg-[#1A1D24] rounded-2xl p-3 flex justify-between items-center">
-          <span className="text-xs text-white/40">Курс</span>
-          <span className="font-bold text-[#3ab368]">{price.toFixed(2)} ₽</span>
-        </div>
-
-        {/* Amount input */}
-        <div className="space-y-2">
-          <label className="text-xs text-white/50 font-medium">Количество {ad.assetCurrency}</label>
-          <div className="relative">
-            <input
-              type="number"
-              value={amount}
-              onChange={e => setAmount(e.target.value)}
-              placeholder={`${minAmt} – ${maxAmt}`}
-              className="w-full bg-[#1A1D24] border border-white/5 rounded-2xl px-4 py-3 text-white text-base outline-none placeholder-white/20 pr-20"
-            />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 text-sm font-medium">{ad.assetCurrency}</span>
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto px-5 py-5 space-y-4">
+          {/* Price info */}
+          <div className="bg-[#13151A] rounded-2xl p-4 flex justify-between items-center">
+            <span className="text-sm text-white/40">Курс</span>
+            <span className="font-bold text-[#3ab368] text-base">{price.toFixed(2)} ₽</span>
           </div>
-          <div className="flex gap-2 flex-wrap">
-            {quickAmounts.map((qa, i) => (
-              <button
-                key={i}
-                onClick={() => setAmount(qa.toString())}
-                className="text-xs px-3 py-1.5 rounded-xl bg-[#1A1D24] border border-white/5 text-white/60 hover:text-white hover:border-[#3ab368]/30 transition-colors"
-              >
-                {qa.toLocaleString("ru-RU")}
-              </button>
-            ))}
-          </div>
-        </div>
 
-        {/* Fiat calculation */}
-        {assetAmt > 0 && (
-          <div className="bg-[#1A1D24] rounded-2xl p-3 flex justify-between items-center">
-            <span className="text-xs text-white/40">Вы {ad.side === "sell" ? "платите" : "получаете"}</span>
-            <span className="font-bold text-white text-base">{fiatAmt.toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ₽</span>
-          </div>
-        )}
-
-        {/* Payment method selector */}
-        {ad.paymentMethods?.length > 0 && (
+          {/* Amount input */}
           <div className="space-y-2">
-            <label className="text-xs text-white/50 font-medium">Метод оплаты</label>
-            <div className="flex flex-wrap gap-2">
-              {ad.paymentMethods.map((pm: any) => (
+            <label className="text-sm text-white/50 font-medium">Количество {ad.assetCurrency}</label>
+            <div className="relative">
+              <input
+                type="number"
+                value={amount}
+                onChange={e => setAmount(e.target.value)}
+                placeholder={`${minAmt} – ${maxAmt}`}
+                className="w-full bg-[#13151A] border border-white/5 rounded-2xl px-4 py-4 text-white text-base outline-none placeholder-white/20 pr-20 focus:border-[#3ab368]/40"
+              />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 text-sm font-medium">{ad.assetCurrency}</span>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {quickAmounts.map((qa, i) => (
                 <button
-                  key={pm.id}
-                  onClick={() => setPaymentMethodId(paymentMethodId === pm.id.toString() ? "" : pm.id.toString())}
-                  className={`text-xs px-3 py-1.5 rounded-xl border transition-colors ${
-                    paymentMethodId === pm.id.toString()
-                      ? "bg-[#3ab368]/20 border-[#3ab368]/50 text-[#3ab368]"
-                      : "bg-[#1A1D24] border-white/5 text-white/60"
-                  }`}
+                  key={i}
+                  onClick={() => setAmount(qa.toString())}
+                  className="text-xs px-3 py-2 rounded-xl bg-[#13151A] border border-white/5 text-white/60 hover:text-white hover:border-[#3ab368]/30 transition-colors"
                 >
-                  {pm.title}
+                  {qa.toLocaleString("ru-RU")}
                 </button>
               ))}
             </div>
           </div>
-        )}
 
-        {/* Limits */}
-        <div className="text-xs text-white/30">
-          Доступно: {parseFloat(ad.availableAmount).toFixed(4)} {ad.assetCurrency} · Лимиты: {minAmt.toLocaleString("ru-RU")} – {maxAmt.toLocaleString("ru-RU")}
+          {/* Fiat calculation */}
+          {assetAmt > 0 && (
+            <div className="bg-[#13151A] rounded-2xl p-4 flex justify-between items-center">
+              <span className="text-sm text-white/40">Вы {ad.side === "sell" ? "платите" : "получаете"}</span>
+              <span className="font-bold text-white text-lg">{fiatAmt.toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ₽</span>
+            </div>
+          )}
+
+          {/* Payment method selector */}
+          {ad.paymentMethods?.length > 0 && (
+            <div className="space-y-2">
+              <label className="text-sm text-white/50 font-medium">Метод оплаты</label>
+              <div className="flex flex-wrap gap-2">
+                {ad.paymentMethods.map((pm: any) => (
+                  <button
+                    key={pm.id}
+                    onClick={() => setPaymentMethodId(paymentMethodId === pm.id.toString() ? "" : pm.id.toString())}
+                    className={`text-sm px-4 py-2 rounded-xl border transition-colors ${
+                      paymentMethodId === pm.id.toString()
+                        ? "bg-[#3ab368]/20 border-[#3ab368]/50 text-[#3ab368]"
+                        : "bg-[#13151A] border-white/5 text-white/60"
+                    }`}
+                  >
+                    {pm.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Limits */}
+          <div className="text-xs text-white/30 bg-[#13151A] rounded-xl p-3">
+            Доступно: <span className="text-white/50">{parseFloat(ad.availableAmount).toFixed(4)} {ad.assetCurrency}</span>
+            {" · "}Лимиты: <span className="text-white/50">{minAmt.toLocaleString("ru-RU")} – {maxAmt.toLocaleString("ru-RU")}</span>
+          </div>
         </div>
 
-        {/* Submit */}
-        <button
-          onClick={() => createOrder.mutate()}
-          disabled={!isValid || createOrder.isPending}
-          className={`w-full py-4 rounded-2xl font-bold text-sm transition-all shadow-lg disabled:opacity-40 ${
-            ad.side === "sell"
-              ? "bg-[#3ab368] text-[#0B0C10] shadow-[#3ab368]/20"
-              : "bg-[#f97316] text-white shadow-[#f97316]/20"
-          }`}
-        >
-          {createOrder.isPending ? "Создание..." : ad.side === "sell" ? `Купить ${ad.assetCurrency}` : `Продать ${ad.assetCurrency}`}
-        </button>
+        {/* Submit — pinned to bottom */}
+        <div className="px-5 pb-8 pt-4 border-t border-white/5">
+          <button
+            onClick={() => createOrder.mutate()}
+            disabled={!isValid || createOrder.isPending}
+            className={`w-full py-4 rounded-2xl font-bold text-base transition-all shadow-lg disabled:opacity-40 ${
+              ad.side === "sell"
+                ? "bg-[#3ab368] text-[#0B0C10] shadow-[#3ab368]/20"
+                : "bg-[#f97316] text-white shadow-[#f97316]/20"
+            }`}
+          >
+            {createOrder.isPending ? "Создание..." : ad.side === "sell" ? `Купить ${ad.assetCurrency}` : `Продать ${ad.assetCurrency}`}
+          </button>
+        </div>
       </div>
     </div>
   );
