@@ -12,6 +12,7 @@ import { config, isTestMode, isTelegramMode, isDevelopment } from "./config";
 import { createWalletViaAPI } from "./wallet-api";
 import { registerAdminRoutes } from "./admin-routes";
 import { registerP2PRoutes, initP2PPaymentMethods } from "./p2p-routes";
+import { runP2PMigrations } from "./p2p-migrations";
 import { telegramService } from "./telegram-service";
 import { notificationService } from "./notification-service";
 import { requireSuperAdmin, type AdminRequest } from "./admin-middleware";
@@ -2068,6 +2069,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register P2P routes
   registerP2PRoutes(app, requireApiKey);
   initP2PPaymentMethods();
+  runP2PMigrations().catch(console.error);
+
+  // Auto-expiration job: cancel unpaid orders past deadline every 60 seconds
+  setInterval(async () => {
+    try {
+      const rows = await db.execute(sql`
+        SELECT o.id, o.ad_id, o.seller_id, o.asset_amount,
+          l.id AS lock_id, l.user_id AS lock_user_id, l.balance_id AS lock_balance_id, l.amount AS lock_amount
+        FROM p2p_orders o
+        LEFT JOIN p2p_balance_locks l ON l.order_id = o.id AND l.status = 'locked'
+        WHERE o.status = 'waiting_payment' AND o.payment_deadline < NOW()
+        LIMIT 50
+      `);
+      const expired = rows[0] as any[];
+      for (const order of expired) {
+        try {
+          await db.transaction(async (tx) => {
+            const affected = await tx.execute(sql`
+              UPDATE p2p_orders SET status = 'expired', updated_at = NOW()
+              WHERE id = ${order.id} AND status = 'waiting_payment'
+            `);
+            if ((affected[0] as any).affectedRows === 0) return;
+            if (order.lock_id) {
+              await tx.execute(sql`UPDATE p2p_balance_locks SET status = 'expired', updated_at = NOW() WHERE id = ${order.lock_id}`);
+              await tx.execute(sql`UPDATE users_balances SET sum = sum + ${parseFloat(order.lock_amount)} WHERE id_user = ${order.lock_user_id} AND id_balance = ${order.lock_balance_id}`);
+            }
+            await tx.execute(sql`UPDATE p2p_ads SET available_amount = available_amount + ${parseFloat(order.asset_amount)}, updated_at = NOW() WHERE id = ${order.ad_id}`);
+            await tx.execute(sql`INSERT INTO p2p_order_messages (order_id, sender_id, message, type, created_at) VALUES (${order.id}, ${order.seller_id}, 'Сделка отменена автоматически: истёк лимит времени оплаты.', 'system', NOW())`);
+          });
+        } catch { /* skip individual order errors */ }
+      }
+      if (expired.length > 0) console.log(`[P2P] Auto-expired ${expired.length} order(s)`);
+    } catch (err) { console.error("[P2P] Expiration job error:", err); }
+  }, 60_000);
 
   // Register admin routes
   registerAdminRoutes(app, storage);

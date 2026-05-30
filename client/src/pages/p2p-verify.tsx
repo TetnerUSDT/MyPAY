@@ -1,9 +1,9 @@
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, Shield, ShieldCheck, CheckCircle2, Clock, Star } from "lucide-react";
+import { ChevronLeft, Shield, ShieldCheck, CheckCircle2, Clock, Star, Upload, FileImage, X } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useRef, type RefObject } from "react";
 
 const userApiKey = () => localStorage.getItem("userApiKey") || "";
 
@@ -58,6 +58,113 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   approved: { label: "Одобрено",        color: "text-[#3ab368]" },
   rejected: { label: "Отклонено",       color: "text-red-400" },
 };
+
+// ── KYC File Upload Component ────────────────────────────────────────────────
+
+function KYCUploadSection({ pendingRequestId }: { pendingRequestId: number }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [files, setFiles] = useState<{ doc_front?: File; doc_back?: File; selfie?: File }>({});
+  const frontRef = useRef<HTMLInputElement>(null);
+  const backRef = useRef<HTMLInputElement>(null);
+  const selfieRef = useRef<HTMLInputElement>(null);
+
+  const upload = useMutation({
+    mutationFn: async () => {
+      if (!files.doc_front && !files.doc_back && !files.selfie) throw new Error("Выберите хотя бы один файл");
+      const fd = new FormData();
+      if (files.doc_front) fd.append("doc_front", files.doc_front);
+      if (files.doc_back)  fd.append("doc_back",  files.doc_back);
+      if (files.selfie)    fd.append("selfie",    files.selfie);
+      const res = await fetch("/api/p2p/verify/upload", {
+        method: "POST",
+        headers: { "x-api-key": userApiKey() },
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Ошибка загрузки");
+      return data;
+    },
+    onSuccess: () => {
+      toast({ title: "Документы загружены", description: "Модератор рассмотрит вашу заявку" });
+      setFiles({});
+      qc.invalidateQueries({ queryKey: ["/api/p2p/verify"] });
+    },
+    onError: (e: any) => toast({ title: "Ошибка", description: e.message, variant: "destructive" }),
+  });
+
+  const pick = (key: "doc_front" | "doc_back" | "selfie", file: File | undefined) => {
+    setFiles(prev => ({ ...prev, [key]: file }));
+  };
+
+  const fileSlot = (
+    key: "doc_front" | "doc_back" | "selfie",
+    label: string,
+    ref: RefObject<HTMLInputElement>
+  ) => {
+    const f = files[key];
+    return (
+      <div key={key} className="flex-1 min-w-0">
+        <p className="text-[11px] text-white/40 mb-1.5">{label}</p>
+        <input
+          ref={ref}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={e => pick(key, e.target.files?.[0])}
+        />
+        <button
+          onClick={() => ref.current?.click()}
+          className={`w-full h-16 rounded-xl border flex flex-col items-center justify-center gap-1 transition-colors ${
+            f ? "border-[#3ab368]/40 bg-[#3ab368]/5" : "border-white/10 bg-white/3 hover:border-white/20"
+          }`}
+        >
+          {f ? (
+            <>
+              <FileImage className="w-4 h-4 text-[#3ab368]" />
+              <span className="text-[10px] text-[#3ab368] max-w-[80px] truncate">{f.name}</span>
+            </>
+          ) : (
+            <>
+              <Upload className="w-4 h-4 text-white/30" />
+              <span className="text-[10px] text-white/30">Выбрать</span>
+            </>
+          )}
+        </button>
+        {f && (
+          <button onClick={() => pick(key, undefined)} className="text-[10px] text-red-400 mt-0.5 flex items-center gap-0.5">
+            <X className="w-2.5 h-2.5" />Удалить
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  const hasFile = files.doc_front || files.doc_back || files.selfie;
+
+  return (
+    <div className="bg-blue-500/5 border border-blue-500/20 rounded-2xl p-4 mt-4">
+      <p className="text-sm font-semibold text-blue-400 mb-3">Документы для верификации</p>
+      <p className="text-[11px] text-white/40 mb-3">
+        Загрузите фото паспорта или другого документа. Максимум 10 МБ на файл. Форматы: JPG, PNG, WebP.
+      </p>
+      <div className="flex gap-2 mb-3">
+        {fileSlot("doc_front", "Лицевая сторона", frontRef)}
+        {fileSlot("doc_back",  "Обратная сторона", backRef)}
+        {fileSlot("selfie",    "Селфи с документом", selfieRef)}
+      </div>
+      <button
+        onClick={() => upload.mutate()}
+        disabled={!hasFile || upload.isPending}
+        className="w-full py-2.5 rounded-xl font-bold text-sm bg-blue-500 disabled:opacity-40 text-white"
+      >
+        {upload.isPending ? "Загрузка..." : "Загрузить документы"}
+      </button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function P2PVerifyScreen() {
   const [, setLocation] = useLocation();
@@ -133,14 +240,17 @@ export default function P2PVerifyScreen() {
           </div>
         </div>
 
-        {/* Pending request banner */}
+        {/* Pending request banner + KYC upload */}
         {pendingRequest && (
-          <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-2xl p-4 mb-5 flex items-center gap-3">
-            <Clock className="w-5 h-5 text-yellow-400 flex-shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-yellow-400">Заявка на рассмотрении</p>
-              <p className="text-xs text-white/40">Уровень: {LEVELS.find(l => l.key === pendingRequest.requestedLevel)?.label}</p>
+          <div className="mb-5">
+            <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-2xl p-4 flex items-center gap-3">
+              <Clock className="w-5 h-5 text-yellow-400 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-yellow-400">Заявка на рассмотрении</p>
+                <p className="text-xs text-white/40">Уровень: {LEVELS.find(l => l.key === pendingRequest.requestedLevel)?.label}</p>
+              </div>
             </div>
+            <KYCUploadSection pendingRequestId={pendingRequest.id} />
           </div>
         )}
 

@@ -15,7 +15,8 @@ import {
   RefreshCw, Eye, CheckCircle, XCircle, Shield, ShieldCheck,
   ShieldOff, Users, ArrowRightLeft, Megaphone, ScrollText,
   AlertTriangle, Clock, BadgeCheck, Ban, User,
-  CreditCard, Flag, Plus, Pencil, Trash2, CheckSquare
+  CreditCard, Flag, Plus, Pencil, Trash2, CheckSquare,
+  Settings, Lock, Unlock
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -79,6 +80,12 @@ function DisputesTab() {
   const { data: disputes = [], isLoading, refetch } = useQuery<any[]>({
     queryKey: ["/admin/api/p2p/disputes", statusFilter],
     queryFn: () => adminRequest(`/p2p/disputes${statusFilter !== "all" ? `?status=${statusFilter}` : ""}`),
+  });
+
+  const take = useMutation({
+    mutationFn: (id: number) => adminRequest(`/p2p/disputes/${id}/take`, { method: "PATCH" }),
+    onSuccess: () => { toast({ title: "Спор взят в работу" }); queryClient.invalidateQueries({ queryKey: ["/admin/api/p2p/disputes"] }); },
+    onError: (e: Error) => toast({ title: "Ошибка", description: e.message, variant: "destructive" }),
   });
 
   const resolve = useMutation({
@@ -151,11 +158,20 @@ function DisputesTab() {
                   <TableCell className="text-xs text-muted-foreground">{d.moderatorName || "—"}</TableCell>
                   <TableCell className="text-xs">{fmtDate(d.createdAt)}</TableCell>
                   <TableCell>
-                    {d.status === "open" && (
-                      <Button size="sm" variant="outline" onClick={() => { setSelected(d); setWinner("buyer"); setComment(""); }}>
-                        <Eye className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
+                    <div className="flex gap-1">
+                      {d.status === "open" && (
+                        <Button size="sm" variant="secondary" className="h-7 px-2 text-xs"
+                          onClick={() => take.mutate(d.id)} disabled={take.isPending} title="Взять в работу">
+                          <Clock className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      {(d.status === "open" || d.status === "review") && (
+                        <Button size="sm" variant="outline" className="h-7 px-2 text-xs"
+                          onClick={() => { setSelected(d); setWinner("buyer"); setComment(""); }} title="Вынести решение">
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -401,6 +417,16 @@ function MerchantsTab() {
     onError: (e: Error) => toast({ title: "Ошибка", description: e.message, variant: "destructive" }),
   });
 
+  const blockP2P = useMutation({
+    mutationFn: ({ id, blocked }: { id: number; blocked: boolean }) =>
+      adminRequest(`/p2p/merchants/${id}/p2p-block`, { method: "PATCH", body: JSON.stringify({ blocked }) }),
+    onSuccess: (_: any, vars: any) => {
+      toast({ title: vars.blocked ? "P2P заблокирован" : "P2P разблокирован" });
+      queryClient.invalidateQueries({ queryKey: ["/admin/api/p2p/merchants"] });
+    },
+    onError: (e: Error) => toast({ title: "Ошибка", description: e.message, variant: "destructive" }),
+  });
+
   const filtered = merchants.filter((m: any) => {
     if (search && !`${m.name || ""} ${m.tgUsername || ""} ${m.id}`.toLowerCase().includes(search.toLowerCase())) return false;
     if (levelFilter !== "all" && m.merchantLevel !== levelFilter) return false;
@@ -511,9 +537,19 @@ function MerchantsTab() {
                           variant={m.blocked ? "outline" : "destructive"}
                           className="h-7 px-2"
                           onClick={() => blockUser.mutate({ id: m.id, blocked: !m.blocked })}
-                          title={m.blocked ? "Разблокировать" : "Заблокировать"}
+                          title={m.blocked ? "Разблокировать аккаунт" : "Заблокировать аккаунт"}
                         >
                           {m.blocked ? <ShieldCheck className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={m.p2pBlocked ? "secondary" : "outline"}
+                          className={`h-7 px-2 ${m.p2pBlocked ? "text-amber-600 border-amber-300" : ""}`}
+                          onClick={() => blockP2P.mutate({ id: m.id, blocked: !m.p2pBlocked })}
+                          title={m.p2pBlocked ? "Снять P2P блок" : "P2P блок"}
+                          disabled={blockP2P.isPending}
+                        >
+                          {m.p2pBlocked ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
                         </Button>
                       </div>
                     </TableCell>
@@ -950,6 +986,36 @@ function VerificationsTab() {
                 <div><span className="text-muted-foreground">Споры:</span> <strong>{selectedVr.disputesTotal ?? 0}</strong></div>
               </div>
               {selectedVr.note && <div className="text-sm bg-muted p-3 rounded"><span className="text-muted-foreground">Примечание:</span> {selectedVr.note}</div>}
+              {(selectedVr.docFrontUrl || selectedVr.docBackUrl || selectedVr.selfieUrl) && (
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Документы KYC</div>
+                  <div className="flex gap-2 flex-wrap">
+                    {selectedVr.docFrontUrl && (
+                      <a href={selectedVr.docFrontUrl} target="_blank" rel="noopener noreferrer" className="block">
+                        <img src={selectedVr.docFrontUrl} alt="Лицевая сторона" className="h-24 w-auto rounded border object-cover cursor-pointer hover:opacity-80" />
+                        <div className="text-xs text-center text-muted-foreground mt-0.5">Лицевая</div>
+                      </a>
+                    )}
+                    {selectedVr.docBackUrl && (
+                      <a href={selectedVr.docBackUrl} target="_blank" rel="noopener noreferrer" className="block">
+                        <img src={selectedVr.docBackUrl} alt="Обратная сторона" className="h-24 w-auto rounded border object-cover cursor-pointer hover:opacity-80" />
+                        <div className="text-xs text-center text-muted-foreground mt-0.5">Обратная</div>
+                      </a>
+                    )}
+                    {selectedVr.selfieUrl && (
+                      <a href={selectedVr.selfieUrl} target="_blank" rel="noopener noreferrer" className="block">
+                        <img src={selectedVr.selfieUrl} alt="Селфи" className="h-24 w-auto rounded border object-cover cursor-pointer hover:opacity-80" />
+                        <div className="text-xs text-center text-muted-foreground mt-0.5">Селфи</div>
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+              {!selectedVr.docFrontUrl && !selectedVr.docBackUrl && !selectedVr.selfieUrl && (
+                <div className="text-sm text-muted-foreground bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-700 rounded p-2">
+                  Документы ещё не загружены пользователем
+                </div>
+              )}
               <div>
                 <label className="text-sm text-muted-foreground mb-1 block">Комментарий администратора</label>
                 <Textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Причина решения..." rows={2} />
@@ -1065,6 +1131,104 @@ function ComplaintsTab() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Tab: Settings (T003)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SETTING_LABELS: Record<string, { label: string; hint?: string }> = {
+  commission_percent:        { label: "Комиссия платформы (%)", hint: "Процент от суммы сделки, напр. 0.2 = 0.2%" },
+  platform_user_id:          { label: "ID платформенного пользователя", hint: "Системный аккаунт для получения комиссий" },
+  max_disputes_before_block: { label: "Споров до авто-блока", hint: "Число споров подряд до автоматической P2P-блокировки" },
+  promotion_cost:            { label: "Стоимость продвижения (USDT)", hint: "Цена поднятия объявления в топ" },
+  promotion_duration_hours:  { label: "Длительность продвижения (ч.)", hint: "Часов, на которые поднимается объявление" },
+  auto_expire_minutes:       { label: "Авто-отмена ордера (мин.)", hint: "Через сколько минут неоплаченный ордер автоматически отменяется" },
+  min_orders_for_verified:   { label: "Сделок для Верифицированного", hint: "Минимум завершённых сделок для уровня Verified" },
+  min_orders_for_pro:        { label: "Сделок для Про", hint: "Минимум завершённых сделок для уровня Pro" },
+};
+
+function SettingsTab() {
+  const { toast } = useToast();
+  const [editing, setEditing] = useState<Record<string, string>>({});
+  const { data: settings = [], isLoading, refetch } = useQuery<any[]>({
+    queryKey: ["/admin/api/p2p/settings"],
+    queryFn: () => adminRequest("/p2p/settings"),
+  });
+
+  const save = useMutation({
+    mutationFn: ({ key, value }: { key: string; value: string }) =>
+      adminRequest(`/p2p/settings/${encodeURIComponent(key)}`, { method: "PATCH", body: JSON.stringify({ value }) }),
+    onSuccess: (_: any, vars: any) => {
+      toast({ title: "Сохранено", description: vars.key });
+      setEditing(prev => { const n = { ...prev }; delete n[vars.key]; return n; });
+      queryClient.invalidateQueries({ queryKey: ["/admin/api/p2p/settings"] });
+    },
+    onError: (e: Error) => toast({ title: "Ошибка", description: e.message, variant: "destructive" }),
+  });
+
+  if (isLoading) return <div className="py-10 text-center text-muted-foreground">Загрузка...</div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <h3 className="font-semibold">Настройки P2P</h3>
+        <Button variant="outline" size="sm" onClick={() => refetch()}>
+          <RefreshCw className="h-4 w-4 mr-2" />Обновить
+        </Button>
+      </div>
+      <div className="border rounded-lg overflow-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Параметр</TableHead>
+              <TableHead className="w-52">Значение</TableHead>
+              <TableHead className="w-20">Действие</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {settings.map((s: any) => {
+              const meta = SETTING_LABELS[s.key] ?? { label: s.key };
+              const isEdited = editing[s.key] !== undefined;
+              const displayVal = isEdited ? editing[s.key] : s.value;
+              return (
+                <TableRow key={s.key}>
+                  <TableCell>
+                    <div className="font-medium text-sm">{meta.label}</div>
+                    {meta.hint && <div className="text-xs text-muted-foreground mt-0.5">{meta.hint}</div>}
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      className="h-8 text-sm"
+                      value={displayVal ?? ""}
+                      onChange={e => setEditing(prev => ({ ...prev, [s.key]: e.target.value }))}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      size="sm"
+                      className="h-7 px-3 text-xs"
+                      disabled={!isEdited || save.isPending}
+                      onClick={() => save.mutate({ key: s.key, value: editing[s.key] })}
+                    >
+                      Сохранить
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+            {settings.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                  Настройки не найдены — перезапустите сервер для инициализации
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main page
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1077,6 +1241,7 @@ const TABS = [
   { id: "verifications",  label: "Верификации",   icon: CheckSquare,     badge: "verifications" },
   { id: "complaints",     label: "Жалобы",        icon: Flag,            badge: "complaints" },
   { id: "logs",           label: "Логи",          icon: ScrollText,      badge: null },
+  { id: "settings",       label: "Настройки",     icon: Settings,        badge: null },
 ] as const;
 
 type TabId = typeof TABS[number]["id"];
@@ -1188,6 +1353,7 @@ export default function AdminP2P() {
           {activeTab === "verifications"   && <VerificationsTab />}
           {activeTab === "complaints"      && <ComplaintsTab />}
           {activeTab === "logs"            && <LogsTab />}
+          {activeTab === "settings"        && <SettingsTab />}
         </div>
       </div>
     </AdminLayout>

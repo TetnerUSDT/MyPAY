@@ -9,6 +9,7 @@ import { telegramService } from "./telegram-service";
 import { notificationService } from "./notification-service";
 import { formatBalance } from "./utils";
 import { systemUpload } from "./upload-config";
+import { invalidateSettingsCache } from "./p2p-migrations";
 
 // Helper functions for MySQL compatibility
 function generateUUID(): string {
@@ -1567,7 +1568,7 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
 
     try {
       await db.transaction(async (tx) => {
-        const dRows = await tx.execute(sql`SELECT * FROM p2p_disputes WHERE id = ${disputeId} AND status = 'open' FOR UPDATE`);
+        const dRows = await tx.execute(sql`SELECT * FROM p2p_disputes WHERE id = ${disputeId} AND status IN ('open','review') FOR UPDATE`);
         const dispute: any = (dRows[0] as any[])[0];
         if (!dispute) throw new Error("Спор не найден или уже решён");
 
@@ -1582,8 +1583,12 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
           const amount = parseFloat(lock.amount);
           const balanceId = lock.balance_id;
           if (winner === "buyer") {
-            await tx.execute(sql`UPDATE users_balances SET sum = sum - ${amount} WHERE id_user = ${order.seller_id} AND id_balance = ${balanceId}`);
+            // Balance was already deducted from locker at lock creation (escrow).
+            // Just credit the buyer; no deduction from seller needed.
             await tx.execute(sql`INSERT INTO users_balances (id_user, id_balance, sum) VALUES (${order.buyer_id}, ${balanceId}, ${amount}) ON DUPLICATE KEY UPDATE sum = sum + ${amount}`);
+          } else {
+            // Seller wins: restore the locker's balance (deducted at lock time)
+            await tx.execute(sql`UPDATE users_balances SET sum = sum + ${amount} WHERE id_user = ${lock.user_id} AND id_balance = ${balanceId}`);
           }
           await tx.execute(sql`UPDATE p2p_balance_locks SET status = 'released', updated_at = NOW() WHERE id = ${lock.id}`);
         }
@@ -1655,6 +1660,8 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
           COALESCE(s.avg_release_time_seconds, 0) AS avg_release_time_seconds,
           COALESCE(s.is_merchant, 0) AS is_merchant,
           COALESCE(s.merchant_level, 'none') AS merchant_level,
+          COALESCE(s.p2p_blocked, 0) AS p2p_blocked,
+          s.block_reason,
           (SELECT COUNT(*) FROM p2p_ads WHERE user_id = u.id AND status = 'active') AS active_ads
         FROM users u
         LEFT JOIN p2p_user_stats s ON s.user_id = u.id
@@ -1893,5 +1900,52 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
       await db.execute(sql`UPDATE p2p_complaints SET status = ${status} WHERE id = ${id}`);
       res.json({ success: true });
     } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  // ── P2P Settings (T003) ───────────────────────────────────────────────────────
+
+  app.get(`/${adminPath}/api/p2p/settings`, requireSuperAdmin, async (req, res) => {
+    try {
+      const rows = await db.execute(sql`SELECT * FROM p2p_settings ORDER BY \`key\``);
+      res.json((rows[0] as any[]).map((r: any) => { const o: any = {}; for (const k of Object.keys(r)) { o[k.replace(/_([a-z])/g, (_: any, l: string) => l.toUpperCase())] = r[k]; } return o; }));
+    } catch (err) { res.status(500).json({ message: "Server error" }); }
+  });
+
+  app.patch(`/${adminPath}/api/p2p/settings/:key`, requireSuperAdmin, async (req, res) => {
+    try {
+      const key = req.params.key;
+      const { value } = req.body;
+      if (value === undefined) return res.status(400).json({ message: "value required" });
+      await db.execute(sql`UPDATE p2p_settings SET value = ${String(value)}, updated_at = NOW() WHERE \`key\` = ${key}`);
+      invalidateSettingsCache();
+      res.json({ success: true });
+    } catch (err) { res.status(500).json({ message: "Server error" }); }
+  });
+
+  // ── P2P Block/Unblock merchants (T005) ────────────────────────────────────────
+
+  app.patch(`/${adminPath}/api/p2p/merchants/:userId/p2p-block`, requireSuperAdmin, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const { blocked, reason } = req.body;
+      await db.execute(sql`
+        INSERT INTO p2p_user_stats (user_id, p2p_blocked, block_reason)
+        VALUES (${userId}, ${blocked ? 1 : 0}, ${reason ?? null})
+        ON DUPLICATE KEY UPDATE p2p_blocked = ${blocked ? 1 : 0}, block_reason = ${reason ?? null}, updated_at = NOW()
+      `);
+      res.json({ success: true });
+    } catch (err) { res.status(500).json({ message: "Server error" }); }
+  });
+
+  // ── P2P Dispute: Take (T006) ──────────────────────────────────────────────────
+
+  app.patch(`/${adminPath}/api/p2p/disputes/:id/take`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const adminId = req.admin!.id;
+      const rows = await db.execute(sql`UPDATE p2p_disputes SET status = 'review', moderator_id = ${adminId}, updated_at = NOW() WHERE id = ${id} AND status = 'open'`);
+      if ((rows[0] as any).affectedRows === 0) return res.status(400).json({ message: "Спор не найден или уже взят в работу" });
+      res.json({ success: true });
+    } catch (err) { res.status(500).json({ message: "Server error" }); }
   });
 }

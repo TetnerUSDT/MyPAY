@@ -1,4 +1,5 @@
-- [P2P DB migrations](p2p-db-migrations.md) — new tables/columns added via raw SQL, not drizzle-kit push; always check schema before running migrations.
-- [P2P routes pattern](p2p-routes-pattern.md) — helper functions (updateLastSeen, recalculateSortPriority, sendP2PNotification, logP2P, snakeToCamel) live at top of p2p-routes.ts; all new P2P API routes appended before closing `}` of registerP2PRoutes.
-- [Admin routes pattern](admin-routes-pattern.md) — adminPath = process.env.ADMIN_URL || 'admin'; routes use requireSuperAdmin; append before closing `}` of registerAdminRoutes in admin-routes.ts.
-- [Admin P2P tabs](admin-p2p-tabs.md) — admin/p2p.tsx has 8 tabs: disputes, orders, merchants, ads, payment-methods, verifications, complaints, logs; TABS const drives badge counts map in AdminP2P component.
+- [P2P DB migrations](p2p-db-migrations.md) — MySQL needs INFORMATION_SCHEMA checks; auto_reply/price_type/price_offset/p2p_blocked/doc_*_url/selfie_url columns added via p2p-migrations.ts
+- [P2P modular architecture](p2p-modular-arch.md) — p2p-routes.ts is a re-export shim; real code in server/p2p/ (helpers, routes-ads, routes-orders, routes-misc, index)
+- [P2P escrow pattern](p2p-escrow.md) — balance deducted at lock creation (order open), restored at cancel; release only credits buyer; admin resolve uses winner logic
+- [Admin routes pattern](admin-routes-pattern.md) — adminPath = process.env.ADMIN_URL || 'admin'; routes use requireSuperAdmin; append before closing `}` of registerAdminRoutes
+- [Admin P2P tabs](admin-p2p-tabs.md) — admin/p2p.tsx has 9 tabs: disputes, orders, merchants, ads, payment-methods, verifications, complaints, logs, settings; TABS const drives badge counts map

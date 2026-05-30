@@ -12,6 +12,7 @@ async function ensureUploadDirs() {
     'public/uploads/icons/cryptocurrency',
     'public/uploads/assets',
     'public/uploads/support',
+    'public/uploads/kyc',
   ];
   
   for (const dir of dirs) {
@@ -87,6 +88,32 @@ export const userUpload = multer({
   fileFilter: imageFileFilter,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
+  }
+});
+
+// KYC document uploads
+const kycStorage = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    const uploadPath = 'public/uploads/kyc';
+    try {
+      await fs.mkdir(uploadPath, { recursive: true });
+      cb(null, uploadPath);
+    } catch (error: any) {
+      cb(error, uploadPath);
+    }
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, `kyc-${uniqueSuffix}${ext}`);
+  }
+});
+
+export const kycUpload = multer({
+  storage: kycStorage,
+  fileFilter: imageFileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB for KYC documents
   }
 });
 
