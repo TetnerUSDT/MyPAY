@@ -502,14 +502,14 @@ export default function P2PCreateAdScreen() {
               value={minAmount}
               onChange={e => setMinAmount(e.target.value)}
               placeholder="От"
-              className="flex-1 bg-[#13151A] border border-white/5 rounded-2xl px-4 py-3.5 text-white text-base outline-none placeholder-white/20"
+              className="flex-1 min-w-0 bg-[#13151A] border border-white/5 rounded-2xl px-4 py-3.5 text-white text-base outline-none placeholder-white/20"
             />
             <input
               type="number"
               value={maxAmount}
               onChange={e => setMaxAmount(e.target.value)}
               placeholder="До"
-              className="flex-1 bg-[#13151A] border border-white/5 rounded-2xl px-4 py-3.5 text-white text-base outline-none placeholder-white/20"
+              className="flex-1 min-w-0 bg-[#13151A] border border-white/5 rounded-2xl px-4 py-3.5 text-white text-base outline-none placeholder-white/20"
             />
           </div>
         </div>
