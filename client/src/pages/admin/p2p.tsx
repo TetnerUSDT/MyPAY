@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/AdminLayout";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import {
   ShieldOff, Users, ArrowRightLeft, Megaphone, ScrollText,
   AlertTriangle, Clock, BadgeCheck, Ban, User,
   CreditCard, Flag, Plus, Pencil, Trash2, CheckSquare,
-  Settings, Lock, Unlock
+  Settings, Lock, Unlock, ChevronLeft, ChevronRight
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1246,6 +1246,100 @@ const TABS = [
 
 type TabId = typeof TABS[number]["id"];
 
+function TabBar({ tabs, activeTab, badgeCounts, onSelect }: {
+  tabs: typeof TABS;
+  activeTab: string;
+  badgeCounts: Record<string, number>;
+  onSelect: (id: string) => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 2);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+  }, []);
+
+  useEffect(() => {
+    checkScroll();
+    const el = scrollRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", checkScroll, { passive: true });
+    const ro = new ResizeObserver(checkScroll);
+    ro.observe(el);
+    return () => { el.removeEventListener("scroll", checkScroll); ro.disconnect(); };
+  }, [checkScroll]);
+
+  // Scroll active tab into view when it changes
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const btn = el.querySelector(`[data-tab="${activeTab}"]`) as HTMLElement | null;
+    if (btn) btn.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+  }, [activeTab]);
+
+  const scroll = (dir: "left" | "right") => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir === "left" ? -160 : 160, behavior: "smooth" });
+  };
+
+  return (
+    <div className="relative border-b">
+      {canScrollLeft && (
+        <button
+          onClick={() => scroll("left")}
+          className="absolute left-0 top-0 bottom-0 z-10 flex items-center px-1 bg-gradient-to-r from-background to-transparent pr-4"
+          aria-label="Прокрутить влево"
+        >
+          <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+        </button>
+      )}
+      {canScrollRight && (
+        <button
+          onClick={() => scroll("right")}
+          className="absolute right-0 top-0 bottom-0 z-10 flex items-center px-1 bg-gradient-to-l from-background to-transparent pl-4"
+          aria-label="Прокрутить вправо"
+        >
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        </button>
+      )}
+      <div
+        ref={scrollRef}
+        className="flex gap-1 overflow-x-auto overflow-y-hidden scrollbar-hide"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+      >
+        {tabs.map(({ id, label, icon: Icon, badge }) => {
+          const count = badge ? (badgeCounts[badge] ?? 0) : 0;
+          return (
+            <button
+              key={id}
+              data-tab={id}
+              onClick={() => onSelect(id)}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap -mb-px shrink-0 ${
+                activeTab === id
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+              {badge && count > 0 && (
+                <span className="ml-1 bg-destructive text-destructive-foreground text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-none">
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminP2P() {
   const [activeTab, setActiveTab] = useState<TabId>("disputes");
 
@@ -1318,30 +1412,12 @@ export default function AdminP2P() {
         </div>
 
         {/* Tab bar */}
-        <div className="border-b flex gap-1 overflow-x-auto">
-          {TABS.map(({ id, label, icon: Icon, badge }) => {
-            const count = badge ? badgeCounts[badge] : 0;
-            return (
-              <button
-                key={id}
-                onClick={() => setActiveTab(id)}
-                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap -mb-px ${
-                  activeTab === id
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                {label}
-                {badge && count > 0 && (
-                  <span className="ml-1 bg-destructive text-destructive-foreground text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-none">
-                    {count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+        <TabBar
+          tabs={TABS}
+          activeTab={activeTab}
+          badgeCounts={badgeCounts}
+          onSelect={(id) => setActiveTab(id as TabId)}
+        />
 
         {/* Tab content */}
         <div>
