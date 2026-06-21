@@ -494,6 +494,77 @@ export const p2pLogs = mysqlTable("p2p_logs", {
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
+// ─── Business / Merchant Module ───────────────────────────────────────────────
+
+export const merchantShops = mysqlTable("merchant_shops", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: int("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 255 }).notNull(),
+  domain: varchar("domain", { length: 255 }).notNull(),
+  apiKey: varchar("api_key", { length: 64 }).notNull().unique(),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  addressMode: varchar("address_mode", { length: 20 }).notNull().default("permanent"),
+  webhookUrl: varchar("webhook_url", { length: 500 }),
+  balanceUsdt: decimal("balance_usdt", { precision: 18, scale: 8 }).notNull().default("0"),
+  totalReceived: decimal("total_received", { precision: 18, scale: 8 }).notNull().default("0"),
+  totalPaidOut: decimal("total_paid_out", { precision: 18, scale: 8 }).notNull().default("0"),
+  adminNote: text("admin_note"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`),
+});
+
+export const merchantPayments = mysqlTable("merchant_payments", {
+  id: int("id").primaryKey().autoincrement(),
+  shopId: int("shop_id").notNull().references(() => merchantShops.id, { onDelete: "cascade" }),
+  orderId: varchar("order_id", { length: 255 }),
+  externalUserId: varchar("external_user_id", { length: 255 }),
+  walletAddress: varchar("wallet_address", { length: 255 }),
+  network: varchar("network", { length: 50 }).notNull(),
+  currency: varchar("currency", { length: 20 }).notNull().default("USDT"),
+  amount: decimal("amount", { precision: 18, scale: 8 }),
+  amountReceived: decimal("amount_received", { precision: 18, scale: 8 }),
+  txHash: varchar("tx_hash", { length: 255 }),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  addressType: varchar("address_type", { length: 20 }).notNull().default("permanent"),
+  expiresAt: timestamp("expires_at"),
+  confirmedAt: timestamp("confirmed_at"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const merchantPayoutRequests = mysqlTable("merchant_payout_requests", {
+  id: int("id").primaryKey().autoincrement(),
+  shopId: int("shop_id").notNull().references(() => merchantShops.id, { onDelete: "cascade" }),
+  toAddress: varchar("to_address", { length: 255 }).notNull(),
+  network: varchar("network", { length: 50 }).notNull(),
+  currency: varchar("currency", { length: 20 }).notNull().default("USDT"),
+  amount: decimal("amount", { precision: 18, scale: 8 }).notNull(),
+  txHash: varchar("tx_hash", { length: 255 }),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  note: text("note"),
+  processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const merchantScannerKeys = mysqlTable("merchant_scanner_keys", {
+  id: int("id").primaryKey().autoincrement(),
+  provider: varchar("provider", { length: 50 }).notNull(),
+  apiKey: varchar("api_key", { length: 255 }).notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  lastUsedAt: timestamp("last_used_at"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const insertMerchantShopSchema = createInsertSchema(merchantShops).omit({ id: true, apiKey: true, createdAt: true, updatedAt: true });
+export const insertMerchantPaymentSchema = createInsertSchema(merchantPayments).omit({ id: true, createdAt: true });
+export const insertMerchantPayoutSchema = createInsertSchema(merchantPayoutRequests).omit({ id: true, createdAt: true });
+
+export type MerchantShop = typeof merchantShops.$inferSelect;
+export type InsertMerchantShop = z.infer<typeof insertMerchantShopSchema>;
+export type MerchantPayment = typeof merchantPayments.$inferSelect;
+export type InsertMerchantPayment = z.infer<typeof insertMerchantPaymentSchema>;
+export type MerchantPayoutRequest = typeof merchantPayoutRequests.$inferSelect;
+export type InsertMerchantPayout = z.infer<typeof insertMerchantPayoutSchema>;
+
 export const insertP2PAdSchema = createInsertSchema(p2pAds).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertP2POrderSchema = createInsertSchema(p2pOrders).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertP2PMessageSchema = createInsertSchema(p2pOrderMessages).omit({ id: true, createdAt: true });

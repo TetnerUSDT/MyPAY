@@ -13,6 +13,8 @@ import { createWalletViaAPI } from "./wallet-api";
 import { registerAdminRoutes } from "./admin-routes";
 import { registerP2PRoutes, initP2PPaymentMethods } from "./p2p-routes";
 import { runP2PMigrations } from "./p2p-migrations";
+import { runBusinessMigrations } from "./business-migrations";
+import { registerBusinessRoutes } from "./business-routes";
 import { telegramService } from "./telegram-service";
 import { notificationService } from "./notification-service";
 import { requireSuperAdmin, type AdminRequest } from "./admin-middleware";
@@ -2072,6 +2074,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   runP2PMigrations()
     .then(() => initP2PPaymentMethods())
     .catch(console.error);
+
+  // Register Business / Merchant routes
+  registerBusinessRoutes(app);
+  runBusinessMigrations().catch(console.error);
 
   // Auto-expiration job: cancel unpaid orders past deadline every 60 seconds
   setInterval(async () => {

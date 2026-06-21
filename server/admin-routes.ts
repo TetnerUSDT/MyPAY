@@ -1948,4 +1948,32 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
       res.json({ success: true });
     } catch (err) { res.status(500).json({ message: "Server error" }); }
   });
+
+  // ── Business / Merchant Module (Admin) ────────────────────────────────────────
+
+  app.get(`/${adminPath}/api/business/shops`, requireAdmin, async (req: AdminRequest, res) => {
+    try {
+      const rows = await db.execute(sql`
+        SELECT s.*, u.name as user_name, u.tg_username, u.tg_id
+        FROM merchant_shops s
+        JOIN users u ON u.id = s.user_id
+        ORDER BY s.created_at DESC
+      `);
+      res.json(rows[0] as any[]);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.patch(`/${adminPath}/api/business/shops/:id`, requireAdmin, async (req: AdminRequest, res) => {
+    const { status, adminNote } = req.body;
+    if (!status || !["active", "rejected", "suspended", "pending"].includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+    try {
+      await db.execute(sql`
+        UPDATE merchant_shops SET status = ${status}, admin_note = ${adminNote ?? null}
+        WHERE id = ${parseInt(req.params.id)}
+      `);
+      res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
 }
