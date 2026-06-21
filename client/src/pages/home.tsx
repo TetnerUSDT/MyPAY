@@ -283,14 +283,16 @@ export default function HomeScreen() {
       ),
     },
     {
-      href: "/history",
-      testId: "quick-action-history",
-      label: t('home.history'),
+      href: "/business",
+      testId: "quick-action-business",
+      label: t('home.business'),
       iconColor: "text-orange-400",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="12" cy="12" r="10"/>
-          <polyline points="12,6 12,12 16,14"/>
+          <rect x="2" y="7" width="20" height="14" rx="2"/>
+          <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+          <line x1="12" y1="12" x2="12" y2="12"/>
+          <path d="M2 12h20"/>
         </svg>
       ),
     },

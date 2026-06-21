@@ -50,7 +50,8 @@
     "vouchers": "Ваучеры",
     "vouchersDesc": "Создай или активируй",
     "history": "История",
-    "historyDesc": "Мои операции"
+    "historyDesc": "Мои операции",
+    "business": "Business"
   },
   "banners": {
     "vouchers": "Ваучеры SwiftX",

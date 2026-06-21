@@ -50,7 +50,8 @@
     "vouchers": "Vouchers",
     "vouchersDesc": "Create or activate",
     "history": "History",
-    "historyDesc": "My transactions"
+    "historyDesc": "My transactions",
+    "business": "Business"
   },
   "banners": {
     "vouchers": "SwiftX Vouchers",
