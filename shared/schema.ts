@@ -504,6 +504,7 @@ export const merchantShops = mysqlTable("merchant_shops", {
   apiKey: varchar("api_key", { length: 64 }).notNull().unique(),
   status: varchar("status", { length: 20 }).notNull().default("pending"),
   addressMode: varchar("address_mode", { length: 20 }).notNull().default("permanent"),
+  enabledNetworks: text("enabled_networks"),
   webhookUrl: varchar("webhook_url", { length: 500 }),
   balanceUsdt: decimal("balance_usdt", { precision: 18, scale: 8 }).notNull().default("0"),
   totalReceived: decimal("total_received", { precision: 18, scale: 8 }).notNull().default("0"),
@@ -554,9 +555,25 @@ export const merchantScannerKeys = mysqlTable("merchant_scanner_keys", {
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const merchantWallets = mysqlTable("merchant_wallets", {
+  id: int("id").primaryKey().autoincrement(),
+  shopId: int("shop_id").notNull().references(() => merchantShops.id, { onDelete: "cascade" }),
+  address: varchar("address", { length: 255 }).notNull(),
+  privateKey: varchar("private_key", { length: 500 }),
+  network: varchar("network", { length: 50 }).notNull(),
+  mode: varchar("mode", { length: 20 }).notNull().default("standard"),
+  gasfreeAddress: varchar("gasfree_address", { length: 255 }),
+  externalUserId: varchar("external_user_id", { length: 255 }),
+  orderId: varchar("order_id", { length: 255 }),
+  reservedUntil: timestamp("reserved_until"),
+  status: varchar("status", { length: 20 }).notNull().default("active"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
 export const insertMerchantShopSchema = createInsertSchema(merchantShops).omit({ id: true, apiKey: true, createdAt: true, updatedAt: true });
 export const insertMerchantPaymentSchema = createInsertSchema(merchantPayments).omit({ id: true, createdAt: true });
 export const insertMerchantPayoutSchema = createInsertSchema(merchantPayoutRequests).omit({ id: true, createdAt: true });
+export const insertMerchantWalletSchema = createInsertSchema(merchantWallets).omit({ id: true, createdAt: true });
 
 export type MerchantShop = typeof merchantShops.$inferSelect;
 export type InsertMerchantShop = z.infer<typeof insertMerchantShopSchema>;
@@ -564,6 +581,8 @@ export type MerchantPayment = typeof merchantPayments.$inferSelect;
 export type InsertMerchantPayment = z.infer<typeof insertMerchantPaymentSchema>;
 export type MerchantPayoutRequest = typeof merchantPayoutRequests.$inferSelect;
 export type InsertMerchantPayout = z.infer<typeof insertMerchantPayoutSchema>;
+export type MerchantWallet = typeof merchantWallets.$inferSelect;
+export type InsertMerchantWallet = z.infer<typeof insertMerchantWalletSchema>;
 
 export const insertP2PAdSchema = createInsertSchema(p2pAds).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertP2POrderSchema = createInsertSchema(p2pOrders).omit({ id: true, createdAt: true, updatedAt: true });

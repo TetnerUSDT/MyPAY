@@ -4,10 +4,45 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeft, Plus, Store, Copy, Check, RefreshCw, Settings,
   ArrowDownLeft, ArrowUpRight, Clock, CheckCircle2, XCircle,
-  Eye, EyeOff, Loader2, AlertCircle, ExternalLink, Zap
+  Eye, EyeOff, Loader2, AlertCircle, ExternalLink, Zap, Wallet
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+
+// ── Network definitions ───────────────────────────────────────────────────────
+
+interface NetworkDef {
+  id: string;
+  label: string;
+  sub: string;
+  icon: string;
+  apiNode?: string;
+  apiMode?: string;
+  selectable: boolean;
+  badge?: string;
+}
+
+const NETWORKS: NetworkDef[] = [
+  { id: "TRON",     label: "TRON",         sub: "TRC20 · USDT",      icon: "tron.png",      apiNode: "TRON",     apiMode: "standard", selectable: true },
+  { id: "TRON_GF",  label: "TRON GasFree", sub: "без комиссии TRX",  icon: "tron.png",      apiNode: "TRON",     apiMode: "gasfree",  selectable: true, badge: "GasFree" },
+  { id: "BSC",      label: "BNB Chain",    sub: "BEP20 · USDT",      icon: "bnb.png",       apiNode: "BSC",      apiMode: "standard", selectable: true },
+  { id: "TON",      label: "TON",          sub: "Jetton · USDT",     icon: "ton.png",       apiNode: "TON",      apiMode: "standard", selectable: true },
+  { id: "ETH",      label: "Ethereum",     sub: "ERC20 · USDT",      icon: "ethereum.png",  apiNode: "ETH",      apiMode: "standard", selectable: true },
+  { id: "POLYGON",  label: "Polygon",      sub: "ERC20 · USDT",      icon: "polygon.png",   apiNode: "POLYGON",  apiMode: "standard", selectable: true },
+  { id: "SOLANA",   label: "Solana",       sub: "SPL · USDT",        icon: "solana.png",    apiNode: "SOLANA",   apiMode: "standard", selectable: true },
+  { id: "ARBITRUM", label: "Arbitrum",     sub: "ERC20 · USDT",      icon: "arbitrum.png",  apiNode: "ARBITRUM", apiMode: "standard", selectable: true },
+  { id: "AVAX",     label: "Avalanche",    sub: "Скоро",             icon: "avalanche.png", selectable: false },
+  { id: "DOT",      label: "Polkadot",     sub: "Скоро",             icon: "polkadot.png",  selectable: false },
+  { id: "XRP",      label: "XRP",          sub: "Скоро",             icon: "xrp.png",       selectable: false },
+  { id: "DOGE",     label: "Dogecoin",     sub: "Скоро",             icon: "dogecoin.png",  selectable: false },
+  { id: "ADA",      label: "Cardano",      sub: "Скоро",             icon: "cardano.png",   selectable: false },
+  { id: "XMR",      label: "Monero",       sub: "Скоро",             icon: "monero.png",    selectable: false },
+  { id: "XTZ",      label: "Tezos",        sub: "Скоро",             icon: "tezos.png",     selectable: false },
+];
+
+const NET_BY_ID: Record<string, NetworkDef> = Object.fromEntries(NETWORKS.map(n => [n.id, n]));
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 type ShopStatus = "pending" | "active" | "rejected" | "suspended";
 type AddressMode = "permanent" | "temporary";
@@ -20,6 +55,7 @@ interface Shop {
   apiKey: string;
   status: ShopStatus;
   addressMode: AddressMode;
+  enabledNetworks: string | null;
   webhookUrl: string | null;
   balanceUsdt: string;
   totalReceived: string;
@@ -59,6 +95,22 @@ interface Payout {
   createdAt: string;
 }
 
+interface MerchantWallet {
+  id: number;
+  shopId: number;
+  address: string;
+  network: string;
+  mode: string;
+  gasfreeAddress: string | null;
+  externalUserId: string | null;
+  orderId: string | null;
+  reservedUntil: string | null;
+  status: string;
+  createdAt: string;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 function userApiKey() {
   return localStorage.getItem("userApiKey") || "";
 }
@@ -68,6 +120,11 @@ function fetchBusiness(path: string) {
     if (!r.ok) throw new Error("Request failed");
     return r.json();
   });
+}
+
+function parseNetworks(raw: string | null): string[] {
+  if (!raw) return [];
+  try { return JSON.parse(raw); } catch { return []; }
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -80,6 +137,8 @@ function StatusBadge({ status }: { status: string }) {
     processing: { label: "В обработке",      color: "#e9c46a" },
     completed:  { label: "Выполнен",         color: "#3ab368" },
     cancelled:  { label: "Отменён",          color: "#ef4444" },
+    reserved:   { label: "Зарезервирован",   color: "#6366f1" },
+    permanent:  { label: "Постоянный",       color: "#3ab368" },
   };
   const s = map[status] ?? { label: status, color: "#ffffff55" };
   return (
@@ -112,6 +171,17 @@ function truncate(s: string, n = 16) {
   if (!s) return "—";
   if (s.length <= n) return s;
   return s.slice(0, 8) + "..." + s.slice(-6);
+}
+
+function NetworkIcon({ iconFile, size = 28 }: { iconFile: string; size?: number }) {
+  return (
+    <img
+      src={`/uploads/icons/cryptocurrency/${iconFile}`}
+      width={size} height={size}
+      className="rounded-full object-cover flex-shrink-0"
+      onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+    />
+  );
 }
 
 // ── Create shop form ──────────────────────────────────────────────────────────
@@ -169,6 +239,7 @@ function CreateShopForm({ onSuccess }: { onSuccess: () => void }) {
 // ── Shop card (list view) ─────────────────────────────────────────────────────
 
 function ShopCard({ shop, onSelect }: { shop: Shop; onSelect: () => void }) {
+  const nets = parseNetworks(shop.enabledNetworks);
   return (
     <button
       onClick={onSelect}
@@ -187,7 +258,7 @@ function ShopCard({ shop, onSelect }: { shop: Shop; onSelect: () => void }) {
         </div>
         <ChevronLeft className="w-4 h-4 text-white/20 rotate-180" />
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-2 mb-3">
         <div className="bg-[#0E1014] rounded-xl p-3">
           <div className="text-[10px] text-white/40 mb-0.5">Баланс</div>
           <div className="text-sm font-bold text-white">{parseFloat(shop.balanceUsdt).toFixed(2)} <span className="text-white/40 text-xs">USDT</span></div>
@@ -197,13 +268,27 @@ function ShopCard({ shop, onSelect }: { shop: Shop; onSelect: () => void }) {
           <div className="text-sm font-bold text-white">{parseFloat(shop.totalReceived).toFixed(2)} <span className="text-white/40 text-xs">USDT</span></div>
         </div>
       </div>
+      {nets.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {nets.map(n => {
+            const def = NET_BY_ID[n];
+            if (!def) return null;
+            return (
+              <div key={n} className="flex items-center gap-1 bg-white/5 rounded-full px-2 py-0.5">
+                <NetworkIcon iconFile={def.icon} size={14} />
+                <span className="text-[10px] text-white/60">{def.label}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </button>
   );
 }
 
 // ── Shop detail view ──────────────────────────────────────────────────────────
 
-type ShopTab = "overview" | "payments" | "payouts" | "settings";
+type ShopTab = "overview" | "payments" | "payouts" | "wallets" | "settings";
 
 function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => void }) {
   const [tab, setTab] = useState<ShopTab>("overview");
@@ -229,9 +314,15 @@ function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => v
     enabled: tab === "payouts",
   });
 
+  const { data: wallets = [], refetch: refetchWallets } = useQuery<MerchantWallet[]>({
+    queryKey: ["/api/business/wallets", shop.id],
+    queryFn: () => fetchBusiness(`/api/business/shops/${shop.id}/wallets`),
+    enabled: tab === "wallets",
+  });
+
   const regenKey = useMutation({
     mutationFn: () => apiRequest("POST", `/api/business/shops/${shop.id}/regenerate-key`).then(r => r.json()),
-    onSuccess: (data) => {
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/business/shops", shop.id] });
       qc.invalidateQueries({ queryKey: ["/api/business/shops"] });
       toast({ title: "API-ключ обновлён" });
@@ -240,11 +331,14 @@ function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => v
   });
 
   const TABS: { id: ShopTab; label: string }[] = [
-    { id: "overview", label: "Обзор" },
-    { id: "payments", label: "Платежи" },
-    { id: "payouts", label: "Выплаты" },
-    { id: "settings", label: "Настройки" },
+    { id: "overview",  label: "Обзор" },
+    { id: "payments",  label: "Платежи" },
+    { id: "payouts",   label: "Выплаты" },
+    { id: "wallets",   label: "Кошельки" },
+    { id: "settings",  label: "Настройки" },
   ];
+
+  const enabledNets = parseNetworks(shop.enabledNetworks);
 
   return (
     <div className="flex flex-col h-full">
@@ -277,11 +371,11 @@ function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => v
 
       {/* Tabs */}
       <div className="px-4 pb-3">
-        <div className="bg-[#0E1014] rounded-2xl p-1 flex gap-1">
+        <div className="bg-[#0E1014] rounded-2xl p-1 flex gap-0.5 overflow-x-auto">
           {TABS.map(t => (
             <button
               key={t.id} onClick={() => setTab(t.id)}
-              className={`flex-1 py-2 rounded-xl text-xs font-medium transition-colors ${tab === t.id ? "bg-[#3ab368] text-white" : "text-white/40 hover:text-white/70"}`}
+              className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-medium transition-colors ${tab === t.id ? "bg-[#3ab368] text-white" : "text-white/40 hover:text-white/70"}`}
             >
               {t.label}
             </button>
@@ -312,10 +406,32 @@ function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => v
               </div>
               <div className="bg-[#13151A] border border-white/5 rounded-2xl p-4">
                 <div className="text-[10px] text-white/40 uppercase tracking-wide mb-1">Режим адресов</div>
-                <div className="text-sm font-bold text-white capitalize">{shop.addressMode === "permanent" ? "Постоянный" : "Временный"}</div>
+                <div className="text-sm font-bold text-white">{shop.addressMode === "permanent" ? "Постоянный" : "Временный"}</div>
                 <div className="text-xs text-white/40">{shop.addressMode === "permanent" ? "по user_id" : "по order_id"}</div>
               </div>
             </div>
+
+            {/* Enabled networks */}
+            {enabledNets.length > 0 && (
+              <div className="bg-[#13151A] border border-white/5 rounded-2xl p-4">
+                <div className="text-[10px] text-white/40 uppercase tracking-wide mb-3">Активные сети</div>
+                <div className="flex flex-wrap gap-2">
+                  {enabledNets.map(n => {
+                    const def = NET_BY_ID[n];
+                    if (!def) return null;
+                    return (
+                      <div key={n} className="flex items-center gap-2 bg-[#3ab368]/10 border border-[#3ab368]/20 rounded-xl px-3 py-2">
+                        <NetworkIcon iconFile={def.icon} size={18} />
+                        <div>
+                          <div className="text-xs font-medium text-white leading-none">{def.label}</div>
+                          {def.badge && <div className="text-[9px] text-[#3ab368] leading-none mt-0.5">{def.badge}</div>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* API Key */}
             <div className="bg-[#13151A] border border-white/5 rounded-2xl p-4">
@@ -351,8 +467,8 @@ function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => v
               <p className="text-xs text-white/50 mb-3">Для получения адреса оплаты отправьте POST-запрос:</p>
               <div className="bg-[#0E1014] rounded-xl p-3 font-mono text-[10px] text-white/60 space-y-1">
                 <div><span className="text-[#3ab368]">POST</span> /api/merchant/address</div>
-                <div className="text-white/30">x-shop-key: {showKey ? shop.apiKey : shop.apiKey.slice(0,8) + "..."}</div>
-                <div className="text-white/30">{"{"} "network": "TRC20", "user_id": "123" {"}"}</div>
+                <div className="text-white/30">x-shop-key: {showKey ? shop.apiKey : shop.apiKey.slice(0, 8) + "..."}</div>
+                <div className="text-white/30">{"{"} "network": "TRON", "user_id": "123" {"}"}</div>
               </div>
             </div>
           </>
@@ -398,9 +514,154 @@ function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => v
         {/* ── Payouts ── */}
         {tab === "payouts" && <PayoutsTab shop={shop} payouts={payouts} />}
 
+        {/* ── Wallets ── */}
+        {tab === "wallets" && <WalletsTab shop={shop} wallets={wallets} onRefresh={() => refetchWallets()} />}
+
         {/* ── Settings ── */}
         {tab === "settings" && <SettingsTab shop={shop} />}
       </div>
+    </div>
+  );
+}
+
+// ── Wallets tab ───────────────────────────────────────────────────────────────
+
+function WalletsTab({ shop, wallets, onRefresh }: { shop: Shop; wallets: MerchantWallet[]; onRefresh: () => void }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [genNetwork, setGenNetwork] = useState("");
+  const [genMode, setGenMode] = useState("standard");
+  const [showGen, setShowGen] = useState(false);
+  const enabledNets = parseNetworks(shop.enabledNetworks);
+
+  const generate = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/business/shops/${shop.id}/wallets/generate`, {
+      network: genNetwork, mode: genMode
+    }).then(r => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/business/wallets", shop.id] });
+      toast({ title: "Кошелёк добавлен в пул" });
+      setShowGen(false);
+    },
+    onError: (e: any) => toast({ title: "Ошибка", description: e.message, variant: "destructive" }),
+  });
+
+  const activeNets = NETWORKS.filter(n => n.selectable && enabledNets.includes(n.id));
+
+  const walletStatus = (w: MerchantWallet) => {
+    if (w.status === "permanent") return "permanent";
+    if (w.status === "reserved") return "reserved";
+    return "active";
+  };
+
+  return (
+    <div className="space-y-3">
+      {shop.status === "active" && (
+        <button
+          onClick={() => setShowGen(v => !v)}
+          className="w-full py-3 rounded-2xl border border-dashed border-[#3ab368]/40 text-[#3ab368] text-sm font-medium flex items-center justify-center gap-2 hover:bg-[#3ab368]/5 transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          Добавить кошелёк в пул
+        </button>
+      )}
+
+      {showGen && (
+        <div className="bg-[#13151A] border border-white/5 rounded-2xl p-4 space-y-3">
+          <div className="text-sm font-semibold text-white">Генерация кошелька</div>
+          {enabledNets.length === 0 ? (
+            <p className="text-xs text-[#e9c46a]">Сначала выберите активные сети в Настройках магазина.</p>
+          ) : (
+            <>
+              <div>
+                <label className="text-xs text-white/40 mb-2 block">Выберите сеть</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {activeNets.map(n => (
+                    <button
+                      key={n.id}
+                      onClick={() => { setGenNetwork(n.apiNode!); setGenMode(n.apiMode!); }}
+                      className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all ${
+                        genNetwork === n.apiNode && genMode === n.apiMode
+                          ? "border-[#3ab368] bg-[#3ab368]/10"
+                          : "border-white/10 bg-[#0E1014] hover:border-white/20"
+                      }`}
+                    >
+                      <NetworkIcon iconFile={n.icon} size={22} />
+                      <div className="min-w-0">
+                        <div className="text-xs font-medium text-white truncate">{n.label}</div>
+                        {n.badge && <div className="text-[9px] text-[#3ab368]">{n.badge}</div>}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button
+                onClick={() => generate.mutate()}
+                disabled={!genNetwork || generate.isPending}
+                className="w-full py-3 rounded-xl bg-[#3ab368] text-white text-sm font-semibold disabled:opacity-40 flex items-center justify-center gap-2"
+              >
+                {generate.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                Сгенерировать
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-white/40">Кошельков: {wallets.length}</span>
+        <button onClick={onRefresh} className="text-xs text-white/40 flex items-center gap-1 hover:text-white/70">
+          <RefreshCw className="w-3 h-3" /> Обновить
+        </button>
+      </div>
+
+      {wallets.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-white/30">
+          <Wallet className="w-10 h-10 mb-3 opacity-30" />
+          <p className="text-sm">Кошельков нет</p>
+          <p className="text-xs mt-1 text-center">Добавьте кошельки в пул для приёма платежей</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {wallets.map(w => {
+            const def = NETWORKS.find(n => n.apiNode === w.network && n.apiMode === w.mode) ?? NETWORKS.find(n => n.apiNode === w.network);
+            return (
+              <div key={w.id} className="bg-[#13151A] border border-white/5 rounded-2xl p-3.5">
+                <div className="flex items-start gap-3">
+                  {def && <NetworkIcon iconFile={def.icon} size={32} />}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-semibold text-white">{def?.label ?? w.network}</span>
+                      {w.mode === "gasfree" && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#3ab368]/20 text-[#3ab368]">GasFree</span>}
+                      <StatusBadge status={walletStatus(w)} />
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[10px] text-white/40 font-mono">
+                      <span>{truncate(w.address, 22)}</span>
+                      <CopyButton text={w.address} />
+                    </div>
+                    {w.gasfreeAddress && (
+                      <div className="text-[9px] text-white/30 font-mono mt-0.5">GF: {truncate(w.gasfreeAddress, 22)}</div>
+                    )}
+                    {(w.externalUserId || w.orderId) && (
+                      <div className="text-[10px] text-white/30 mt-1">
+                        {w.externalUserId && <span>user: <span className="text-white/50">{w.externalUserId}</span></span>}
+                        {w.orderId && <span className="ml-2">order: <span className="text-white/50">{w.orderId}</span></span>}
+                      </div>
+                    )}
+                    {w.reservedUntil && w.status === "reserved" && (
+                      <div className="text-[10px] text-[#e9c46a]/70 mt-0.5 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        до {formatDate(w.reservedUntil)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-white/20 flex-shrink-0">#{w.id}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -410,7 +671,7 @@ function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => v
 function PayoutsTab({ shop, payouts }: { shop: Shop; payouts: Payout[] }) {
   const [showCreate, setShowCreate] = useState(false);
   const [toAddress, setToAddress] = useState("");
-  const [network, setNetwork] = useState("TRC20");
+  const [network, setNetwork] = useState("TRON");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const { toast } = useToast();
@@ -459,9 +720,11 @@ function PayoutsTab({ shop, payouts }: { shop: Shop; payouts: Payout[] }) {
           <div>
             <label className="text-xs text-white/40 mb-1 block">Сеть</label>
             <select value={network} onChange={e => setNetwork(e.target.value)} className="w-full bg-[#0E1014] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none">
-              <option value="TRC20">TRC20 (TRON)</option>
-              <option value="BEP20">BEP20 (BSC)</option>
+              <option value="TRON">TRON (TRC20)</option>
+              <option value="BSC">BNB Chain (BEP20)</option>
               <option value="TON">TON</option>
+              <option value="ETH">Ethereum</option>
+              <option value="POLYGON">Polygon</option>
             </select>
           </div>
           <div>
@@ -524,7 +787,6 @@ function PayoutCard({ payout, shopId, onUpdate }: { payout: Payout; shopId: numb
         <CopyButton text={payout.toAddress} />
       </div>
       {payout.note && <div className="text-xs text-white/40 mb-2">{payout.note}</div>}
-
       {isPending && (
         <div className="mt-2 space-y-2">
           <button onClick={() => setExpanded(v => !v)} className="text-xs text-[#3ab368] underline-offset-2 underline">
@@ -538,15 +800,9 @@ function PayoutCard({ payout, shopId, onUpdate }: { payout: Payout; shopId: numb
                 className="w-full bg-[#0E1014] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-white/20 focus:outline-none font-mono"
               />
               <div className="flex gap-2">
-                <button onClick={() => onUpdate("processing")} className="flex-1 py-2 rounded-xl bg-[#e9c46a]/20 text-[#e9c46a] text-xs font-medium">
-                  В обработке
-                </button>
-                <button onClick={() => onUpdate("completed", txHash || undefined)} className="flex-1 py-2 rounded-xl bg-[#3ab368]/20 text-[#3ab368] text-xs font-medium">
-                  Выполнено
-                </button>
-                <button onClick={() => onUpdate("cancelled")} className="flex-1 py-2 rounded-xl bg-red-500/20 text-red-400 text-xs font-medium">
-                  Отменить
-                </button>
+                <button onClick={() => onUpdate("processing")} className="flex-1 py-2 rounded-xl bg-[#e9c46a]/20 text-[#e9c46a] text-xs font-medium">В обработке</button>
+                <button onClick={() => onUpdate("completed", txHash || undefined)} className="flex-1 py-2 rounded-xl bg-[#3ab368]/20 text-[#3ab368] text-xs font-medium">Выполнено</button>
+                <button onClick={() => onUpdate("cancelled")} className="flex-1 py-2 rounded-xl bg-red-500/20 text-red-400 text-xs font-medium">Отменить</button>
               </div>
             </div>
           )}
@@ -566,11 +822,20 @@ function SettingsTab({ shop }: { shop: Shop }) {
   const [domain, setDomain] = useState(shop.domain);
   const [webhookUrl, setWebhookUrl] = useState(shop.webhookUrl ?? "");
   const [addressMode, setAddressMode] = useState<AddressMode>(shop.addressMode);
+  const [selectedNets, setSelectedNets] = useState<string[]>(parseNetworks(shop.enabledNetworks));
   const { toast } = useToast();
   const qc = useQueryClient();
 
+  const toggleNet = (id: string) => {
+    setSelectedNets(prev =>
+      prev.includes(id) ? prev.filter(n => n !== id) : [...prev, id]
+    );
+  };
+
   const save = useMutation({
-    mutationFn: () => apiRequest("PATCH", `/api/business/shops/${shop.id}`, { name, domain, webhookUrl, addressMode }).then(r => r.json()),
+    mutationFn: () => apiRequest("PATCH", `/api/business/shops/${shop.id}`, {
+      name, domain, webhookUrl, addressMode, enabledNetworks: selectedNets
+    }).then(r => r.json()),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/business/shops", shop.id] });
       qc.invalidateQueries({ queryKey: ["/api/business/shops"] });
@@ -579,20 +844,28 @@ function SettingsTab({ shop }: { shop: Shop }) {
     onError: (e: any) => toast({ title: "Ошибка", description: e.message, variant: "destructive" }),
   });
 
+  const selectableNets = NETWORKS.filter(n => n.selectable);
+  const disabledNets = NETWORKS.filter(n => !n.selectable);
+
   return (
-    <div className="space-y-4">
-      <div>
-        <label className="text-xs text-white/40 mb-1.5 block">Название</label>
-        <input value={name} onChange={e => setName(e.target.value)} className="w-full bg-[#13151A] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#3ab368]/50" />
+    <div className="space-y-5">
+      {/* Basic info */}
+      <div className="space-y-3">
+        <div>
+          <label className="text-xs text-white/40 mb-1.5 block">Название</label>
+          <input value={name} onChange={e => setName(e.target.value)} className="w-full bg-[#13151A] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#3ab368]/50" />
+        </div>
+        <div>
+          <label className="text-xs text-white/40 mb-1.5 block">Домен</label>
+          <input value={domain} onChange={e => setDomain(e.target.value)} className="w-full bg-[#13151A] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#3ab368]/50" />
+        </div>
+        <div>
+          <label className="text-xs text-white/40 mb-1.5 block">Webhook URL</label>
+          <input value={webhookUrl} onChange={e => setWebhookUrl(e.target.value)} placeholder="https://yoursite.com/webhook" className="w-full bg-[#13151A] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-[#3ab368]/50" />
+        </div>
       </div>
-      <div>
-        <label className="text-xs text-white/40 mb-1.5 block">Домен</label>
-        <input value={domain} onChange={e => setDomain(e.target.value)} className="w-full bg-[#13151A] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#3ab368]/50" />
-      </div>
-      <div>
-        <label className="text-xs text-white/40 mb-1.5 block">Webhook URL</label>
-        <input value={webhookUrl} onChange={e => setWebhookUrl(e.target.value)} placeholder="https://yoursite.com/webhook" className="w-full bg-[#13151A] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-[#3ab368]/50" />
-      </div>
+
+      {/* Address mode */}
       <div>
         <label className="text-xs text-white/40 mb-2 block">Режим генерации адресов</label>
         <div className="grid grid-cols-2 gap-2">
@@ -612,6 +885,65 @@ function SettingsTab({ shop }: { shop: Shop }) {
           </button>
         </div>
       </div>
+
+      {/* Network selection */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <label className="text-xs text-white/40">Принимаемые сети</label>
+          <span className="text-xs text-[#3ab368]">{selectedNets.length} выбрано</span>
+        </div>
+
+        {/* Active selectable networks */}
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          {selectableNets.map(n => {
+            const isOn = selectedNets.includes(n.id);
+            return (
+              <button
+                key={n.id}
+                onClick={() => toggleNet(n.id)}
+                className={`relative flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                  isOn
+                    ? "border-[#3ab368] bg-[#3ab368]/10"
+                    : "border-white/8 bg-[#13151A] hover:border-white/20"
+                }`}
+              >
+                {/* Checkmark */}
+                <div className={`absolute top-2 right-2 w-4 h-4 rounded-full border flex items-center justify-center transition-all ${
+                  isOn ? "bg-[#3ab368] border-[#3ab368]" : "border-white/20"
+                }`}>
+                  {isOn && <Check className="w-2.5 h-2.5 text-white" />}
+                </div>
+
+                <NetworkIcon iconFile={n.icon} size={30} />
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-semibold text-white leading-tight">{n.label}</div>
+                  <div className="text-[9px] text-white/40 mt-0.5 leading-tight">{n.sub}</div>
+                  {n.badge && (
+                    <span className="inline-block mt-1 text-[8px] px-1.5 py-0.5 rounded-full bg-[#3ab368]/20 text-[#3ab368] font-medium">
+                      {n.badge}
+                    </span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Coming soon (disabled) */}
+        <div className="text-[10px] text-white/20 mb-2 uppercase tracking-wider">Скоро</div>
+        <div className="grid grid-cols-4 gap-2">
+          {disabledNets.map(n => (
+            <div
+              key={n.id}
+              className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl border border-white/5 bg-[#13151A]/50 opacity-40"
+            >
+              <NetworkIcon iconFile={n.icon} size={24} />
+              <span className="text-[9px] text-white/40 text-center leading-tight">{n.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <button
         onClick={() => save.mutate()}
         disabled={save.isPending}
@@ -694,14 +1026,13 @@ export default function BusinessPage() {
           <ShopCard key={shop.id} shop={shop} onSelect={() => setSelectedShop(shop)} />
         ))}
 
-        {/* Info block */}
         {!showCreate && shops.length === 0 && (
           <div className="bg-[#0D1117] border border-white/5 rounded-2xl p-4 space-y-3 mt-2">
             <p className="text-xs font-semibold text-white/60 uppercase tracking-wide">Как это работает</p>
             {[
               ["1", "Создайте магазин", "Укажите название и домен сайта"],
               ["2", "Пройдите проверку", "Администратор проверит сайт (до 24ч)"],
-              ["3", "Интегрируйте API", "Используйте API-ключ в коде вашего сайта"],
+              ["3", "Выберите сети", "Настройте методы оплаты в настройках"],
               ["4", "Принимайте платежи", "Средства зачисляются на баланс магазина"],
             ].map(([n, title, desc]) => (
               <div key={n} className="flex gap-3">

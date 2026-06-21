@@ -33,6 +33,7 @@ export async function runBusinessMigrations() {
           api_key VARCHAR(64) NOT NULL UNIQUE,
           status VARCHAR(20) NOT NULL DEFAULT 'pending',
           address_mode VARCHAR(20) NOT NULL DEFAULT 'permanent',
+          enabled_networks TEXT NULL,
           webhook_url VARCHAR(500) NULL,
           balance_usdt DECIMAL(18,8) NOT NULL DEFAULT 0,
           total_received DECIMAL(18,8) NOT NULL DEFAULT 0,
@@ -42,6 +43,10 @@ export async function runBusinessMigrations() {
           updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )
       `);
+    } else {
+      if (!await columnExists("merchant_shops", "enabled_networks")) {
+        await db.execute(sql`ALTER TABLE merchant_shops ADD COLUMN enabled_networks TEXT NULL AFTER address_mode`);
+      }
     }
 
     if (!await tableExists("merchant_payments")) {
@@ -95,6 +100,26 @@ export async function runBusinessMigrations() {
           is_active TINYINT(1) NOT NULL DEFAULT 1,
           last_used_at TIMESTAMP NULL,
           created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+    }
+
+    if (!await tableExists("merchant_wallets")) {
+      await db.execute(sql`
+        CREATE TABLE merchant_wallets (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          shop_id INT NOT NULL,
+          address VARCHAR(255) NOT NULL,
+          private_key VARCHAR(500) NULL,
+          network VARCHAR(50) NOT NULL,
+          mode VARCHAR(20) NOT NULL DEFAULT 'standard',
+          gasfree_address VARCHAR(255) NULL,
+          external_user_id VARCHAR(255) NULL,
+          order_id VARCHAR(255) NULL,
+          reserved_until TIMESTAMP NULL,
+          status VARCHAR(20) NOT NULL DEFAULT 'active',
+          created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (shop_id) REFERENCES merchant_shops(id) ON DELETE CASCADE
         )
       `);
     }
