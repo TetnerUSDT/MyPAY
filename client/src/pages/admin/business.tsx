@@ -292,7 +292,7 @@ export default function AdminBusiness() {
                   </Button>
                   <Button
                     variant="outline"
-                    className="gap-1.5 border-green-500 text-green-600 hover:bg-green-50 dark:hover:bg-green-950"
+                    className="gap-1.5 border-green-500 text-green-600 hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-950 dark:hover:text-green-400"
                     disabled={updateShop.isPending || selected.status === "active"}
                     onClick={() => handleSave("active")}
                   >
@@ -300,7 +300,7 @@ export default function AdminBusiness() {
                   </Button>
                   <Button
                     variant="outline"
-                    className="gap-1.5 border-red-500 text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+                    className="gap-1.5 border-red-500 text-red-600 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950 dark:hover:text-red-400"
                     disabled={updateShop.isPending || selected.status === "rejected"}
                     onClick={() => handleSave("rejected")}
                   >
