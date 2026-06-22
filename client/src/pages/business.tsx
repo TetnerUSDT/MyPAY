@@ -23,21 +23,21 @@ interface NetworkDef {
 }
 
 const NETWORKS: NetworkDef[] = [
-  { id: "TRON",     label: "TRON",         sub: "TRC20 · USDT",      icon: "tron.png",      apiNode: "TRON",     apiMode: "standard", selectable: true },
-  { id: "TRON_GF",  label: "TRON GasFree", sub: "без комиссии TRX",  icon: "tron.png",      apiNode: "TRON",     apiMode: "gasfree",  selectable: true, badge: "GasFree" },
-  { id: "BSC",      label: "BNB Chain",    sub: "BEP20 · USDT",      icon: "bnb.png",       apiNode: "BSC",      apiMode: "standard", selectable: true },
-  { id: "TON",      label: "TON",          sub: "Jetton · USDT",     icon: "ton.png",       apiNode: "TON",      apiMode: "standard", selectable: true },
-  { id: "ETH",      label: "Ethereum",     sub: "ERC20 · USDT",      icon: "ethereum.png",  apiNode: "ETH",      apiMode: "standard", selectable: true },
-  { id: "POLYGON",  label: "Polygon",      sub: "ERC20 · USDT",      icon: "polygon.png",   apiNode: "POLYGON",  apiMode: "standard", selectable: true },
-  { id: "SOLANA",   label: "Solana",       sub: "SPL · USDT",        icon: "solana.png",    apiNode: "SOLANA",   apiMode: "standard", selectable: true },
-  { id: "ARBITRUM", label: "Arbitrum",     sub: "ERC20 · USDT",      icon: "arbitrum.png",  apiNode: "ARBITRUM", apiMode: "standard", selectable: true },
-  { id: "AVAX",     label: "Avalanche",    sub: "Скоро",             icon: "avalanche.png", selectable: false },
-  { id: "DOT",      label: "Polkadot",     sub: "Скоро",             icon: "polkadot.png",  selectable: false },
-  { id: "XRP",      label: "XRP",          sub: "Скоро",             icon: "xrp.png",       selectable: false },
-  { id: "DOGE",     label: "Dogecoin",     sub: "Скоро",             icon: "dogecoin.png",  selectable: false },
-  { id: "ADA",      label: "Cardano",      sub: "Скоро",             icon: "cardano.png",   selectable: false },
-  { id: "XMR",      label: "Monero",       sub: "Скоро",             icon: "monero.png",    selectable: false },
-  { id: "XTZ",      label: "Tezos",        sub: "Скоро",             icon: "tezos.png",     selectable: false },
+  { id: "TRON",     label: "TRON",         sub: "TRC20 · USDT",      icon: "tron.svg",      apiNode: "TRON",     apiMode: "standard", selectable: true },
+  { id: "TRON_GF",  label: "TRON GasFree", sub: "без комиссии TRX",  icon: "tron.svg",      apiNode: "TRON",     apiMode: "gasfree",  selectable: true, badge: "GasFree" },
+  { id: "BSC",      label: "BNB Chain",    sub: "BEP20 · USDT",      icon: "bnb.svg",       apiNode: "BSC",      apiMode: "standard", selectable: true },
+  { id: "TON",      label: "TON",          sub: "Jetton · USDT",     icon: "ton.svg",       apiNode: "TON",      apiMode: "standard", selectable: true },
+  { id: "ETH",      label: "Ethereum",     sub: "ERC20 · USDT",      icon: "ethereum.svg",  apiNode: "ETH",      apiMode: "standard", selectable: true },
+  { id: "POLYGON",  label: "Polygon",      sub: "ERC20 · USDT",      icon: "polygon.svg",   apiNode: "POLYGON",  apiMode: "standard", selectable: true },
+  { id: "SOLANA",   label: "Solana",       sub: "SPL · USDT",        icon: "solana.svg",    apiNode: "SOLANA",   apiMode: "standard", selectable: true },
+  { id: "ARBITRUM", label: "Arbitrum",     sub: "ERC20 · USDT",      icon: "arbitrum.svg",  apiNode: "ARBITRUM", apiMode: "standard", selectable: true },
+  { id: "AVAX",     label: "Avalanche",    sub: "Скоро",             icon: "avalanche.svg", selectable: false },
+  { id: "DOT",      label: "Polkadot",     sub: "Скоро",             icon: "polkadot.svg",  selectable: false },
+  { id: "XRP",      label: "XRP",          sub: "Скоро",             icon: "xrp.svg",       selectable: false },
+  { id: "DOGE",     label: "Dogecoin",     sub: "Скоро",             icon: "dogecoin.svg",  selectable: false },
+  { id: "ADA",      label: "Cardano",      sub: "Скоро",             icon: "cardano.svg",   selectable: false },
+  { id: "XMR",      label: "Monero",       sub: "Скоро",             icon: "monero.svg",    selectable: false },
+  { id: "XTZ",      label: "Tezos",        sub: "Скоро",             icon: "tezos.svg",     selectable: false },
 ];
 
 const NET_BY_ID: Record<string, NetworkDef> = Object.fromEntries(NETWORKS.map(n => [n.id, n]));
