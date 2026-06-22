@@ -1,6 +1,6 @@
 import { Express, Request, Response } from "express";
 import { db } from "./db";
-import { sql, eq, desc, and, isNull, lt, or } from "drizzle-orm";
+import { sql, eq, desc, and } from "drizzle-orm";
 import { merchantShops, merchantPayments, merchantPayoutRequests, merchantWallets } from "@shared/schema";
 import { randomBytes } from "crypto";
 
@@ -27,19 +27,40 @@ async function getUserFromRequest(req: Request): Promise<any | null> {
 // ── Wallet pool helpers ───────────────────────────────────────────────────────
 
 const WALLET_API_URL = process.env.WALLET_API_URL ?? "https://pay.swiftx.online/api/wallet/create";
-const WALLET_API_KEY = process.env.WALLET_API_KEY ?? "";
+const WALLET_API_TOKEN = process.env.WALLET_API_KEY ?? "";
+
+// Networks supported by the external wallet API
+const SUPPORTED_WALLET_NODES: Record<string, string> = {
+  "TRON":    "TRON",
+  "BSC":     "BSC",
+  "TON":     "TON",
+  "POLYGON": "POLYGON",
+};
 
 async function generateMerchantWallet(shopId: number, network: string, mode: string = "standard"): Promise<any> {
-  const body: any = { node: network };
+  const node = SUPPORTED_WALLET_NODES[network];
+  if (!node) throw new Error(`Network ${network} is not supported by the wallet API. Supported: ${Object.keys(SUPPORTED_WALLET_NODES).join(", ")}`);
+
+  const body: any = { node };
   if (mode === "gasfree") body.mode = "gasfree";
 
   const walletRes = await fetch(WALLET_API_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": WALLET_API_KEY },
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${WALLET_API_TOKEN}`,
+    },
     body: JSON.stringify(body),
   });
+
+  if (!walletRes.ok) {
+    const errText = await walletRes.text();
+    throw new Error(`Wallet API error ${walletRes.status}: ${errText}`);
+  }
+
   const walletData = await walletRes.json() as any;
-  if (!walletData.address) throw new Error("Wallet API did not return an address");
+  if (!walletData.address) throw new Error(`Wallet API did not return an address. Response: ${JSON.stringify(walletData)}`);
 
   const result = await db.insert(merchantWallets).values({
     shopId,
