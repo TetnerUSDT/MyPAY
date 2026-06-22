@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeft, Plus, Store, Copy, Check, RefreshCw, Settings,
   ArrowDownLeft, ArrowUpRight, Clock, CheckCircle2, XCircle,
-  Eye, EyeOff, Loader2, AlertCircle, ExternalLink, Zap, Wallet
+  Eye, EyeOff, Loader2, AlertCircle, ExternalLink, Zap, Wallet, Anchor, Timer
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -1227,15 +1227,21 @@ function SettingsTab({ shop }: { shop: Shop }) {
             onClick={() => setAddressMode("permanent")}
             className={`p-3 rounded-xl border text-left transition-colors ${addressMode === "permanent" ? "border-[#3ab368] bg-[#3ab368]/10" : "border-white/10 bg-[#13151A]"}`}
           >
-            <div className="text-sm font-medium text-white mb-0.5">Постоянный</div>
-            <div className="text-[10px] text-white/40">Один адрес на пользователя (user_id). Для подписок.</div>
+            <div className="flex items-center gap-2 mb-0.5">
+              <Anchor size={14} className={addressMode === "permanent" ? "text-[#3ab368]" : "text-white/40"} />
+              <div className="text-sm font-medium text-white">Постоянный</div>
+            </div>
+            <div className="text-[10px] text-white/40 pl-[22px]">Один адрес на пользователя (user_id). Для подписок.</div>
           </button>
           <button
             onClick={() => setAddressMode("temporary")}
             className={`p-3 rounded-xl border text-left transition-colors ${addressMode === "temporary" ? "border-[#3ab368] bg-[#3ab368]/10" : "border-white/10 bg-[#13151A]"}`}
           >
-            <div className="text-sm font-medium text-white mb-0.5">Временный</div>
-            <div className="text-[10px] text-white/40">Новый адрес на каждый заказ (order_id). 30 мин TTL.</div>
+            <div className="flex items-center gap-2 mb-0.5">
+              <Timer size={14} className={addressMode === "temporary" ? "text-[#3ab368]" : "text-white/40"} />
+              <div className="text-sm font-medium text-white">Временный</div>
+            </div>
+            <div className="text-[10px] text-white/40 pl-[22px]">Новый адрес на каждый заказ (order_id). 30 мин TTL.</div>
           </button>
         </div>
       </div>
