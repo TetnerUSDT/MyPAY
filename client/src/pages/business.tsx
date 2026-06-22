@@ -77,6 +77,7 @@ interface Payment {
   txHash: string | null;
   status: string;
   addressType: string;
+  expiresAt: string | null;
   confirmedAt: string | null;
   createdAt: string;
 }
@@ -171,6 +172,42 @@ function truncate(s: string, n = 16) {
   if (!s) return "—";
   if (s.length <= n) return s;
   return s.slice(0, 8) + "..." + s.slice(-6);
+}
+
+function PaymentTimer({ expiresAt, createdAt }: { expiresAt: string | null; createdAt: string }) {
+  const [, forceUpdate] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => forceUpdate(n => n + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (!expiresAt) {
+    const elapsed = Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000);
+    const m = Math.floor(elapsed / 60);
+    const s = elapsed % 60;
+    return (
+      <div className="flex items-center gap-1 text-[10px] text-white/30">
+        <Clock className="w-3 h-3" />
+        <span>Мониторинг {m}:{String(s).padStart(2, "0")} · постоянный</span>
+      </div>
+    );
+  }
+
+  const remaining = Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
+  const m = Math.floor(remaining / 60);
+  const s = remaining % 60;
+  const expired = remaining === 0;
+
+  return (
+    <div className={`flex items-center gap-1 text-[10px] ${expired ? "text-red-400/70" : remaining < 120 ? "text-orange-400/80" : "text-[#e9c46a]/70"}`}>
+      <Timer className="w-3 h-3" />
+      {expired
+        ? <span>Время проверки истекло</span>
+        : <span>Проверяется ещё {m}:{String(s).padStart(2, "0")}</span>
+      }
+    </div>
+  );
 }
 
 function NetworkIcon({ iconFile, size = 28 }: { iconFile: string; size?: number }) {
@@ -671,6 +708,7 @@ function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => v
     queryKey: ["/api/business/payments", shop.id],
     queryFn: () => fetchBusiness(`/api/business/shops/${shop.id}/payments`),
     enabled: tab === "payments",
+    refetchInterval: tab === "payments" ? 30000 : false,
   });
 
   const { data: payouts = [] } = useQuery<Payout[]>({
@@ -830,39 +868,7 @@ function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => v
 
         {/* ── Payments ── */}
         {tab === "payments" && (
-          <>
-            {payments.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-white/30">
-                <ArrowDownLeft className="w-10 h-10 mb-3 opacity-30" />
-                <p className="text-sm">Платежей пока нет</p>
-              </div>
-            ) : payments.map(p => (
-              <div key={p.id} className="bg-[#13151A] border border-white/5 rounded-2xl p-4">
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-sm font-semibold text-white">#{p.id}</span>
-                      <StatusBadge status={p.status} />
-                    </div>
-                    <div className="text-xs text-white/40">{p.network} · {p.currency}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-bold text-[#3ab368]">{p.amountReceived ? parseFloat(p.amountReceived).toFixed(4) : (p.amount ? parseFloat(p.amount).toFixed(4) : "—")}</div>
-                    <div className="text-[10px] text-white/30">{formatDate(p.createdAt)}</div>
-                  </div>
-                </div>
-                {p.walletAddress && (
-                  <div className="text-[10px] text-white/30 font-mono bg-[#0E1014] rounded-lg px-2 py-1.5 flex justify-between items-center">
-                    <span>{truncate(p.walletAddress, 20)}</span>
-                    <CopyButton text={p.walletAddress} />
-                  </div>
-                )}
-                {p.txHash && (
-                  <div className="text-[10px] text-[#3ab368]/70 font-mono mt-1 truncate">TX: {truncate(p.txHash, 24)}</div>
-                )}
-              </div>
-            ))}
-          </>
+          <PaymentsTab shop={shop} payments={payments} />
         )}
 
         {/* ── Payouts ── */}
@@ -874,6 +880,112 @@ function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => v
         {/* ── Settings ── */}
         {tab === "settings" && <SettingsTab shop={shop} />}
       </div>
+    </div>
+  );
+}
+
+// ── Payments tab ──────────────────────────────────────────────────────────────
+
+function PaymentsTab({ shop, payments }: { shop: Shop; payments: Payment[] }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [checking, setChecking] = useState<number | null>(null);
+
+  const checkPayment = async (paymentId: number) => {
+    setChecking(paymentId);
+    try {
+      const res = await fetch("/api/merchant/check-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-shop-key": shop.apiKey },
+        body: JSON.stringify({ payment_id: paymentId }),
+      });
+      const data = await res.json();
+      if (data.status === "confirmed") {
+        toast({ title: "Платёж подтверждён ✓", description: `#${paymentId} успешно зачислен` });
+        qc.invalidateQueries({ queryKey: ["/api/business/payments", shop.id] });
+      } else {
+        toast({ title: "Пока не поступил", description: data.message ?? "Транзакция ещё не найдена в блокчейне" });
+      }
+    } catch {
+      toast({ title: "Ошибка проверки", variant: "destructive" });
+    } finally {
+      setChecking(null);
+    }
+  };
+
+  if (payments.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-white/30">
+        <ArrowDownLeft className="w-10 h-10 mb-3 opacity-30" />
+        <p className="text-sm">Платежей пока нет</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {payments.map(p => (
+        <div key={p.id} className="bg-[#13151A] border border-white/5 rounded-2xl p-4">
+          <div className="flex items-start justify-between mb-2">
+            <div>
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="text-sm font-semibold text-white">#{p.id}</span>
+                <StatusBadge status={p.status} />
+              </div>
+              <div className="text-xs text-white/40">{p.network} · {p.currency}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-sm font-bold text-[#3ab368]">
+                {p.amountReceived ? parseFloat(p.amountReceived).toFixed(4) : (p.amount ? parseFloat(p.amount).toFixed(4) : "—")}
+              </div>
+              <div className="text-[10px] text-white/30">{formatDate(p.createdAt)}</div>
+            </div>
+          </div>
+
+          {/* Timer row — only for pending */}
+          {p.status === "pending" && (
+            <div className="flex items-center justify-between mt-1 mb-2">
+              <PaymentTimer expiresAt={p.expiresAt ?? null} createdAt={p.createdAt} />
+              <button
+                onClick={() => checkPayment(p.id)}
+                disabled={checking === p.id}
+                className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg bg-[#3ab368]/10 text-[#3ab368] hover:bg-[#3ab368]/20 transition-colors disabled:opacity-50"
+              >
+                {checking === p.id
+                  ? <Loader2 className="w-3 h-3 animate-spin" />
+                  : <RefreshCw className="w-3 h-3" />}
+                Проверить
+              </button>
+            </div>
+          )}
+
+          {/* Wallet address */}
+          {p.walletAddress && (
+            <div className="text-[10px] text-white/30 font-mono bg-[#0E1014] rounded-lg px-2 py-1.5 flex justify-between items-center">
+              <span>{truncate(p.walletAddress, 20)}</span>
+              <CopyButton text={p.walletAddress} />
+            </div>
+          )}
+
+          {/* TX hash */}
+          {p.txHash && (
+            <div className="text-[10px] text-[#3ab368]/70 font-mono mt-1 truncate">TX: {truncate(p.txHash, 24)}</div>
+          )}
+
+          {/* Confirmed time */}
+          {p.confirmedAt && (
+            <div className="text-[10px] text-[#3ab368]/60 mt-1">Подтверждён: {formatDate(p.confirmedAt)}</div>
+          )}
+
+          {/* External user / order */}
+          {(p.externalUserId || p.orderId) && (
+            <div className="text-[10px] text-white/20 mt-1">
+              {p.externalUserId && <span>uid: {p.externalUserId}</span>}
+              {p.orderId && <span className="ml-2">order: {p.orderId}</span>}
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
