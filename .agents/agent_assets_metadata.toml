@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "DSM_H3zIpcJh1HksNrJ91"
+uri = "file://MERCHANT_API.md"
+type = "text"
+title = "SwiftX Merchant Integration API"
