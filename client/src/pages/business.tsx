@@ -236,6 +236,371 @@ function CreateShopForm({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
+// ── API Documentation ─────────────────────────────────────────────────────────
+
+function CodeBlock({ children }: { children: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="relative group">
+      <pre className="bg-[#080A0E] rounded-xl p-3 font-mono text-[10px] text-white/60 leading-relaxed overflow-x-auto whitespace-pre">
+        {children}
+      </pre>
+      <button
+        onClick={() => { navigator.clipboard.writeText(children); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg bg-white/10 hover:bg-white/20"
+      >
+        {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3 text-white/50" />}
+      </button>
+    </div>
+  );
+}
+
+function EndpointTag({ method }: { method: "POST" | "GET" | "PATCH" }) {
+  const colors: Record<string, string> = {
+    POST: "bg-[#3ab368]/20 text-[#3ab368]",
+    GET: "bg-blue-500/20 text-blue-400",
+    PATCH: "bg-[#e9c46a]/20 text-[#e9c46a]",
+  };
+  return <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md font-mono ${colors[method]}`}>{method}</span>;
+}
+
+interface DocSection {
+  id: string;
+  label: string;
+}
+
+function ApiDocs({ apiKey, showKey }: { apiKey: string; showKey: boolean }) {
+  const [open, setOpen] = useState<string | null>("address");
+  const key = showKey ? apiKey : apiKey.slice(0, 8) + "••••••••••••••••••••••••";
+
+  const toggle = (id: string) => setOpen(prev => prev === id ? null : id);
+
+  const baseUrl = "https://yoursite.swiftx.online";
+
+  return (
+    <div className="space-y-3">
+      {/* Header */}
+      <div className="flex items-center gap-2 px-1">
+        <Zap className="w-4 h-4 text-[#3ab368]" />
+        <span className="text-sm font-semibold text-white">API-документация</span>
+      </div>
+
+      {/* Auth block */}
+      <div className="bg-[#0D1117] border border-white/8 rounded-2xl p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-1.5 h-1.5 rounded-full bg-[#3ab368]" />
+          <span className="text-xs font-semibold text-white">Аутентификация</span>
+        </div>
+        <p className="text-[11px] text-white/50 mb-3 leading-relaxed">
+          Все запросы к публичному API магазина требуют заголовок <code className="text-white/80 bg-white/10 px-1 py-0.5 rounded">x-shop-key</code> с вашим API-ключом магазина.
+        </p>
+        <CodeBlock>{`x-shop-key: ${key}`}</CodeBlock>
+        <p className="text-[10px] text-white/30 mt-2 leading-relaxed">
+          Базовый URL всех запросов: <code className="text-white/50">https://swiftx.online</code>
+        </p>
+      </div>
+
+      {/* Endpoint 1: GET address */}
+      <div className="bg-[#0D1117] border border-white/8 rounded-2xl overflow-hidden">
+        <button onClick={() => toggle("address")} className="w-full flex items-center gap-3 p-4 text-left hover:bg-white/3 transition-colors">
+          <EndpointTag method="POST" />
+          <code className="text-xs text-white/80 flex-1">/api/merchant/address</code>
+          <ChevronLeft className={`w-4 h-4 text-white/30 transition-transform ${open === "address" ? "-rotate-90" : "rotate-90"}`} />
+        </button>
+        {open === "address" && (
+          <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
+            <p className="text-[11px] text-white/50 leading-relaxed">
+              Генерирует адрес для приёма оплаты. В режиме <strong className="text-white/70">permanent</strong> — один адрес на пользователя (постоянный). В режиме <strong className="text-white/70">temporary</strong> — новый адрес на каждый заказ, действует 30 минут.
+            </p>
+
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Заголовки</div>
+              <CodeBlock>{`x-shop-key: ${key}\nContent-Type: application/json`}</CodeBlock>
+            </div>
+
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Тело запроса</div>
+              <CodeBlock>{`{
+  "network":  "TRON",        // обязательно: TRON, BSC, TON, ETH, POLYGON, SOLANA, ARBITRUM
+  "mode":     "standard",   // опционально: "standard" | "gasfree" (только TRON)
+  "user_id":  "user_123",   // для постоянного режима — ID вашего пользователя
+  "order_id": "order_456",  // для временного режима — ID заказа
+  "currency": "USDT",       // опционально, по умолчанию USDT
+  "amount":   10.00         // опционально — ожидаемая сумма
+}`}</CodeBlock>
+            </div>
+
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Ответ</div>
+              <CodeBlock>{`{
+  "address":    "TXxxx...yyy",   // адрес для оплаты
+  "network":    "TRON",
+  "mode":       "standard",
+  "currency":   "USDT",
+  "type":       "permanent",     // "permanent" | "temporary"
+  "payment_id": 42,              // ID платежа для отслеживания
+  "expires_at": null             // для temporary — дата истечения
+}`}</CodeBlock>
+            </div>
+
+            <div className="bg-[#3ab368]/5 border border-[#3ab368]/15 rounded-xl p-3">
+              <div className="text-[10px] text-[#3ab368] font-semibold mb-1">GasFree (TRON)</div>
+              <p className="text-[10px] text-white/40 leading-relaxed">
+                Режим GasFree позволяет клиенту платить без TRX на балансе. Передайте <code className="text-white/60">"mode": "gasfree"</code> — в ответе будет специальный GasFree-адрес.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Endpoint 2: payment status */}
+      <div className="bg-[#0D1117] border border-white/8 rounded-2xl overflow-hidden">
+        <button onClick={() => toggle("status")} className="w-full flex items-center gap-3 p-4 text-left hover:bg-white/3 transition-colors">
+          <EndpointTag method="GET" />
+          <code className="text-xs text-white/80 flex-1">/api/merchant/payment/:id</code>
+          <ChevronLeft className={`w-4 h-4 text-white/30 transition-transform ${open === "status" ? "-rotate-90" : "rotate-90"}`} />
+        </button>
+        {open === "status" && (
+          <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
+            <p className="text-[11px] text-white/50 leading-relaxed">
+              Возвращает текущий статус платежа по <code className="text-white/70">payment_id</code>, полученному из <code className="text-white/70">/api/merchant/address</code>.
+            </p>
+
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Заголовки</div>
+              <CodeBlock>{`x-shop-key: ${key}`}</CodeBlock>
+            </div>
+
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Пример запроса</div>
+              <CodeBlock>{`GET /api/merchant/payment/42`}</CodeBlock>
+            </div>
+
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Ответ</div>
+              <CodeBlock>{`{
+  "status":          "confirmed",        // "pending" | "confirmed" | "expired"
+  "tx_hash":         "abc123...",        // хэш транзакции (если подтверждён)
+  "amount_received": "10.000000",        // полученная сумма
+  "confirmed_at":    "2025-01-15T..."    // время подтверждения
+}`}</CodeBlock>
+            </div>
+
+            <div className="bg-white/3 rounded-xl p-3">
+              <div className="text-[10px] text-white/40 leading-relaxed">
+                <strong className="text-white/60">Статусы:</strong><br />
+                <span className="text-[#e9c46a]">pending</span> — ожидаем оплату<br />
+                <span className="text-[#3ab368]">confirmed</span> — транзакция найдена и подтверждена<br />
+                <span className="text-red-400">expired</span> — время истекло (только временный режим)
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Endpoint 3: check payment */}
+      <div className="bg-[#0D1117] border border-white/8 rounded-2xl overflow-hidden">
+        <button onClick={() => toggle("check")} className="w-full flex items-center gap-3 p-4 text-left hover:bg-white/3 transition-colors">
+          <EndpointTag method="POST" />
+          <code className="text-xs text-white/80 flex-1">/api/merchant/check-payment</code>
+          <ChevronLeft className={`w-4 h-4 text-white/30 transition-transform ${open === "check" ? "-rotate-90" : "rotate-90"}`} />
+        </button>
+        {open === "check" && (
+          <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
+            <p className="text-[11px] text-white/50 leading-relaxed">
+              Принудительно запускает проверку блокчейна для указанного платежа. Используйте, если клиент утверждает, что оплатил, но статус не обновился.
+            </p>
+
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Тело запроса</div>
+              <CodeBlock>{`{
+  "payment_id": 42   // ID платежа из /api/merchant/address
+}`}</CodeBlock>
+            </div>
+
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Ответ</div>
+              <CodeBlock>{`{
+  "status":  "pending",
+  "message": "Checking started"   // проверка запущена фоново
+}`}</CodeBlock>
+            </div>
+            <p className="text-[10px] text-white/30 leading-relaxed">
+              После вызова повторно запросите статус через <code className="text-white/50">GET /api/merchant/payment/:id</code> через 10–20 секунд.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Endpoint 4: verify tx */}
+      <div className="bg-[#0D1117] border border-white/8 rounded-2xl overflow-hidden">
+        <button onClick={() => toggle("verify")} className="w-full flex items-center gap-3 p-4 text-left hover:bg-white/3 transition-colors">
+          <EndpointTag method="POST" />
+          <code className="text-xs text-white/80 flex-1">/api/merchant/verify-tx</code>
+          <ChevronLeft className={`w-4 h-4 text-white/30 transition-transform ${open === "verify" ? "-rotate-90" : "rotate-90"}`} />
+        </button>
+        {open === "verify" && (
+          <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
+            <p className="text-[11px] text-white/50 leading-relaxed">
+              Верифицирует конкретный TX-хэш транзакции в блокчейне и вручную подтверждает платёж. Полезно, если клиент прислал хэш транзакции.
+            </p>
+
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Тело запроса</div>
+              <CodeBlock>{`{
+  "payment_id": 42,
+  "tx_hash":    "abc123def456..."   // хэш транзакции в блокчейне
+}`}</CodeBlock>
+            </div>
+
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Ответ (успех)</div>
+              <CodeBlock>{`{
+  "confirmed":       true,
+  "amount_received": "10.000000"
+}`}</CodeBlock>
+            </div>
+
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Ответ (не найдено)</div>
+              <CodeBlock>{`{
+  "confirmed": false,
+  "message":   "Transaction not confirmed on chain"
+}`}</CodeBlock>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Networks reference */}
+      <div className="bg-[#0D1117] border border-white/8 rounded-2xl overflow-hidden">
+        <button onClick={() => toggle("networks")} className="w-full flex items-center gap-3 p-4 text-left hover:bg-white/3 transition-colors">
+          <div className="w-14 flex-shrink-0">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md font-mono bg-white/10 text-white/50">INFO</span>
+          </div>
+          <code className="text-xs text-white/80 flex-1">Доступные сети и параметры</code>
+          <ChevronLeft className={`w-4 h-4 text-white/30 transition-transform ${open === "networks" ? "-rotate-90" : "rotate-90"}`} />
+        </button>
+        {open === "networks" && (
+          <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-2">Значения поля network</div>
+              <div className="space-y-1.5">
+                {[
+                  ["TRON",     "TRC20",     "USDT",       "standard / gasfree"],
+                  ["BSC",      "BEP20",     "USDT",       "standard"],
+                  ["TON",      "Jetton",    "USDT",       "standard"],
+                  ["ETH",      "ERC20",     "USDT",       "standard"],
+                  ["POLYGON",  "ERC20",     "USDT",       "standard"],
+                  ["SOLANA",   "SPL",       "USDT",       "standard"],
+                  ["ARBITRUM", "ERC20",     "USDT",       "standard"],
+                ].map(([net, std, cur, modes]) => (
+                  <div key={net} className="flex items-center gap-2 bg-[#080A0E] rounded-lg px-3 py-2">
+                    <code className="text-[#3ab368] text-[10px] font-mono w-20 flex-shrink-0">{net}</code>
+                    <span className="text-[10px] text-white/30 w-12">{std}</span>
+                    <span className="text-[10px] text-white/50 flex-1">{cur}</span>
+                    <span className="text-[9px] text-white/20">{modes}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-2">Пример: TRON GasFree</div>
+              <CodeBlock>{`POST /api/merchant/address
+{
+  "network":  "TRON",
+  "mode":     "gasfree",
+  "user_id":  "user_123"
+}`}</CodeBlock>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Webhook section */}
+      <div className="bg-[#0D1117] border border-white/8 rounded-2xl overflow-hidden">
+        <button onClick={() => toggle("webhook")} className="w-full flex items-center gap-3 p-4 text-left hover:bg-white/3 transition-colors">
+          <div className="w-14 flex-shrink-0">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md font-mono bg-white/10 text-white/50">INFO</span>
+          </div>
+          <code className="text-xs text-white/80 flex-1">Webhook-уведомления</code>
+          <ChevronLeft className={`w-4 h-4 text-white/30 transition-transform ${open === "webhook" ? "-rotate-90" : "rotate-90"}`} />
+        </button>
+        {open === "webhook" && (
+          <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
+            <p className="text-[11px] text-white/50 leading-relaxed">
+              Когда платёж подтверждается, система отправляет POST-запрос на Webhook URL, указанный в настройках магазина.
+            </p>
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Тело webhook-запроса</div>
+              <CodeBlock>{`{
+  "event":           "payment.confirmed",
+  "payment_id":      42,
+  "order_id":        "order_456",
+  "user_id":         "user_123",
+  "network":         "TRON",
+  "currency":        "USDT",
+  "amount_received": "10.000000",
+  "tx_hash":         "abc123...",
+  "confirmed_at":    "2025-01-15T12:00:00Z"
+}`}</CodeBlock>
+            </div>
+            <div className="bg-[#e9c46a]/5 border border-[#e9c46a]/15 rounded-xl p-3">
+              <p className="text-[10px] text-white/40 leading-relaxed">
+                <strong className="text-[#e9c46a]">Важно:</strong> Ваш сервер должен ответить кодом <code className="text-white/60">200 OK</code>. Настройте Webhook URL в разделе <strong className="text-white/60">Настройки</strong> магазина.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Quick example */}
+      <div className="bg-[#0D1117] border border-white/8 rounded-2xl overflow-hidden">
+        <button onClick={() => toggle("example")} className="w-full flex items-center gap-3 p-4 text-left hover:bg-white/3 transition-colors">
+          <div className="w-14 flex-shrink-0">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md font-mono bg-white/10 text-white/50">CODE</span>
+          </div>
+          <code className="text-xs text-white/80 flex-1">Пример на JavaScript</code>
+          <ChevronLeft className={`w-4 h-4 text-white/30 transition-transform ${open === "example" ? "-rotate-90" : "rotate-90"}`} />
+        </button>
+        {open === "example" && (
+          <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
+            <CodeBlock>{`// 1. Получить адрес для оплаты
+const res = await fetch('https://swiftx.online/api/merchant/address', {
+  method: 'POST',
+  headers: {
+    'x-shop-key': '${showKey ? apiKey : apiKey.slice(0, 8) + "..."}',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    network:  'TRON',
+    user_id:  String(userId),
+    order_id: String(orderId),
+    amount:   9.99
+  })
+});
+const { address, payment_id } = await res.json();
+
+// 2. Показать адрес клиенту, затем проверять статус
+const poll = setInterval(async () => {
+  const s = await fetch(
+    \`https://swiftx.online/api/merchant/payment/\${payment_id}\`,
+    { headers: { 'x-shop-key': '${showKey ? apiKey : apiKey.slice(0, 8) + "..."}' } }
+  ).then(r => r.json());
+
+  if (s.status === 'confirmed') {
+    clearInterval(poll);
+    console.log('Оплачено!', s.amount_received);
+  }
+}, 15000); // каждые 15 секунд`}</CodeBlock>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Shop card (list view) ─────────────────────────────────────────────────────
 
 function ShopCard({ shop, onSelect }: { shop: Shop; onSelect: () => void }) {
@@ -458,19 +823,8 @@ function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => v
               <p className="text-[10px] text-white/30 mt-2">Используйте этот ключ в заголовке <code className="text-white/50">x-shop-key</code> при запросах к API</p>
             </div>
 
-            {/* API Docs hint */}
-            <div className="bg-[#0D1117] border border-[#3ab368]/20 rounded-2xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Zap className="w-4 h-4 text-[#3ab368]" />
-                <span className="text-sm font-semibold text-white">Быстрая интеграция</span>
-              </div>
-              <p className="text-xs text-white/50 mb-3">Для получения адреса оплаты отправьте POST-запрос:</p>
-              <div className="bg-[#0E1014] rounded-xl p-3 font-mono text-[10px] text-white/60 space-y-1">
-                <div><span className="text-[#3ab368]">POST</span> /api/merchant/address</div>
-                <div className="text-white/30">x-shop-key: {showKey ? shop.apiKey : shop.apiKey.slice(0, 8) + "..."}</div>
-                <div className="text-white/30">{"{"} "network": "TRON", "user_id": "123" {"}"}</div>
-              </div>
-            </div>
+            {/* API Docs */}
+            <ApiDocs apiKey={shop.apiKey} showKey={showKey} />
           </>
         )}
 
