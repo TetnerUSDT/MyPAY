@@ -1,7 +1,7 @@
 import { Express, Request, Response } from "express";
 import { db } from "./db";
 import { sql, eq, desc, and } from "drizzle-orm";
-import { merchantShops, merchantPayments, merchantPayoutRequests, merchantWallets } from "@shared/schema";
+import { merchantShops, merchantPayments, merchantPayoutRequests, merchantWallets, merchantInvoices } from "@shared/schema";
 import { randomBytes } from "crypto";
 
 function generateApiKey(): string {
@@ -253,6 +253,155 @@ async function pollAddressForPayment(paymentId: number, address: string, network
   setTimeout(check, interval);
 }
 
+// ── Invoice payment poller ────────────────────────────────────────────────────
+
+async function pollInvoiceForPayment(
+  invoiceId: number, address: string, network: string,
+  currency: string, expectedAmount: string, shopId: number,
+  webhookUrl: string | null, orderRef: string | null,
+) {
+  const deadline = Date.now() + 30 * 60 * 1000;
+  const interval = 20000;
+
+  const check = async () => {
+    if (Date.now() > deadline) {
+      await db.execute(sql`UPDATE merchant_invoices SET status = 'expired' WHERE id = ${invoiceId} AND status = 'pending'`);
+      return;
+    }
+    try {
+      const rows = await db.execute(sql`SELECT status FROM merchant_invoices WHERE id = ${invoiceId} LIMIT 1`);
+      const inv = (rows[0] as any[])[0];
+      if (!inv || inv.status !== "pending") return;
+
+      let found = false;
+      let txHash: string | null = null;
+      let amountReceived: string | null = null;
+
+      if (network === "TRON") {
+        const url = `https://apilist.tronscanapi.com/api/transfer/trc20?limit=5&start=0&toAddress=${address}&tokenName=USDT`;
+        const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
+        const data = await r.json() as any;
+        const txs: any[] = data.data ?? [];
+        if (txs.length > 0) {
+          txHash = txs[0].transactionId;
+          amountReceived = (parseInt(txs[0].amount ?? "0") / 1e6).toFixed(6);
+          found = true;
+        }
+      } else if (network === "BSC") {
+        const url = `https://api.bscscan.com/api?module=account&action=tokentx&address=${address}&contractaddress=0x55d398326f99059fF775485246999027B3197955&sort=desc&offset=5&page=1`;
+        const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
+        const data = await r.json() as any;
+        const txs: any[] = data.result ?? [];
+        if (txs.length > 0 && txs[0].to?.toLowerCase() === address.toLowerCase()) {
+          txHash = txs[0].hash;
+          amountReceived = (parseInt(txs[0].value ?? "0") / 1e18).toFixed(6);
+          found = true;
+        }
+      }
+
+      if (found && txHash) {
+        await db.execute(sql`
+          UPDATE merchant_invoices
+          SET status = 'confirmed', tx_hash = ${txHash}, amount_received = ${amountReceived}, confirmed_at = NOW()
+          WHERE id = ${invoiceId} AND status = 'pending'
+        `);
+        await db.execute(sql`
+          UPDATE merchant_shops SET balance_usdt = balance_usdt + ${parseFloat(amountReceived ?? "0")},
+          total_received = total_received + ${parseFloat(amountReceived ?? "0")}
+          WHERE id = ${shopId}
+        `);
+        if (webhookUrl) {
+          sendWebhook(webhookUrl, {
+            event: "invoice.confirmed",
+            invoice_number: (await db.execute(sql`SELECT invoice_number FROM merchant_invoices WHERE id = ${invoiceId} LIMIT 1`) as any)[0]?.[0]?.invoice_number,
+            order_ref: orderRef,
+            amount_received: amountReceived,
+            currency,
+            network,
+            tx_hash: txHash,
+          });
+        }
+      } else if (!found && Date.now() < deadline) {
+        setTimeout(check, interval);
+      }
+    } catch {
+      if (Date.now() < deadline) setTimeout(check, interval);
+    }
+  };
+
+  setTimeout(check, interval);
+}
+
+// ── Invoice number generator ──────────────────────────────────────────────────
+
+function generateInvoiceNumber(): string {
+  const ts = Date.now().toString(36).toUpperCase();
+  const rand = randomBytes(3).toString("hex").toUpperCase();
+  return `INV-${ts}-${rand}`;
+}
+
+function generatePayoutRef(): string {
+  return `MyPay-${randomBytes(4).toString("hex").toUpperCase()}`;
+}
+
+// ── Webhook sender ────────────────────────────────────────────────────────────
+
+async function sendWebhook(webhookUrl: string, payload: object): Promise<void> {
+  try {
+    await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(10000),
+    });
+  } catch (e) {
+    console.warn("[Webhook] Failed to deliver:", e);
+  }
+}
+
+// ── Wallet balance on-chain check ─────────────────────────────────────────────
+
+async function checkWalletBalanceOnChain(network: string, address: string): Promise<number | null> {
+  try {
+    if (network === "TRON") {
+      const url = `https://apilist.tronscanapi.com/api/accountv2?address=${address}`;
+      const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
+      const data = await r.json() as any;
+      const tokens: any[] = data.trc20token_balances ?? [];
+      const usdt = tokens.find((t: any) => t.tokenAbbr === "USDT" || t.tokenName === "Tether USD");
+      if (usdt) return parseFloat(usdt.balance) / Math.pow(10, usdt.tokenDecimal ?? 6);
+      return 0;
+    }
+    if (network === "BSC") {
+      const url = `https://api.bscscan.com/api?module=account&action=tokenbalance&contractaddress=0x55d398326f99059fF775485246999027B3197955&address=${address}&tag=latest&apikey=YourApiKeyToken`;
+      const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
+      const data = await r.json() as any;
+      if (data.status === "1") return parseFloat(data.result) / 1e18;
+      return 0;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function checkWalletBalanceViaApi(network: string, address: string): Promise<number | null> {
+  try {
+    const node = SUPPORTED_WALLET_NODES[network];
+    if (!node) return null;
+    const BALANCE_API_URL = WALLET_API_URL.replace("/wallet/create", "/wallet/balance");
+    const r = await fetch(`${BALANCE_API_URL}?node=${node}&address=${address}`, {
+      headers: { "Authorization": `Bearer ${WALLET_API_TOKEN}` },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!r.ok) return null;
+    const data = await r.json() as any;
+    return data.data?.usdt ?? data.balance?.usdt ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // ── Route registration ────────────────────────────────────────────────────────
 
 export function registerBusinessRoutes(app: Express) {
@@ -308,7 +457,7 @@ export function registerBusinessRoutes(app: Express) {
       if (name) updates.name = name;
       if (domain) updates.domain = domain;
       if (webhookUrl !== undefined) updates.webhookUrl = webhookUrl;
-      if (addressMode && ["permanent", "temporary"].includes(addressMode)) updates.addressMode = addressMode;
+      if (addressMode && ["permanent", "temporary", "invoice"].includes(addressMode)) updates.addressMode = addressMode;
       if (enabledNetworks !== undefined) {
         updates.enabledNetworks = Array.isArray(enabledNetworks) ? JSON.stringify(enabledNetworks) : enabledNetworks;
       }
@@ -358,12 +507,12 @@ export function registerBusinessRoutes(app: Express) {
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
-  // Create payout request
+  // Create payout request (manual from cabinet)
   app.post("/api/business/shops/:id/payouts", requireApiKey, async (req, res) => {
     const user = await getUserFromRequest(req);
     if (!user) return res.status(401).json({ error: "Unauthorized" });
     const shopId = parseInt(req.params.id);
-    const { toAddress, network, currency, amount, note } = req.body;
+    const { toAddress, network, currency, amount, note, fromWalletId } = req.body;
     if (!toAddress || !network || !amount) return res.status(400).json({ error: "toAddress, network, amount are required" });
     try {
       const [shop] = await db.select().from(merchantShops).where(and(eq(merchantShops.id, shopId), eq(merchantShops.userId, user.id))).limit(1);
@@ -372,11 +521,54 @@ export function registerBusinessRoutes(app: Express) {
       const amountNum = parseFloat(amount);
       if (isNaN(amountNum) || amountNum <= 0) return res.status(400).json({ error: "Invalid amount" });
       if (parseFloat(shop.balanceUsdt) < amountNum) return res.status(400).json({ error: "Insufficient balance" });
+
+      // Validate fromWallet belongs to shop if provided
+      let resolvedFromWalletId: number | null = fromWalletId ? parseInt(fromWalletId) : null;
+      if (resolvedFromWalletId) {
+        const wRows = await db.execute(sql`SELECT id FROM merchant_wallets WHERE id = ${resolvedFromWalletId} AND shop_id = ${shopId} LIMIT 1`);
+        if (!(wRows[0] as any[])[0]) resolvedFromWalletId = null;
+      }
+
+      const reference = generatePayoutRef();
       await db.transaction(async (tx) => {
         await tx.update(merchantShops).set({ balanceUsdt: sql`balance_usdt - ${amountNum}` }).where(eq(merchantShops.id, shopId));
-        await tx.insert(merchantPayoutRequests).values({ shopId, toAddress, network, currency: currency || "USDT", amount: String(amountNum), note: note || null, status: "pending" });
+        await tx.insert(merchantPayoutRequests).values({
+          shopId,
+          toAddress,
+          network,
+          currency: currency || "USDT",
+          amount: String(amountNum),
+          note: note || null,
+          status: "pending",
+          source: "manual",
+          fromWalletId: resolvedFromWalletId,
+          reference,
+        });
       });
-      res.json({ ok: true, message: "Payout request created" });
+
+      // If fromWalletId specified, attempt blockchain transfer via wallet API
+      if (resolvedFromWalletId) {
+        const wRows = await db.execute(sql`SELECT address, network, mode FROM merchant_wallets WHERE id = ${resolvedFromWalletId} LIMIT 1`);
+        const fromWallet = (wRows[0] as any[])[0];
+        if (fromWallet) {
+          const TRANSFER_URL = WALLET_API_URL.replace("/wallet/create", "/wallet/transfer");
+          const node = SUPPORTED_WALLET_NODES[fromWallet.network] ?? fromWallet.network;
+          fetch(TRANSFER_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${WALLET_API_TOKEN}` },
+            body: JSON.stringify({ node, address_from: fromWallet.address, address_to: toAddress, amount: amountNum, symbol: "USDT" }),
+            signal: AbortSignal.timeout(30000),
+          }).then(async (r) => {
+            const d = await r.json() as any;
+            if (d.success && d.data?.txid) {
+              await db.execute(sql`UPDATE merchant_payout_requests SET status = 'completed', tx_hash = ${d.data.txid}, processed_at = NOW() WHERE reference = ${reference}`);
+              await db.execute(sql`UPDATE merchant_shops SET total_paid_out = total_paid_out + ${amountNum} WHERE id = ${shopId}`);
+            }
+          }).catch(() => {});
+        }
+      }
+
+      res.json({ ok: true, message: "Payout request created", reference });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
@@ -401,6 +593,20 @@ export function registerBusinessRoutes(app: Express) {
       if (status === "completed" || status === "cancelled") updates.processedAt = new Date();
       if (status === "completed") {
         await db.update(merchantShops).set({ totalPaidOut: sql`total_paid_out + ${parseFloat(payout.amount)}` }).where(eq(merchantShops.id, shopId));
+        // Send webhook for API-sourced payouts
+        if ((payout as any).source === "api" && shop.webhookUrl) {
+          sendWebhook(shop.webhookUrl, {
+            event: "payout.completed",
+            payout_id: payoutId,
+            external_order_id: (payout as any).externalOrderId,
+            reference: (payout as any).reference,
+            to_address: payout.toAddress,
+            network: payout.network,
+            amount: payout.amount,
+            currency: payout.currency,
+            tx_hash: txHash ?? payout.txHash,
+          });
+        }
       }
       if (status === "cancelled") {
         await db.update(merchantShops).set({ balanceUsdt: sql`balance_usdt + ${parseFloat(payout.amount)}` }).where(eq(merchantShops.id, shopId));
@@ -459,11 +665,50 @@ export function registerBusinessRoutes(app: Express) {
     } catch { return null; }
   }
 
-  // Generate/get address for payment
+  // Generate/get address for payment (or invoice URL in invoice mode)
   app.post("/api/merchant/address", async (req, res) => {
     const shop = await getShopByKey(req);
     if (!shop) return res.status(401).json({ error: "Invalid shop API key or shop not active" });
-    const { user_id, order_id, network, mode, currency, amount } = req.body;
+    const { user_id, order_id, network, mode, currency, amount, networks: networksOverride } = req.body;
+
+    // ── Invoice mode ─────────────────────────────────────────────────────────
+    if (shop.address_mode === "invoice") {
+      if (!amount) return res.status(400).json({ error: "amount is required for invoice mode" });
+      const enabledNetworks: string[] = shop.enabled_networks ? JSON.parse(shop.enabled_networks) : [];
+      const invoiceNetworks: string[] = networksOverride
+        ? (Array.isArray(networksOverride) ? networksOverride : [networksOverride])
+        : (network ? [network] : enabledNetworks);
+      if (invoiceNetworks.length === 0) return res.status(400).json({ error: "No networks specified or enabled" });
+
+      const invoiceNumber = generateInvoiceNumber();
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+      try {
+        await db.insert(merchantInvoices).values({
+          shopId: shop.id,
+          invoiceNumber,
+          orderRef: order_id ?? null,
+          amount: String(amount),
+          currency: currency ?? "USDT",
+          networks: JSON.stringify(invoiceNetworks),
+          status: "pending",
+          expiresAt,
+        });
+        const appBase = process.env.APP_URL ?? `https://${process.env.REPLIT_DOMAINS?.split(",")[0] ?? "localhost:5000"}`;
+        return res.json({
+          type: "invoice",
+          invoice_number: invoiceNumber,
+          invoice_url: `${appBase}/pay/${invoiceNumber}`,
+          amount,
+          currency: currency ?? "USDT",
+          networks: invoiceNetworks,
+          expires_at: expiresAt,
+        });
+      } catch (err: any) {
+        return res.status(500).json({ error: err.message });
+      }
+    }
+
+    // ── Standard address mode ────────────────────────────────────────────────
     if (!network) return res.status(400).json({ error: "network is required" });
 
     // Validate against enabled networks
@@ -559,6 +804,153 @@ export function registerBusinessRoutes(app: Express) {
         return res.json({ confirmed: true, amount_received: amount });
       }
       res.json({ confirmed: false, message: "Transaction not confirmed on chain" });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // ── Public Invoice endpoints ─────────────────────────────────────────────
+
+  // Get invoice details (public — used by /pay/:invoiceNumber page)
+  app.get("/api/merchant/invoice/:number", async (req, res) => {
+    try {
+      const rows = await db.execute(sql`
+        SELECT i.*, s.name AS shop_name, s.webhook_url
+        FROM merchant_invoices i
+        JOIN merchant_shops s ON s.id = i.shop_id
+        WHERE i.invoice_number = ${req.params.number}
+        LIMIT 1
+      `);
+      const inv = (rows[0] as any[])[0];
+      if (!inv) return res.status(404).json({ error: "Invoice not found" });
+
+      // Auto-expire
+      if (inv.status === "pending" && inv.expires_at && new Date(inv.expires_at) < new Date()) {
+        await db.execute(sql`UPDATE merchant_invoices SET status = 'expired' WHERE id = ${inv.id}`);
+        inv.status = "expired";
+      }
+
+      return res.json({
+        invoice_number: inv.invoice_number,
+        shop_name: inv.shop_name,
+        order_ref: inv.order_ref,
+        amount: inv.amount,
+        currency: inv.currency,
+        networks: inv.networks ? JSON.parse(inv.networks) : [],
+        status: inv.status,
+        wallet_address: inv.wallet_address,
+        network_chosen: inv.network_chosen,
+        expires_at: inv.expires_at,
+        confirmed_at: inv.confirmed_at,
+        tx_hash: inv.tx_hash,
+      });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // Customer selects network → reserve wallet for invoice
+  app.post("/api/merchant/invoice/:number/select-network", async (req, res) => {
+    const { network } = req.body;
+    if (!network) return res.status(400).json({ error: "network is required" });
+    try {
+      const rows = await db.execute(sql`
+        SELECT i.*, s.webhook_url, s.enabled_networks, s.address_mode
+        FROM merchant_invoices i
+        JOIN merchant_shops s ON s.id = i.shop_id
+        WHERE i.invoice_number = ${req.params.number}
+        LIMIT 1
+      `);
+      const inv = (rows[0] as any[])[0];
+      if (!inv) return res.status(404).json({ error: "Invoice not found" });
+      if (inv.status !== "pending") return res.status(400).json({ error: `Invoice is ${inv.status}` });
+      if (inv.expires_at && new Date(inv.expires_at) < new Date()) {
+        await db.execute(sql`UPDATE merchant_invoices SET status = 'expired' WHERE id = ${inv.id}`);
+        return res.status(400).json({ error: "Invoice expired" });
+      }
+      if (inv.wallet_address) {
+        return res.json({ address: inv.wallet_address, network: inv.network_chosen, expires_at: inv.expires_at });
+      }
+
+      // Validate network against invoice allowed networks
+      const allowedNets: string[] = inv.networks ? JSON.parse(inv.networks) : [];
+      if (allowedNets.length > 0 && !allowedNets.includes(network)) {
+        return res.status(400).json({ error: `Network ${network} not allowed for this invoice` });
+      }
+
+      const wallet = await findOrReserveMerchantWallet(inv.shop_id, network, "standard", undefined, inv.invoice_number, "temporary");
+      const address = wallet.gasfree_address || wallet.address;
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+
+      await db.execute(sql`
+        UPDATE merchant_invoices
+        SET wallet_id = ${wallet.id}, wallet_address = ${address}, network_chosen = ${network}, expires_at = ${expiresAt}
+        WHERE id = ${inv.id}
+      `);
+
+      // Start polling for this invoice payment
+      pollInvoiceForPayment(inv.id, address, network, inv.currency, inv.amount, inv.shop_id, inv.webhook_url, inv.order_ref);
+
+      return res.json({ address, network, expires_at: expiresAt });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // ── Public API Payout (for merchant projects, not cabinet) ────────────────
+
+  app.post("/api/merchant/payout", async (req, res) => {
+    const shop = await getShopByKey(req);
+    if (!shop) return res.status(401).json({ error: "Invalid shop API key or shop not active" });
+    const { to_address, network, currency, amount, order_id } = req.body;
+    if (!to_address || !network || !amount) return res.status(400).json({ error: "to_address, network, amount required" });
+    if (shop.status !== "active") return res.status(403).json({ error: "Shop not active" });
+
+    const amountNum = parseFloat(amount);
+    if (isNaN(amountNum) || amountNum <= 0) return res.status(400).json({ error: "Invalid amount" });
+
+    try {
+      const shopRows = await db.execute(sql`SELECT balance_usdt FROM merchant_shops WHERE id = ${shop.id} FOR UPDATE`);
+      const balance = parseFloat((shopRows[0] as any[])[0]?.balance_usdt ?? "0");
+      if (balance < amountNum) return res.status(400).json({ error: "Insufficient balance" });
+
+      const reference = order_id ? `API-${order_id}` : generatePayoutRef();
+      await db.execute(sql`UPDATE merchant_shops SET balance_usdt = balance_usdt - ${amountNum} WHERE id = ${shop.id}`);
+      const result = await db.execute(sql`
+        INSERT INTO merchant_payout_requests
+          (shop_id, to_address, network, currency, amount, status, source, external_order_id, reference)
+        VALUES
+          (${shop.id}, ${to_address}, ${network}, ${currency ?? "USDT"}, ${amountNum}, 'pending', 'api', ${order_id ?? null}, ${reference})
+      `) as any;
+
+      return res.json({ ok: true, payout_id: result[0]?.insertId, reference });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // ── Wallet balance check (cabinet) ────────────────────────────────────────
+
+  app.post("/api/business/shops/:id/wallets/:wid/check-balance", requireApiKey, async (req, res) => {
+    const user = await getUserFromRequest(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const shopId = parseInt(req.params.id);
+    const walletId = parseInt(req.params.wid);
+    try {
+      const [shop] = await db.select().from(merchantShops).where(and(eq(merchantShops.id, shopId), eq(merchantShops.userId, user.id))).limit(1);
+      if (!shop) return res.status(404).json({ error: "Shop not found" });
+
+      const rows = await db.execute(sql`SELECT * FROM merchant_wallets WHERE id = ${walletId} AND shop_id = ${shopId} LIMIT 1`);
+      const wallet = (rows[0] as any[])[0];
+      if (!wallet) return res.status(404).json({ error: "Wallet not found" });
+
+      // Try on-chain check first, fall back to wallet API
+      let balance = await checkWalletBalanceOnChain(wallet.network, wallet.address);
+      if (balance === null) {
+        balance = await checkWalletBalanceViaApi(wallet.network, wallet.address);
+      }
+
+      if (balance !== null) {
+        await db.execute(sql`
+          UPDATE merchant_wallets SET balance_usdt = ${balance}, balance_updated_at = NOW()
+          WHERE id = ${walletId}
+        `);
+        return res.json({ balance_usdt: balance, updated_at: new Date() });
+      }
+
+      return res.status(503).json({ error: "Balance check unavailable for this network" });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 

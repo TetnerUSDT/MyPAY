@@ -125,6 +125,7 @@ function Router() {
           <Route path="/p2p/dashboard"><Protected><P2PDashboardScreen /></Protected></Route>
           <Route path="/p2p/verify"><Protected><P2PVerifyScreen /></Protected></Route>
           <Route path="/business"><Protected><BusinessScreen /></Protected></Route>
+          <Route path="/pay/:invoiceNumber" component={lazy(() => import("@/pages/merchant-pay"))} />
 
           {/* Admin routes - loaded last to not interfere with main routes */}
           <AdminRouteProvider />

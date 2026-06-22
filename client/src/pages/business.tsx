@@ -4,7 +4,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeft, Plus, Store, Copy, Check, RefreshCw, Settings,
   ArrowDownLeft, ArrowUpRight, Clock, CheckCircle2, XCircle,
-  Eye, EyeOff, Loader2, AlertCircle, ExternalLink, Zap, Wallet, Anchor, Timer
+  Eye, EyeOff, Loader2, AlertCircle, ExternalLink, Zap, Wallet, Anchor, Timer,
+  FileText, Activity, Link2
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -45,7 +46,7 @@ const NET_BY_ID: Record<string, NetworkDef> = Object.fromEntries(NETWORKS.map(n 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type ShopStatus = "pending" | "active" | "rejected" | "suspended";
-type AddressMode = "permanent" | "temporary";
+type AddressMode = "permanent" | "temporary" | "invoice";
 
 interface Shop {
   id: number;
@@ -91,6 +92,10 @@ interface Payout {
   amount: string;
   txHash: string | null;
   status: string;
+  source: string;
+  externalOrderId: string | null;
+  fromWalletId: number | null;
+  reference: string | null;
   note: string | null;
   processedAt: string | null;
   createdAt: string;
@@ -107,6 +112,8 @@ interface MerchantWallet {
   orderId: string | null;
   reservedUntil: string | null;
   status: string;
+  balanceUsdt: string | null;
+  balanceUpdatedAt: string | null;
   createdAt: string;
 }
 
@@ -872,7 +879,7 @@ function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => v
         )}
 
         {/* ── Payouts ── */}
-        {tab === "payouts" && <PayoutsTab shop={shop} payouts={payouts} />}
+        {tab === "payouts" && <PayoutsTab shop={shop} payouts={payouts} wallets={wallets} />}
 
         {/* ── Wallets ── */}
         {tab === "wallets" && <WalletsTab shop={shop} wallets={wallets} onRefresh={() => refetchWallets()} />}
@@ -990,6 +997,91 @@ function PaymentsTab({ shop, payments }: { shop: Shop; payments: Payment[] }) {
   );
 }
 
+// ── Wallet card with balance refresh ─────────────────────────────────────────
+
+function WalletCard({ wallet: w, shopId, onRefresh }: { wallet: MerchantWallet; shopId: number; onRefresh: () => void }) {
+  const { toast } = useToast();
+  const [checking, setChecking] = useState(false);
+  const def = NETWORKS.find(n => n.apiNode === w.network && n.apiMode === w.mode) ?? NETWORKS.find(n => n.apiNode === w.network);
+
+  const checkBalance = async () => {
+    setChecking(true);
+    try {
+      const r = await fetch(`/api/business/shops/${shopId}/wallets/${w.id}/check-balance`, {
+        method: "POST",
+        headers: { "x-api-key": userApiKey() },
+      });
+      const data = await r.json();
+      if (r.ok) {
+        toast({ title: `Баланс: ${parseFloat(data.balance_usdt).toFixed(4)} USDT` });
+        onRefresh();
+      } else {
+        toast({ title: "Не удалось проверить", description: data.error, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Ошибка проверки баланса", variant: "destructive" });
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  return (
+    <div className="bg-[#13151A] border border-white/5 rounded-2xl p-3.5">
+      <div className="flex items-start gap-3">
+        {def && <NetworkIcon iconFile={def.icon} size={32} />}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-semibold text-white">{def?.label ?? w.network}</span>
+            {w.mode === "gasfree" && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#3ab368]/20 text-[#3ab368]">GasFree</span>}
+            <StatusBadge status={walletStatus(w)} />
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px] text-white/40 font-mono">
+            <span>{truncate(w.address, 22)}</span>
+            <CopyButton text={w.address} />
+          </div>
+          {w.gasfreeAddress && (
+            <div className="text-[9px] text-white/30 font-mono mt-0.5">GF: {truncate(w.gasfreeAddress, 22)}</div>
+          )}
+          {(w.externalUserId || w.orderId) && (
+            <div className="text-[10px] text-white/30 mt-1">
+              {w.externalUserId && <span>user: <span className="text-white/50">{w.externalUserId}</span></span>}
+              {w.orderId && <span className="ml-2">order: <span className="text-white/50">{w.orderId}</span></span>}
+            </div>
+          )}
+          {w.reservedUntil && w.status === "reserved" && (
+            <div className="text-[10px] text-[#e9c46a]/70 mt-0.5 flex items-center gap-1">
+              <Clock className="w-3 h-3" /> до {formatDate(w.reservedUntil)}
+            </div>
+          )}
+          {/* Balance row */}
+          <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
+            <div className="flex items-center gap-1">
+              <Activity className="w-3 h-3 text-white/20" />
+              {w.balanceUsdt !== null && w.balanceUsdt !== undefined ? (
+                <span className="text-[10px] text-[#3ab368] font-mono">{parseFloat(w.balanceUsdt).toFixed(4)} USDT</span>
+              ) : (
+                <span className="text-[10px] text-white/20">Баланс не проверен</span>
+              )}
+              {w.balanceUpdatedAt && (
+                <span className="text-[9px] text-white/20 ml-1">{formatDate(w.balanceUpdatedAt)}</span>
+              )}
+            </div>
+            <button
+              onClick={checkBalance}
+              disabled={checking}
+              className="flex items-center gap-1 text-[10px] text-white/30 hover:text-[#3ab368] transition-colors"
+            >
+              {checking ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+              Проверить
+            </button>
+          </div>
+        </div>
+        <div className="text-[10px] text-white/20 flex-shrink-0">#{w.id}</div>
+      </div>
+    </div>
+  );
+}
+
 // ── Wallets tab ───────────────────────────────────────────────────────────────
 
 function WalletsTab({ shop, wallets, onRefresh }: { shop: Shop; wallets: MerchantWallet[]; onRefresh: () => void }) {
@@ -1089,43 +1181,9 @@ function WalletsTab({ shop, wallets, onRefresh }: { shop: Shop; wallets: Merchan
         </div>
       ) : (
         <div className="space-y-2">
-          {wallets.map(w => {
-            const def = NETWORKS.find(n => n.apiNode === w.network && n.apiMode === w.mode) ?? NETWORKS.find(n => n.apiNode === w.network);
-            return (
-              <div key={w.id} className="bg-[#13151A] border border-white/5 rounded-2xl p-3.5">
-                <div className="flex items-start gap-3">
-                  {def && <NetworkIcon iconFile={def.icon} size={32} />}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-semibold text-white">{def?.label ?? w.network}</span>
-                      {w.mode === "gasfree" && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#3ab368]/20 text-[#3ab368]">GasFree</span>}
-                      <StatusBadge status={walletStatus(w)} />
-                    </div>
-                    <div className="flex items-center gap-1.5 text-[10px] text-white/40 font-mono">
-                      <span>{truncate(w.address, 22)}</span>
-                      <CopyButton text={w.address} />
-                    </div>
-                    {w.gasfreeAddress && (
-                      <div className="text-[9px] text-white/30 font-mono mt-0.5">GF: {truncate(w.gasfreeAddress, 22)}</div>
-                    )}
-                    {(w.externalUserId || w.orderId) && (
-                      <div className="text-[10px] text-white/30 mt-1">
-                        {w.externalUserId && <span>user: <span className="text-white/50">{w.externalUserId}</span></span>}
-                        {w.orderId && <span className="ml-2">order: <span className="text-white/50">{w.orderId}</span></span>}
-                      </div>
-                    )}
-                    {w.reservedUntil && w.status === "reserved" && (
-                      <div className="text-[10px] text-[#e9c46a]/70 mt-0.5 flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        до {formatDate(w.reservedUntil)}
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-[10px] text-white/20 flex-shrink-0">#{w.id}</div>
-                </div>
-              </div>
-            );
-          })}
+          {wallets.map(w => (
+            <WalletCard key={w.id} wallet={w} shopId={shop.id} onRefresh={onRefresh} />
+          ))}
         </div>
       )}
     </div>
@@ -1134,18 +1192,22 @@ function WalletsTab({ shop, wallets, onRefresh }: { shop: Shop; wallets: Merchan
 
 // ── Payouts tab ───────────────────────────────────────────────────────────────
 
-function PayoutsTab({ shop, payouts }: { shop: Shop; payouts: Payout[] }) {
+function PayoutsTab({ shop, payouts, wallets }: { shop: Shop; payouts: Payout[]; wallets: MerchantWallet[] }) {
   const [showCreate, setShowCreate] = useState(false);
   const [toAddress, setToAddress] = useState("");
   const [network, setNetwork] = useState("TRON");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
+  const [fromWalletId, setFromWalletId] = useState<number | null>(null);
   const { toast } = useToast();
   const qc = useQueryClient();
 
+  const activeWallets = wallets.filter(w => w.status === "active" || w.status === "permanent");
+
   const createPayout = useMutation({
     mutationFn: () => apiRequest("POST", `/api/business/shops/${shop.id}/payouts`, {
-      toAddress, network, currency: "USDT", amount: parseFloat(amount), note
+      toAddress, network, currency: "USDT", amount: parseFloat(amount), note,
+      ...(fromWalletId ? { fromWalletId } : {})
     }).then(r => r.json()),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/business/payouts", shop.id] });
@@ -1182,14 +1244,13 @@ function PayoutsTab({ shop, payouts }: { shop: Shop; payouts: Payout[] }) {
 
       {showCreate && (
         <div className="bg-[#13151A] border border-white/5 rounded-2xl p-4 space-y-3">
-          <div className="text-sm font-semibold text-white mb-1">Создать заявку</div>
+          <div className="text-sm font-semibold text-white mb-1">Создать заявку на выплату</div>
           <div>
             <label className="text-xs text-white/40 mb-1 block">Сеть</label>
             <select value={network} onChange={e => setNetwork(e.target.value)} className="w-full bg-[#0E1014] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none">
               <option value="TRON">TRON (TRC20)</option>
               <option value="BSC">BNB Chain (BEP20)</option>
               <option value="TON">TON</option>
-              <option value="ETH">Ethereum</option>
               <option value="POLYGON">Polygon</option>
             </select>
           </div>
@@ -1201,6 +1262,28 @@ function PayoutsTab({ shop, payouts }: { shop: Shop; payouts: Payout[] }) {
             <label className="text-xs text-white/40 mb-1 block">Сумма USDT (баланс: {parseFloat(shop.balanceUsdt).toFixed(4)})</label>
             <input value={amount} onChange={e => setAmount(e.target.value)} type="number" placeholder="0.00" className="w-full bg-[#0E1014] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none" />
           </div>
+          {activeWallets.length > 0 && (
+            <div>
+              <label className="text-xs text-white/40 mb-1 block">Кошелёк-источник (необязательно)</label>
+              <select
+                value={fromWalletId ?? ""}
+                onChange={e => setFromWalletId(e.target.value ? parseInt(e.target.value) : null)}
+                className="w-full bg-[#0E1014] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none"
+              >
+                <option value="">Без автоперевода</option>
+                {activeWallets.filter(w => w.network === network).map(w => (
+                  <option key={w.id} value={w.id}>
+                    #{w.id} · {truncate(w.address, 18)}
+                  </option>
+                ))}
+              </select>
+              {fromWalletId && (
+                <p className="text-[10px] text-[#3ab368]/70 mt-1">
+                  Средства будут переведены автоматически с выбранного кошелька
+                </p>
+              )}
+            </div>
+          )}
           <div>
             <label className="text-xs text-white/40 mb-1 block">Комментарий (необязательно)</label>
             <input value={note} onChange={e => setNote(e.target.value)} placeholder="Вывод прибыли" className="w-full bg-[#0E1014] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none" />
@@ -1211,7 +1294,7 @@ function PayoutsTab({ shop, payouts }: { shop: Shop; payouts: Payout[] }) {
             className="w-full py-3 rounded-xl bg-[#3ab368] text-white text-sm font-semibold disabled:opacity-40 flex items-center justify-center gap-2"
           >
             {createPayout.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            Создать заявку
+            {fromWalletId ? "Перевести" : "Создать заявку"}
           </button>
         </div>
       )}
@@ -1240,8 +1323,14 @@ function PayoutCard({ payout, shopId, onUpdate }: { payout: Payout; shopId: numb
           <div className="flex items-center gap-2 mb-0.5">
             <span className="text-sm font-semibold text-white">#{payout.id}</span>
             <StatusBadge status={payout.status} />
+            {payout.source === "api" ? (
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 font-medium">API</span>
+            ) : (
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/10 text-white/40 font-medium">Ручная</span>
+            )}
           </div>
           <div className="text-xs text-white/40">{payout.network} · {payout.currency}</div>
+          {payout.reference && <div className="text-[10px] text-white/25 font-mono">{payout.reference}</div>}
         </div>
         <div className="text-right">
           <div className="text-sm font-bold text-white">{parseFloat(payout.amount).toFixed(4)}</div>
@@ -1333,27 +1422,38 @@ function SettingsTab({ shop }: { shop: Shop }) {
 
       {/* Address mode */}
       <div>
-        <label className="text-xs text-white/40 mb-2 block">Режим генерации адресов</label>
-        <div className="grid grid-cols-2 gap-2">
+        <label className="text-xs text-white/40 mb-2 block">Режим приёма платежей</label>
+        <div className="space-y-2">
           <button
             onClick={() => setAddressMode("permanent")}
-            className={`p-3 rounded-xl border text-left transition-colors ${addressMode === "permanent" ? "border-[#3ab368] bg-[#3ab368]/10" : "border-white/10 bg-[#13151A]"}`}
+            className={`w-full p-3 rounded-xl border text-left transition-colors ${addressMode === "permanent" ? "border-[#3ab368] bg-[#3ab368]/10" : "border-white/10 bg-[#13151A]"}`}
           >
             <div className="flex items-center gap-2 mb-0.5">
               <Anchor size={14} className={addressMode === "permanent" ? "text-[#3ab368]" : "text-white/40"} />
-              <div className="text-sm font-medium text-white">Постоянный</div>
+              <div className="text-sm font-medium text-white">Постоянный адрес</div>
             </div>
             <div className="text-[10px] text-white/40 pl-[22px]">Один адрес на пользователя (user_id). Для подписок.</div>
           </button>
           <button
             onClick={() => setAddressMode("temporary")}
-            className={`p-3 rounded-xl border text-left transition-colors ${addressMode === "temporary" ? "border-[#3ab368] bg-[#3ab368]/10" : "border-white/10 bg-[#13151A]"}`}
+            className={`w-full p-3 rounded-xl border text-left transition-colors ${addressMode === "temporary" ? "border-[#3ab368] bg-[#3ab368]/10" : "border-white/10 bg-[#13151A]"}`}
           >
             <div className="flex items-center gap-2 mb-0.5">
               <Timer size={14} className={addressMode === "temporary" ? "text-[#3ab368]" : "text-white/40"} />
-              <div className="text-sm font-medium text-white">Временный</div>
+              <div className="text-sm font-medium text-white">Временный адрес</div>
             </div>
-            <div className="text-[10px] text-white/40 pl-[22px]">Новый адрес на каждый заказ (order_id). 30 мин TTL.</div>
+            <div className="text-[10px] text-white/40 pl-[22px]">Новый адрес на каждый заказ (order_id). TTL 30 мин.</div>
+          </button>
+          <button
+            onClick={() => setAddressMode("invoice")}
+            className={`w-full p-3 rounded-xl border text-left transition-colors ${addressMode === "invoice" ? "border-[#3ab368] bg-[#3ab368]/10" : "border-white/10 bg-[#13151A]"}`}
+          >
+            <div className="flex items-center gap-2 mb-0.5">
+              <Link2 size={14} className={addressMode === "invoice" ? "text-[#3ab368]" : "text-white/40"} />
+              <div className="text-sm font-medium text-white">Инвойс (ссылка)</div>
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#3ab368]/20 text-[#3ab368] font-medium">Новое</span>
+            </div>
+            <div className="text-[10px] text-white/40 pl-[22px]">API возвращает ссылку /pay/... Покупатель выбирает сеть сам. Вебхук при оплате.</div>
           </button>
         </div>
       </div>

@@ -83,12 +83,29 @@ export async function runBusinessMigrations() {
           amount DECIMAL(18,8) NOT NULL,
           tx_hash VARCHAR(255) NULL,
           status VARCHAR(20) NOT NULL DEFAULT 'pending',
+          source VARCHAR(20) NOT NULL DEFAULT 'manual',
+          external_order_id VARCHAR(255) NULL,
+          from_wallet_id INT NULL,
+          reference VARCHAR(255) NULL,
           note TEXT NULL,
           processed_at TIMESTAMP NULL,
           created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (shop_id) REFERENCES merchant_shops(id) ON DELETE CASCADE
         )
       `);
+    } else {
+      if (!await columnExists("merchant_payout_requests", "source")) {
+        await db.execute(sql`ALTER TABLE merchant_payout_requests ADD COLUMN source VARCHAR(20) NOT NULL DEFAULT 'manual' AFTER status`);
+      }
+      if (!await columnExists("merchant_payout_requests", "external_order_id")) {
+        await db.execute(sql`ALTER TABLE merchant_payout_requests ADD COLUMN external_order_id VARCHAR(255) NULL AFTER source`);
+      }
+      if (!await columnExists("merchant_payout_requests", "from_wallet_id")) {
+        await db.execute(sql`ALTER TABLE merchant_payout_requests ADD COLUMN from_wallet_id INT NULL AFTER external_order_id`);
+      }
+      if (!await columnExists("merchant_payout_requests", "reference")) {
+        await db.execute(sql`ALTER TABLE merchant_payout_requests ADD COLUMN reference VARCHAR(255) NULL AFTER from_wallet_id`);
+      }
     }
 
     if (!await tableExists("merchant_scanner_keys")) {
@@ -118,6 +135,39 @@ export async function runBusinessMigrations() {
           order_id VARCHAR(255) NULL,
           reserved_until TIMESTAMP NULL,
           status VARCHAR(20) NOT NULL DEFAULT 'active',
+          balance_usdt DECIMAL(18,8) NULL,
+          balance_updated_at TIMESTAMP NULL,
+          created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (shop_id) REFERENCES merchant_shops(id) ON DELETE CASCADE
+        )
+      `);
+    } else {
+      if (!await columnExists("merchant_wallets", "balance_usdt")) {
+        await db.execute(sql`ALTER TABLE merchant_wallets ADD COLUMN balance_usdt DECIMAL(18,8) NULL AFTER status`);
+      }
+      if (!await columnExists("merchant_wallets", "balance_updated_at")) {
+        await db.execute(sql`ALTER TABLE merchant_wallets ADD COLUMN balance_updated_at TIMESTAMP NULL AFTER balance_usdt`);
+      }
+    }
+
+    if (!await tableExists("merchant_invoices")) {
+      await db.execute(sql`
+        CREATE TABLE merchant_invoices (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          shop_id INT NOT NULL,
+          invoice_number VARCHAR(64) NOT NULL UNIQUE,
+          order_ref VARCHAR(255) NULL,
+          amount DECIMAL(18,8) NOT NULL,
+          currency VARCHAR(20) NOT NULL DEFAULT 'USDT',
+          networks TEXT NULL,
+          status VARCHAR(20) NOT NULL DEFAULT 'pending',
+          wallet_id INT NULL,
+          wallet_address VARCHAR(255) NULL,
+          network_chosen VARCHAR(50) NULL,
+          tx_hash VARCHAR(255) NULL,
+          amount_received DECIMAL(18,8) NULL,
+          expires_at TIMESTAMP NULL,
+          confirmed_at TIMESTAMP NULL,
           created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (shop_id) REFERENCES merchant_shops(id) ON DELETE CASCADE
         )

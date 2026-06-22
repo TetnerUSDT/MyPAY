@@ -541,6 +541,10 @@ export const merchantPayoutRequests = mysqlTable("merchant_payout_requests", {
   amount: decimal("amount", { precision: 18, scale: 8 }).notNull(),
   txHash: varchar("tx_hash", { length: 255 }),
   status: varchar("status", { length: 20 }).notNull().default("pending"),
+  source: varchar("source", { length: 20 }).notNull().default("manual"),
+  externalOrderId: varchar("external_order_id", { length: 255 }),
+  fromWalletId: int("from_wallet_id"),
+  reference: varchar("reference", { length: 255 }),
   note: text("note"),
   processedAt: timestamp("processed_at"),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
@@ -567,6 +571,27 @@ export const merchantWallets = mysqlTable("merchant_wallets", {
   orderId: varchar("order_id", { length: 255 }),
   reservedUntil: timestamp("reserved_until"),
   status: varchar("status", { length: 20 }).notNull().default("active"),
+  balanceUsdt: decimal("balance_usdt", { precision: 18, scale: 8 }),
+  balanceUpdatedAt: timestamp("balance_updated_at"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const merchantInvoices = mysqlTable("merchant_invoices", {
+  id: int("id").primaryKey().autoincrement(),
+  shopId: int("shop_id").notNull().references(() => merchantShops.id, { onDelete: "cascade" }),
+  invoiceNumber: varchar("invoice_number", { length: 64 }).notNull().unique(),
+  orderRef: varchar("order_ref", { length: 255 }),
+  amount: decimal("amount", { precision: 18, scale: 8 }).notNull(),
+  currency: varchar("currency", { length: 20 }).notNull().default("USDT"),
+  networks: text("networks"),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  walletId: int("wallet_id"),
+  walletAddress: varchar("wallet_address", { length: 255 }),
+  networkChosen: varchar("network_chosen", { length: 50 }),
+  txHash: varchar("tx_hash", { length: 255 }),
+  amountReceived: decimal("amount_received", { precision: 18, scale: 8 }),
+  expiresAt: timestamp("expires_at"),
+  confirmedAt: timestamp("confirmed_at"),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
@@ -574,6 +599,7 @@ export const insertMerchantShopSchema = createInsertSchema(merchantShops).omit({
 export const insertMerchantPaymentSchema = createInsertSchema(merchantPayments).omit({ id: true, createdAt: true });
 export const insertMerchantPayoutSchema = createInsertSchema(merchantPayoutRequests).omit({ id: true, createdAt: true });
 export const insertMerchantWalletSchema = createInsertSchema(merchantWallets).omit({ id: true, createdAt: true });
+export const insertMerchantInvoiceSchema = createInsertSchema(merchantInvoices).omit({ id: true, createdAt: true });
 
 export type MerchantShop = typeof merchantShops.$inferSelect;
 export type InsertMerchantShop = z.infer<typeof insertMerchantShopSchema>;
@@ -581,6 +607,8 @@ export type MerchantPayment = typeof merchantPayments.$inferSelect;
 export type InsertMerchantPayment = z.infer<typeof insertMerchantPaymentSchema>;
 export type MerchantPayoutRequest = typeof merchantPayoutRequests.$inferSelect;
 export type InsertMerchantPayout = z.infer<typeof insertMerchantPayoutSchema>;
+export type MerchantInvoice = typeof merchantInvoices.$inferSelect;
+export type InsertMerchantInvoice = z.infer<typeof insertMerchantInvoiceSchema>;
 export type MerchantWallet = typeof merchantWallets.$inferSelect;
 export type InsertMerchantWallet = z.infer<typeof insertMerchantWalletSchema>;
 
