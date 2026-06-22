@@ -367,14 +367,41 @@ const TON_USDT_MASTER = "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs";
 async function checkWalletBalanceOnChain(network: string, address: string): Promise<number | null> {
   try {
     if (network === "TRON") {
-      const url = `https://apilist.tronscanapi.com/api/accountv2?address=${address}`;
-      const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
-      if (!r.ok) return null;
-      const data = await r.json() as any;
-      const tokens: any[] = data.trc20token_balances ?? [];
-      const usdt = tokens.find((t: any) => t.tokenAbbr === "USDT" || t.tokenName === "Tether USD");
-      if (usdt) return parseFloat(usdt.balance) / Math.pow(10, usdt.tokenDecimal ?? 6);
-      return 0;
+      // Source 1: TronGrid API (more reliable than TronScan)
+      try {
+        const r = await fetch(`https://api.trongrid.io/v1/accounts/${address}`, {
+          headers: { "Accept": "application/json" },
+          signal: AbortSignal.timeout(10000),
+        });
+        console.log(`[Balance] TronGrid status: ${r.status}`);
+        if (r.ok) {
+          const data = await r.json() as any;
+          const trc20: any[] = data.data?.[0]?.trc20 ?? [];
+          // USDT TRC20 contract: TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t
+          const usdt = trc20.find((t: any) => t["TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"]);
+          if (usdt) {
+            const raw = usdt["TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"];
+            return parseFloat(raw) / 1e6;
+          }
+          return 0;
+        }
+      } catch (e) { console.log(`[Balance] TronGrid error: ${e}`); }
+
+      // Source 2: TronScan fallback
+      try {
+        const r = await fetch(`https://apilist.tronscanapi.com/api/accountv2?address=${address}`, {
+          signal: AbortSignal.timeout(10000),
+        });
+        if (r.ok) {
+          const data = await r.json() as any;
+          const tokens: any[] = data.trc20token_balances ?? [];
+          const usdt = tokens.find((t: any) => t.tokenAbbr === "USDT" || t.tokenName === "Tether USD");
+          if (usdt) return parseFloat(usdt.balance) / Math.pow(10, usdt.tokenDecimal ?? 6);
+          return 0;
+        }
+      } catch (e) { console.log(`[Balance] TronScan error: ${e}`); }
+
+      return null;
     }
     if (network === "BSC") {
       // USDT BEP20 contract
@@ -388,17 +415,41 @@ async function checkWalletBalanceOnChain(network: string, address: string): Prom
       return null;
     }
     if (network === "TON") {
-      // Use tonapi.io free public API to get jetton balance
-      const url = `https://tonapi.io/v2/accounts/${encodeURIComponent(address)}/jettons/${TON_USDT_MASTER}`;
-      const r = await fetch(url, {
-        headers: { "Accept": "application/json" },
-        signal: AbortSignal.timeout(10000),
-      });
-      if (!r.ok) return null;
-      const data = await r.json() as any;
-      // balance is in nano-units (6 decimals for USDT on TON)
-      const raw = data.balance ?? data.jetton?.balance ?? "0";
-      return parseFloat(raw) / 1e6;
+      // Source 1: tonapi.io free public API
+      try {
+        const url = `https://tonapi.io/v2/accounts/${encodeURIComponent(address)}/jettons/${encodeURIComponent(TON_USDT_MASTER)}`;
+        const r = await fetch(url, {
+          headers: { "Accept": "application/json" },
+          signal: AbortSignal.timeout(8000),
+        });
+        console.log(`[Balance] tonapi.io status: ${r.status}`);
+        if (r.ok) {
+          const data = await r.json() as any;
+          console.log(`[Balance] tonapi.io data: ${JSON.stringify(data).slice(0, 200)}`);
+          // balance is in base units (6 decimals for USDT on TON)
+          const raw = data.balance ?? "0";
+          return parseFloat(raw) / 1e6;
+        }
+      } catch (e) { console.log(`[Balance] tonapi.io error: ${e}`); }
+
+      // Source 2: toncenter.com v3 API (free, no key needed)
+      try {
+        const url = `https://toncenter.com/api/v3/jetton/wallets?owner_address=${encodeURIComponent(address)}&jetton_address=${encodeURIComponent(TON_USDT_MASTER)}&limit=1`;
+        const r = await fetch(url, {
+          headers: { "Accept": "application/json" },
+          signal: AbortSignal.timeout(8000),
+        });
+        console.log(`[Balance] toncenter.com status: ${r.status}`);
+        if (r.ok) {
+          const data = await r.json() as any;
+          console.log(`[Balance] toncenter.com data: ${JSON.stringify(data).slice(0, 200)}`);
+          const wallets: any[] = data.jetton_wallets ?? [];
+          if (wallets.length > 0) return parseFloat(wallets[0].balance) / 1e6;
+          return 0; // Has no USDT jetton wallet = 0 balance
+        }
+      } catch (e) { console.log(`[Balance] toncenter.com error: ${e}`); }
+
+      return null; // Both sources failed — will try wallet API fallback
     }
     if (network === "POLYGON") {
       // USDT (or DAI) on Polygon — check via polygonscan
@@ -421,12 +472,21 @@ async function checkWalletBalanceViaApi(network: string, address: string): Promi
     const node = SUPPORTED_WALLET_NODES[network];
     if (!node) return null;
     const BALANCE_API_URL = WALLET_API_URL.replace("/wallet/create", "/wallet/balance");
-    const r = await fetch(`${BALANCE_API_URL}?node=${node}&address=${address}`, {
-      headers: { "Authorization": `Bearer ${WALLET_API_TOKEN}` },
+    console.log(`[Balance] Wallet API POST: ${BALANCE_API_URL} node=${node}`);
+    const r = await fetch(BALANCE_API_URL, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${WALLET_API_TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ node, address }),
       signal: AbortSignal.timeout(15000),
     });
-    if (!r.ok) return null;
+    console.log(`[Balance] Wallet API status: ${r.status}`);
+    if (!r.ok) {
+      const text = await r.text().catch(() => "");
+      console.log(`[Balance] Wallet API error body: ${text.slice(0, 200)}`);
+      return null;
+    }
     const data = await r.json() as any;
+    console.log(`[Balance] Wallet API response: ${JSON.stringify(data).slice(0, 300)}`);
     // Handle various response shapes
     return data.data?.usdt
       ?? data.balance?.usdt
@@ -434,7 +494,8 @@ async function checkWalletBalanceViaApi(network: string, address: string): Promi
       ?? data.data?.balance
       ?? data.result?.usdt
       ?? null;
-  } catch {
+  } catch (e) {
+    console.log(`[Balance] Wallet API exception: ${e}`);
     return null;
   }
 }
@@ -974,13 +1035,17 @@ export function registerBusinessRoutes(app: Express) {
       if (!wallet) return res.status(404).json({ error: "Wallet not found" });
 
       // Try on-chain check first, fall back to wallet API
+      console.log(`[Balance] Checking ${wallet.network} for wallet #${walletId} addr=${wallet.address?.slice(0,10)}...`);
       let balance = await checkWalletBalanceOnChain(wallet.network, wallet.address);
+      console.log(`[Balance] On-chain result: ${balance}`);
       if (balance === null) {
         balance = await checkWalletBalanceViaApi(wallet.network, wallet.address);
+        console.log(`[Balance] Wallet API fallback result: ${balance}`);
       }
 
       // If all checks failed but network is known, save 0 rather than returning error
       if (balance === null && SUPPORTED_WALLET_NODES[wallet.network]) {
+        console.log(`[Balance] Both checks failed, defaulting to 0 for known network ${wallet.network}`);
         balance = 0;
       }
 
