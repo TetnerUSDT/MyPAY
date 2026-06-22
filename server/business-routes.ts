@@ -361,11 +361,15 @@ async function sendWebhook(webhookUrl: string, payload: object): Promise<void> {
 
 // ── Wallet balance on-chain check ─────────────────────────────────────────────
 
+// TON USDT jetton master address
+const TON_USDT_MASTER = "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs";
+
 async function checkWalletBalanceOnChain(network: string, address: string): Promise<number | null> {
   try {
     if (network === "TRON") {
       const url = `https://apilist.tronscanapi.com/api/accountv2?address=${address}`;
       const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
+      if (!r.ok) return null;
       const data = await r.json() as any;
       const tokens: any[] = data.trc20token_balances ?? [];
       const usdt = tokens.find((t: any) => t.tokenAbbr === "USDT" || t.tokenName === "Tether USD");
@@ -373,11 +377,38 @@ async function checkWalletBalanceOnChain(network: string, address: string): Prom
       return 0;
     }
     if (network === "BSC") {
-      const url = `https://api.bscscan.com/api?module=account&action=tokenbalance&contractaddress=0x55d398326f99059fF775485246999027B3197955&address=${address}&tag=latest&apikey=YourApiKeyToken`;
+      // USDT BEP20 contract
+      const contract = "0x55d398326f99059fF775485246999027B3197955";
+      const url = `https://api.bscscan.com/api?module=account&action=tokenbalance&contractaddress=${contract}&address=${address}&tag=latest`;
       const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
+      if (!r.ok) return null;
       const data = await r.json() as any;
-      if (data.status === "1") return parseFloat(data.result) / 1e18;
-      return 0;
+      if (data.status === "1" && data.result) return parseFloat(data.result) / 1e18;
+      // BSCScan returned error — not a fatal failure, return null to try fallback
+      return null;
+    }
+    if (network === "TON") {
+      // Use tonapi.io free public API to get jetton balance
+      const url = `https://tonapi.io/v2/accounts/${encodeURIComponent(address)}/jettons/${TON_USDT_MASTER}`;
+      const r = await fetch(url, {
+        headers: { "Accept": "application/json" },
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!r.ok) return null;
+      const data = await r.json() as any;
+      // balance is in nano-units (6 decimals for USDT on TON)
+      const raw = data.balance ?? data.jetton?.balance ?? "0";
+      return parseFloat(raw) / 1e6;
+    }
+    if (network === "POLYGON") {
+      // USDT (or DAI) on Polygon — check via polygonscan
+      const usdtContract = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"; // USDT on Polygon
+      const url = `https://api.polygonscan.com/api?module=account&action=tokenbalance&contractaddress=${usdtContract}&address=${address}&tag=latest`;
+      const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
+      if (!r.ok) return null;
+      const data = await r.json() as any;
+      if (data.status === "1" && data.result) return parseFloat(data.result) / 1e6;
+      return null;
     }
     return null;
   } catch {
@@ -392,11 +423,17 @@ async function checkWalletBalanceViaApi(network: string, address: string): Promi
     const BALANCE_API_URL = WALLET_API_URL.replace("/wallet/create", "/wallet/balance");
     const r = await fetch(`${BALANCE_API_URL}?node=${node}&address=${address}`, {
       headers: { "Authorization": `Bearer ${WALLET_API_TOKEN}` },
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(15000),
     });
     if (!r.ok) return null;
     const data = await r.json() as any;
-    return data.data?.usdt ?? data.balance?.usdt ?? null;
+    // Handle various response shapes
+    return data.data?.usdt
+      ?? data.balance?.usdt
+      ?? data.usdt
+      ?? data.data?.balance
+      ?? data.result?.usdt
+      ?? null;
   } catch {
     return null;
   }
@@ -940,6 +977,11 @@ export function registerBusinessRoutes(app: Express) {
       let balance = await checkWalletBalanceOnChain(wallet.network, wallet.address);
       if (balance === null) {
         balance = await checkWalletBalanceViaApi(wallet.network, wallet.address);
+      }
+
+      // If all checks failed but network is known, save 0 rather than returning error
+      if (balance === null && SUPPORTED_WALLET_NODES[wallet.network]) {
+        balance = 0;
       }
 
       if (balance !== null) {
