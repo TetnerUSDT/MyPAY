@@ -156,6 +156,12 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function walletStatus(w: MerchantWallet) {
+  if (w.status === "permanent") return "permanent";
+  if (w.status === "reserved") return "reserved";
+  return "active";
+}
+
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
@@ -1106,11 +1112,6 @@ function WalletsTab({ shop, wallets, onRefresh }: { shop: Shop; wallets: Merchan
 
   const activeNets = NETWORKS.filter(n => n.selectable && enabledNets.includes(n.id));
 
-  const walletStatus = (w: MerchantWallet) => {
-    if (w.status === "permanent") return "permanent";
-    if (w.status === "reserved") return "reserved";
-    return "active";
-  };
 
   return (
     <div className="space-y-3">
