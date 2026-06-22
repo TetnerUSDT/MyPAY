@@ -61,6 +61,7 @@ interface Shop {
   balanceUsdt: string;
   totalReceived: string;
   totalPaidOut: string;
+  walletBalanceSum?: string;
   adminNote: string | null;
   createdAt: string;
 }
@@ -675,8 +676,8 @@ function ShopCard({ shop, onSelect }: { shop: Shop; onSelect: () => void }) {
       </div>
       <div className="grid grid-cols-2 gap-2 mb-3">
         <div className="bg-[#0E1014] rounded-xl p-3">
-          <div className="text-[10px] text-white/40 mb-0.5">Баланс</div>
-          <div className="text-sm font-bold text-white">{parseFloat(shop.balanceUsdt).toFixed(2)} <span className="text-white/40 text-xs">USDT</span></div>
+          <div className="text-[10px] text-white/40 mb-0.5">Баланс кошельков</div>
+          <div className="text-sm font-bold text-white">{parseFloat(shop.walletBalanceSum ?? "0").toFixed(2)} <span className="text-white/40 text-xs">USDT</span></div>
         </div>
         <div className="bg-[#0E1014] rounded-xl p-3">
           <div className="text-[10px] text-white/40 mb-0.5">Получено</div>
@@ -822,8 +823,12 @@ function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => v
               </div>
               <div className="bg-[#13151A] border border-white/5 rounded-2xl p-4">
                 <div className="text-[10px] text-white/40 uppercase tracking-wide mb-1">Режим адресов</div>
-                <div className="text-sm font-bold text-white">{shop.addressMode === "permanent" ? "Постоянный" : "Временный"}</div>
-                <div className="text-xs text-white/40">{shop.addressMode === "permanent" ? "по user_id" : "по order_id"}</div>
+                <div className="text-sm font-bold text-white">
+                  {shop.addressMode === "permanent" ? "Постоянный" : shop.addressMode === "invoice" ? "Инвойс-ссылка" : "Временный"}
+                </div>
+                <div className="text-xs text-white/40">
+                  {shop.addressMode === "permanent" ? "по user_id" : shop.addressMode === "invoice" ? "покупатель выбирает сеть" : "по order_id"}
+                </div>
               </div>
             </div>
 

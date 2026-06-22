@@ -506,13 +506,25 @@ export function registerBusinessRoutes(app: Express) {
 
   // ── Cabinet API (requires user API key) ──────────────────────────────────
 
-  // List my shops
+  // List my shops (includes walletBalanceSum = SUM of checked wallet balances)
   app.get("/api/business/shops", requireApiKey, async (req, res) => {
     const user = await getUserFromRequest(req);
     if (!user) return res.status(401).json({ error: "Unauthorized" });
     try {
       const shops = await db.select().from(merchantShops).where(eq(merchantShops.userId, user.id)).orderBy(desc(merchantShops.createdAt));
-      res.json(shops);
+      // Attach wallet balance sum for each shop
+      const shopIds = shops.map(s => s.id);
+      let walletSums: Record<number, string> = {};
+      if (shopIds.length > 0) {
+        const rows = await db.execute(
+          sql`SELECT shop_id, COALESCE(SUM(CAST(balance_usdt AS DECIMAL(20,6))), 0) AS total FROM merchant_wallets WHERE shop_id IN (${sql.raw(shopIds.join(","))}) GROUP BY shop_id`
+        );
+        for (const row of (rows[0] as any[])) {
+          walletSums[row.shop_id] = parseFloat(row.total).toFixed(6);
+        }
+      }
+      const result = shops.map(s => ({ ...s, walletBalanceSum: walletSums[s.id] ?? "0.000000" }));
+      res.json(result);
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
