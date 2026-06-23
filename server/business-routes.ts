@@ -528,14 +528,17 @@ export function registerBusinessRoutes(app: Express) {
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
-  // Get single shop
+  // Get single shop (includes walletBalanceSum)
   app.get("/api/business/shops/:id", requireApiKey, async (req, res) => {
     const user = await getUserFromRequest(req);
     if (!user) return res.status(401).json({ error: "Unauthorized" });
     try {
-      const [shop] = await db.select().from(merchantShops).where(and(eq(merchantShops.id, parseInt(req.params.id)), eq(merchantShops.userId, user.id))).limit(1);
+      const shopId = parseInt(req.params.id);
+      const [shop] = await db.select().from(merchantShops).where(and(eq(merchantShops.id, shopId), eq(merchantShops.userId, user.id))).limit(1);
       if (!shop) return res.status(404).json({ error: "Shop not found" });
-      res.json(shop);
+      const sumRows = await db.execute(sql`SELECT COALESCE(SUM(CAST(balance_usdt AS DECIMAL(20,6))), 0) AS total FROM merchant_wallets WHERE shop_id = ${shopId}`);
+      const walletBalanceSum = parseFloat((sumRows[0] as any[])[0]?.total ?? 0).toFixed(6);
+      res.json({ ...shop, walletBalanceSum });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 

@@ -807,8 +807,8 @@ function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => v
           <>
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-[#13151A] border border-white/5 rounded-2xl p-4">
-                <div className="text-[10px] text-white/40 uppercase tracking-wide mb-1">Баланс</div>
-                <div className="text-xl font-bold text-white">{parseFloat(shop.balanceUsdt).toFixed(4)}</div>
+                <div className="text-[10px] text-white/40 uppercase tracking-wide mb-1">Баланс кошельков</div>
+                <div className="text-xl font-bold text-white">{parseFloat(shop.walletBalanceSum ?? shop.balanceUsdt).toFixed(4)}</div>
                 <div className="text-xs text-white/40">USDT</div>
               </div>
               <div className="bg-[#13151A] border border-white/5 rounded-2xl p-4">
