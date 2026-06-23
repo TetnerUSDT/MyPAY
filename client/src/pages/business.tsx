@@ -712,11 +712,15 @@ function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => v
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data: shop = initialShop } = useQuery<Shop>({
+  const { data: shopData } = useQuery<Shop>({
     queryKey: ["/api/business/shops", initialShop.id],
     queryFn: () => fetchBusiness(`/api/business/shops/${initialShop.id}`),
     refetchInterval: 30000,
   });
+  // Merge: preserve walletBalanceSum from list data so detail-query refetch can't reset it to 0
+  const shop: Shop = shopData
+    ? { ...shopData, walletBalanceSum: shopData.walletBalanceSum ?? initialShop.walletBalanceSum }
+    : initialShop;
 
   const { data: payments = [] } = useQuery<Payment[]>({
     queryKey: ["/api/business/payments", shop.id],
