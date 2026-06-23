@@ -738,7 +738,7 @@ function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => v
   const { data: wallets = [], refetch: refetchWallets } = useQuery<MerchantWallet[]>({
     queryKey: ["/api/business/wallets", shop.id],
     queryFn: () => fetchBusiness(`/api/business/shops/${shop.id}/wallets`),
-    enabled: tab === "wallets",
+    enabled: tab === "wallets" || tab === "payouts",
   });
 
   const regenKey = useMutation({
@@ -1272,7 +1272,7 @@ function PayoutsTab({ shop, payouts, wallets }: { shop: Shop; payouts: Payout[];
             <label className="text-xs text-white/40 mb-1 block">Сумма USDT (баланс: {parseFloat(shop.balanceUsdt).toFixed(4)})</label>
             <input value={amount} onChange={e => setAmount(e.target.value)} type="number" placeholder="0.00" className="w-full bg-[#0E1014] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none" />
           </div>
-          {activeWallets.length > 0 && (
+          {wallets.length > 0 && (
             <div>
               <label className="text-xs text-white/40 mb-1 block">Кошелёк-источник (необязательно)</label>
               <select
@@ -1280,13 +1280,25 @@ function PayoutsTab({ shop, payouts, wallets }: { shop: Shop; payouts: Payout[];
                 onChange={e => setFromWalletId(e.target.value ? parseInt(e.target.value) : null)}
                 className="w-full bg-[#0E1014] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none"
               >
-                <option value="">Без автоперевода</option>
-                {activeWallets.filter(w => w.network === network).map(w => (
-                  <option key={w.id} value={w.id}>
-                    #{w.id} · {truncate(w.address, 18)}
-                  </option>
-                ))}
+                <option value="">— Выбрать кошелёк —</option>
+                {wallets.filter(w => w.network === network).map(w => {
+                  const bal = parseFloat(w.balanceUsdt ?? "0").toFixed(4);
+                  return (
+                    <option key={w.id} value={w.id}>
+                      {w.network} · {truncate(w.address, 14)} · {bal} USDT
+                    </option>
+                  );
+                })}
               </select>
+              {fromWalletId && (() => {
+                const sel = wallets.find(w => w.id === fromWalletId);
+                return sel ? (
+                  <div className="mt-2 bg-[#3ab368]/10 border border-[#3ab368]/20 rounded-xl px-3 py-2 flex items-center justify-between">
+                    <span className="text-xs text-white/60">Баланс кошелька</span>
+                    <span className="text-sm font-bold text-[#3ab368]">{parseFloat(sel.balanceUsdt ?? "0").toFixed(4)} USDT</span>
+                  </div>
+                ) : null;
+              })()}
               {fromWalletId && (
                 <p className="text-[10px] text-[#3ab368]/70 mt-1">
                   Средства будут переведены автоматически с выбранного кошелька
