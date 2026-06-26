@@ -326,7 +326,7 @@ function ApiDocs({ apiKey, showKey }: { apiKey: string; showKey: boolean }) {
 
   const toggle = (id: string) => setOpen(prev => prev === id ? null : id);
 
-  const baseUrl = "https://yoursite.swiftx.online";
+  const baseUrl = window.location.origin;
 
   return (
     <div className="space-y-3">
@@ -347,7 +347,7 @@ function ApiDocs({ apiKey, showKey }: { apiKey: string; showKey: boolean }) {
         </p>
         <CodeBlock>{`x-shop-key: ${key}`}</CodeBlock>
         <p className="text-[10px] text-white/30 mt-2 leading-relaxed">
-          Базовый URL всех запросов: <code className="text-white/50">https://swiftx.online</code>
+          Базовый URL всех запросов: <code className="text-white/50">{baseUrl}</code>
         </p>
       </div>
 
@@ -618,7 +618,7 @@ function ApiDocs({ apiKey, showKey }: { apiKey: string; showKey: boolean }) {
         {open === "example" && (
           <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
             <CodeBlock>{`// 1. Получить адрес для оплаты
-const res = await fetch('https://swiftx.online/api/merchant/address', {
+const res = await fetch('${baseUrl}/api/merchant/address', {
   method: 'POST',
   headers: {
     'x-shop-key': '${showKey ? apiKey : apiKey.slice(0, 8) + "..."}',
@@ -636,7 +636,7 @@ const { address, payment_id } = await res.json();
 // 2. Показать адрес клиенту, затем проверять статус
 const poll = setInterval(async () => {
   const s = await fetch(
-    \`https://swiftx.online/api/merchant/payment/\${payment_id}\`,
+    \`${baseUrl}/api/merchant/payment/\${payment_id}\`,
     { headers: { 'x-shop-key': '${showKey ? apiKey : apiKey.slice(0, 8) + "..."}' } }
   ).then(r => r.json());
 
