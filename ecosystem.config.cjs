@@ -1,5 +1,5 @@
 /**
- * PM2 Ecosystem Config — SwiftX
+ * PM2 Ecosystem Config — myPay
  *
  * Parses .env with built-in Node.js (no extra dependencies).
  * All variables are loaded from .env automatically — no duplication.
@@ -7,8 +7,8 @@
  * Usage:
  *   pm2 start ecosystem.config.cjs
  *   pm2 reload ecosystem.config.cjs --update-env
- *   pm2 stop swiftx
- *   pm2 delete swiftx
+ *   pm2 stop myPay
+ *   pm2 delete myPay
  */
 
 'use strict';
@@ -73,7 +73,7 @@ module.exports = {
   apps: [
     {
       // ── Identity ────────────────────────────────────────────────────────────
-      name:    'swiftx',
+      name:    'myPay',
       version: appVersion,
       script:  path.join(appRoot, 'dist', 'index.js'),
       cwd:     appRoot,

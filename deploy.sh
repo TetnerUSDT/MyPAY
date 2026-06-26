@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # =============================================================================
-# SwiftX — Safe Deployment Script
+# myPay — Safe Deployment Script
 # Usage:
 #   chmod +x deploy.sh
 #   ./deploy.sh             # full deploy (pull + install + build + reload)
@@ -31,7 +31,7 @@ section() { echo -e "\n${BOLD}${CYAN}══ $1 ══${NC}"; }
 DO_PULL=true
 DO_BUILD=true
 DO_MIGRATE=false
-PM2_APP_NAME="swiftx"
+PM2_APP_NAME="myPay"
 DIST_BACKUP_DIR=".dist_backup"
 
 for arg in "$@"; do
@@ -54,7 +54,7 @@ START_TIME=$(date +%s)
 
 echo ""
 echo -e "${BOLD}${CYAN}╔══════════════════════════════════════╗${NC}"
-echo -e "${BOLD}${CYAN}║        SwiftX Deployment             ║${NC}"
+echo -e "${BOLD}${CYAN}║        myPay Deployment              ║${NC}"
 echo -e "${BOLD}${CYAN}╚══════════════════════════════════════╝${NC}"
 echo -e "  Started: $(date '+%Y-%m-%d %H:%M:%S')"
 echo ""
