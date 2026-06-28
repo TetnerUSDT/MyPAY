@@ -208,16 +208,18 @@ async function pollAddressForPayment(paymentId: number, address: string, network
         if (txs.length > 0) {
           const tx = txs[0];
           const txAmount = (parseInt(tx.amount ?? "0") / 1e6).toFixed(6);
-          await db.execute(sql`
+          const [tronUpd] = await db.execute(sql`
             UPDATE merchant_payments
             SET status = 'confirmed', tx_hash = ${tx.transactionId}, amount_received = ${txAmount}, confirmed_at = NOW()
             WHERE id = ${paymentId} AND status = 'pending'
           `);
-          await db.execute(sql`
-            UPDATE merchant_shops SET balance_usdt = balance_usdt + ${parseFloat(txAmount)},
-            total_received = total_received + ${parseFloat(txAmount)}
-            WHERE id = (SELECT shop_id FROM merchant_payments WHERE id = ${paymentId})
-          `);
+          if ((tronUpd as any).affectedRows === 1) {
+            await db.execute(sql`
+              UPDATE merchant_shops SET balance_usdt = balance_usdt + ${parseFloat(txAmount)},
+              total_received = total_received + ${parseFloat(txAmount)}
+              WHERE id = (SELECT shop_id FROM merchant_payments WHERE id = ${paymentId})
+            `);
+          }
           found = true;
         }
       }
@@ -230,16 +232,18 @@ async function pollAddressForPayment(paymentId: number, address: string, network
         if (txs.length > 0 && txs[0].to?.toLowerCase() === address.toLowerCase()) {
           const tx = txs[0];
           const txAmount = (parseInt(tx.value ?? "0") / 1e18).toFixed(6);
-          await db.execute(sql`
+          const [bscUpd] = await db.execute(sql`
             UPDATE merchant_payments
             SET status = 'confirmed', tx_hash = ${tx.hash}, amount_received = ${txAmount}, confirmed_at = NOW()
             WHERE id = ${paymentId} AND status = 'pending'
           `);
-          await db.execute(sql`
-            UPDATE merchant_shops SET balance_usdt = balance_usdt + ${parseFloat(txAmount)},
-            total_received = total_received + ${parseFloat(txAmount)}
-            WHERE id = (SELECT shop_id FROM merchant_payments WHERE id = ${paymentId})
-          `);
+          if ((bscUpd as any).affectedRows === 1) {
+            await db.execute(sql`
+              UPDATE merchant_shops SET balance_usdt = balance_usdt + ${parseFloat(txAmount)},
+              total_received = total_received + ${parseFloat(txAmount)}
+              WHERE id = (SELECT shop_id FROM merchant_payments WHERE id = ${paymentId})
+            `);
+          }
           found = true;
         }
       }
@@ -300,16 +304,18 @@ async function pollInvoiceForPayment(
       }
 
       if (found && txHash) {
-        await db.execute(sql`
+        const [invUpd] = await db.execute(sql`
           UPDATE merchant_invoices
           SET status = 'confirmed', tx_hash = ${txHash}, amount_received = ${amountReceived}, confirmed_at = NOW()
           WHERE id = ${invoiceId} AND status = 'pending'
         `);
-        await db.execute(sql`
-          UPDATE merchant_shops SET balance_usdt = balance_usdt + ${parseFloat(amountReceived ?? "0")},
-          total_received = total_received + ${parseFloat(amountReceived ?? "0")}
-          WHERE id = ${shopId}
-        `);
+        if ((invUpd as any).affectedRows === 1) {
+          await db.execute(sql`
+            UPDATE merchant_shops SET balance_usdt = balance_usdt + ${parseFloat(amountReceived ?? "0")},
+            total_received = total_received + ${parseFloat(amountReceived ?? "0")}
+            WHERE id = ${shopId}
+          `);
+        }
         if (webhookUrl) {
           sendWebhook(webhookUrl, {
             event: "invoice.confirmed",
@@ -912,8 +918,10 @@ export function registerBusinessRoutes(app: Express) {
       const result = await checkTxOnChain(payment.network, tx_hash, payment.wallet_address, payment.amount);
       if (result.confirmed) {
         const amount = result.amount ?? payment.amount;
-        await db.execute(sql`UPDATE merchant_payments SET status = 'confirmed', tx_hash = ${tx_hash}, amount_received = ${amount}, confirmed_at = NOW() WHERE id = ${payment_id} AND status = 'pending'`);
-        await db.execute(sql`UPDATE merchant_shops SET balance_usdt = balance_usdt + ${parseFloat(amount ?? "0")}, total_received = total_received + ${parseFloat(amount ?? "0")} WHERE id = ${shop.id}`);
+        const [vtUpd] = await db.execute(sql`UPDATE merchant_payments SET status = 'confirmed', tx_hash = ${tx_hash}, amount_received = ${amount}, confirmed_at = NOW() WHERE id = ${payment_id} AND status = 'pending'`);
+        if ((vtUpd as any).affectedRows === 1) {
+          await db.execute(sql`UPDATE merchant_shops SET balance_usdt = balance_usdt + ${parseFloat(amount ?? "0")}, total_received = total_received + ${parseFloat(amount ?? "0")} WHERE id = ${shop.id}`);
+        }
         return res.json({ confirmed: true, amount_received: amount });
       }
       res.json({ confirmed: false, message: "Transaction not confirmed on chain" });
