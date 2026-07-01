@@ -18,11 +18,9 @@ CREATE TABLE IF NOT EXISTS config (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 INSERT INTO config (`key`, `value`) VALUES
-  ('base_url',           'https://mypay.casa'),
-  ('shop_key_permanent', ''),
-  ('shop_key_temporary', ''),
-  ('shop_key_invoice',   ''),
-  ('default_network',    'TRON')
+  ('base_url',        'https://mypay.casa'),
+  ('shop_key',        ''),
+  ('default_network', 'TRON')
 ON DUPLICATE KEY UPDATE `value` = `value`;
 
 -- ── Users ─────────────────────────────────────────────────────

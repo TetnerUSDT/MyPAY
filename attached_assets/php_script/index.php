@@ -159,16 +159,14 @@ $action = $_GET['action'] ?? '';
 if ($action) {
     header('Content-Type: application/json; charset=utf-8');
 
-    $baseUrl = cfg($pdo, 'base_url',           'https://mypay.casa');
-    $keyPerm = cfg($pdo, 'shop_key_permanent',  '');
-    $keyTemp = cfg($pdo, 'shop_key_temporary',  '');
-    $keyInv  = cfg($pdo, 'shop_key_invoice',    '');
-    $defNet  = cfg($pdo, 'default_network',     'TRON');
+    $baseUrl  = cfg($pdo, 'base_url',       'https://mypay.casa');
+    $shopKey  = cfg($pdo, 'shop_key',       '');
+    $defNet   = cfg($pdo, 'default_network','TRON');
     $input   = json_decode(file_get_contents('php://input'), true) ?? [];
 
     // ── Сохранить настройки ───────────────────────────────────
     if ($action === 'save_settings') {
-        $allowed = ['base_url','shop_key_permanent','shop_key_temporary','shop_key_invoice','default_network'];
+        $allowed = ['base_url','shop_key','default_network'];
         foreach ($allowed as $f) {
             if (array_key_exists($f, $input)) {
                 setcfg($pdo, $f, trim((string)$input[$f]));
@@ -182,11 +180,9 @@ if ($action) {
     // ── Загрузить настройки ───────────────────────────────────
     if ($action === 'get_settings') {
         echo json_encode([
-            'base_url'           => $baseUrl,
-            'shop_key_permanent' => $keyPerm,
-            'shop_key_temporary' => $keyTemp,
-            'shop_key_invoice'   => $keyInv,
-            'default_network'    => $defNet,
+            'base_url'       => $baseUrl,
+            'shop_key'       => $shopKey,
+            'default_network'=> $defNet,
         ]);
         exit;
     }
@@ -196,10 +192,8 @@ if ($action) {
         $mode      = in_array($input['mode'] ?? '', ['permanent','temporary']) ? $input['mode'] : 'permanent';
         $productId = (int)($input['product_id'] ?? 0);
         $network   = in_array($input['network'] ?? '', ['TRON','BSC','TON','POLYGON']) ? $input['network'] : $defNet;
-        $shopKey   = ($mode === 'temporary') ? $keyTemp : $keyPerm;
-
         if (!$shopKey) {
-            echo json_encode(['error' => "Не задан ключ магазина для режима «{$mode}»"]);
+            echo json_encode(['error' => 'Не задан Shop API Key в настройках']);
             exit;
         }
 
@@ -235,7 +229,7 @@ if ($action) {
     // ── Получить инвойс ───────────────────────────────────────
     if ($action === 'get_invoice') {
         $productId = (int)($input['product_id'] ?? 0);
-        if (!$keyInv) { echo json_encode(['error' => 'Не задан ключ магазина для режима «invoice»']); exit; }
+        if (!$shopKey) { echo json_encode(['error' => 'Не задан Shop API Key в настройках']); exit; }
 
         $stmt = $pdo->prepare("SELECT * FROM products WHERE id=? LIMIT 1");
         $stmt->execute([$productId]);
@@ -243,7 +237,7 @@ if ($action) {
         if (!$product) { echo json_encode(['error' => 'Товар не найден']); exit; }
 
         $ordRef  = makeOrderRef($uid, $productId);
-        $apiResp = api($baseUrl, $keyInv, 'POST', '/api/merchant/address', [
+        $apiResp = api($baseUrl, $shopKey, 'POST', '/api/merchant/address', [
             'user_id'  => (string)$uid,
             'order_id' => $ordRef,
             'amount'   => (float)$product['price_usdt'],
@@ -273,8 +267,7 @@ if ($action) {
         if (!$order) { echo json_encode(['error' => 'Заказ не найден']); exit; }
 
         $mode    = $order['payment_mode'];
-        $shopKey = match($mode) { 'temporary' => $keyTemp, 'invoice' => $keyInv, default => $keyPerm };
-        if (!$shopKey) { echo json_encode(['error' => "Ключ магазина для режима «{$mode}» не задан"]); exit; }
+        if (!$shopKey) { echo json_encode(['error' => 'Не задан Shop API Key в настройках']); exit; }
 
         if ($mode === 'invoice' && $order['invoice_number']) {
             // Invoice endpoint is public — no shop key needed, but we send it anyway (ignored)
@@ -667,10 +660,14 @@ $webRoot = $proto . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirna
     </div>
 
     <div class="settings-section">
-      <h4>Ключи магазинов (x-shop-key)</h4>
-      <div class="field"><label>🟢 Постоянный адрес — магазин в режиме «permanent»</label><input type="text" id="cfg_key_perm" placeholder="sk_live_..."></div>
-      <div class="field"><label>🔵 Временный адрес — магазин в режиме «temporary»</label><input type="text" id="cfg_key_temp" placeholder="sk_live_..."></div>
-      <div class="field"><label>🟡 Инвойс-ссылка — магазин в режиме «invoice»</label><input type="text" id="cfg_key_inv" placeholder="sk_live_..."></div>
+      <h4>Ключ магазина (x-shop-key)</h4>
+      <div class="field">
+        <label>Shop API Key</label>
+        <input type="text" id="cfg_shop_key" placeholder="sk_live_...">
+      </div>
+      <div class="settings-note" style="margin-top:8px;margin-bottom:0">
+        Режим (постоянный / временный / инвойс) переключается в настройках магазина на стороне myPay. Здесь используется один ключ для всех трёх вкладок.
+      </div>
     </div>
 
     <button class="btn btn-primary" onclick="saveSettings()">Сохранить настройки</button>
@@ -913,20 +910,16 @@ function toggleJson(oid) {
 <?php if ($page === 'settings'): ?>
 (async () => {
   const s = await fetch('?action=get_settings').then(r=>r.json()).catch(()=>({}));
-  document.getElementById('cfg_base_url').value        = s.base_url           || '';
-  document.getElementById('cfg_key_perm').value        = s.shop_key_permanent  || '';
-  document.getElementById('cfg_key_temp').value        = s.shop_key_temporary  || '';
-  document.getElementById('cfg_key_inv').value         = s.shop_key_invoice    || '';
-  document.getElementById('cfg_default_network').value = s.default_network     || 'TRON';
+  document.getElementById('cfg_base_url').value        = s.base_url       || '';
+  document.getElementById('cfg_shop_key').value        = s.shop_key       || '';
+  document.getElementById('cfg_default_network').value = s.default_network || 'TRON';
 })();
 
 async function saveSettings() {
   const r = await post('save_settings', {
-    base_url:           document.getElementById('cfg_base_url').value.trim(),
-    shop_key_permanent: document.getElementById('cfg_key_perm').value.trim(),
-    shop_key_temporary: document.getElementById('cfg_key_temp').value.trim(),
-    shop_key_invoice:   document.getElementById('cfg_key_inv').value.trim(),
-    default_network:    document.getElementById('cfg_default_network').value,
+    base_url:        document.getElementById('cfg_base_url').value.trim(),
+    shop_key:        document.getElementById('cfg_shop_key').value.trim(),
+    default_network: document.getElementById('cfg_default_network').value,
   });
   if (r.ok) {
     const msg = document.getElementById('settings-msg');
