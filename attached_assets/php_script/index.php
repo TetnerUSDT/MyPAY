@@ -191,7 +191,15 @@ if ($action) {
     if ($action === 'get_address') {
         $mode      = in_array($input['mode'] ?? '', ['permanent','temporary']) ? $input['mode'] : 'permanent';
         $productId = (int)($input['product_id'] ?? 0);
-        $network   = in_array($input['network'] ?? '', ['TRON','BSC','TON','POLYGON']) ? $input['network'] : $defNet;
+
+        // network_id — внутренний идентификатор (TRON, TRON_GASFREE, BSC, TON, ETH, POLYGON, SOLANA, ARBITRUM)
+        $VALID_NETS = ['TRON','TRON_GASFREE','BSC','TON','ETH','POLYGON','SOLANA','ARBITRUM'];
+        $networkId  = in_array($input['network'] ?? '', $VALID_NETS) ? $input['network'] : $defNet;
+
+        // Маппинг на параметры API
+        $apiNet  = ($networkId === 'TRON_GASFREE') ? 'TRON' : $networkId;
+        $apiMode = ($networkId === 'TRON_GASFREE') ? 'gasfree' : 'standard';
+
         if (!$shopKey) {
             echo json_encode(['error' => 'Не задан Shop API Key в настройках']);
             exit;
@@ -204,24 +212,40 @@ if ($action) {
 
         $ordRef  = makeOrderRef($uid, $productId);
         $apiResp = api($baseUrl, $shopKey, 'POST', '/api/merchant/address', [
-            'network'  => $network,
+            'network'  => $apiNet,
+            'mode'     => $apiMode,
             'user_id'  => (string)$uid,
             'order_id' => $ordRef,
             'amount'   => (float)$product['price_usdt'],
             'currency' => 'USDT',
         ]);
 
+        // Если API вернул ошибку — логируем и возвращаем понятное сообщение
+        if (isset($apiResp['error'])) {
+            $errMsg  = $apiResp['error'] ?? 'Unknown error';
+            $isNetErr = stripos($errMsg, 'network') !== false
+                     || stripos($errMsg, 'not supported') !== false
+                     || stripos($errMsg, 'not enabled') !== false
+                     || stripos($errMsg, 'disabled') !== false;
+            app_log('WARN', "API returned error for network {$networkId}", ['error' => $errMsg]);
+            if ($isNetErr) {
+                $errMsg = "Сеть «{$networkId}» не поддерживается или не включена в настройках магазина myPay. Включи её в myPay → Магазин → Доступные сети.\n\nОтвет API: {$errMsg}";
+            }
+            echo json_encode(['error' => $errMsg, 'api' => $apiResp]);
+            exit;
+        }
+
         $paymentId = $apiResp['payment_id'] ?? null;
         $address   = $apiResp['address']    ?? null;
 
         try {
             $pdo->prepare("INSERT INTO orders (user_id,product_id,payment_mode,network,amount,payment_id,wallet_address,api_response) VALUES (?,?,?,?,?,?,?,?)")
-                ->execute([$uid, $productId, $mode, $network, $product['price_usdt'], $paymentId, $address, json_encode($apiResp)]);
+                ->execute([$uid, $productId, $mode, $networkId, $product['price_usdt'], $paymentId, $address, json_encode($apiResp)]);
         } catch (PDOException $e) {
             app_log('ERROR', 'Order insert failed', ['error' => $e->getMessage()]);
         }
 
-        app_log('INFO', "New {$mode} payment", ['uid' => $uid, 'product_id' => $productId, 'network' => $network, 'payment_id' => $paymentId]);
+        app_log('INFO', "New {$mode} payment", ['uid' => $uid, 'product_id' => $productId, 'network' => $networkId, 'api_mode' => $apiMode, 'payment_id' => $paymentId]);
         echo json_encode(['api' => $apiResp, 'order_id' => $pdo->lastInsertId(), 'product' => $product['name']]);
         exit;
     }
@@ -486,6 +510,22 @@ $webRoot = $proto . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirna
   /* Notice */
   .notice { background: rgba(245,166,35,0.08); border: 1px solid rgba(245,166,35,0.2); border-radius: 10px; padding: 12px 14px; font-size: 12px; color: var(--warn); margin-top: 10px; line-height: 1.5; }
 
+  /* Network picker */
+  .net-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+  .net-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--card2); cursor: pointer; transition: all .15s; user-select: none; }
+  .net-item:hover { border-color: rgba(255,255,255,0.15); background: rgba(255,255,255,0.04); }
+  .net-item.selected { border-color: var(--green); background: rgba(58,179,104,0.08); }
+  .net-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .net-radio { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; margin-left: auto; transition: border-color .15s; }
+  .net-item.selected .net-radio { border-color: var(--green); background: var(--green); }
+  .net-item.selected .net-radio::after { content: ''; display: block; width: 6px; height: 6px; background: #fff; border-radius: 50%; }
+  .net-name { font-size: 13px; font-weight: 600; }
+  .net-proto { font-size: 11px; color: var(--muted); }
+  .net-currency { font-size: 11px; color: var(--muted); margin-left: auto; }
+  .net-badge { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 5px; text-transform: uppercase; letter-spacing: .04em; flex-shrink: 0; }
+  .net-badge-gf { background: rgba(46,234,127,0.15); color: var(--green2); border: 1px solid rgba(46,234,127,0.3); }
+  .net-badge-std { background: rgba(255,255,255,0.06); color: var(--muted); }
+
   /* Tables */
   .tbl-wrap { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -640,21 +680,26 @@ $webRoot = $proto . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirna
   <div class="card card-pad">
     <div class="settings-note">
       <strong>Схема подключения:</strong><br>
-      1. Создай <strong>3 магазина</strong> в myPay в разных режимах (постоянный / временный / инвойс)<br>
-      2. Скопируй API ключ каждого магазина и вставь ниже<br>
-      3. В каждом магазине укажи Webhook URL:
-      <strong><?= htmlspecialchars($webRoot . '/webhook.php', ENT_QUOTES, 'UTF-8') ?></strong>
+      1. Создай магазин в myPay, скопируй его API ключ и вставь ниже<br>
+      2. Укажи Webhook URL в настройках магазина:
+      <strong><?= htmlspecialchars($webRoot . '/webhook.php', ENT_QUOTES, 'UTF-8') ?></strong><br>
+      3. Включи нужные сети в myPay → Магазин → Доступные сети — <strong>только они будут работать</strong>
     </div>
 
     <div class="settings-section">
       <h4>Сервер myPay</h4>
       <div class="field"><label>Base URL сервера</label><input type="url" id="cfg_base_url" placeholder="https://mypay.casa"></div>
       <div class="field">
-        <label>Сеть по умолчанию</label>
+        <label>Сеть по умолчанию (выбирается при открытии модала)</label>
         <select id="cfg_default_network">
-          <option value="TRON">TRON (TRC20 USDT)</option>
-          <option value="BSC">BNB Chain (BEP20 USDT)</option>
-          <option value="TON">TON (USDT)</option>
+          <option value="TRON">TRON — TRC20 USDT (standard)</option>
+          <option value="TRON_GASFREE">TRON — TRC20 USDT (GasFree)</option>
+          <option value="BSC">BNB Chain — BEP20 USDT</option>
+          <option value="TON">TON — Jetton USDT</option>
+          <option value="ETH">Ethereum — ERC20 USDT</option>
+          <option value="POLYGON">Polygon — ERC20 USDT</option>
+          <option value="SOLANA">Solana — SPL USDT</option>
+          <option value="ARBITRUM">Arbitrum — ERC20 USDT</option>
         </select>
       </div>
     </div>
@@ -721,13 +766,8 @@ $webRoot = $proto . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirna
 
     <!-- Permanent -->
     <div class="tab-panel active" id="tab-permanent">
-      <div class="field"><label>Сеть</label>
-        <select id="perm-network">
-          <option value="TRON">TRON (TRC20 USDT)</option>
-          <option value="BSC">BNB Chain (BEP20 USDT)</option>
-          <option value="TON">TON (USDT)</option>
-        </select>
-      </div>
+      <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Выбери сеть</div>
+      <div class="net-list" id="perm-net-list"></div>
       <div class="notice">Один адрес на пользователя. Повторная покупка тем же ID вернёт тот же адрес. <strong>Вебхук не приходит</strong> — используй кнопку «Проверить».</div>
       <button class="btn btn-primary" id="perm-btn" onclick="getAddress('permanent')" style="margin-top:12px">Создать оплату</button>
       <div id="perm-result"></div>
@@ -735,13 +775,8 @@ $webRoot = $proto . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirna
 
     <!-- Temporary -->
     <div class="tab-panel" id="tab-temporary">
-      <div class="field"><label>Сеть</label>
-        <select id="temp-network">
-          <option value="TRON">TRON (TRC20 USDT)</option>
-          <option value="BSC">BNB Chain (BEP20 USDT)</option>
-          <option value="TON">TON (USDT)</option>
-        </select>
-      </div>
+      <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Выбери сеть</div>
+      <div class="net-list" id="temp-net-list"></div>
       <div class="notice">Новый адрес на каждый заказ, действует 30 минут. <strong>Вебхук не приходит</strong> — используй кнопку «Проверить».</div>
       <button class="btn btn-primary" id="temp-btn" onclick="getAddress('temporary')" style="margin-top:12px">Создать оплату</button>
       <div id="temp-result"></div>
@@ -765,6 +800,46 @@ $webRoot = $proto . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirna
 const UID = <?= (int)$uid ?>;
 let currentProduct = null;
 
+// ─── Network definitions ──────────────────────────────────────────────────────
+const NETWORKS = [
+  { id:'TRON',         name:'TRON',      proto:'TRC20',  currency:'USDT', type:'standard', color:'#e8343a' },
+  { id:'TRON_GASFREE', name:'TRON',      proto:'TRC20',  currency:'USDT', type:'gasfree',  color:'#e8343a' },
+  { id:'BSC',          name:'BNB Chain', proto:'BEP20',  currency:'USDT', type:'standard', color:'#f5a623' },
+  { id:'TON',          name:'TON',       proto:'Jetton', currency:'USDT', type:'standard', color:'#0098ea' },
+  { id:'ETH',          name:'Ethereum',  proto:'ERC20',  currency:'USDT', type:'standard', color:'#627eea' },
+  { id:'POLYGON',      name:'Polygon',   proto:'ERC20',  currency:'USDT', type:'standard', color:'#8247e5' },
+  { id:'SOLANA',       name:'Solana',    proto:'SPL',    currency:'USDT', type:'standard', color:'#9945ff' },
+  { id:'ARBITRUM',     name:'Arbitrum',  proto:'ERC20',  currency:'USDT', type:'standard', color:'#28a0f0' },
+];
+
+// selectedNetwork[tabId] → network id string
+const selectedNetwork = { permanent: '<?= htmlspecialchars(cfg($pdo,'default_network','TRON'), ENT_QUOTES, 'UTF-8') ?>', temporary: '<?= htmlspecialchars(cfg($pdo,'default_network','TRON'), ENT_QUOTES, 'UTF-8') ?>' };
+
+function renderNetworkPicker(containerId, tabId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = NETWORKS.map(n => {
+    const isSel = (selectedNetwork[tabId] === n.id);
+    const badge = n.type === 'gasfree'
+      ? `<span class="net-badge net-badge-gf">GasFree</span>`
+      : `<span class="net-badge net-badge-std">standard</span>`;
+    return `<div class="net-item${isSel?' selected':''}" onclick="selectNetwork('${n.id}','${tabId}','${containerId}')">
+      <div class="net-dot" style="background:${n.color}"></div>
+      <div>
+        <div class="net-name">${esc(n.name)}</div>
+        <div class="net-proto">${esc(n.proto)} · ${esc(n.currency)}</div>
+      </div>
+      ${badge}
+      <div class="net-radio"></div>
+    </div>`;
+  }).join('');
+}
+
+function selectNetwork(netId, tabId, containerId) {
+  selectedNetwork[tabId] = netId;
+  renderNetworkPicker(containerId, tabId);
+}
+
 // ─── Modal ────────────────────────────────────────────────────────────────────
 function openModal(p) {
   currentProduct = p;
@@ -773,6 +848,8 @@ function openModal(p) {
   document.getElementById('m-price').textContent = parseFloat(p.price_usdt || 0).toFixed(2) + ' USDT';
   document.getElementById('modal').classList.add('open');
   ['perm-result','temp-result','inv-result'].forEach(id => { document.getElementById(id).innerHTML = ''; });
+  renderNetworkPicker('perm-net-list', 'permanent');
+  renderNetworkPicker('temp-net-list', 'temporary');
 }
 function closeModal() { document.getElementById('modal').classList.remove('open'); }
 
@@ -798,13 +875,23 @@ async function post(action, body) {
 // ─── Actions ──────────────────────────────────────────────────────────────────
 async function getAddress(mode) {
   if (!currentProduct) return;
-  const netSel  = document.getElementById(mode === 'permanent' ? 'perm-network' : 'temp-network');
+  const netId   = selectedNetwork[mode] || 'TRON';
   const btn     = document.getElementById(mode === 'permanent' ? 'perm-btn' : 'temp-btn');
   const resultEl= document.getElementById(mode === 'permanent' ? 'perm-result' : 'temp-result');
   btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Запрос...';
-  const data = await post('get_address', {mode, product_id: currentProduct.id, network: netSel.value});
+  const data = await post('get_address', {mode, product_id: currentProduct.id, network: netId});
   btn.disabled = false; btn.textContent = 'Создать оплату';
-  resultEl.innerHTML = data.error ? renderError(data.error) : renderAddressResult(data, mode);
+  if (data.error) {
+    resultEl.innerHTML = renderError(data.error);
+    // Показываем полный JSON ответа API, если есть
+    if (data.api) {
+      const pid = 'api-err-' + Date.now();
+      resultEl.innerHTML += `<button class="json-toggle" onclick="document.getElementById('${pid}').classList.toggle('open')">▶ Ответ API (JSON)</button>
+        <pre class="json-pre" id="${pid}">${esc(JSON.stringify(data.api, null, 2))}</pre>`;
+    }
+  } else {
+    resultEl.innerHTML = renderAddressResult(data, mode);
+  }
 }
 
 async function getInvoice() {
