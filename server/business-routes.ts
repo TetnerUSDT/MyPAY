@@ -928,7 +928,7 @@ export function registerBusinessRoutes(app: Express) {
     }
   });
 
-  // Trigger payment check
+  // Trigger payment check — synchronous: scans blockchain right now, returns final status
   app.post("/api/merchant/check-payment", async (req, res) => {
     const shop = await getShopByKey(req);
     if (!shop) return res.status(401).json({ error: "Invalid shop API key or shop not active" });
@@ -938,9 +938,60 @@ export function registerBusinessRoutes(app: Express) {
       const rows = await db.execute(sql`SELECT * FROM merchant_payments WHERE id = ${payment_id} AND shop_id = ${shop.id} LIMIT 1`);
       const payment = (rows[0] as any[])[0];
       if (!payment) return res.status(404).json({ error: "Payment not found" });
-      if (payment.status === "confirmed") return res.json({ status: "confirmed", tx_hash: payment.tx_hash, amount_received: payment.amount_received });
+      if (payment.status === "confirmed") {
+        return res.json({ status: "confirmed", tx_hash: payment.tx_hash, amount_received: payment.amount_received, confirmed_at: payment.confirmed_at });
+      }
+
+      // ── Synchronous blockchain scan ─────────────────────────────────────────
+      let found = false;
+      let txHash: string | null = null;
+      let amountReceived: string | null = null;
+
+      if (payment.network === "TRON" || payment.network === "TRC20") {
+        try {
+          const url = `https://apilist.tronscanapi.com/api/transfer/trc20?limit=5&start=0&toAddress=${payment.wallet_address}&tokenName=USDT`;
+          const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
+          const data = await r.json() as any;
+          const txs: any[] = data.data ?? [];
+          if (txs.length > 0) {
+            txHash = txs[0].transactionId;
+            amountReceived = (parseInt(txs[0].amount ?? "0") / 1e6).toFixed(6);
+            found = true;
+          }
+        } catch { /* network error — return pending */ }
+      }
+
+      if (payment.network === "BSC" || payment.network === "BEP20") {
+        try {
+          const txs = await bscScanIncoming(payment.wallet_address);
+          const inbound = txs.find((tx: any) => tx.to?.toLowerCase() === payment.wallet_address.toLowerCase());
+          if (inbound) {
+            txHash = inbound.hash;
+            amountReceived = (parseInt(inbound.value ?? "0") / 1e18).toFixed(6);
+            found = true;
+          }
+        } catch { /* network error — return pending */ }
+      }
+
+      if (found && txHash) {
+        const [upd] = await db.execute(sql`
+          UPDATE merchant_payments
+          SET status = 'confirmed', tx_hash = ${txHash}, amount_received = ${amountReceived}, confirmed_at = NOW()
+          WHERE id = ${payment.id} AND status = 'pending'
+        `);
+        if ((upd as any).affectedRows === 1) {
+          await db.execute(sql`
+            UPDATE merchant_shops SET balance_usdt = balance_usdt + ${parseFloat(amountReceived ?? "0")},
+            total_received = total_received + ${parseFloat(amountReceived ?? "0")}
+            WHERE id = ${shop.id}
+          `);
+        }
+        return res.json({ status: "confirmed", tx_hash: txHash, amount_received: amountReceived, confirmed_at: new Date().toISOString() });
+      }
+
+      // Nothing found on-chain yet — also kick off background polling for auto-confirm
       pollAddressForPayment(payment.id, payment.wallet_address, payment.network, payment.currency, payment.amount);
-      res.json({ status: payment.status, message: "Checking started" });
+      res.json({ status: "pending", tx_hash: null, amount_received: null });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 

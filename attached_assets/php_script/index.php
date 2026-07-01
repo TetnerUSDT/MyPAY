@@ -938,55 +938,25 @@ async function getInvoice() {
   document.getElementById('inv-result').innerHTML = data.error ? renderError(data.error) : renderInvoiceResult(data);
 }
 
-// активные поллеры: orderId → intervalId
-const activePollers = {};
-
 async function checkStatus(orderId, mode) {
-  // Если уже опрашивается — не запускаем повторно
-  if (activePollers[orderId]) return;
-
   const btn = document.getElementById('chk-' + orderId);
-  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Запускаю сканер...'; }
+  if (btn && btn.disabled) return; // уже в процессе
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Проверяю...'; }
 
-  // 1. Триггер: запускаем сканер на myPay (возвращает сразу, сканирует через ~20 сек)
-  await post('check_status', {order_id: orderId, mode});
+  // Один синхронный запрос — myPay сразу проверяет блокчейн и возвращает результат
+  const data = await post('check_status', {order_id: orderId, mode});
 
-  // 2. Автополлинг: каждые 8 сек, до 8 попыток (64 сек) — реальная проверка без триггера
-  let attempts = 0;
-  const maxAttempts = 8;
+  if (btn) { btn.disabled = false; btn.textContent = '↻ Проверить статус'; }
 
-  const applyStatus = (data) => {
-    const st = data.api?.status || data.local_status || 'pending';
-    const sb = document.getElementById('sb-' + orderId);
-    if (sb) sb.outerHTML = renderStatusBadge(st, 'sb-' + orderId);
-    const jd = document.getElementById('jd-' + orderId);
-    if (jd && data.api) jd.textContent = JSON.stringify(data.api, null, 2);
-    return st;
-  };
+  const st = data.api?.status || data.local_status || 'pending';
+  const sb = document.getElementById('sb-' + orderId);
+  if (sb) sb.outerHTML = renderStatusBadge(st, 'sb-' + orderId);
+  const jd = document.getElementById('jd-' + orderId);
+  if (jd && data.api) jd.textContent = JSON.stringify(data.api, null, 2);
 
-  const stopPolling = (st) => {
-    clearInterval(activePollers[orderId]);
-    delete activePollers[orderId];
-    if (btn) { btn.disabled = false; btn.textContent = '↻ Проверить статус'; }
-    if (st === 'confirmed') toast('✅ Платёж подтверждён!', 'ok');
-    else if (st === 'expired') toast('⚠️ Срок истёк', 'err');
-    else toast('⏳ Не подтверждён пока, попробуй ещё раз через 30 сек');
-  };
-
-  activePollers[orderId] = setInterval(async () => {
-    attempts++;
-    const remaining = maxAttempts - attempts;
-    if (btn) btn.innerHTML = `<span class="spin"></span> Жду ответа... (${remaining * 8} сек)`;
-
-    const data = await post('get_payment_status', {order_id: orderId});
-    const st = applyStatus(data);
-
-    if (st === 'confirmed' || st === 'expired' || st === 'failed') {
-      stopPolling(st);
-    } else if (attempts >= maxAttempts) {
-      stopPolling(st);
-    }
-  }, 8000);
+  if (st === 'confirmed') toast('✅ Платёж подтверждён!', 'ok');
+  else if (st === 'expired') toast('⚠️ Срок истёк', 'err');
+  else toast('⏳ Транзакция ещё не найдена — попробуй через несколько секунд');
 }
 
 // ─── Render ───────────────────────────────────────────────────────────────────
