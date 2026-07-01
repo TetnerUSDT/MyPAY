@@ -1,0 +1,90 @@
+-- ============================================================
+-- myPay Test Shop — Database
+-- Usage: mysql -u root -p < database.sql
+-- ============================================================
+
+CREATE DATABASE IF NOT EXISTS mypay_test
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
+
+USE mypay_test;
+
+-- ── Config ────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS config (
+  `key`   VARCHAR(100) NOT NULL,
+  `value` TEXT         NOT NULL DEFAULT '',
+  PRIMARY KEY (`key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO config (`key`, `value`) VALUES
+  ('base_url',           'https://mypay.casa'),
+  ('shop_key_permanent', ''),
+  ('shop_key_temporary', ''),
+  ('shop_key_invoice',   ''),
+  ('default_network',    'TRON')
+ON DUPLICATE KEY UPDATE `value` = `value`;
+
+-- ── Users ─────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS users (
+  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name       VARCHAR(100) NOT NULL,
+  email      VARCHAR(150) NOT NULL,
+  avatar     VARCHAR(10)  NOT NULL DEFAULT '👤',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO users (name, email, avatar) VALUES
+  ('Алексей Иванов',   'alex@test.com',   '🧑'),
+  ('Мария Петрова',    'maria@test.com',  '👩'),
+  ('Дмитрий Сидоров',  'dmitry@test.com', '🧔'),
+  ('Анна Козлова',     'anna@test.com',   '👱‍♀️'),
+  ('Сергей Попов',     'sergey@test.com', '👨‍💼');
+
+-- ── Products ──────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS products (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name        VARCHAR(200) NOT NULL,
+  description VARCHAR(500) NOT NULL DEFAULT '',
+  price_usdt  DECIMAL(10,4) NOT NULL,
+  emoji       VARCHAR(10)  NOT NULL DEFAULT '📦',
+  category    VARCHAR(50)  NOT NULL DEFAULT 'digital'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO products (name, description, price_usdt, emoji, category) VALUES
+  ('VIP Подписка',      'Доступ ко всем премиум функциям на 30 дней', 5.0000, '👑', 'subscription'),
+  ('API Ключ Pro',      'Расширенный API ключ с лимитом 100k запросов', 10.0000, '🔑', 'digital'),
+  ('Пакет токенов 100', '100 внутренних токенов платформы',             2.5000, '🪙', 'tokens'),
+  ('Аналитика Premium', 'Расширенная аналитика и отчёты на 7 дней',     1.0000, '📊', 'subscription');
+
+-- ── Orders ────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS orders (
+  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id        INT UNSIGNED NOT NULL,
+  product_id     INT UNSIGNED NOT NULL,
+  payment_mode   ENUM('permanent','temporary','invoice') NOT NULL,
+  network        VARCHAR(20)  DEFAULT NULL,
+  amount         DECIMAL(10,6) NOT NULL,
+  status         ENUM('pending','confirmed','expired','failed') NOT NULL DEFAULT 'pending',
+  payment_id     VARCHAR(100) DEFAULT NULL,
+  invoice_number VARCHAR(100) DEFAULT NULL,
+  wallet_address VARCHAR(300) DEFAULT NULL,
+  tx_hash        VARCHAR(200) DEFAULT NULL,
+  api_response   JSON         DEFAULT NULL,
+  created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_payment_id     (payment_id),
+  INDEX idx_invoice_number (invoice_number),
+  INDEX idx_user_id        (user_id),
+  INDEX idx_status         (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ── Webhook log ───────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS webhook_log (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  event_type  VARCHAR(100) DEFAULT NULL,
+  payload     JSON         NOT NULL,
+  order_id    INT UNSIGNED DEFAULT NULL,
+  received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_order_id   (order_id),
+  INDEX idx_event_type (event_type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
