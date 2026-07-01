@@ -1,0 +1,10 @@
+# Защита системных файлов от публичного доступа
+<Files "log.txt">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "*.sql">
+    Order Allow,Deny
+    Deny from all
+</Files>
