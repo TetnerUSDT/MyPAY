@@ -157,6 +157,47 @@ async function findOrReserveMerchantWallet(
   }
 }
 
+// ── BSC constants ─────────────────────────────────────────────────────────────
+
+const BSC_USDT_CONTRACT = "0x55d398326f99059fF775485246999027B3197955";
+const ERC20_TRANSFER_SIG = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f09bb6d3d9b2b5e6e6a7e2bbf3";
+const BSCSCAN_API_KEY = process.env.BSCSCAN_API_KEY ?? "";
+const BSC_RPC_NODES = [
+  "https://bsc-dataseed.binance.org/",
+  "https://bsc-dataseed1.ninicoin.io/",
+  "https://bsc-dataseed2.ninicoin.io/",
+];
+
+/** Call BSC public JSON-RPC. Tries each node in order. */
+async function bscRpc(method: string, params: any[]): Promise<any> {
+  for (const rpc of BSC_RPC_NODES) {
+    try {
+      const r = await fetch(rpc, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(8000),
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+      });
+      const data = await r.json() as any;
+      if (!data.error) return data.result;
+    } catch { /* try next */ }
+  }
+  return null;
+}
+
+/** Scan BSC address for recent incoming USDT via BscScan V2 API (requires BSCSCAN_API_KEY). */
+async function bscScanIncoming(address: string): Promise<{ hash: string; value: string; to: string }[]> {
+  if (!BSCSCAN_API_KEY) return [];
+  try {
+    const url = `https://api.bscscan.com/v2/api?chainid=56&module=account&action=tokentx` +
+      `&address=${address}&contractaddress=${BSC_USDT_CONTRACT}&sort=desc&offset=10&page=1&apikey=${BSCSCAN_API_KEY}`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    const data = await r.json() as any;
+    if (data.status !== "1" || !Array.isArray(data.result)) return [];
+    return data.result;
+  } catch { return []; }
+}
+
 // ── Blockchain scanner helper ─────────────────────────────────────────────────
 
 async function checkTxOnChain(network: string, txHash: string, toAddress: string, expectedAmount?: string): Promise<{ confirmed: boolean; amount?: string }> {
@@ -173,11 +214,19 @@ async function checkTxOnChain(network: string, txHash: string, toAddress: string
       return { confirmed: true, amount };
     }
     if (network === "BSC" || network === "BEP20") {
-      const url = `https://api.bscscan.com/api?module=transaction&action=gettxreceiptstatus&txhash=${txHash}&apikey=YourApiKeyToken`;
-      const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
-      const data = await r.json() as any;
-      if (data.result?.status === "1") return { confirmed: true, amount: expectedAmount };
-      return { confirmed: false };
+      // Use public BSC RPC — no API key needed for single tx lookup
+      const receipt = await bscRpc("eth_getTransactionReceipt", [txHash]);
+      if (!receipt || receipt.status !== "0x1") return { confirmed: false };
+
+      const paddedTo = "0x000000000000000000000000" + toAddress.slice(2).toLowerCase();
+      const transferLog = (receipt.logs as any[]).find((log: any) =>
+        log.address?.toLowerCase() === BSC_USDT_CONTRACT.toLowerCase() &&
+        log.topics?.[0] === ERC20_TRANSFER_SIG &&
+        log.topics?.[2]?.toLowerCase() === paddedTo
+      );
+      if (!transferLog) return { confirmed: false };
+      const amount = (parseInt(transferLog.data, 16) / 1e18).toFixed(6);
+      return { confirmed: true, amount };
     }
     return { confirmed: false };
   } catch {
@@ -225,16 +274,13 @@ async function pollAddressForPayment(paymentId: number, address: string, network
       }
 
       if (network === "BSC" || network === "BEP20") {
-        const url = `https://api.bscscan.com/api?module=account&action=tokentx&address=${address}&contractaddress=0x55d398326f99059fF775485246999027B3197955&sort=desc&offset=5&page=1`;
-        const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
-        const data = await r.json() as any;
-        const txs = data.result ?? [];
-        if (txs.length > 0 && txs[0].to?.toLowerCase() === address.toLowerCase()) {
-          const tx = txs[0];
-          const txAmount = (parseInt(tx.value ?? "0") / 1e18).toFixed(6);
+        const txs = await bscScanIncoming(address);
+        const inbound = txs.find(tx => tx.to?.toLowerCase() === address.toLowerCase());
+        if (inbound) {
+          const txAmount = (parseInt(inbound.value ?? "0") / 1e18).toFixed(6);
           const [bscUpd] = await db.execute(sql`
             UPDATE merchant_payments
-            SET status = 'confirmed', tx_hash = ${tx.hash}, amount_received = ${txAmount}, confirmed_at = NOW()
+            SET status = 'confirmed', tx_hash = ${inbound.hash}, amount_received = ${txAmount}, confirmed_at = NOW()
             WHERE id = ${paymentId} AND status = 'pending'
           `);
           if ((bscUpd as any).affectedRows === 1) {
@@ -245,6 +291,9 @@ async function pollAddressForPayment(paymentId: number, address: string, network
             `);
           }
           found = true;
+        } else if (!BSCSCAN_API_KEY) {
+          // No API key configured — cannot scan BSC without it
+          console.warn("[merchant] BSC scanner skipped: BSCSCAN_API_KEY not set");
         }
       }
 
@@ -292,14 +341,14 @@ async function pollInvoiceForPayment(
           found = true;
         }
       } else if (network === "BSC") {
-        const url = `https://api.bscscan.com/api?module=account&action=tokentx&address=${address}&contractaddress=0x55d398326f99059fF775485246999027B3197955&sort=desc&offset=5&page=1`;
-        const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
-        const data = await r.json() as any;
-        const txs: any[] = data.result ?? [];
-        if (txs.length > 0 && txs[0].to?.toLowerCase() === address.toLowerCase()) {
-          txHash = txs[0].hash;
-          amountReceived = (parseInt(txs[0].value ?? "0") / 1e18).toFixed(6);
+        const txs = await bscScanIncoming(address);
+        const inbound = txs.find(tx => tx.to?.toLowerCase() === address.toLowerCase());
+        if (inbound) {
+          txHash = inbound.hash;
+          amountReceived = (parseInt(inbound.value ?? "0") / 1e18).toFixed(6);
           found = true;
+        } else if (!BSCSCAN_API_KEY) {
+          console.warn("[merchant] BSC invoice scanner skipped: BSCSCAN_API_KEY not set");
         }
       }
 
