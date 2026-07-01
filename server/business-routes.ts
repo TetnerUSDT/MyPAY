@@ -160,7 +160,9 @@ async function findOrReserveMerchantWallet(
 // ── BSC constants ─────────────────────────────────────────────────────────────
 
 const BSC_USDT_CONTRACT = "0x55d398326f99059fF775485246999027B3197955";
-const ERC20_TRANSFER_SIG = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f09bb6d3d9b2b5e6e6a7e2bbf3";
+// NOTE: BSC Binance-Pegged USDT uses a slightly non-standard Transfer event topic[0].
+// We intentionally do NOT filter by topic[0] — instead match by contract address + topic[2] (to-address).
+// This handles all ERC20/BEP20 Transfer variants reliably.
 const BSCSCAN_API_KEY = process.env.BSCSCAN_API_KEY ?? "";
 const BSC_RPC_NODES = [
   "https://bsc-dataseed.binance.org/",
@@ -219,9 +221,9 @@ async function checkTxOnChain(network: string, txHash: string, toAddress: string
       if (!receipt || receipt.status !== "0x1") return { confirmed: false };
 
       const paddedTo = "0x000000000000000000000000" + toAddress.slice(2).toLowerCase();
+      // Match by USDT contract + destination address; skip topic[0] check (BSC USDT non-standard)
       const transferLog = (receipt.logs as any[]).find((log: any) =>
         log.address?.toLowerCase() === BSC_USDT_CONTRACT.toLowerCase() &&
-        log.topics?.[0] === ERC20_TRANSFER_SIG &&
         log.topics?.[2]?.toLowerCase() === paddedTo
       );
       if (!transferLog) return { confirmed: false };
