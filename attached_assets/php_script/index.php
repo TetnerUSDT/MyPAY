@@ -327,6 +327,41 @@ if ($action) {
         exit;
     }
 
+    // ── Только получить статус, без повторного триггера ────────
+    if ($action === 'get_payment_status') {
+        $orderId = (int)($input['order_id'] ?? 0);
+        $stmt = $pdo->prepare("SELECT * FROM orders WHERE id=? LIMIT 1");
+        $stmt->execute([$orderId]);
+        $order = $stmt->fetch();
+        if (!$order) { echo json_encode(['error' => 'Заказ не найден']); exit; }
+
+        $mode = $order['payment_mode'];
+        if (!$shopKey) { echo json_encode(['error' => 'Не задан Shop API Key']); exit; }
+
+        if ($mode === 'invoice' && $order['invoice_number']) {
+            $apiResp = api($baseUrl, $shopKey, 'GET', '/api/merchant/invoice/' . rawurlencode($order['invoice_number']));
+            $status  = $apiResp['status']  ?? null;
+            $txHash  = $apiResp['tx_hash'] ?? null;
+        } else {
+            $apiResp = api($baseUrl, $shopKey, 'GET', '/api/merchant/payment/' . rawurlencode($order['payment_id']));
+            $status  = $apiResp['status']  ?? null;
+            $txHash  = $apiResp['tx_hash'] ?? null;
+        }
+
+        // Обновить локально если подтверждён
+        if ($status === 'confirmed' && $order['status'] !== 'confirmed') {
+            try {
+                $pdo->prepare("UPDATE orders SET status='confirmed', tx_hash=?, updated_at=NOW() WHERE id=?")
+                    ->execute([$txHash, $orderId]);
+                app_log('INFO', "Order #{$orderId} confirmed via poll", ['tx_hash' => $txHash]);
+            } catch (PDOException $e) {}
+        }
+
+        $order['status'] = $status ?: $order['status'];
+        echo json_encode(['api' => $apiResp, 'local_status' => $order['status']]);
+        exit;
+    }
+
     // ── Данные заказов для таблицы ────────────────────────────
     if ($action === 'get_orders') {
         $rows = $pdo->query("
@@ -903,19 +938,55 @@ async function getInvoice() {
   document.getElementById('inv-result').innerHTML = data.error ? renderError(data.error) : renderInvoiceResult(data);
 }
 
+// активные поллеры: orderId → intervalId
+const activePollers = {};
+
 async function checkStatus(orderId, mode) {
+  // Если уже опрашивается — не запускаем повторно
+  if (activePollers[orderId]) return;
+
   const btn = document.getElementById('chk-' + orderId);
-  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spin"></span>'; }
-  const data = await post('check_status', {order_id: orderId, mode});
-  if (btn) { btn.disabled = false; btn.textContent = '↻ Проверить'; }
-  const st = data.api?.status || data.local_status || '?';
-  const sb = document.getElementById('sb-' + orderId);
-  if (sb) sb.outerHTML = renderStatusBadge(st, 'sb-' + orderId);
-  const jd = document.getElementById('jd-' + orderId);
-  if (jd) jd.textContent = JSON.stringify(data.api, null, 2);
-  if (st === 'confirmed') toast('✅ Платёж подтверждён!', 'ok');
-  else if (st === 'expired') toast('⚠️ Срок истёк', 'err');
-  else toast('Статус: ' + st);
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Запускаю сканер...'; }
+
+  // 1. Триггер: запускаем сканер на myPay (возвращает сразу, сканирует через ~20 сек)
+  await post('check_status', {order_id: orderId, mode});
+
+  // 2. Автополлинг: каждые 8 сек, до 8 попыток (64 сек) — реальная проверка без триггера
+  let attempts = 0;
+  const maxAttempts = 8;
+
+  const applyStatus = (data) => {
+    const st = data.api?.status || data.local_status || 'pending';
+    const sb = document.getElementById('sb-' + orderId);
+    if (sb) sb.outerHTML = renderStatusBadge(st, 'sb-' + orderId);
+    const jd = document.getElementById('jd-' + orderId);
+    if (jd && data.api) jd.textContent = JSON.stringify(data.api, null, 2);
+    return st;
+  };
+
+  const stopPolling = (st) => {
+    clearInterval(activePollers[orderId]);
+    delete activePollers[orderId];
+    if (btn) { btn.disabled = false; btn.textContent = '↻ Проверить статус'; }
+    if (st === 'confirmed') toast('✅ Платёж подтверждён!', 'ok');
+    else if (st === 'expired') toast('⚠️ Срок истёк', 'err');
+    else toast('⏳ Не подтверждён пока, попробуй ещё раз через 30 сек');
+  };
+
+  activePollers[orderId] = setInterval(async () => {
+    attempts++;
+    const remaining = maxAttempts - attempts;
+    if (btn) btn.innerHTML = `<span class="spin"></span> Жду ответа... (${remaining * 8} сек)`;
+
+    const data = await post('get_payment_status', {order_id: orderId});
+    const st = applyStatus(data);
+
+    if (st === 'confirmed' || st === 'expired' || st === 'failed') {
+      stopPolling(st);
+    } else if (attempts >= maxAttempts) {
+      stopPolling(st);
+    }
+  }, 8000);
 }
 
 // ─── Render ───────────────────────────────────────────────────────────────────
