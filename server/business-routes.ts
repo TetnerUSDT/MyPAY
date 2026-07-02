@@ -191,25 +191,27 @@ async function bscRpc(method: string, params: any[]): Promise<any> {
   return null;
 }
 
+// Accepted BSC stablecoins (both 18 decimals, treated as USDT value)
+// NOTE on BscScan API: V1 is deprecated (NOTOK), V2 via api.etherscan.io requires
+// a paid Etherscan plan for BSC (chainid=56). Only 1rpc.io eth_getLogs works free.
+const BSC_ACCEPTED_CONTRACTS: Record<string, string> = {
+  [BSC_USDT_CONTRACT.toLowerCase()]:                              "USDT",
+  "0xe9e7cea3dedca5984780bafc599bd69add087d56":                  "BUSD",
+};
+
 /**
  * Scan BSC address for recent incoming USDT or BUSD transfers.
  *
- * Uses 1rpc.io/bnb which supports eth_getLogs with a max 49-block range.
- * Covers ~17 min (343 blocks at 3s/block) via 7 sequential 49-block chunks
- * for each accepted stablecoin (USDT + BUSD). BscScan V1 is deprecated;
- * V2 requires a paid Etherscan API key.
+ * Uses 1rpc.io/bnb eth_getLogs — the only free public BSC RPC that supports
+ * eth_getLogs (max 49 blocks per call). Makes 14 parallel requests:
+ * 7 block-range chunks × 2 contracts (USDT + BUSD), covering ~17 min.
  *
- * Returns transfers as { hash, value (0x hex 32-byte, 18 decimals), to }.
+ * Returns transfers as { hash, value (0x hex 32-byte log.data), to }.
+ * value is parsed by parseRawAmount(value, 18) which handles 0x-hex via BigInt.
  */
 async function bscScanIncoming(address: string): Promise<{ hash: string; value: string; to: string }[]> {
   const ERC20_TRANSFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f203c5679ea3cfe66aa376ceac";
   const padded = "0x000000000000000000000000" + address.slice(2).toLowerCase();
-
-  // Accepted BSC stablecoins (both 18 decimals, treated as USDT value)
-  const ACCEPTED = [
-    { contract: BSC_USDT_CONTRACT,                             label: "USDT" },
-    { contract: "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", label: "BUSD" },
-  ];
 
   const CHUNK  = 49; // 1rpc.io hard limit: 50 blocks; use 49 for safety
   const CHUNKS = 7;  // 7×49 = 343 blocks ≈ 17 min on BSC (3s/block)
@@ -219,8 +221,10 @@ async function bscScanIncoming(address: string): Promise<{ hash: string; value: 
     if (!latestHex) { console.warn("[BSC] could not get latest block"); return []; }
     const latest = parseInt(latestHex, 16);
 
+    const contractEntries = Object.entries(BSC_ACCEPTED_CONTRACTS);
+
     // Build all (contract, blockRange) pairs and fire ALL requests in parallel
-    const tasks = ACCEPTED.flatMap(({ contract, label }) =>
+    const tasks = contractEntries.flatMap(([contract, label]) =>
       Array.from({ length: CHUNKS }, (_, i) => {
         const toN   = Math.max(1, latest - i * CHUNK);
         const fromN = Math.max(0, toN - CHUNK);
@@ -241,7 +245,7 @@ async function bscScanIncoming(address: string): Promise<{ hash: string; value: 
 
     for (const { label, logs } of allLogs) {
       if (!Array.isArray(logs) || logs.length === 0) continue;
-      console.log(`[BSC] ${label}: found ${logs.length} transfer(s)`);
+      console.log(`[BSC] eth_getLogs ${label}: found ${logs.length} transfer(s)`);
       for (const log of logs) {
         if (!seen.has(log.transactionHash)) {
           seen.add(log.transactionHash);
