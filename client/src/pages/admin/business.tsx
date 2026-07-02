@@ -62,10 +62,12 @@ interface ScannerKey {
 }
 
 const PROVIDERS = [
-  { id: "TronGrid",  label: "TronGrid",      networks: ["TRON", "TRC20"],                       color: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300" },
-  { id: "TronScan",  label: "TronScan",       networks: ["TRON", "TRC20"],                       color: "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300" },
-  { id: "BscScan",   label: "BscScan",        networks: ["BSC", "BEP20"],                        color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300" },
-  { id: "Etherscan", label: "Etherscan (EVM)", networks: ["BSC", "ETH", "POLYGON", "ARBITRUM"],  color: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300" },
+  { id: "TronGrid",  label: "TronGrid",       networks: ["TRON", "TRC20"],                              color: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",     note: "Fallback для TRON при ошибке TronScan" },
+  { id: "TronScan",  label: "TronScan",        networks: ["TRON", "TRC20"],                              color: "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300", note: "Резерв (основной — бесплатный публичный)" },
+  { id: "TonCenter", label: "TonCenter",       networks: ["TON"],                                        color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300",  note: "Fallback для TON при ошибке публичного API" },
+  { id: "BscScan",   label: "BscScan",         networks: ["BSC", "BEP20"],                               color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300", note: "Резерв (BSC сканируется через публичный RPC)" },
+  { id: "Etherscan", label: "Etherscan (EVM)", networks: ["BSC", "ETH", "POLYGON", "ARBITRUM"],          color: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300",  note: "Резерв (EVM сети сканируются через публичный RPC)" },
+  { id: "Helius",    label: "Helius (Solana)", networks: ["SOLANA"],                                      color: "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300", note: "Расширенный лимит для Solana RPC" },
 ];
 
 export default function AdminBusiness() {
@@ -429,13 +431,16 @@ export default function AdminBusiness() {
                 return (
                   <TabsContent key={provider.id} value={provider.id} className="space-y-4 mt-0">
                     {/* Info row */}
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                       <span>Сети:</span>
                       {provider.networks.map(n => (
                         <span key={n} className={`text-xs px-2 py-0.5 rounded-full font-medium ${provider.color}`}>{n}</span>
                       ))}
                       <span className="ml-auto text-xs">Ротация round-robin · лимит по месяцам</span>
                     </div>
+                    {provider.note && (
+                      <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">{provider.note}</p>
+                    )}
 
                     {/* Keys table */}
                     {providerKeys.length === 0 ? (

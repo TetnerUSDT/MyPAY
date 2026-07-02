@@ -3,4 +3,4 @@
 - [P2P escrow pattern](p2p-escrow.md) — balance deducted at lock creation (order open), restored at cancel; release only credits buyer; admin resolve uses winner logic
 - [Admin routes pattern](admin-routes-pattern.md) — adminPath = process.env.ADMIN_URL || 'admin'; routes use requireSuperAdmin; append before closing `}` of registerAdminRoutes
 - [Admin P2P tabs](admin-p2p-tabs.md) — admin/p2p.tsx has 9 tabs: disputes, orders, merchants, ads, payment-methods, verifications, complaints, logs, settings; TABS const drives badge counts map
-- [Scanner key rotator](scanner-key-rotator.md) — merchant-key-rotator.ts leases keys from merchant_scanner_keys; networks stored as JSON text, filtered in JS; TRON scan: TronScan public → TronGrid keyed fallback (on HTTP error only)
+- [Merchant scanner coverage](merchant-scanner-coverage.md) — all 7 networks wired: TRON (TronScan→TronGrid), BSC (public RPC+bscScanIncoming), TON (TonCenter v3→v2 keyed), ETH/ARB/POLYGON (eth_getLogs public RPC), SOLANA (public→Helius keyed); amountRaw for EVM is hex, use parseInt(x,16)/10^decimals

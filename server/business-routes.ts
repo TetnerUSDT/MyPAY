@@ -32,10 +32,13 @@ const WALLET_API_TOKEN = process.env.WALLET_API_KEY ?? "";
 
 // Networks supported by the external wallet API
 const SUPPORTED_WALLET_NODES: Record<string, string> = {
-  "TRON":    "TRON",
-  "BSC":     "BSC",
-  "TON":     "TON",
-  "POLYGON": "POLYGON",
+  "TRON":     "TRON",
+  "BSC":      "BSC",
+  "TON":      "TON",
+  "POLYGON":  "POLYGON",
+  "ETH":      "ETH",
+  "ARBITRUM": "ARBITRUM",
+  "SOLANA":   "SOLANA",
 };
 
 async function generateMerchantWallet(shopId: number, network: string, mode: string = "standard"): Promise<any> {
@@ -248,6 +251,232 @@ async function scanTronIncoming(address: string): Promise<TronTransfer[]> {
   return [];
 }
 
+// ── TON incoming scanner (TonCenter public + keyed fallback) ──────────────────
+
+const TON_USDT_MASTER_ADDR = "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs";
+interface TonTransfer { txHash: string; amountRaw: string; }
+
+/**
+ * Scan TON address for recent incoming USDT Jetton transfers.
+ * Primary: TonCenter v3 free public API (no key).
+ * Fallback: TonCenter v2 with leased API key from pool (header api_key).
+ */
+async function scanTonIncoming(address: string): Promise<TonTransfer[]> {
+  // 1. TonCenter v3 public (free, no key)
+  try {
+    const r = await fetch(
+      `https://toncenter.com/api/v3/jetton/transfers?direction=in&owner_address=${encodeURIComponent(address)}&jetton_master=${encodeURIComponent(TON_USDT_MASTER_ADDR)}&limit=10`,
+      { headers: { "Accept": "application/json" }, signal: AbortSignal.timeout(10000) }
+    );
+    if (!r.ok) throw new Error(`TonCenter v3 HTTP ${r.status}`);
+    const data = await r.json() as any;
+    const transfers: any[] = data.jetton_transfers ?? [];
+    if (transfers.length > 0) {
+      return transfers.map(t => ({
+        txHash: t.transaction_hash ?? t.trace_id ?? "",
+        amountRaw: t.amount ?? "0",
+      }));
+    }
+    // If empty response — still valid; return empty (don't fallback on empty)
+    return [];
+  } catch { /* fall through to keyed fallback */ }
+
+  // 2. TonCenter v2 with API key
+  const key = await leaseKey("TON");
+  if (key) {
+    try {
+      const headers: Record<string, string> = { "Accept": "application/json" };
+      // TonCenter v2 supports both header and query param for key
+      headers["X-API-Key"] = key.apiKey;
+      const r = await fetch(
+        `https://toncenter.com/api/v2/getTransactions?address=${encodeURIComponent(address)}&limit=20&archival=false`,
+        { headers, signal: AbortSignal.timeout(10000) }
+      );
+      if (!r.ok) throw new Error(`TonCenter v2 HTTP ${r.status}`);
+      const data = await r.json() as any;
+      const txs: any[] = data.result ?? [];
+      await recordKeySuccess(key.keyId);
+
+      const results: TonTransfer[] = [];
+      for (const tx of txs) {
+        // Look for Jetton transfer messages
+        const msgs: any[] = tx.in_msg ? [tx.in_msg] : [];
+        for (const msg of msgs) {
+          if (msg.value && parseInt(msg.value) > 0) {
+            results.push({ txHash: tx.transaction_id?.hash ?? "", amountRaw: msg.value });
+          }
+        }
+      }
+      return results;
+    } catch {
+      await recordKeyError(key.keyId);
+    }
+  }
+  return [];
+}
+
+// ── EVM incoming scanner (ETH/ARBITRUM/POLYGON via public RPC eth_getLogs) ─────
+
+const EVM_NETWORKS: Record<string, {
+  rpcs: string[];
+  usdtContract: string;
+  decimals: number;
+}> = {
+  ETH: {
+    rpcs: ["https://eth.llamarpc.com", "https://rpc.ankr.com/eth", "https://cloudflare-eth.com"],
+    usdtContract: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+    decimals: 6,
+  },
+  ARBITRUM: {
+    rpcs: ["https://arb1.arbitrum.io/rpc", "https://rpc.ankr.com/arbitrum", "https://arbitrum.llamarpc.com"],
+    usdtContract: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+    decimals: 6,
+  },
+  POLYGON: {
+    rpcs: ["https://polygon-rpc.com", "https://rpc.ankr.com/polygon", "https://polygon.llamarpc.com"],
+    usdtContract: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
+    decimals: 6,
+  },
+};
+
+// ERC20 Transfer topic0
+const ERC20_TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+
+interface EvmTransfer { txHash: string; amountRaw: string; }
+
+async function evmRpc(rpcs: string[], method: string, params: any[]): Promise<any> {
+  for (const rpc of rpcs) {
+    try {
+      const r = await fetch(rpc, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+        signal: AbortSignal.timeout(8000),
+      });
+      const data = await r.json() as any;
+      if (data.result !== undefined && !data.error) return data.result;
+    } catch { /* try next */ }
+  }
+  return null;
+}
+
+async function scanEvmIncoming(network: string, address: string): Promise<EvmTransfer[]> {
+  const cfg = EVM_NETWORKS[network];
+  if (!cfg) return [];
+
+  try {
+    // eth_getLogs: filter Transfer events to our address on USDT contract
+    const paddedAddress = "0x000000000000000000000000" + address.slice(2).toLowerCase();
+    const logs = await evmRpc(cfg.rpcs, "eth_getLogs", [{
+      address: cfg.usdtContract,
+      topics: [ERC20_TRANSFER_TOPIC, null, paddedAddress],
+      fromBlock: "latest", // will be overridden below
+    }]);
+
+    // Better: use block range of last ~2000 blocks
+    const latestBlock = await evmRpc(cfg.rpcs, "eth_blockNumber", []);
+    if (!latestBlock) return [];
+    const fromBlock = "0x" + (parseInt(latestBlock, 16) - 2000).toString(16);
+
+    const recentLogs = await evmRpc(cfg.rpcs, "eth_getLogs", [{
+      address: cfg.usdtContract,
+      topics: [ERC20_TRANSFER_TOPIC, null, paddedAddress],
+      fromBlock,
+      toBlock: "latest",
+    }]);
+
+    if (!Array.isArray(recentLogs) || recentLogs.length === 0) return [];
+
+    return recentLogs.map((log: any) => ({
+      txHash: log.transactionHash,
+      amountRaw: log.data,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// ── Solana incoming scanner (via public Solana RPC) ───────────────────────────
+
+const SOLANA_USDT_MINT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"; // USDT SPL on mainnet
+const SOLANA_RPC_NODES = [
+  "https://api.mainnet-beta.solana.com",
+  "https://solana-api.projectserum.com",
+];
+interface SolanaTransfer { txHash: string; amountRaw: string; }
+
+async function solanaRpc(method: string, params: any[]): Promise<any> {
+  for (const rpc of SOLANA_RPC_NODES) {
+    try {
+      const r = await fetch(rpc, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+        signal: AbortSignal.timeout(10000),
+      });
+      const data = await r.json() as any;
+      if (data.result !== undefined && !data.error) return data.result;
+    } catch { /* try next */ }
+  }
+  return null;
+}
+
+async function scanSolanaIncoming(address: string): Promise<SolanaTransfer[]> {
+  // Check if Helius API key is available (higher rate limits)
+  const key = await leaseKey("SOLANA");
+  const rpcUrl = key
+    ? `https://mainnet.helius-rpc.com/?api-key=${key.apiKey}`
+    : null;
+
+  const callRpc = async (method: string, params: any[]): Promise<any> => {
+    if (rpcUrl) {
+      try {
+        const r = await fetch(rpcUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+          signal: AbortSignal.timeout(10000),
+        });
+        const data = await r.json() as any;
+        if (data.result !== undefined && !data.error) {
+          if (key) await recordKeySuccess(key.keyId);
+          return data.result;
+        }
+      } catch {
+        if (key) await recordKeyError(key.keyId);
+      }
+    }
+    return solanaRpc(method, params);
+  };
+
+  try {
+    // Get recent signatures for the address
+    const sigs = await callRpc("getSignaturesForAddress", [address, { limit: 10 }]);
+    if (!sigs || !Array.isArray(sigs) || sigs.length === 0) return [];
+
+    const results: SolanaTransfer[] = [];
+    for (const sig of sigs.slice(0, 5)) {
+      try {
+        const tx = await callRpc("getTransaction", [sig.signature, { encoding: "jsonParsed", maxSupportedTransactionVersion: 0 }]);
+        if (!tx) continue;
+        const instructions = tx.transaction?.message?.instructions ?? [];
+        for (const ix of instructions) {
+          if (ix.program === "spl-token" && ix.parsed?.type === "transfer") {
+            const info = ix.parsed.info;
+            // Check if it's USDT and destination is our address
+            if (info.mint === SOLANA_USDT_MINT && info.destination === address) {
+              results.push({ txHash: sig.signature, amountRaw: String(info.amount ?? "0") });
+            }
+          }
+        }
+      } catch { /* skip tx */ }
+    }
+    return results;
+  } catch {
+    return [];
+  }
+}
+
 // ── Blockchain scanner helper ─────────────────────────────────────────────────
 
 async function checkTxOnChain(network: string, txHash: string, toAddress: string, expectedAmount?: string): Promise<{ confirmed: boolean; amount?: string }> {
@@ -264,12 +493,9 @@ async function checkTxOnChain(network: string, txHash: string, toAddress: string
       return { confirmed: true, amount };
     }
     if (network === "BSC" || network === "BEP20") {
-      // Use public BSC RPC — no API key needed for single tx lookup
       const receipt = await bscRpc("eth_getTransactionReceipt", [txHash]);
       if (!receipt || receipt.status !== "0x1") return { confirmed: false };
-
       const paddedTo = "0x000000000000000000000000" + toAddress.slice(2).toLowerCase();
-      // Match by USDT contract + destination address; skip topic[0] check (BSC USDT non-standard)
       const transferLog = (receipt.logs as any[]).find((log: any) =>
         log.address?.toLowerCase() === BSC_USDT_CONTRACT.toLowerCase() &&
         log.topics?.[2]?.toLowerCase() === paddedTo
@@ -277,6 +503,47 @@ async function checkTxOnChain(network: string, txHash: string, toAddress: string
       if (!transferLog) return { confirmed: false };
       const amount = (parseInt(transferLog.data, 16) / 1e18).toFixed(6);
       return { confirmed: true, amount };
+    }
+    if (network === "TON") {
+      // TonCenter v3: look up transaction by hash
+      try {
+        const r = await fetch(
+          `https://toncenter.com/api/v3/transactions?hash=${encodeURIComponent(txHash)}&limit=1`,
+          { headers: { "Accept": "application/json" }, signal: AbortSignal.timeout(10000) }
+        );
+        if (r.ok) {
+          const data = await r.json() as any;
+          const txs = data.transactions ?? [];
+          if (txs.length > 0) return { confirmed: true };
+        }
+      } catch {}
+      return { confirmed: false };
+    }
+    if (network === "ETH" || network === "ARBITRUM" || network === "POLYGON") {
+      const cfg = EVM_NETWORKS[network];
+      if (!cfg) return { confirmed: false };
+      const receipt = await evmRpc(cfg.rpcs, "eth_getTransactionReceipt", [txHash]);
+      if (!receipt || receipt.status !== "0x1") return { confirmed: false };
+      const paddedTo = "0x000000000000000000000000" + toAddress.slice(2).toLowerCase();
+      const transferLog = (receipt.logs as any[]).find((log: any) =>
+        log.address?.toLowerCase() === cfg.usdtContract.toLowerCase() &&
+        log.topics?.[0]?.toLowerCase() === ERC20_TRANSFER_TOPIC &&
+        log.topics?.[2]?.toLowerCase() === paddedTo
+      );
+      if (!transferLog) return { confirmed: false };
+      const amount = (parseInt(transferLog.data, 16) / Math.pow(10, cfg.decimals)).toFixed(6);
+      return { confirmed: true, amount };
+    }
+    if (network === "SOLANA") {
+      // Solana: just check the signature exists and is finalized
+      try {
+        const result = await solanaRpc("getSignatureStatuses", [[txHash]]);
+        const status = result?.value?.[0];
+        if (status && !status.err && (status.confirmationStatus === "finalized" || status.confirmationStatus === "confirmed")) {
+          return { confirmed: true };
+        }
+      } catch {}
+      return { confirmed: false };
     }
     return { confirmed: false };
   } catch {
@@ -299,49 +566,50 @@ async function pollAddressForPayment(paymentId: number, address: string, network
 
       let found = false;
 
+      // Universal confirm helper for payment row
+      const confirmPayment = async (txHash: string, txAmountRaw: bigint | number, decimals: number) => {
+        const txAmount = (Number(txAmountRaw) / Math.pow(10, decimals)).toFixed(6);
+        const [upd] = await db.execute(sql`
+          UPDATE merchant_payments
+          SET status = 'confirmed', tx_hash = ${txHash}, amount_received = ${txAmount}, confirmed_at = NOW()
+          WHERE id = ${paymentId} AND status = 'pending'
+        `);
+        if ((upd as any).affectedRows === 1) {
+          await db.execute(sql`
+            UPDATE merchant_shops SET balance_usdt = balance_usdt + ${parseFloat(txAmount)},
+            total_received = total_received + ${parseFloat(txAmount)}
+            WHERE id = (SELECT shop_id FROM merchant_payments WHERE id = ${paymentId})
+          `);
+        }
+        found = true;
+      };
+
       if (network === "TRON" || network === "TRC20") {
         const transfers = await scanTronIncoming(address);
-        if (transfers.length > 0) {
-          const tx = transfers[0];
-          const txAmount = (parseInt(tx.amountRaw) / 1e6).toFixed(6);
-          const [tronUpd] = await db.execute(sql`
-            UPDATE merchant_payments
-            SET status = 'confirmed', tx_hash = ${tx.txHash}, amount_received = ${txAmount}, confirmed_at = NOW()
-            WHERE id = ${paymentId} AND status = 'pending'
-          `);
-          if ((tronUpd as any).affectedRows === 1) {
-            await db.execute(sql`
-              UPDATE merchant_shops SET balance_usdt = balance_usdt + ${parseFloat(txAmount)},
-              total_received = total_received + ${parseFloat(txAmount)}
-              WHERE id = (SELECT shop_id FROM merchant_payments WHERE id = ${paymentId})
-            `);
-          }
-          found = true;
-        }
-      }
-
-      if (network === "BSC" || network === "BEP20") {
+        if (transfers.length > 0)
+          await confirmPayment(transfers[0].txHash, parseInt(transfers[0].amountRaw), 6);
+      } else if (network === "BSC" || network === "BEP20") {
         const txs = await bscScanIncoming(address);
         const inbound = txs.find(tx => tx.to?.toLowerCase() === address.toLowerCase());
-        if (inbound) {
-          const txAmount = (parseInt(inbound.value ?? "0") / 1e18).toFixed(6);
-          const [bscUpd] = await db.execute(sql`
-            UPDATE merchant_payments
-            SET status = 'confirmed', tx_hash = ${inbound.hash}, amount_received = ${txAmount}, confirmed_at = NOW()
-            WHERE id = ${paymentId} AND status = 'pending'
-          `);
-          if ((bscUpd as any).affectedRows === 1) {
-            await db.execute(sql`
-              UPDATE merchant_shops SET balance_usdt = balance_usdt + ${parseFloat(txAmount)},
-              total_received = total_received + ${parseFloat(txAmount)}
-              WHERE id = (SELECT shop_id FROM merchant_payments WHERE id = ${paymentId})
-            `);
+        if (inbound) await confirmPayment(inbound.hash, parseInt(inbound.value ?? "0"), 18);
+      } else if (network === "TON") {
+        const transfers = await scanTonIncoming(address);
+        if (transfers.length > 0)
+          await confirmPayment(transfers[0].txHash, parseInt(transfers[0].amountRaw), 6);
+      } else if (network === "ETH" || network === "ARBITRUM" || network === "POLYGON") {
+        const cfg = EVM_NETWORKS[network];
+        if (cfg) {
+          const txs = await scanEvmIncoming(network, address);
+          if (txs.length > 0) {
+            // amountRaw is hex data from eth_getLogs
+            const rawNum = parseInt(txs[0].amountRaw, 16);
+            await confirmPayment(txs[0].txHash, rawNum, cfg.decimals);
           }
-          found = true;
-        } else if (!BSCSCAN_API_KEY) {
-          // No API key configured — cannot scan BSC without it
-          console.warn("[merchant] BSC scanner skipped: BSCSCAN_API_KEY not set");
         }
+      } else if (network === "SOLANA") {
+        const transfers = await scanSolanaIncoming(address);
+        if (transfers.length > 0)
+          await confirmPayment(transfers[0].txHash, parseInt(transfers[0].amountRaw), 6);
       }
 
       if (!found && Date.now() < deadline) setTimeout(check, interval);
@@ -390,6 +658,30 @@ async function pollInvoiceForPayment(
         if (inbound) {
           txHash = inbound.hash;
           amountReceived = (parseInt(inbound.value ?? "0") / 1e18).toFixed(6);
+          found = true;
+        }
+      } else if (network === "TON") {
+        const transfers = await scanTonIncoming(address);
+        if (transfers.length > 0) {
+          txHash = transfers[0].txHash;
+          amountReceived = (parseInt(transfers[0].amountRaw) / 1e6).toFixed(6);
+          found = true;
+        }
+      } else if (network === "ETH" || network === "ARBITRUM" || network === "POLYGON") {
+        const cfg = EVM_NETWORKS[network];
+        if (cfg) {
+          const txs = await scanEvmIncoming(network, address);
+          if (txs.length > 0) {
+            txHash = txs[0].txHash;
+            amountReceived = (parseInt(txs[0].amountRaw, 16) / Math.pow(10, cfg.decimals)).toFixed(6);
+            found = true;
+          }
+        }
+      } else if (network === "SOLANA") {
+        const transfers = await scanSolanaIncoming(address);
+        if (transfers.length > 0) {
+          txHash = transfers[0].txHash;
+          amountReceived = (parseInt(transfers[0].amountRaw) / 1e6).toFixed(6);
           found = true;
         }
       }
@@ -987,19 +1279,16 @@ export function registerBusinessRoutes(app: Express) {
       let txHash: string | null = null;
       let amountReceived: string | null = null;
 
-      if (payment.network === "TRON" || payment.network === "TRC20") {
-        try {
+      const net = payment.network;
+      try {
+        if (net === "TRON" || net === "TRC20") {
           const transfers = await scanTronIncoming(payment.wallet_address);
           if (transfers.length > 0) {
             txHash = transfers[0].txHash;
             amountReceived = (parseInt(transfers[0].amountRaw) / 1e6).toFixed(6);
             found = true;
           }
-        } catch { /* network error — return pending */ }
-      }
-
-      if (payment.network === "BSC" || payment.network === "BEP20") {
-        try {
+        } else if (net === "BSC" || net === "BEP20") {
           const txs = await bscScanIncoming(payment.wallet_address);
           const inbound = txs.find((tx: any) => tx.to?.toLowerCase() === payment.wallet_address.toLowerCase());
           if (inbound) {
@@ -1007,8 +1296,32 @@ export function registerBusinessRoutes(app: Express) {
             amountReceived = (parseInt(inbound.value ?? "0") / 1e18).toFixed(6);
             found = true;
           }
-        } catch { /* network error — return pending */ }
-      }
+        } else if (net === "TON") {
+          const transfers = await scanTonIncoming(payment.wallet_address);
+          if (transfers.length > 0) {
+            txHash = transfers[0].txHash;
+            amountReceived = (parseInt(transfers[0].amountRaw) / 1e6).toFixed(6);
+            found = true;
+          }
+        } else if (net === "ETH" || net === "ARBITRUM" || net === "POLYGON") {
+          const cfg = EVM_NETWORKS[net];
+          if (cfg) {
+            const txs = await scanEvmIncoming(net, payment.wallet_address);
+            if (txs.length > 0) {
+              txHash = txs[0].txHash;
+              amountReceived = (parseInt(txs[0].amountRaw, 16) / Math.pow(10, cfg.decimals)).toFixed(6);
+              found = true;
+            }
+          }
+        } else if (net === "SOLANA") {
+          const transfers = await scanSolanaIncoming(payment.wallet_address);
+          if (transfers.length > 0) {
+            txHash = transfers[0].txHash;
+            amountReceived = (parseInt(transfers[0].amountRaw) / 1e6).toFixed(6);
+            found = true;
+          }
+        }
+      } catch { /* network error — return pending */ }
 
       if (found && txHash) {
         const [upd] = await db.execute(sql`
