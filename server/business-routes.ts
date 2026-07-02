@@ -683,11 +683,33 @@ async function pollAddressForPayment(
         `);
         if ((upd as any).affectedRows === 1) {
           console.log(`[merchant] payment ${paymentId} confirmed: ${txHash} +${txAmount} USDT (${network})`);
-          await db.execute(sql`
-            UPDATE merchant_shops SET balance_usdt = balance_usdt + ${parseFloat(txAmount)},
-            total_received = total_received + ${parseFloat(txAmount)}
-            WHERE id = (SELECT shop_id FROM merchant_payments WHERE id = ${paymentId})
+          // Update shop balance and fetch webhook_url in one query
+          const [shopRows] = await db.execute(sql`
+            SELECT s.id, s.webhook_url, s.order_id, p.order_id as pay_order_id, p.external_user_id
+            FROM merchant_payments p
+            JOIN merchant_shops s ON s.id = p.shop_id
+            WHERE p.id = ${paymentId}
           `);
+          const shopRow = (shopRows as any[])[0];
+          if (shopRow) {
+            await db.execute(sql`
+              UPDATE merchant_shops SET balance_usdt = balance_usdt + ${parseFloat(txAmount)},
+              total_received = total_received + ${parseFloat(txAmount)}
+              WHERE id = ${shopRow.id}
+            `);
+            if (shopRow.webhook_url) {
+              sendWebhook(shopRow.webhook_url, {
+                event: "payment.confirmed",
+                payment_id: paymentId,
+                order_id: shopRow.pay_order_id ?? null,
+                external_user_id: shopRow.external_user_id ?? null,
+                amount_received: txAmount,
+                currency,
+                network,
+                tx_hash: txHash,
+              });
+            }
+          }
         }
         found = true;
       };
@@ -1532,6 +1554,18 @@ export function registerBusinessRoutes(app: Express) {
             total_received = total_received + ${parseFloat(amountReceived ?? "0")}
             WHERE id = ${shop.id}
           `);
+          if (shop.webhookUrl) {
+            sendWebhook(shop.webhookUrl, {
+              event: "payment.confirmed",
+              payment_id: payment.id,
+              order_id: payment.order_id ?? null,
+              external_user_id: payment.external_user_id ?? null,
+              amount_received: amountReceived,
+              currency: payment.currency,
+              network: net,
+              tx_hash: txHash,
+            });
+          }
         }
         return res.json({ status: "confirmed", tx_hash: txHash, amount_received: amountReceived, confirmed_at: new Date().toISOString() });
       }
