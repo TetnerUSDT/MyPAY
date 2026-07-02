@@ -187,36 +187,16 @@ async function bscRpc(method: string, params: any[]): Promise<any> {
   return null;
 }
 
-/**
- * Scan BSC address for recent incoming USDT transfers using eth_getLogs.
- * No API key needed — uses public BSC RPC nodes.
- * Searches last ~1200 blocks (~1 hour on BSC).
- */
+/** Scan BSC address for recent incoming USDT via BscScan V2 API (requires BSCSCAN_API_KEY). */
 async function bscScanIncoming(address: string): Promise<{ hash: string; value: string; to: string }[]> {
+  if (!BSCSCAN_API_KEY) return [];
   try {
-    // Get latest block
-    const latestHex = await bscRpc("eth_blockNumber", []);
-    if (!latestHex) return [];
-    const latest = parseInt(latestHex, 16);
-    const fromBlock = "0x" + Math.max(0, latest - 1200).toString(16);
-
-    // topics[2] = padded recipient address
-    const paddedTo = "0x000000000000000000000000" + address.slice(2).toLowerCase();
-
-    // eth_getLogs: Transfer events to our address on USDT contract
-    const logs = await bscRpc("eth_getLogs", [{
-      fromBlock,
-      toBlock: "latest",
-      address: BSC_USDT_CONTRACT,
-      topics: [null, null, paddedTo],
-    }]);
-    if (!Array.isArray(logs)) return [];
-
-    return logs.map((log: any) => ({
-      hash: log.transactionHash,
-      value: String(parseInt(log.data, 16)),     // raw amount (18 decimals)
-      to: address,
-    }));
+    const url = `https://api.bscscan.com/v2/api?chainid=56&module=account&action=tokentx` +
+      `&address=${address}&contractaddress=${BSC_USDT_CONTRACT}&sort=desc&offset=10&page=1&apikey=${BSCSCAN_API_KEY}`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    const data = await r.json() as any;
+    if (data.status !== "1" || !Array.isArray(data.result)) return [];
+    return data.result;
   } catch { return []; }
 }
 
@@ -297,10 +277,7 @@ async function pollAddressForPayment(paymentId: number, address: string, network
 
       if (network === "BSC" || network === "BEP20") {
         const txs = await bscScanIncoming(address);
-        // Exclude tx hashes already used in other confirmed payments (permanent address reuse)
-        const usedHashes = await db.execute(sql`SELECT tx_hash FROM merchant_payments WHERE tx_hash IS NOT NULL AND status = 'confirmed'`);
-        const usedSet = new Set((usedHashes[0] as any[]).map((r: any) => r.tx_hash?.toLowerCase()));
-        const inbound = txs.find(tx => !usedSet.has(tx.hash?.toLowerCase()));
+        const inbound = txs.find(tx => tx.to?.toLowerCase() === address.toLowerCase());
         if (inbound) {
           const txAmount = (parseInt(inbound.value ?? "0") / 1e18).toFixed(6);
           const [bscUpd] = await db.execute(sql`
@@ -316,6 +293,9 @@ async function pollAddressForPayment(paymentId: number, address: string, network
             `);
           }
           found = true;
+        } else if (!BSCSCAN_API_KEY) {
+          // No API key configured — cannot scan BSC without it
+          console.warn("[merchant] BSC scanner skipped: BSCSCAN_API_KEY not set");
         }
       }
 
@@ -984,10 +964,7 @@ export function registerBusinessRoutes(app: Express) {
       if (payment.network === "BSC" || payment.network === "BEP20") {
         try {
           const txs = await bscScanIncoming(payment.wallet_address);
-          // Exclude tx hashes already used in confirmed payments (permanent address reuse)
-          const usedRows = await db.execute(sql`SELECT tx_hash FROM merchant_payments WHERE tx_hash IS NOT NULL AND status = 'confirmed'`);
-          const usedSet = new Set((usedRows[0] as any[]).map((r: any) => r.tx_hash?.toLowerCase()));
-          const inbound = txs.find((tx: any) => !usedSet.has(tx.hash?.toLowerCase()));
+          const inbound = txs.find((tx: any) => tx.to?.toLowerCase() === payment.wallet_address.toLowerCase());
           if (inbound) {
             txHash = inbound.hash;
             amountReceived = (parseInt(inbound.value ?? "0") / 1e18).toFixed(6);
