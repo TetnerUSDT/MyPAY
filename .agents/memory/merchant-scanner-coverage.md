@@ -49,7 +49,23 @@ All 3 polling/check points:
 
 `checkTxOnChain` handles manual tx hash verification for all 7 networks.
 
-## Known remaining limitations (for future work)
-- No time-based tx filtering: on permanent addresses, old txs could re-trigger for new orders
-- setTimeout-based polling is lost on server restart (no persistence for pending payments)
-- No exponential backoff / retry on scanner network errors
+## Resilience features implemented
+
+### Startup recovery (persistence polling)
+`recoverPendingPollers()` is called via `setImmediate()` at the end of `registerBusinessRoutes`.
+Queries `merchant_payments WHERE status='pending'` and `merchant_invoices WHERE status='pending' AND expires_at > NOW() AND wallet_address IS NOT NULL`.
+Resumes polling with the original deadline (`created_at + TTL`), or expires overdue rows.
+Invoice query uses `network_chosen` (not `network`) and JOINs `merchant_shops` for `webhook_url`.
+
+### Exponential backoff
+Both pollers start at 10s, multiply by 1.5 on no-find (max 60s), double on network error (max 60s).
+Replaces fixed 20s interval — reduces load during quiet periods, stays responsive at start.
+
+### Permanent address phantom-match prevention
+Before creating a new payment on a permanent address, all existing `pending` payments for that
+`wallet_address` are expired. Prevents old on-chain txs matching a brand-new payment session.
+
+### Strict verify-tx validation
+- **TON**: TonCenter v3 `/jetton/transfers` → match by `transaction_hash` + `jetton_master` = USDT master
+- **Solana**: `getTransaction` → `postTokenBalances - preTokenBalances` delta for `owner = toAddress` and `mint = USDT_MINT`
+- **BSC/EVM checkTxOnChain**: `hexAmountToDecimal(log.data, decimals)` — BigInt precision, no more `parseInt/1e18`

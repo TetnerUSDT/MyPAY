@@ -558,21 +558,26 @@ async function checkTxOnChain(network: string, txHash: string, toAddress: string
         log.topics?.[2]?.toLowerCase() === paddedTo
       );
       if (!transferLog) return { confirmed: false };
-      const amount = (parseInt(transferLog.data, 16) / 1e18).toFixed(6);
+      const amount = hexAmountToDecimal(transferLog.data, 18);
       return { confirmed: true, amount };
     }
     if (network === "TON") {
-      // TonCenter v3: look up transaction by hash
+      // TonCenter v3: find the jetton transfer to toAddress, verify USDT mint + amount
       try {
         const r = await fetch(
-          `https://toncenter.com/api/v3/transactions?hash=${encodeURIComponent(txHash)}&limit=1`,
+          `https://toncenter.com/api/v3/jetton/transfers?direction=in&address=${encodeURIComponent(toAddress)}&limit=20`,
           { headers: { "Accept": "application/json" }, signal: AbortSignal.timeout(10000) }
         );
-        if (r.ok) {
-          const data = await r.json() as any;
-          const txs = data.transactions ?? [];
-          if (txs.length > 0) return { confirmed: true };
-        }
+        if (!r.ok) return { confirmed: false };
+        const data = await r.json() as any;
+        const transfers = (data.jetton_transfers ?? []) as any[];
+        const match = transfers.find((t: any) =>
+          t.transaction_hash === txHash &&
+          t.jetton_master?.toLowerCase() === TON_USDT_MASTER_ADDR.toLowerCase()
+        );
+        if (!match) return { confirmed: false };
+        const amount = parseRawAmount(match.amount ?? "0", 6);
+        return { confirmed: true, amount };
       } catch {}
       return { confirmed: false };
     }
@@ -588,17 +593,26 @@ async function checkTxOnChain(network: string, txHash: string, toAddress: string
         log.topics?.[2]?.toLowerCase() === paddedTo
       );
       if (!transferLog) return { confirmed: false };
-      const amount = (parseInt(transferLog.data, 16) / Math.pow(10, cfg.decimals)).toFixed(6);
+      const amount = hexAmountToDecimal(transferLog.data, cfg.decimals);
       return { confirmed: true, amount };
     }
     if (network === "SOLANA") {
-      // Solana: just check the signature exists and is finalized
+      // Solana: verify via token balance delta — confirms mint = USDT, recipient = toAddress, amount > 0
       try {
-        const result = await solanaRpc("getSignatureStatuses", [[txHash]]);
-        const status = result?.value?.[0];
-        if (status && !status.err && (status.confirmationStatus === "finalized" || status.confirmationStatus === "confirmed")) {
-          return { confirmed: true };
-        }
+        const txData = await solanaRpc("getTransaction", [
+          txHash,
+          { encoding: "jsonParsed", commitment: "confirmed", maxSupportedTransactionVersion: 0 },
+        ]);
+        if (!txData || txData.meta?.err) return { confirmed: false };
+        const preBals  = (txData.meta?.preTokenBalances  ?? []) as any[];
+        const postBals = (txData.meta?.postTokenBalances ?? []) as any[];
+        const pre  = preBals.find((b: any)  => b.mint === SOLANA_USDT_MINT && b.owner === toAddress);
+        const post = postBals.find((b: any) => b.mint === SOLANA_USDT_MINT && b.owner === toAddress);
+        if (!post) return { confirmed: false };
+        const delta = BigInt(post.uiTokenAmount?.amount ?? "0") - BigInt(pre?.uiTokenAmount?.amount ?? "0");
+        if (delta <= BigInt(0)) return { confirmed: false };
+        const amount = parseRawAmount(delta.toString(), 6);
+        return { confirmed: true, amount };
       } catch {}
       return { confirmed: false };
     }
@@ -638,9 +652,13 @@ function resolveAmount(network: string, amountRaw: string): string {
 
 // ── Poll for payment on address ───────────────────────────────────────────────
 
-async function pollAddressForPayment(paymentId: number, address: string, network: string, currency: string, expectedAmount?: string) {
-  const deadline = Date.now() + 10 * 60 * 1000;
-  const interval = 20000;
+async function pollAddressForPayment(
+  paymentId: number, address: string, network: string, currency: string,
+  expectedAmount?: string, deadlineMs?: number,
+) {
+  const deadline = deadlineMs ?? Date.now() + 10 * 60 * 1000;
+  let interval = 10000;        // start fast
+  const maxInterval = 60000;   // cap at 1 min
 
   const check = async () => {
     if (Date.now() > deadline) return;
@@ -700,9 +718,15 @@ async function pollAddressForPayment(paymentId: number, address: string, network
           await confirmPayment(transfers[0].txHash, parseRawAmount(transfers[0].amountRaw, 6));
       }
 
-      if (!found && Date.now() < deadline) setTimeout(check, interval);
+      if (!found && Date.now() < deadline) {
+        interval = Math.min(Math.round(interval * 1.5), maxInterval);
+        setTimeout(check, interval);
+      }
     } catch {
-      if (Date.now() < deadline) setTimeout(check, interval);
+      if (Date.now() < deadline) {
+        interval = Math.min(interval * 2, maxInterval);
+        setTimeout(check, interval);
+      }
     }
   };
 
@@ -715,9 +739,11 @@ async function pollInvoiceForPayment(
   invoiceId: number, address: string, network: string,
   currency: string, expectedAmount: string, shopId: number,
   webhookUrl: string | null, orderRef: string | null,
+  deadlineMs?: number,
 ) {
-  const deadline = Date.now() + 30 * 60 * 1000;
-  const interval = 20000;
+  const deadline = deadlineMs ?? Date.now() + 30 * 60 * 1000;
+  let interval = 10000;
+  const maxInterval = 60000;
 
   const check = async () => {
     if (Date.now() > deadline) {
@@ -803,14 +829,78 @@ async function pollInvoiceForPayment(
           });
         }
       } else if (!found && Date.now() < deadline) {
+        interval = Math.min(Math.round(interval * 1.5), maxInterval);
         setTimeout(check, interval);
       }
     } catch {
-      if (Date.now() < deadline) setTimeout(check, interval);
+      if (Date.now() < deadline) {
+        interval = Math.min(interval * 2, maxInterval);
+        setTimeout(check, interval);
+      }
     }
   };
 
   setTimeout(check, interval);
+}
+
+// ── Startup recovery — resume polling for any pending payments/invoices ────────
+// Called once on server start; ensures restart doesn't drop active polls.
+
+export async function recoverPendingPollers() {
+  const PAYMENT_TTL  = 10 * 60 * 1000;   // same as pollAddressForPayment deadline
+  const INVOICE_TTL  = 30 * 60 * 1000;   // same as pollInvoiceForPayment deadline
+  try {
+    // Recover pending payments still within their 10-min window
+    const [payRows] = await db.execute(sql`
+      SELECT id, wallet_address, network, currency, amount, created_at
+      FROM merchant_payments WHERE status = 'pending'
+    `);
+    let rPayments = 0;
+    for (const row of (payRows as any[])) {
+      const deadline = new Date(row.created_at).getTime() + PAYMENT_TTL;
+      if (Date.now() < deadline) {
+        pollAddressForPayment(
+          row.id, row.wallet_address, row.network, row.currency,
+          row.amount ?? undefined, deadline,
+        );
+        rPayments++;
+      } else {
+        // Already expired — mark it so it won't sit as phantom-pending
+        await db.execute(sql`
+          UPDATE merchant_payments SET status = 'expired'
+          WHERE id = ${row.id} AND status = 'pending'
+        `);
+      }
+    }
+
+    // Recover pending invoices still within their 30-min window
+    // Only recover invoices where network has been chosen (wallet_address is set)
+    const [invRows] = await db.execute(sql`
+      SELECT i.id, i.wallet_address, i.network_chosen, i.currency, i.amount,
+             i.shop_id, i.order_ref, i.created_at, s.webhook_url
+      FROM merchant_invoices i
+      JOIN merchant_shops s ON s.id = i.shop_id
+      WHERE i.status = 'pending' AND i.expires_at > NOW()
+        AND i.wallet_address IS NOT NULL AND i.network_chosen IS NOT NULL
+    `);
+    let rInvoices = 0;
+    for (const row of (invRows as any[])) {
+      const deadline = new Date(row.created_at).getTime() + INVOICE_TTL;
+      if (Date.now() < deadline) {
+        pollInvoiceForPayment(
+          row.id, row.wallet_address, row.network_chosen, row.currency,
+          row.amount, row.shop_id, row.webhook_url ?? null, row.order_ref ?? null, deadline,
+        );
+        rInvoices++;
+      }
+    }
+
+    if (rPayments + rInvoices > 0) {
+      console.log(`[merchant] Startup recovery: resumed polling for ${rPayments} payment(s), ${rInvoices} invoice(s)`);
+    }
+  } catch (e) {
+    console.warn("[merchant] recoverPendingPollers failed:", e);
+  }
 }
 
 // ── Invoice number generator ──────────────────────────────────────────────────
@@ -1322,6 +1412,16 @@ export function registerBusinessRoutes(app: Express) {
       const isTemp = shop.address_mode === "temporary";
       const expiresAt = isTemp ? new Date(Date.now() + 30 * 60 * 1000) : null;
 
+      // On permanent addresses: expire any stale pending payments on the same address
+      // before creating a new one.  This prevents old on-chain txs from phantom-matching
+      // a brand-new payment session.
+      if (!isTemp) {
+        await db.execute(sql`
+          UPDATE merchant_payments SET status = 'expired'
+          WHERE wallet_address = ${address} AND status = 'pending'
+        `);
+      }
+
       const insertResult = await db.insert(merchantPayments).values({
         shopId: shop.id,
         orderId: order_id ?? null,
@@ -1662,4 +1762,7 @@ export function registerBusinessRoutes(app: Express) {
       res.json({ ok: true });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
+
+  // Resume any pending payments/invoices that were active before the last server restart
+  setImmediate(() => recoverPendingPollers());
 }
