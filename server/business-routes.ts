@@ -167,11 +167,11 @@ const BSC_USDT_CONTRACT = "0x55d398326f99059fF775485246999027B3197955";
 // NOTE: BSC Binance-Pegged USDT uses a slightly non-standard Transfer event topic[0].
 // We intentionally do NOT filter by topic[0] — instead match by contract address + topic[2] (to-address).
 // This handles all ERC20/BEP20 Transfer variants reliably.
-const BSCSCAN_API_KEY = process.env.BSCSCAN_API_KEY ?? "";
+// Nodes ordered by eth_getLogs reliability
 const BSC_RPC_NODES = [
-  "https://bsc-dataseed.binance.org/",
+  "https://1rpc.io/bnb",               // supports eth_getLogs up to 49-block range
+  "https://bsc-dataseed.binance.org/", // fallback for eth_blockNumber
   "https://bsc-dataseed1.ninicoin.io/",
-  "https://bsc-dataseed2.ninicoin.io/",
 ];
 
 /** Call BSC public JSON-RPC. Tries each node in order. */
@@ -192,47 +192,72 @@ async function bscRpc(method: string, params: any[]): Promise<any> {
 }
 
 /**
- * Scan BSC address for recent incoming USDT.
- * Primary: BscScan V2 API (optional BSCSCAN_API_KEY env var).
- * Fallback: public BSC RPC via eth_getLogs (always available, no key needed).
- * Returns transfers with hex amountRaw (0x-prefixed) and 18 decimals.
+ * Scan BSC address for recent incoming USDT or BUSD transfers.
+ *
+ * Uses 1rpc.io/bnb which supports eth_getLogs with a max 49-block range.
+ * Covers ~17 min (343 blocks at 3s/block) via 7 sequential 49-block chunks
+ * for each accepted stablecoin (USDT + BUSD). BscScan V1 is deprecated;
+ * V2 requires a paid Etherscan API key.
+ *
+ * Returns transfers as { hash, value (0x hex 32-byte, 18 decimals), to }.
  */
 async function bscScanIncoming(address: string): Promise<{ hash: string; value: string; to: string }[]> {
-  // 1. BscScan API (if key configured — gives decoded token amounts directly)
-  if (BSCSCAN_API_KEY) {
-    try {
-      const url = `https://api.bscscan.com/v2/api?chainid=56&module=account&action=tokentx` +
-        `&address=${address}&contractaddress=${BSC_USDT_CONTRACT}&sort=desc&offset=10&page=1&apikey=${BSCSCAN_API_KEY}`;
-      const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
-      const data = await r.json() as any;
-      if (data.status === "1" && Array.isArray(data.result)) return data.result;
-    } catch { /* fall through to eth_getLogs */ }
-  }
+  const ERC20_TRANSFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f203c5679ea3cfe66aa376ceac";
+  const padded = "0x000000000000000000000000" + address.slice(2).toLowerCase();
 
-  // 2. Fallback: public BSC RPC via eth_getLogs (always works, no key required)
-  // NOTE: BSC Binance-Pegged USDT has 18 decimals; amountRaw will be hex log.data
+  // Accepted BSC stablecoins (both 18 decimals, treated as USDT value)
+  const ACCEPTED = [
+    { contract: BSC_USDT_CONTRACT,                             label: "USDT" },
+    { contract: "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", label: "BUSD" },
+  ];
+
+  const CHUNK  = 49; // 1rpc.io hard limit: 50 blocks; use 49 for safety
+  const CHUNKS = 7;  // 7×49 = 343 blocks ≈ 17 min on BSC (3s/block)
+
   try {
-    const paddedAddress = "0x000000000000000000000000" + address.slice(2).toLowerCase();
-    const latestBlock = await bscRpc("eth_blockNumber", []);
-    if (!latestBlock) return [];
-    const fromBlock = "0x" + Math.max(0, parseInt(latestBlock, 16) - 2000).toString(16);
+    const latestHex = await bscRpc("eth_blockNumber", []);
+    if (!latestHex) { console.warn("[BSC] could not get latest block"); return []; }
+    const latest = parseInt(latestHex, 16);
 
-    const logs = await bscRpc("eth_getLogs", [{
-      address: BSC_USDT_CONTRACT,
-      // Do NOT include topic[0] — BSC Binance-Pegged USDT has non-standard Transfer topic
-      topics: [null, null, paddedAddress],
-      fromBlock,
-      toBlock: "latest",
-    }]);
+    // Build all (contract, blockRange) pairs and fire ALL requests in parallel
+    const tasks = ACCEPTED.flatMap(({ contract, label }) =>
+      Array.from({ length: CHUNKS }, (_, i) => {
+        const toN   = Math.max(1, latest - i * CHUNK);
+        const fromN = Math.max(0, toN - CHUNK);
+        return { contract, label, fromBlock: "0x" + fromN.toString(16), toBlock: "0x" + toN.toString(16) };
+      })
+    );
 
-    if (!Array.isArray(logs) || logs.length === 0) return [];
-    // Map to same shape expected by callers; value is hex (raw, 18 decimals)
-    return logs.map((log: any) => ({
-      hash: log.transactionHash,
-      value: log.data,   // 0x-prefixed hex, 18 decimals
-      to:   address,
-    }));
-  } catch { return []; }
+    const allLogs = await Promise.all(
+      tasks.map(({ contract, label, fromBlock, toBlock }) =>
+        bscRpc("eth_getLogs", [{ address: contract, topics: [ERC20_TRANSFER, null, padded], fromBlock, toBlock }])
+          .then((logs: any) => ({ label, logs }))
+          .catch(() => ({ label, logs: null }))
+      )
+    );
+
+    const results: { hash: string; value: string; to: string }[] = [];
+    const seen = new Set<string>();
+
+    for (const { label, logs } of allLogs) {
+      if (!Array.isArray(logs) || logs.length === 0) continue;
+      console.log(`[BSC] ${label}: found ${logs.length} transfer(s)`);
+      for (const log of logs) {
+        if (!seen.has(log.transactionHash)) {
+          seen.add(log.transactionHash);
+          results.push({ hash: log.transactionHash, value: log.data, to: address });
+        }
+      }
+    }
+
+    if (results.length === 0) {
+      console.log(`[BSC] no USDT/BUSD to ${address} in last ~${Math.round(CHUNKS * CHUNK * 3 / 60)} min`);
+    }
+    return results;
+  } catch (e) {
+    console.warn("[BSC] scanner error:", e);
+    return [];
+  }
 }
 
 // ── TRON incoming scanner with TronGrid fallback ─────────────────────────────
