@@ -191,16 +191,47 @@ async function bscRpc(method: string, params: any[]): Promise<any> {
   return null;
 }
 
-/** Scan BSC address for recent incoming USDT via BscScan V2 API (requires BSCSCAN_API_KEY). */
+/**
+ * Scan BSC address for recent incoming USDT.
+ * Primary: BscScan V2 API (optional BSCSCAN_API_KEY env var).
+ * Fallback: public BSC RPC via eth_getLogs (always available, no key needed).
+ * Returns transfers with hex amountRaw (0x-prefixed) and 18 decimals.
+ */
 async function bscScanIncoming(address: string): Promise<{ hash: string; value: string; to: string }[]> {
-  if (!BSCSCAN_API_KEY) return [];
+  // 1. BscScan API (if key configured — gives decoded token amounts directly)
+  if (BSCSCAN_API_KEY) {
+    try {
+      const url = `https://api.bscscan.com/v2/api?chainid=56&module=account&action=tokentx` +
+        `&address=${address}&contractaddress=${BSC_USDT_CONTRACT}&sort=desc&offset=10&page=1&apikey=${BSCSCAN_API_KEY}`;
+      const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
+      const data = await r.json() as any;
+      if (data.status === "1" && Array.isArray(data.result)) return data.result;
+    } catch { /* fall through to eth_getLogs */ }
+  }
+
+  // 2. Fallback: public BSC RPC via eth_getLogs (always works, no key required)
+  // NOTE: BSC Binance-Pegged USDT has 18 decimals; amountRaw will be hex log.data
   try {
-    const url = `https://api.bscscan.com/v2/api?chainid=56&module=account&action=tokentx` +
-      `&address=${address}&contractaddress=${BSC_USDT_CONTRACT}&sort=desc&offset=10&page=1&apikey=${BSCSCAN_API_KEY}`;
-    const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
-    const data = await r.json() as any;
-    if (data.status !== "1" || !Array.isArray(data.result)) return [];
-    return data.result;
+    const paddedAddress = "0x000000000000000000000000" + address.slice(2).toLowerCase();
+    const latestBlock = await bscRpc("eth_blockNumber", []);
+    if (!latestBlock) return [];
+    const fromBlock = "0x" + Math.max(0, parseInt(latestBlock, 16) - 2000).toString(16);
+
+    const logs = await bscRpc("eth_getLogs", [{
+      address: BSC_USDT_CONTRACT,
+      // Do NOT include topic[0] — BSC Binance-Pegged USDT has non-standard Transfer topic
+      topics: [null, null, paddedAddress],
+      fromBlock,
+      toBlock: "latest",
+    }]);
+
+    if (!Array.isArray(logs) || logs.length === 0) return [];
+    // Map to same shape expected by callers; value is hex (raw, 18 decimals)
+    return logs.map((log: any) => ({
+      hash: log.transactionHash,
+      value: log.data,   // 0x-prefixed hex, 18 decimals
+      to:   address,
+    }));
   } catch { return []; }
 }
 
@@ -254,60 +285,46 @@ async function scanTronIncoming(address: string): Promise<TronTransfer[]> {
 // ── TON incoming scanner (TonCenter public + keyed fallback) ──────────────────
 
 const TON_USDT_MASTER_ADDR = "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs";
+// TON USDT Jetton has 6 decimals — amount field in v3 API is in base units (e.g. 1000000 = 1 USDT)
 interface TonTransfer { txHash: string; amountRaw: string; }
 
 /**
  * Scan TON address for recent incoming USDT Jetton transfers.
  * Primary: TonCenter v3 free public API (no key).
- * Fallback: TonCenter v2 with leased API key from pool (header api_key).
+ * Fallback: TonCenter v3 with leased API key (X-API-Key header) — same endpoint, higher rate limit.
+ *
+ * NOTE: TonCenter v2 getTransactions is intentionally NOT used as fallback because
+ * it returns native TON transactions (in_msg.value = nanotons), not Jetton USDT amounts.
  */
 async function scanTonIncoming(address: string): Promise<TonTransfer[]> {
-  // 1. TonCenter v3 public (free, no key)
-  try {
+  const tonCenterV3 = async (apiKey?: string): Promise<TonTransfer[]> => {
+    const headers: Record<string, string> = { "Accept": "application/json" };
+    if (apiKey) headers["X-API-Key"] = apiKey;
     const r = await fetch(
       `https://toncenter.com/api/v3/jetton/transfers?direction=in&owner_address=${encodeURIComponent(address)}&jetton_master=${encodeURIComponent(TON_USDT_MASTER_ADDR)}&limit=10`,
-      { headers: { "Accept": "application/json" }, signal: AbortSignal.timeout(10000) }
+      { headers, signal: AbortSignal.timeout(10000) }
     );
     if (!r.ok) throw new Error(`TonCenter v3 HTTP ${r.status}`);
     const data = await r.json() as any;
     const transfers: any[] = data.jetton_transfers ?? [];
-    if (transfers.length > 0) {
-      return transfers.map(t => ({
-        txHash: t.transaction_hash ?? t.trace_id ?? "",
-        amountRaw: t.amount ?? "0",
-      }));
-    }
-    // If empty response — still valid; return empty (don't fallback on empty)
-    return [];
-  } catch { /* fall through to keyed fallback */ }
+    return transfers.map(t => ({
+      txHash: t.transaction_hash ?? t.trace_id ?? "",
+      amountRaw: t.amount ?? "0",   // base units, 6 decimals
+    }));
+  };
 
-  // 2. TonCenter v2 with API key
+  // 1. Public (free, no key)
+  try {
+    return await tonCenterV3();
+  } catch { /* rate limited or network error — try keyed fallback */ }
+
+  // 2. Keyed fallback — same v3 endpoint with API key for higher rate limits
   const key = await leaseKey("TON");
   if (key) {
     try {
-      const headers: Record<string, string> = { "Accept": "application/json" };
-      // TonCenter v2 supports both header and query param for key
-      headers["X-API-Key"] = key.apiKey;
-      const r = await fetch(
-        `https://toncenter.com/api/v2/getTransactions?address=${encodeURIComponent(address)}&limit=20&archival=false`,
-        { headers, signal: AbortSignal.timeout(10000) }
-      );
-      if (!r.ok) throw new Error(`TonCenter v2 HTTP ${r.status}`);
-      const data = await r.json() as any;
-      const txs: any[] = data.result ?? [];
+      const result = await tonCenterV3(key.apiKey);
       await recordKeySuccess(key.keyId);
-
-      const results: TonTransfer[] = [];
-      for (const tx of txs) {
-        // Look for Jetton transfer messages
-        const msgs: any[] = tx.in_msg ? [tx.in_msg] : [];
-        for (const msg of msgs) {
-          if (msg.value && parseInt(msg.value) > 0) {
-            results.push({ txHash: tx.transaction_id?.hash ?? "", amountRaw: msg.value });
-          }
-        }
-      }
-      return results;
+      return result;
     } catch {
       await recordKeyError(key.keyId);
     }
@@ -344,6 +361,22 @@ const ERC20_TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a116
 
 interface EvmTransfer { txHash: string; amountRaw: string; }
 
+/**
+ * Convert a 0x-prefixed hex amount string to a decimal USDT string using BigInt.
+ * Avoids Number precision loss for large amounts (>2^53 raw units).
+ */
+function hexAmountToDecimal(hexRaw: string, decimals: number): string {
+  try {
+    const raw = BigInt(hexRaw);
+    const divisor = BigInt(10 ** decimals);
+    const integer = raw / divisor;
+    const fraction = (raw % divisor).toString().padStart(decimals, "0");
+    return `${integer}.${fraction}`;
+  } catch {
+    return "0.000000";
+  }
+}
+
 async function evmRpc(rpcs: string[], method: string, params: any[]): Promise<any> {
   for (const rpc of rpcs) {
     try {
@@ -365,31 +398,26 @@ async function scanEvmIncoming(network: string, address: string): Promise<EvmTra
   if (!cfg) return [];
 
   try {
-    // eth_getLogs: filter Transfer events to our address on USDT contract
     const paddedAddress = "0x000000000000000000000000" + address.slice(2).toLowerCase();
-    const logs = await evmRpc(cfg.rpcs, "eth_getLogs", [{
-      address: cfg.usdtContract,
-      topics: [ERC20_TRANSFER_TOPIC, null, paddedAddress],
-      fromBlock: "latest", // will be overridden below
-    }]);
 
-    // Better: use block range of last ~2000 blocks
+    // Get current block number, then scan last ~2000 blocks for Transfer events to this address
     const latestBlock = await evmRpc(cfg.rpcs, "eth_blockNumber", []);
     if (!latestBlock) return [];
-    const fromBlock = "0x" + (parseInt(latestBlock, 16) - 2000).toString(16);
+    const fromBlock = "0x" + Math.max(0, parseInt(latestBlock, 16) - 2000).toString(16);
 
-    const recentLogs = await evmRpc(cfg.rpcs, "eth_getLogs", [{
+    const logs = await evmRpc(cfg.rpcs, "eth_getLogs", [{
       address: cfg.usdtContract,
       topics: [ERC20_TRANSFER_TOPIC, null, paddedAddress],
       fromBlock,
       toBlock: "latest",
     }]);
 
-    if (!Array.isArray(recentLogs) || recentLogs.length === 0) return [];
+    if (!Array.isArray(logs) || logs.length === 0) return [];
 
-    return recentLogs.map((log: any) => ({
+    // amountRaw is stored as hex string (log.data), parsed later via hexAmountToDecimal()
+    return logs.map((log: any) => ({
       txHash: log.transactionHash,
-      amountRaw: log.data,
+      amountRaw: log.data,  // 0x-prefixed hex
     }));
   } catch {
     return [];
@@ -421,12 +449,19 @@ async function solanaRpc(method: string, params: any[]): Promise<any> {
   return null;
 }
 
+/**
+ * Scan Solana address for recent incoming USDT SPL transfers.
+ *
+ * CRITICAL NOTE on ATA: USDT on Solana is held by an Associated Token Account (ATA),
+ * not the wallet address directly. SPL transfers go wallet → ATA, not wallet → wallet.
+ * Therefore we must:
+ *  1. Discover the ATA via getTokenAccountsByOwner (mint = USDT_MINT)
+ *  2. Scan signatures on the ATA address, not the wallet address
+ *  3. Detect incoming amount via preTokenBalances vs postTokenBalances delta
+ */
 async function scanSolanaIncoming(address: string): Promise<SolanaTransfer[]> {
-  // Check if Helius API key is available (higher rate limits)
   const key = await leaseKey("SOLANA");
-  const rpcUrl = key
-    ? `https://mainnet.helius-rpc.com/?api-key=${key.apiKey}`
-    : null;
+  const rpcUrl = key ? `https://mainnet.helius-rpc.com/?api-key=${key.apiKey}` : null;
 
   const callRpc = async (method: string, params: any[]): Promise<any> => {
     if (rpcUrl) {
@@ -450,26 +485,48 @@ async function scanSolanaIncoming(address: string): Promise<SolanaTransfer[]> {
   };
 
   try {
-    // Get recent signatures for the address
-    const sigs = await callRpc("getSignaturesForAddress", [address, { limit: 10 }]);
+    // Step 1: Find the USDT Associated Token Account (ATA) for this wallet.
+    // SPL tokens are held by the ATA, not the wallet address itself.
+    const tokenAccts = await callRpc("getTokenAccountsByOwner", [
+      address,
+      { mint: SOLANA_USDT_MINT },
+      { encoding: "jsonParsed" },
+    ]);
+    const ataAddress: string | null = tokenAccts?.value?.[0]?.pubkey ?? null;
+    if (!ataAddress) return []; // No USDT token account exists yet for this wallet
+
+    // Step 2: Get recent signatures for the ATA (not the wallet address)
+    const sigs = await callRpc("getSignaturesForAddress", [ataAddress, { limit: 10 }]);
     if (!sigs || !Array.isArray(sigs) || sigs.length === 0) return [];
 
     const results: SolanaTransfer[] = [];
     for (const sig of sigs.slice(0, 5)) {
       try {
-        const tx = await callRpc("getTransaction", [sig.signature, { encoding: "jsonParsed", maxSupportedTransactionVersion: 0 }]);
+        const tx = await callRpc("getTransaction", [sig.signature, {
+          encoding: "jsonParsed",
+          maxSupportedTransactionVersion: 0,
+        }]);
         if (!tx) continue;
-        const instructions = tx.transaction?.message?.instructions ?? [];
-        for (const ix of instructions) {
-          if (ix.program === "spl-token" && ix.parsed?.type === "transfer") {
-            const info = ix.parsed.info;
-            // Check if it's USDT and destination is our address
-            if (info.mint === SOLANA_USDT_MINT && info.destination === address) {
-              results.push({ txHash: sig.signature, amountRaw: String(info.amount ?? "0") });
-            }
+
+        // Step 3: Detect incoming amount via token balance delta
+        // preTokenBalances / postTokenBalances are reliable for SPL transfers
+        const preBals: any[] = tx.meta?.preTokenBalances ?? [];
+        const postBals: any[] = tx.meta?.postTokenBalances ?? [];
+
+        // Find the entry for our ATA (identified by owner = our wallet address)
+        const pre  = preBals.find((b: any)  => b.mint === SOLANA_USDT_MINT && b.owner === address);
+        const post = postBals.find((b: any) => b.mint === SOLANA_USDT_MINT && b.owner === address);
+
+        if (post) {
+          const preBal  = BigInt(pre?.uiTokenAmount?.amount  ?? "0");
+          const postBal = BigInt(post.uiTokenAmount?.amount  ?? "0");
+          const delta = postBal - preBal;
+          if (delta > BigInt(0)) {
+            // amountRaw in base units (USDT SPL = 6 decimals), stored as decimal string
+            results.push({ txHash: sig.signature, amountRaw: delta.toString() });
           }
         }
-      } catch { /* skip tx */ }
+      } catch { /* skip this tx */ }
     }
     return results;
   } catch {
@@ -551,6 +608,34 @@ async function checkTxOnChain(network: string, txHash: string, toAddress: string
   }
 }
 
+// ── Amount parsing helpers ─────────────────────────────────────────────────────
+
+/**
+ * Convert raw token amount (decimal or 0x-hex string) + decimals → human-readable string.
+ * Uses BigInt to avoid Number precision loss on large values.
+ */
+function parseRawAmount(raw: string, decimals: number): string {
+  try {
+    const n = raw.startsWith("0x") || raw.startsWith("0X") ? BigInt(raw) : BigInt(raw);
+    const divisor = BigInt(10 ** decimals);
+    const integer = n / divisor;
+    const fraction = (n % divisor).toString().padStart(decimals, "0");
+    return `${integer}.${fraction}`;
+  } catch {
+    return "0.000000";
+  }
+}
+
+/** Resolve the formatted amount for each scanner result based on network. */
+function resolveAmount(network: string, amountRaw: string): string {
+  if (network === "BSC" || network === "BEP20") return parseRawAmount(amountRaw, 18);
+  if (network === "ETH" || network === "ARBITRUM" || network === "POLYGON") {
+    return hexAmountToDecimal(amountRaw, EVM_NETWORKS[network]?.decimals ?? 6);
+  }
+  // TRON, TON, SOLANA — 6 decimals, decimal string
+  return parseRawAmount(amountRaw, 6);
+}
+
 // ── Poll for payment on address ───────────────────────────────────────────────
 
 async function pollAddressForPayment(paymentId: number, address: string, network: string, currency: string, expectedAmount?: string) {
@@ -566,15 +651,20 @@ async function pollAddressForPayment(paymentId: number, address: string, network
 
       let found = false;
 
-      // Universal confirm helper for payment row
-      const confirmPayment = async (txHash: string, txAmountRaw: bigint | number, decimals: number) => {
-        const txAmount = (Number(txAmountRaw) / Math.pow(10, decimals)).toFixed(6);
+      // Confirm payment row — atomic UPDATE guards against race conditions (status='pending' check).
+      // txHash uniqueness across confirmed rows prevents double-crediting the same tx.
+      const confirmPayment = async (txHash: string, txAmount: string) => {
         const [upd] = await db.execute(sql`
           UPDATE merchant_payments
           SET status = 'confirmed', tx_hash = ${txHash}, amount_received = ${txAmount}, confirmed_at = NOW()
           WHERE id = ${paymentId} AND status = 'pending'
+            AND NOT EXISTS (
+              SELECT 1 FROM merchant_payments mp2
+              WHERE mp2.tx_hash = ${txHash} AND mp2.status = 'confirmed'
+            )
         `);
         if ((upd as any).affectedRows === 1) {
+          console.log(`[merchant] payment ${paymentId} confirmed: ${txHash} +${txAmount} USDT (${network})`);
           await db.execute(sql`
             UPDATE merchant_shops SET balance_usdt = balance_usdt + ${parseFloat(txAmount)},
             total_received = total_received + ${parseFloat(txAmount)}
@@ -587,29 +677,27 @@ async function pollAddressForPayment(paymentId: number, address: string, network
       if (network === "TRON" || network === "TRC20") {
         const transfers = await scanTronIncoming(address);
         if (transfers.length > 0)
-          await confirmPayment(transfers[0].txHash, parseInt(transfers[0].amountRaw), 6);
+          await confirmPayment(transfers[0].txHash, parseRawAmount(transfers[0].amountRaw, 6));
       } else if (network === "BSC" || network === "BEP20") {
         const txs = await bscScanIncoming(address);
         const inbound = txs.find(tx => tx.to?.toLowerCase() === address.toLowerCase());
-        if (inbound) await confirmPayment(inbound.hash, parseInt(inbound.value ?? "0"), 18);
+        if (inbound)
+          await confirmPayment(inbound.hash, parseRawAmount(inbound.value ?? "0", 18));
       } else if (network === "TON") {
         const transfers = await scanTonIncoming(address);
         if (transfers.length > 0)
-          await confirmPayment(transfers[0].txHash, parseInt(transfers[0].amountRaw), 6);
+          await confirmPayment(transfers[0].txHash, parseRawAmount(transfers[0].amountRaw, 6));
       } else if (network === "ETH" || network === "ARBITRUM" || network === "POLYGON") {
         const cfg = EVM_NETWORKS[network];
         if (cfg) {
           const txs = await scanEvmIncoming(network, address);
-          if (txs.length > 0) {
-            // amountRaw is hex data from eth_getLogs
-            const rawNum = parseInt(txs[0].amountRaw, 16);
-            await confirmPayment(txs[0].txHash, rawNum, cfg.decimals);
-          }
+          if (txs.length > 0)
+            await confirmPayment(txs[0].txHash, hexAmountToDecimal(txs[0].amountRaw, cfg.decimals));
         }
       } else if (network === "SOLANA") {
         const transfers = await scanSolanaIncoming(address);
         if (transfers.length > 0)
-          await confirmPayment(transfers[0].txHash, parseInt(transfers[0].amountRaw), 6);
+          await confirmPayment(transfers[0].txHash, parseRawAmount(transfers[0].amountRaw, 6));
       }
 
       if (!found && Date.now() < deadline) setTimeout(check, interval);
@@ -649,7 +737,7 @@ async function pollInvoiceForPayment(
         const transfers = await scanTronIncoming(address);
         if (transfers.length > 0) {
           txHash = transfers[0].txHash;
-          amountReceived = (parseInt(transfers[0].amountRaw) / 1e6).toFixed(6);
+          amountReceived = parseRawAmount(transfers[0].amountRaw, 6);
           found = true;
         }
       } else if (network === "BSC" || network === "BEP20") {
@@ -657,14 +745,14 @@ async function pollInvoiceForPayment(
         const inbound = txs.find(tx => tx.to?.toLowerCase() === address.toLowerCase());
         if (inbound) {
           txHash = inbound.hash;
-          amountReceived = (parseInt(inbound.value ?? "0") / 1e18).toFixed(6);
+          amountReceived = parseRawAmount(inbound.value ?? "0", 18);
           found = true;
         }
       } else if (network === "TON") {
         const transfers = await scanTonIncoming(address);
         if (transfers.length > 0) {
           txHash = transfers[0].txHash;
-          amountReceived = (parseInt(transfers[0].amountRaw) / 1e6).toFixed(6);
+          amountReceived = parseRawAmount(transfers[0].amountRaw, 6);
           found = true;
         }
       } else if (network === "ETH" || network === "ARBITRUM" || network === "POLYGON") {
@@ -673,7 +761,7 @@ async function pollInvoiceForPayment(
           const txs = await scanEvmIncoming(network, address);
           if (txs.length > 0) {
             txHash = txs[0].txHash;
-            amountReceived = (parseInt(txs[0].amountRaw, 16) / Math.pow(10, cfg.decimals)).toFixed(6);
+            amountReceived = hexAmountToDecimal(txs[0].amountRaw, cfg.decimals);
             found = true;
           }
         }
@@ -681,7 +769,7 @@ async function pollInvoiceForPayment(
         const transfers = await scanSolanaIncoming(address);
         if (transfers.length > 0) {
           txHash = transfers[0].txHash;
-          amountReceived = (parseInt(transfers[0].amountRaw) / 1e6).toFixed(6);
+          amountReceived = parseRawAmount(transfers[0].amountRaw, 6);
           found = true;
         }
       }
@@ -691,6 +779,10 @@ async function pollInvoiceForPayment(
           UPDATE merchant_invoices
           SET status = 'confirmed', tx_hash = ${txHash}, amount_received = ${amountReceived}, confirmed_at = NOW()
           WHERE id = ${invoiceId} AND status = 'pending'
+            AND NOT EXISTS (
+              SELECT 1 FROM merchant_invoices mi2
+              WHERE mi2.tx_hash = ${txHash} AND mi2.status = 'confirmed'
+            )
         `);
         if ((invUpd as any).affectedRows === 1) {
           await db.execute(sql`
@@ -1285,7 +1377,7 @@ export function registerBusinessRoutes(app: Express) {
           const transfers = await scanTronIncoming(payment.wallet_address);
           if (transfers.length > 0) {
             txHash = transfers[0].txHash;
-            amountReceived = (parseInt(transfers[0].amountRaw) / 1e6).toFixed(6);
+            amountReceived = parseRawAmount(transfers[0].amountRaw, 6);
             found = true;
           }
         } else if (net === "BSC" || net === "BEP20") {
@@ -1293,14 +1385,14 @@ export function registerBusinessRoutes(app: Express) {
           const inbound = txs.find((tx: any) => tx.to?.toLowerCase() === payment.wallet_address.toLowerCase());
           if (inbound) {
             txHash = inbound.hash;
-            amountReceived = (parseInt(inbound.value ?? "0") / 1e18).toFixed(6);
+            amountReceived = parseRawAmount(inbound.value ?? "0", 18);
             found = true;
           }
         } else if (net === "TON") {
           const transfers = await scanTonIncoming(payment.wallet_address);
           if (transfers.length > 0) {
             txHash = transfers[0].txHash;
-            amountReceived = (parseInt(transfers[0].amountRaw) / 1e6).toFixed(6);
+            amountReceived = parseRawAmount(transfers[0].amountRaw, 6);
             found = true;
           }
         } else if (net === "ETH" || net === "ARBITRUM" || net === "POLYGON") {
@@ -1309,7 +1401,7 @@ export function registerBusinessRoutes(app: Express) {
             const txs = await scanEvmIncoming(net, payment.wallet_address);
             if (txs.length > 0) {
               txHash = txs[0].txHash;
-              amountReceived = (parseInt(txs[0].amountRaw, 16) / Math.pow(10, cfg.decimals)).toFixed(6);
+              amountReceived = hexAmountToDecimal(txs[0].amountRaw, cfg.decimals);
               found = true;
             }
           }
@@ -1317,7 +1409,7 @@ export function registerBusinessRoutes(app: Express) {
           const transfers = await scanSolanaIncoming(payment.wallet_address);
           if (transfers.length > 0) {
             txHash = transfers[0].txHash;
-            amountReceived = (parseInt(transfers[0].amountRaw) / 1e6).toFixed(6);
+            amountReceived = parseRawAmount(transfers[0].amountRaw, 6);
             found = true;
           }
         }
@@ -1328,8 +1420,13 @@ export function registerBusinessRoutes(app: Express) {
           UPDATE merchant_payments
           SET status = 'confirmed', tx_hash = ${txHash}, amount_received = ${amountReceived}, confirmed_at = NOW()
           WHERE id = ${payment.id} AND status = 'pending'
+            AND NOT EXISTS (
+              SELECT 1 FROM merchant_payments mp2
+              WHERE mp2.tx_hash = ${txHash} AND mp2.status = 'confirmed'
+            )
         `);
         if ((upd as any).affectedRows === 1) {
+          console.log(`[merchant] check-payment ${payment.id} confirmed: ${txHash} +${amountReceived} USDT (${net})`);
           await db.execute(sql`
             UPDATE merchant_shops SET balance_usdt = balance_usdt + ${parseFloat(amountReceived ?? "0")},
             total_received = total_received + ${parseFloat(amountReceived ?? "0")}
