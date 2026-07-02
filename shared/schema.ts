@@ -553,9 +553,16 @@ export const merchantPayoutRequests = mysqlTable("merchant_payout_requests", {
 export const merchantScannerKeys = mysqlTable("merchant_scanner_keys", {
   id: int("id").primaryKey().autoincrement(),
   provider: varchar("provider", { length: 50 }).notNull(),
-  apiKey: varchar("api_key", { length: 255 }).notNull(),
+  networks: text("networks"),
+  apiKey: varchar("api_key", { length: 500 }).notNull(),
+  label: varchar("label", { length: 255 }),
+  monthlyLimit: int("monthly_limit").notNull().default(0),
+  usageThisMonth: int("usage_this_month").notNull().default(0),
+  resetMonth: varchar("reset_month", { length: 7 }),
   isActive: boolean("is_active").notNull().default(true),
+  errorCount: int("error_count").notNull().default(0),
   lastUsedAt: timestamp("last_used_at"),
+  lastErrorAt: timestamp("last_error_at"),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 

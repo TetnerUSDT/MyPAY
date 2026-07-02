@@ -1,4 +1,5 @@
 import { Express, Request, Response } from "express";
+import { leaseKey, recordKeyError, recordKeySuccess } from "./merchant-key-rotator";
 import { db } from "./db";
 import { sql, eq, desc, and } from "drizzle-orm";
 import { merchantShops, merchantPayments, merchantPayoutRequests, merchantWallets, merchantInvoices } from "@shared/schema";
@@ -200,6 +201,53 @@ async function bscScanIncoming(address: string): Promise<{ hash: string; value: 
   } catch { return []; }
 }
 
+// ── TRON incoming scanner with TronGrid fallback ─────────────────────────────
+
+const TRON_USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
+interface TronTransfer { txHash: string; amountRaw: string; }
+
+/**
+ * Scan a TRON address for recent incoming USDT transfers.
+ * Primary: public TronScan API (no key required).
+ * Fallback (on HTTP error): TronGrid API using a leased key from the pool.
+ */
+async function scanTronIncoming(address: string): Promise<TronTransfer[]> {
+  // 1. Public TronScan API
+  try {
+    const r = await fetch(
+      `https://apilist.tronscanapi.com/api/transfer/trc20?limit=5&start=0&toAddress=${address}&tokenName=USDT`,
+      { signal: AbortSignal.timeout(10000) }
+    );
+    if (!r.ok) throw new Error(`TronScan HTTP ${r.status}`);
+    const data = await r.json() as any;
+    const txs: any[] = data.data ?? [];
+    return txs.map(tx => ({ txHash: tx.transactionId, amountRaw: tx.amount ?? "0" }));
+  } catch { /* fall through to TronGrid */ }
+
+  // 2. TronGrid API with key (fallback when TronScan errors)
+  const key = await leaseKey("TRON");
+  if (key) {
+    try {
+      const r = await fetch(
+        `https://api.trongrid.io/v1/accounts/${address}/transactions/trc20` +
+        `?contract_address=${TRON_USDT_CONTRACT}&limit=10&only_to=true`,
+        {
+          headers: { "TGRID-API-Key": key.apiKey, "Accept": "application/json" },
+          signal: AbortSignal.timeout(10000),
+        }
+      );
+      if (!r.ok) throw new Error(`TronGrid HTTP ${r.status}`);
+      const data = await r.json() as any;
+      const txs: any[] = data.data ?? [];
+      await recordKeySuccess(key.keyId);
+      return txs.map(tx => ({ txHash: tx.transaction_id, amountRaw: tx.value ?? "0" }));
+    } catch {
+      await recordKeyError(key.keyId);
+    }
+  }
+  return [];
+}
+
 // ── Blockchain scanner helper ─────────────────────────────────────────────────
 
 async function checkTxOnChain(network: string, txHash: string, toAddress: string, expectedAmount?: string): Promise<{ confirmed: boolean; amount?: string }> {
@@ -252,16 +300,13 @@ async function pollAddressForPayment(paymentId: number, address: string, network
       let found = false;
 
       if (network === "TRON" || network === "TRC20") {
-        const url = `https://apilist.tronscanapi.com/api/transfer/trc20?limit=5&start=0&toAddress=${address}&tokenName=USDT`;
-        const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
-        const data = await r.json() as any;
-        const txs = data.data ?? [];
-        if (txs.length > 0) {
-          const tx = txs[0];
-          const txAmount = (parseInt(tx.amount ?? "0") / 1e6).toFixed(6);
+        const transfers = await scanTronIncoming(address);
+        if (transfers.length > 0) {
+          const tx = transfers[0];
+          const txAmount = (parseInt(tx.amountRaw) / 1e6).toFixed(6);
           const [tronUpd] = await db.execute(sql`
             UPDATE merchant_payments
-            SET status = 'confirmed', tx_hash = ${tx.transactionId}, amount_received = ${txAmount}, confirmed_at = NOW()
+            SET status = 'confirmed', tx_hash = ${tx.txHash}, amount_received = ${txAmount}, confirmed_at = NOW()
             WHERE id = ${paymentId} AND status = 'pending'
           `);
           if ((tronUpd as any).affectedRows === 1) {
@@ -332,25 +377,20 @@ async function pollInvoiceForPayment(
       let txHash: string | null = null;
       let amountReceived: string | null = null;
 
-      if (network === "TRON") {
-        const url = `https://apilist.tronscanapi.com/api/transfer/trc20?limit=5&start=0&toAddress=${address}&tokenName=USDT`;
-        const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
-        const data = await r.json() as any;
-        const txs: any[] = data.data ?? [];
-        if (txs.length > 0) {
-          txHash = txs[0].transactionId;
-          amountReceived = (parseInt(txs[0].amount ?? "0") / 1e6).toFixed(6);
+      if (network === "TRON" || network === "TRC20") {
+        const transfers = await scanTronIncoming(address);
+        if (transfers.length > 0) {
+          txHash = transfers[0].txHash;
+          amountReceived = (parseInt(transfers[0].amountRaw) / 1e6).toFixed(6);
           found = true;
         }
-      } else if (network === "BSC") {
+      } else if (network === "BSC" || network === "BEP20") {
         const txs = await bscScanIncoming(address);
         const inbound = txs.find(tx => tx.to?.toLowerCase() === address.toLowerCase());
         if (inbound) {
           txHash = inbound.hash;
           amountReceived = (parseInt(inbound.value ?? "0") / 1e18).toFixed(6);
           found = true;
-        } else if (!BSCSCAN_API_KEY) {
-          console.warn("[merchant] BSC invoice scanner skipped: BSCSCAN_API_KEY not set");
         }
       }
 
@@ -949,13 +989,10 @@ export function registerBusinessRoutes(app: Express) {
 
       if (payment.network === "TRON" || payment.network === "TRC20") {
         try {
-          const url = `https://apilist.tronscanapi.com/api/transfer/trc20?limit=5&start=0&toAddress=${payment.wallet_address}&tokenName=USDT`;
-          const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
-          const data = await r.json() as any;
-          const txs: any[] = data.data ?? [];
-          if (txs.length > 0) {
-            txHash = txs[0].transactionId;
-            amountReceived = (parseInt(txs[0].amount ?? "0") / 1e6).toFixed(6);
+          const transfers = await scanTronIncoming(payment.wallet_address);
+          if (transfers.length > 0) {
+            txHash = transfers[0].txHash;
+            amountReceived = (parseInt(transfers[0].amountRaw) / 1e6).toFixed(6);
             found = true;
           }
         } catch { /* network error — return pending */ }

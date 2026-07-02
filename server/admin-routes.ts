@@ -1976,4 +1976,64 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
       res.json({ success: true });
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
+
+  // ── Scanner API Keys ──────────────────────────────────────────────────────────
+
+  app.get(`/${adminPath}/api/business/scanner-keys`, requireAdmin, async (req: AdminRequest, res) => {
+    try {
+      const rows = await db.execute(sql`
+        SELECT id, provider, networks, label, monthly_limit, usage_this_month,
+               reset_month, is_active, error_count, last_used_at, last_error_at, created_at
+        FROM merchant_scanner_keys ORDER BY provider, created_at ASC
+      `);
+      const keys = (rows[0] as any[]).map((k: any) => ({
+        ...k,
+        networks: (() => { try { return typeof k.networks === "string" ? JSON.parse(k.networks) : (k.networks ?? []); } catch { return []; } })(),
+      }));
+      res.json(keys);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post(`/${adminPath}/api/business/scanner-keys`, requireAdmin, async (req: AdminRequest, res) => {
+    const { provider, networks, api_key, label, monthly_limit } = req.body;
+    if (!provider || !api_key) return res.status(400).json({ message: "provider and api_key are required" });
+    const networksJson = JSON.stringify(Array.isArray(networks) ? networks : []);
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    try {
+      const [result] = await db.execute(sql`
+        INSERT INTO merchant_scanner_keys
+          (provider, networks, api_key, label, monthly_limit, usage_this_month, reset_month, is_active, error_count)
+        VALUES
+          (${provider}, ${networksJson}, ${api_key}, ${label ?? null}, ${parseInt(monthly_limit ?? "0")}, 0, ${currentMonth}, 1, 0)
+      `);
+      res.json({ id: (result as any).insertId, ok: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.patch(`/${adminPath}/api/business/scanner-keys/:id`, requireAdmin, async (req: AdminRequest, res) => {
+    const id = parseInt(req.params.id);
+    const { is_active, monthly_limit, label, reset_usage } = req.body;
+    try {
+      if (reset_usage) {
+        await db.execute(sql`UPDATE merchant_scanner_keys SET usage_this_month = 0, error_count = 0 WHERE id = ${id}`);
+      }
+      if (is_active !== undefined) {
+        await db.execute(sql`UPDATE merchant_scanner_keys SET is_active = ${is_active ? 1 : 0} WHERE id = ${id}`);
+      }
+      if (monthly_limit !== undefined) {
+        await db.execute(sql`UPDATE merchant_scanner_keys SET monthly_limit = ${parseInt(monthly_limit)} WHERE id = ${id}`);
+      }
+      if (label !== undefined) {
+        await db.execute(sql`UPDATE merchant_scanner_keys SET label = ${label} WHERE id = ${id}`);
+      }
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.delete(`/${adminPath}/api/business/scanner-keys/:id`, requireAdmin, async (req: AdminRequest, res) => {
+    try {
+      await db.execute(sql`DELETE FROM merchant_scanner_keys WHERE id = ${parseInt(req.params.id)}`);
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
 }

@@ -113,12 +113,47 @@ export async function runBusinessMigrations() {
         CREATE TABLE merchant_scanner_keys (
           id INT AUTO_INCREMENT PRIMARY KEY,
           provider VARCHAR(50) NOT NULL,
-          api_key VARCHAR(255) NOT NULL,
+          networks TEXT NULL,
+          api_key VARCHAR(500) NOT NULL,
+          label VARCHAR(255) NULL,
+          monthly_limit INT NOT NULL DEFAULT 0,
+          usage_this_month INT NOT NULL DEFAULT 0,
+          reset_month VARCHAR(7) NULL,
           is_active TINYINT(1) NOT NULL DEFAULT 1,
+          error_count INT NOT NULL DEFAULT 0,
           last_used_at TIMESTAMP NULL,
+          last_error_at TIMESTAMP NULL,
           created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP
         )
       `);
+    } else {
+      if (!await columnExists("merchant_scanner_keys", "networks")) {
+        await db.execute(sql`ALTER TABLE merchant_scanner_keys ADD COLUMN networks TEXT NULL AFTER provider`);
+      }
+      if (!await columnExists("merchant_scanner_keys", "label")) {
+        await db.execute(sql`ALTER TABLE merchant_scanner_keys ADD COLUMN label VARCHAR(255) NULL AFTER api_key`);
+      }
+      if (!await columnExists("merchant_scanner_keys", "monthly_limit")) {
+        await db.execute(sql`ALTER TABLE merchant_scanner_keys ADD COLUMN monthly_limit INT NOT NULL DEFAULT 0 AFTER label`);
+      }
+      if (!await columnExists("merchant_scanner_keys", "usage_this_month")) {
+        await db.execute(sql`ALTER TABLE merchant_scanner_keys ADD COLUMN usage_this_month INT NOT NULL DEFAULT 0 AFTER monthly_limit`);
+      }
+      if (!await columnExists("merchant_scanner_keys", "reset_month")) {
+        await db.execute(sql`ALTER TABLE merchant_scanner_keys ADD COLUMN reset_month VARCHAR(7) NULL AFTER usage_this_month`);
+      }
+      if (!await columnExists("merchant_scanner_keys", "error_count")) {
+        await db.execute(sql`ALTER TABLE merchant_scanner_keys ADD COLUMN error_count INT NOT NULL DEFAULT 0 AFTER is_active`);
+      }
+      if (!await columnExists("merchant_scanner_keys", "last_error_at")) {
+        await db.execute(sql`ALTER TABLE merchant_scanner_keys ADD COLUMN last_error_at TIMESTAMP NULL AFTER error_count`);
+      }
+      if (!await columnExists("merchant_scanner_keys", "api_key") || true) {
+        // Extend api_key column to 500 chars if needed (ignore error if already done)
+        try {
+          await db.execute(sql`ALTER TABLE merchant_scanner_keys MODIFY COLUMN api_key VARCHAR(500) NOT NULL`);
+        } catch {}
+      }
     }
 
     if (!await tableExists("merchant_wallets")) {
