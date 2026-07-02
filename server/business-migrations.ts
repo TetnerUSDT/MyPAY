@@ -1,5 +1,6 @@
 import { db } from "./db";
 import { sql } from "drizzle-orm";
+import { runScannerProviderMigrations } from "./scanner/migrations";
 
 async function tableExists(table: string): Promise<boolean> {
   try {
@@ -208,6 +209,8 @@ export async function runBusinessMigrations() {
         )
       `);
     }
+
+    await runScannerProviderMigrations();
 
     console.log("[Business] Migrations completed");
   } catch (err: any) {

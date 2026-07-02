@@ -1,5 +1,10 @@
 import { Express, Request, Response } from "express";
 import { leaseKey, recordKeyError, recordKeySuccess } from "./merchant-key-rotator";
+import { getProviderChain, callWithFallback } from "./scanner/index";
+import { getEvmTransfers, evmJsonRpc as evmJsonRpcAdapter, hexAmountToDecimal as hexAmtToDecimal } from "./scanner/adapters/evm";
+import { getTronTransfers } from "./scanner/adapters/tron";
+import { getTonTransfers } from "./scanner/adapters/ton";
+import { getSolanaTransfers } from "./scanner/adapters/solana";
 import { db } from "./db";
 import { sql, eq, desc, and } from "drizzle-orm";
 import { merchantShops, merchantPayments, merchantPayoutRequests, merchantWallets, merchantInvoices } from "@shared/schema";
@@ -164,246 +169,36 @@ async function findOrReserveMerchantWallet(
 // ── BSC constants ─────────────────────────────────────────────────────────────
 
 const BSC_USDT_CONTRACT = "0x55d398326f99059fF775485246999027B3197955";
-// NOTE: BSC Binance-Pegged USDT uses a slightly non-standard Transfer event topic[0].
-// We intentionally do NOT filter by topic[0] — instead match by contract address + topic[2] (to-address).
-// This handles all ERC20/BEP20 Transfer variants reliably.
-// Nodes ordered by eth_getLogs reliability
-const BSC_RPC_NODES = [
-  "https://1rpc.io/bnb",               // supports eth_getLogs up to 49-block range
-  "https://bsc-dataseed.binance.org/", // fallback for eth_blockNumber
-  "https://bsc-dataseed1.ninicoin.io/",
-];
-
-/** Call BSC public JSON-RPC. Tries each node in order. */
-async function bscRpc(method: string, params: any[]): Promise<any> {
-  for (const rpc of BSC_RPC_NODES) {
-    try {
-      const r = await fetch(rpc, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: AbortSignal.timeout(8000),
-        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-      });
-      const data = await r.json() as any;
-      if (!data.error) return data.result;
-    } catch { /* try next */ }
-  }
-  return null;
-}
-
-// Accepted BSC stablecoins (both 18 decimals, treated as USDT value)
 // NOTE on BscScan API: V1 is deprecated (NOTOK), V2 via api.etherscan.io requires
-// a paid Etherscan plan for BSC (chainid=56). Only 1rpc.io eth_getLogs works free.
+// a paid Etherscan plan for BSC (chainid=56). Only public JSON-RPC eth_getLogs works free.
 const BSC_ACCEPTED_CONTRACTS: Record<string, string> = {
-  [BSC_USDT_CONTRACT.toLowerCase()]:                              "USDT",
-  "0xe9e7cea3dedca5984780bafc599bd69add087d56":                  "BUSD",
+  [BSC_USDT_CONTRACT.toLowerCase()]:             "USDT",
+  "0xe9e7cea3dedca5984780bafc599bd69add087d56":  "BUSD",
 };
 
-/**
- * Scan BSC address for recent incoming USDT or BUSD transfers.
- *
- * Uses 1rpc.io/bnb eth_getLogs — the only free public BSC RPC that supports
- * eth_getLogs (max 49 blocks per call). Makes 14 parallel requests:
- * 7 block-range chunks × 2 contracts (USDT + BUSD), covering ~17 min.
- *
- * Returns transfers as { hash, value (0x hex 32-byte log.data), to }.
- * value is parsed by parseRawAmount(value, 18) which handles 0x-hex via BigInt.
- */
-async function bscScanIncoming(address: string): Promise<{ hash: string; value: string; to: string }[]> {
-  const ERC20_TRANSFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f203c5679ea3cfe66aa376ceac";
-  const padded = "0x000000000000000000000000" + address.slice(2).toLowerCase();
-
-  const CHUNK  = 49; // 1rpc.io hard limit: 50 blocks; use 49 for safety
-  const CHUNKS = 7;  // 7×49 = 343 blocks ≈ 17 min on BSC (3s/block)
-
-  try {
-    const latestHex = await bscRpc("eth_blockNumber", []);
-    if (!latestHex) { console.warn("[BSC] could not get latest block"); return []; }
-    const latest = parseInt(latestHex, 16);
-
-    const contractEntries = Object.entries(BSC_ACCEPTED_CONTRACTS);
-
-    // Build all (contract, blockRange) pairs and fire ALL requests in parallel
-    const tasks = contractEntries.flatMap(([contract, label]) =>
-      Array.from({ length: CHUNKS }, (_, i) => {
-        const toN   = Math.max(1, latest - i * CHUNK);
-        const fromN = Math.max(0, toN - CHUNK);
-        return { contract, label, fromBlock: "0x" + fromN.toString(16), toBlock: "0x" + toN.toString(16) };
-      })
-    );
-
-    const allLogs = await Promise.all(
-      tasks.map(({ contract, label, fromBlock, toBlock }) =>
-        bscRpc("eth_getLogs", [{ address: contract, topics: [ERC20_TRANSFER, null, padded], fromBlock, toBlock }])
-          .then((logs: any) => ({ label, logs }))
-          .catch(() => ({ label, logs: null }))
-      )
-    );
-
-    const results: { hash: string; value: string; to: string }[] = [];
-    const seen = new Set<string>();
-
-    for (const { label, logs } of allLogs) {
-      if (!Array.isArray(logs) || logs.length === 0) continue;
-      console.log(`[BSC] eth_getLogs ${label}: found ${logs.length} transfer(s)`);
-      for (const log of logs) {
-        if (!seen.has(log.transactionHash)) {
-          seen.add(log.transactionHash);
-          results.push({ hash: log.transactionHash, value: log.data, to: address });
-        }
-      }
-    }
-
-    if (results.length === 0) {
-      console.log(`[BSC] no USDT/BUSD to ${address} in last ~${Math.round(CHUNKS * CHUNK * 3 / 60)} min`);
-    }
-    return results;
-  } catch (e) {
-    console.warn("[BSC] scanner error:", e);
-    return [];
-  }
-}
-
-// ── TRON incoming scanner with TronGrid fallback ─────────────────────────────
-
-const TRON_USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
-interface TronTransfer { txHash: string; amountRaw: string; }
-
-/**
- * Scan a TRON address for recent incoming USDT transfers.
- * Primary: public TronScan API (no key required).
- * Fallback (on HTTP error): TronGrid API using a leased key from the pool.
- */
-async function scanTronIncoming(address: string): Promise<TronTransfer[]> {
-  // 1. Public TronScan API
-  try {
-    const r = await fetch(
-      `https://apilist.tronscanapi.com/api/transfer/trc20?limit=5&start=0&toAddress=${address}&tokenName=USDT`,
-      { signal: AbortSignal.timeout(10000) }
-    );
-    if (!r.ok) throw new Error(`TronScan HTTP ${r.status}`);
-    const data = await r.json() as any;
-    const txs: any[] = data.data ?? [];
-    return txs.map(tx => ({ txHash: tx.transactionId, amountRaw: tx.amount ?? "0" }));
-  } catch { /* fall through to TronGrid */ }
-
-  // 2. TronGrid API with key (fallback when TronScan errors)
-  const key = await leaseKey("TRON");
-  if (key) {
-    try {
-      const r = await fetch(
-        `https://api.trongrid.io/v1/accounts/${address}/transactions/trc20` +
-        `?contract_address=${TRON_USDT_CONTRACT}&limit=10&only_to=true`,
-        {
-          headers: { "TGRID-API-Key": key.apiKey, "Accept": "application/json" },
-          signal: AbortSignal.timeout(10000),
-        }
-      );
-      if (!r.ok) throw new Error(`TronGrid HTTP ${r.status}`);
-      const data = await r.json() as any;
-      const txs: any[] = data.data ?? [];
-      await recordKeySuccess(key.keyId);
-      return txs.map(tx => ({ txHash: tx.transaction_id, amountRaw: tx.value ?? "0" }));
-    } catch {
-      await recordKeyError(key.keyId);
-    }
-  }
-  return [];
-}
-
-// ── TON incoming scanner (TonCenter public + keyed fallback) ──────────────────
-
-const TON_USDT_MASTER_ADDR = "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs";
-// TON USDT Jetton has 6 decimals — amount field in v3 API is in base units (e.g. 1000000 = 1 USDT)
-interface TonTransfer { txHash: string; amountRaw: string; }
-
-/**
- * Scan TON address for recent incoming USDT Jetton transfers.
- * Primary: TonCenter v3 free public API (no key).
- * Fallback: TonCenter v3 with leased API key (X-API-Key header) — same endpoint, higher rate limit.
- *
- * NOTE: TonCenter v2 getTransactions is intentionally NOT used as fallback because
- * it returns native TON transactions (in_msg.value = nanotons), not Jetton USDT amounts.
- */
-async function scanTonIncoming(address: string): Promise<TonTransfer[]> {
-  const tonCenterV3 = async (apiKey?: string): Promise<TonTransfer[]> => {
-    const headers: Record<string, string> = { "Accept": "application/json" };
-    if (apiKey) headers["X-API-Key"] = apiKey;
-    const r = await fetch(
-      `https://toncenter.com/api/v3/jetton/transfers?direction=in&owner_address=${encodeURIComponent(address)}&jetton_master=${encodeURIComponent(TON_USDT_MASTER_ADDR)}&limit=10`,
-      { headers, signal: AbortSignal.timeout(10000) }
-    );
-    if (!r.ok) throw new Error(`TonCenter v3 HTTP ${r.status}`);
-    const data = await r.json() as any;
-    const transfers: any[] = data.jetton_transfers ?? [];
-    return transfers.map(t => ({
-      txHash: t.transaction_hash ?? t.trace_id ?? "",
-      amountRaw: t.amount ?? "0",   // base units, 6 decimals
-    }));
-  };
-
-  // 1. Public (free, no key)
-  try {
-    return await tonCenterV3();
-  } catch { /* rate limited or network error — try keyed fallback */ }
-
-  // 2. Keyed fallback — same v3 endpoint with API key for higher rate limits
-  const key = await leaseKey("TON");
-  if (key) {
-    try {
-      const result = await tonCenterV3(key.apiKey);
-      await recordKeySuccess(key.keyId);
-      return result;
-    } catch {
-      await recordKeyError(key.keyId);
-    }
-  }
-  return [];
-}
-
-// ── EVM incoming scanner (ETH/ARBITRUM/POLYGON via public RPC eth_getLogs) ─────
-
-const EVM_NETWORKS: Record<string, {
-  rpcs: string[];
-  usdtContract: string;
-  decimals: number;
-}> = {
+// EVM network configs (used for tx confirmation checks only — scanning now via ProviderRegistry)
+const EVM_NETWORKS: Record<string, { rpcs: string[]; usdtContract: string; decimals: number }> = {
   ETH: {
-    rpcs: ["https://eth.llamarpc.com", "https://rpc.ankr.com/eth", "https://cloudflare-eth.com"],
+    rpcs: ["https://eth.llamarpc.com", "https://rpc.ankr.com/eth"],
     usdtContract: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
     decimals: 6,
   },
   ARBITRUM: {
-    rpcs: ["https://arb1.arbitrum.io/rpc", "https://rpc.ankr.com/arbitrum", "https://arbitrum.llamarpc.com"],
+    rpcs: ["https://arb1.arbitrum.io/rpc", "https://rpc.ankr.com/arbitrum"],
     usdtContract: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
     decimals: 6,
   },
   POLYGON: {
-    rpcs: ["https://polygon-rpc.com", "https://rpc.ankr.com/polygon", "https://polygon.llamarpc.com"],
+    rpcs: ["https://polygon-rpc.com", "https://rpc.ankr.com/polygon"],
     usdtContract: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
     decimals: 6,
   },
 };
 
-// ERC20 Transfer topic0
 const ERC20_TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 
-interface EvmTransfer { txHash: string; amountRaw: string; }
-
-/**
- * Convert a 0x-prefixed hex amount string to a decimal USDT string using BigInt.
- * Avoids Number precision loss for large amounts (>2^53 raw units).
- */
 function hexAmountToDecimal(hexRaw: string, decimals: number): string {
-  try {
-    const raw = BigInt(hexRaw);
-    const divisor = BigInt(10 ** decimals);
-    const integer = raw / divisor;
-    const fraction = (raw % divisor).toString().padStart(decimals, "0");
-    return `${integer}.${fraction}`;
-  } catch {
-    return "0.000000";
-  }
+  return hexAmtToDecimal(hexRaw, decimals);
 }
 
 async function evmRpc(rpcs: string[], method: string, params: any[]): Promise<any> {
@@ -422,145 +217,155 @@ async function evmRpc(rpcs: string[], method: string, params: any[]): Promise<an
   return null;
 }
 
-async function scanEvmIncoming(network: string, address: string): Promise<EvmTransfer[]> {
-  const cfg = EVM_NETWORKS[network];
-  if (!cfg) return [];
-
-  try {
-    const paddedAddress = "0x000000000000000000000000" + address.slice(2).toLowerCase();
-
-    // Get current block number, then scan last ~2000 blocks for Transfer events to this address
-    const latestBlock = await evmRpc(cfg.rpcs, "eth_blockNumber", []);
-    if (!latestBlock) return [];
-    const fromBlock = "0x" + Math.max(0, parseInt(latestBlock, 16) - 2000).toString(16);
-
-    const logs = await evmRpc(cfg.rpcs, "eth_getLogs", [{
-      address: cfg.usdtContract,
-      topics: [ERC20_TRANSFER_TOPIC, null, paddedAddress],
-      fromBlock,
-      toBlock: "latest",
-    }]);
-
-    if (!Array.isArray(logs) || logs.length === 0) return [];
-
-    // amountRaw is stored as hex string (log.data), parsed later via hexAmountToDecimal()
-    return logs.map((log: any) => ({
-      txHash: log.transactionHash,
-      amountRaw: log.data,  // 0x-prefixed hex
-    }));
-  } catch {
-    return [];
-  }
-}
-
-// ── Solana incoming scanner (via public Solana RPC) ───────────────────────────
-
-const SOLANA_USDT_MINT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"; // USDT SPL on mainnet
-const SOLANA_RPC_NODES = [
-  "https://api.mainnet-beta.solana.com",
-  "https://solana-api.projectserum.com",
-];
-interface SolanaTransfer { txHash: string; amountRaw: string; }
-
-async function solanaRpc(method: string, params: any[]): Promise<any> {
-  for (const rpc of SOLANA_RPC_NODES) {
+// BSC-specific for tx confirmation (uses provider chain)
+async function bscRpc(method: string, params: any[]): Promise<any> {
+  const chain = await getProviderChain("BSC");
+  const active = chain.filter(c => c.enabled === 1);
+  for (const cfg of active) {
     try {
-      const r = await fetch(rpc, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-        signal: AbortSignal.timeout(10000),
+      const { result } = await callWithFallback([cfg], async (p) => {
+        return await evmJsonRpcAdapter(p, method, params);
       });
-      const data = await r.json() as any;
-      if (data.result !== undefined && !data.error) return data.result;
+      if (result !== null) return result;
     } catch { /* try next */ }
   }
   return null;
 }
 
+const SOLANA_USDT_MINT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
+
+// Legacy stub for tx confirmation in checkTxOnChain
+async function solanaRpc(method: string, params: any[]): Promise<any> {
+  const chain = await getProviderChain("SOL");
+  const { result } = await callWithFallback(chain, async (cfg) => {
+    const { getSolanaRpcResult } = await import("./scanner/adapters/solana");
+    return getSolanaRpcResult(cfg, method, params);
+  });
+  return result;
+}
+
+// ── Blockchain scanner functions (now driven by ProviderRegistry) ─────────────
+
 /**
- * Scan Solana address for recent incoming USDT SPL transfers.
- *
- * CRITICAL NOTE on ATA: USDT on Solana is held by an Associated Token Account (ATA),
- * not the wallet address directly. SPL transfers go wallet → ATA, not wallet → wallet.
- * Therefore we must:
- *  1. Discover the ATA via getTokenAccountsByOwner (mint = USDT_MINT)
- *  2. Scan signatures on the ATA address, not the wallet address
- *  3. Detect incoming amount via preTokenBalances vs postTokenBalances delta
+ * Scan BSC for recent incoming USDT or BUSD.
+ * Uses ProviderRegistry to get ordered provider chain, tries each with fallback.
+ * For providers with max_block_range (e.g. 1rpc.io = 49), makes parallel chunked requests.
  */
-async function scanSolanaIncoming(address: string): Promise<SolanaTransfer[]> {
-  const key = await leaseKey("SOLANA");
-  const rpcUrl = key ? `https://mainnet.helius-rpc.com/?api-key=${key.apiKey}` : null;
+async function bscScanIncoming(address: string): Promise<{ hash: string; value: string; to: string }[]> {
+  const chain = await getProviderChain("BSC");
+  const contractEntries = Object.entries(BSC_ACCEPTED_CONTRACTS);
+  const BLOCK_COVERAGE = 343; // ~17 min at 3s/block
 
-  const callRpc = async (method: string, params: any[]): Promise<any> => {
-    if (rpcUrl) {
+  const { result, errors } = await callWithFallback(chain, async (cfg) => {
+    const seen = new Set<string>();
+    const results: { hash: string; value: string; to: string }[] = [];
+
+    for (const [contract, label] of contractEntries) {
       try {
-        const r = await fetch(rpcUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-          signal: AbortSignal.timeout(10000),
-        });
-        const data = await r.json() as any;
-        if (data.result !== undefined && !data.error) {
-          if (key) await recordKeySuccess(key.keyId);
-          return data.result;
-        }
-      } catch {
-        if (key) await recordKeyError(key.keyId);
-      }
-    }
-    return solanaRpc(method, params);
-  };
-
-  try {
-    // Step 1: Find the USDT Associated Token Account (ATA) for this wallet.
-    // SPL tokens are held by the ATA, not the wallet address itself.
-    const tokenAccts = await callRpc("getTokenAccountsByOwner", [
-      address,
-      { mint: SOLANA_USDT_MINT },
-      { encoding: "jsonParsed" },
-    ]);
-    const ataAddress: string | null = tokenAccts?.value?.[0]?.pubkey ?? null;
-    if (!ataAddress) return []; // No USDT token account exists yet for this wallet
-
-    // Step 2: Get recent signatures for the ATA (not the wallet address)
-    const sigs = await callRpc("getSignaturesForAddress", [ataAddress, { limit: 10 }]);
-    if (!sigs || !Array.isArray(sigs) || sigs.length === 0) return [];
-
-    const results: SolanaTransfer[] = [];
-    for (const sig of sigs.slice(0, 5)) {
-      try {
-        const tx = await callRpc("getTransaction", [sig.signature, {
-          encoding: "jsonParsed",
-          maxSupportedTransactionVersion: 0,
-        }]);
-        if (!tx) continue;
-
-        // Step 3: Detect incoming amount via token balance delta
-        // preTokenBalances / postTokenBalances are reliable for SPL transfers
-        const preBals: any[] = tx.meta?.preTokenBalances ?? [];
-        const postBals: any[] = tx.meta?.postTokenBalances ?? [];
-
-        // Find the entry for our ATA (identified by owner = our wallet address)
-        const pre  = preBals.find((b: any)  => b.mint === SOLANA_USDT_MINT && b.owner === address);
-        const post = postBals.find((b: any) => b.mint === SOLANA_USDT_MINT && b.owner === address);
-
-        if (post) {
-          const preBal  = BigInt(pre?.uiTokenAmount?.amount  ?? "0");
-          const postBal = BigInt(post.uiTokenAmount?.amount  ?? "0");
-          const delta = postBal - preBal;
-          if (delta > BigInt(0)) {
-            // amountRaw in base units (USDT SPL = 6 decimals), stored as decimal string
-            results.push({ txHash: sig.signature, amountRaw: delta.toString() });
+        const transfers = await getEvmTransfers(cfg, address, contract, BLOCK_COVERAGE);
+        for (const t of transfers) {
+          if (!seen.has(t.txHash)) {
+            seen.add(t.txHash);
+            if (transfers.length > 0) console.log(`[BSC] ${cfg.provider_code} ${label}: found ${transfers.length} transfer(s)`);
+            results.push({ hash: t.txHash, value: t.amountRaw, to: address });
           }
         }
-      } catch { /* skip this tx */ }
+      } catch { /* skip this contract */ }
     }
     return results;
-  } catch {
+  });
+
+  if (result === null) {
+    if (errors.length > 0) console.warn("[BSC] all providers failed:", errors.map(e => `${e.provider}: ${e.error}`).join("; "));
     return [];
   }
+  if (result.length === 0) {
+    const mins = Math.round(BLOCK_COVERAGE * 3 / 60);
+    console.log(`[BSC] no USDT/BUSD to ${address} in last ~${mins} min`);
+  }
+  return result;
+}
+
+/**
+ * Scan TRON address for incoming USDT.
+ * Uses ProviderRegistry — TronScan (free) first, TronGrid (optional key) second.
+ */
+async function scanTronIncoming(address: string): Promise<{ txHash: string; amountRaw: string }[]> {
+  const chain = await getProviderChain("TRON");
+  const { result, errors } = await callWithFallback(chain, async (cfg) => {
+    return await getTronTransfers(cfg, address);
+  });
+  if (result === null) {
+    if (errors.length > 0) console.warn("[TRON] all providers failed:", errors.map(e => `${e.provider}: ${e.error}`).join("; "));
+    return [];
+  }
+  return result;
+}
+
+/**
+ * Scan TON address for incoming USDT Jetton.
+ * Uses ProviderRegistry — TonCenter (optional key).
+ */
+async function scanTonIncoming(address: string): Promise<{ txHash: string; amountRaw: string }[]> {
+  const chain = await getProviderChain("TON");
+  const { result, errors } = await callWithFallback(chain, async (cfg) => {
+    return await getTonTransfers(cfg, address);
+  });
+  if (result === null) {
+    if (errors.length > 0) console.warn("[TON] all providers failed:", errors.map(e => `${e.provider}: ${e.error}`).join("; "));
+    return [];
+  }
+  return result;
+}
+
+/**
+ * Scan ETH/ARBITRUM/POLYGON address for incoming USDT.
+ * Uses ProviderRegistry for the given network.
+ */
+async function scanEvmIncoming(network: string, address: string): Promise<{ txHash: string; amountRaw: string }[]> {
+  const cfg = EVM_NETWORKS[network];
+  if (!cfg) return [];
+
+  const chain = await getProviderChain(network);
+  if (chain.length === 0) {
+    // Fallback to hardcoded RPCs if no provider config yet
+    const paddedAddress = "0x000000000000000000000000" + address.slice(2).toLowerCase();
+    const latestBlock = await evmRpc(cfg.rpcs, "eth_blockNumber", []);
+    if (!latestBlock) return [];
+    const fromBlock = "0x" + Math.max(0, parseInt(latestBlock, 16) - 2000).toString(16);
+    const logs = await evmRpc(cfg.rpcs, "eth_getLogs", [{
+      address: cfg.usdtContract,
+      topics: [ERC20_TRANSFER_TOPIC, null, paddedAddress],
+      fromBlock, toBlock: "latest",
+    }]);
+    if (!Array.isArray(logs)) return [];
+    return logs.map((log: any) => ({ txHash: log.transactionHash, amountRaw: log.data }));
+  }
+
+  const { result, errors } = await callWithFallback(chain, async (p) => {
+    return await getEvmTransfers(p, address, cfg.usdtContract, 2000);
+  });
+  if (result === null) {
+    if (errors.length > 0) console.warn(`[${network}] all providers failed:`, errors.map(e => `${e.provider}: ${e.error}`).join("; "));
+    return [];
+  }
+  return result.map(t => ({ txHash: t.txHash, amountRaw: t.amountRaw }));
+}
+
+/**
+ * Scan Solana address for incoming USDT SPL.
+ * Uses ProviderRegistry — PublicNode first, Solana mainnet second, Helius (keyed) third.
+ */
+async function scanSolanaIncoming(address: string): Promise<{ txHash: string; amountRaw: string }[]> {
+  const chain = await getProviderChain("SOL");
+  const { result, errors } = await callWithFallback(chain, async (cfg) => {
+    return await getSolanaTransfers(cfg, address);
+  });
+  if (result === null) {
+    if (errors.length > 0) console.warn("[SOL] all providers failed:", errors.map(e => `${e.provider}: ${e.error}`).join("; "));
+    return [];
+  }
+  return result;
 }
 
 // ── Blockchain scanner helper ─────────────────────────────────────────────────

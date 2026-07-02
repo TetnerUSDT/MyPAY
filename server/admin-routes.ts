@@ -1977,6 +1977,81 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // ── Scanner Providers (new system) ───────────────────────────────────────────
+
+  app.get(`/${adminPath}/api/business/scanner-providers`, requireAdmin, async (req: AdminRequest, res) => {
+    try {
+      const providersRows = await db.execute(sql`SELECT * FROM scanner_providers ORDER BY adapter_type, code ASC`);
+      const providers = (providersRows[0] as any[]).map((p: any) => ({
+        ...p,
+        supported_networks: (() => { try { return typeof p.supported_networks === "string" ? JSON.parse(p.supported_networks) : (p.supported_networks ?? []); } catch { return []; } })(),
+      }));
+
+      const networkRows = await db.execute(sql`
+        SELECT snp.*, sp.name, sp.adapter_type, sp.auth_mode, sp.endpoint_template,
+               sp.header_name, sp.supported_networks, sp.docs_url, sp.is_builtin
+        FROM scanner_network_providers snp
+        JOIN scanner_providers sp ON sp.code = snp.provider_code
+        ORDER BY snp.network, snp.priority ASC
+      `);
+      const networkConfigs = (networkRows[0] as any[]).map((r: any) => ({
+        ...r,
+        supported_networks: (() => { try { return typeof r.supported_networks === "string" ? JSON.parse(r.supported_networks) : (r.supported_networks ?? []); } catch { return []; } })(),
+      }));
+
+      const keysRows = await db.execute(sql`
+        SELECT id, provider, provider_code, networks, label, monthly_limit, usage_this_month,
+               reset_month, is_active, error_count, last_used_at, last_error_at, created_at
+        FROM merchant_scanner_keys ORDER BY provider_code, created_at ASC
+      `);
+      const keys = (keysRows[0] as any[]).map((k: any) => ({
+        ...k,
+        networks: (() => { try { return typeof k.networks === "string" ? JSON.parse(k.networks) : (k.networks ?? []); } catch { return []; } })(),
+      }));
+
+      res.json({ providers, networkConfigs, keys });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.patch(`/${adminPath}/api/business/scanner-providers/network/:id`, requireAdmin, async (req: AdminRequest, res) => {
+    const id = parseInt(req.params.id);
+    const { enabled, priority, endpoint_override, max_block_range, rps_limit } = req.body;
+    try {
+      if (enabled !== undefined) {
+        await db.execute(sql`UPDATE scanner_network_providers SET enabled = ${enabled ? 1 : 0} WHERE id = ${id}`);
+      }
+      if (priority !== undefined) {
+        await db.execute(sql`UPDATE scanner_network_providers SET priority = ${parseInt(priority)} WHERE id = ${id}`);
+      }
+      if (endpoint_override !== undefined) {
+        await db.execute(sql`UPDATE scanner_network_providers SET endpoint_override = ${endpoint_override || null} WHERE id = ${id}`);
+      }
+      if (max_block_range !== undefined) {
+        await db.execute(sql`UPDATE scanner_network_providers SET max_block_range = ${max_block_range ? parseInt(max_block_range) : null} WHERE id = ${id}`);
+      }
+      if (rps_limit !== undefined) {
+        await db.execute(sql`UPDATE scanner_network_providers SET rps_limit = ${rps_limit ? parseInt(rps_limit) : null} WHERE id = ${id}`);
+      }
+      const { invalidateCache } = await import("./scanner/registry");
+      invalidateCache();
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.patch(`/${adminPath}/api/business/scanner-providers/network-bulk`, requireAdmin, async (req: AdminRequest, res) => {
+    // Bulk reorder: [{id, priority}]
+    const { items } = req.body as { items: Array<{ id: number; priority: number }> };
+    if (!Array.isArray(items)) return res.status(400).json({ message: "items array required" });
+    try {
+      for (const item of items) {
+        await db.execute(sql`UPDATE scanner_network_providers SET priority = ${item.priority} WHERE id = ${item.id}`);
+      }
+      const { invalidateCache } = await import("./scanner/registry");
+      invalidateCache();
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   // ── Scanner API Keys ──────────────────────────────────────────────────────────
 
   app.get(`/${adminPath}/api/business/scanner-keys`, requireAdmin, async (req: AdminRequest, res) => {

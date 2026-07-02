@@ -15,6 +15,7 @@ import AdminInteractive from "@/pages/admin/interactive";
 import AdminTelegram from "@/pages/admin/telegram";
 import AdminP2P from "@/pages/admin/p2p";
 import AdminBusiness from "@/pages/admin/business";
+import AdminScannerProviders from "@/pages/admin/scanner-providers";
 
 export function AdminRoutes() {
   const [adminPath, setAdminPath] = useState<string>('admin');
@@ -39,6 +40,7 @@ export function AdminRoutes() {
       <Route path={`/${adminPath}/interactive`} component={AdminInteractive} />
       <Route path={`/${adminPath}/p2p`} component={AdminP2P} />
       <Route path={`/${adminPath}/business`} component={AdminBusiness} />
+      <Route path={`/${adminPath}/scanner-providers`} component={AdminScannerProviders} />
       <Route path={`/${adminPath}`}>
         <Redirect to={`/${adminPath}/login`} />
       </Route>
