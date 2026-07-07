@@ -254,7 +254,7 @@ async function solanaRpc(method: string, params: any[]): Promise<any> {
 async function bscScanIncoming(address: string): Promise<{ hash: string; value: string; to: string }[]> {
   const chain = await getProviderChain("BSC");
   const contractEntries = Object.entries(BSC_ACCEPTED_CONTRACTS);
-  const BLOCK_COVERAGE = 343; // ~17 min at 3s/block
+  const BLOCK_COVERAGE = 2400; // ~2 hours at 3s/block
 
   const { result, errors } = await callWithFallback(chain, async (cfg) => {
     const seen = new Set<string>();
@@ -490,7 +490,7 @@ async function pollAddressForPayment(
   paymentId: number, address: string, network: string, currency: string,
   expectedAmount?: string, deadlineMs?: number,
 ) {
-  const deadline = deadlineMs ?? Date.now() + 10 * 60 * 1000;
+  const deadline = deadlineMs ?? Date.now() + 3 * 60 * 60 * 1000;
   let interval = 10000;        // start fast
   const maxInterval = 60000;   // cap at 1 min
 
@@ -517,6 +517,7 @@ async function pollAddressForPayment(
         `);
         if ((upd as any).affectedRows === 1) {
           console.log(`[merchant] payment ${paymentId} confirmed: ${txHash} +${txAmount} USDT (${network})`);
+          found = true;
           // Update shop balance and fetch webhook_url in one query
           const [shopRows] = await db.execute(sql`
             SELECT s.id, s.webhook_url, s.order_id, p.order_id as pay_order_id, p.external_user_id
@@ -544,8 +545,9 @@ async function pollAddressForPayment(
               });
             }
           }
+        } else {
+          console.log(`[merchant] payment ${paymentId} tx ${txHash} already confirmed in another payment — skipping`);
         }
-        found = true;
       };
 
       if (network === "TRON" || network === "TRC20") {
@@ -703,10 +705,10 @@ async function pollInvoiceForPayment(
 // Called once on server start; ensures restart doesn't drop active polls.
 
 export async function recoverPendingPollers() {
-  const PAYMENT_TTL  = 10 * 60 * 1000;   // same as pollAddressForPayment deadline
-  const INVOICE_TTL  = 30 * 60 * 1000;   // same as pollInvoiceForPayment deadline
+  const PAYMENT_TTL  = 3 * 60 * 60 * 1000;  // 3 hours — same as pollAddressForPayment deadline
+  const INVOICE_TTL  = 30 * 60 * 1000;       // 30 min — same as pollInvoiceForPayment deadline
   try {
-    // Recover pending payments still within their 10-min window
+    // Recover pending payments still within their TTL window
     const [payRows] = await db.execute(sql`
       SELECT id, wallet_address, network, currency, amount, created_at
       FROM merchant_payments WHERE status = 'pending'
@@ -721,7 +723,7 @@ export async function recoverPendingPollers() {
         );
         rPayments++;
       } else {
-        // Already expired — mark it so it won't sit as phantom-pending
+        // Already expired (older than 3h) — mark it so it won't sit as phantom-pending
         await db.execute(sql`
           UPDATE merchant_payments SET status = 'expired'
           WHERE id = ${row.id} AND status = 'pending'
@@ -1382,6 +1384,7 @@ export function registerBusinessRoutes(app: Express) {
       } catch { /* network error — return pending */ }
 
       if (found && txHash) {
+        console.log(`[merchant] check-payment ${payment.id} found tx ${txHash} on-chain`);
         const [upd] = await db.execute(sql`
           UPDATE merchant_payments
           SET status = 'confirmed', tx_hash = ${txHash}, amount_received = ${amountReceived}, confirmed_at = NOW()
@@ -1410,11 +1413,14 @@ export function registerBusinessRoutes(app: Express) {
               tx_hash: txHash,
             });
           }
+          return res.json({ status: "confirmed", tx_hash: txHash, amount_received: amountReceived, confirmed_at: new Date().toISOString() });
+        } else {
+          // tx_hash already confirmed in another payment — keep scanning via poller
+          console.log(`[merchant] check-payment ${payment.id} tx ${txHash} already used in another payment — waiting for new tx`);
         }
-        return res.json({ status: "confirmed", tx_hash: txHash, amount_received: amountReceived, confirmed_at: new Date().toISOString() });
       }
 
-      // Nothing found on-chain yet — also kick off background polling for auto-confirm
+      // Nothing found on-chain yet (or tx already used) — kick off background polling for auto-confirm
       pollAddressForPayment(payment.id, payment.wallet_address, payment.network, payment.currency, payment.amount);
       res.json({ status: "pending", tx_hash: null, amount_received: null });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
