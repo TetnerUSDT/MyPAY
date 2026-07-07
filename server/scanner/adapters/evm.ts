@@ -104,6 +104,13 @@ export async function getEvmTransfers(
       )
     );
 
+    const succeeded = allResults.filter(r => r.status === "fulfilled").length;
+    // If every chunk failed (e.g. rate-limited), throw so callWithFallback tries next provider
+    if (succeeded === 0) {
+      const firstErr = (allResults[0] as PromiseRejectedResult).reason;
+      throw new Error(`All ${tasks.length} chunks failed for ${cfg.provider_code}: ${firstErr?.message ?? firstErr}`);
+    }
+
     const transfers: EvmTransfer[] = [];
     const seen = new Set<string>();
     for (const r of allResults) {

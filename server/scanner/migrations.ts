@@ -141,8 +141,8 @@ export async function runScannerProviderMigrations(): Promise<void> {
         code: "nodereal_bsc",
         name: "NodeReal (BSC)",
         adapter_type: "evm_jsonrpc",
-        auth_mode: "path",
-        endpoint_template: "https://bsc-mainnet.nodereal.io/v1/{KEY}",
+        auth_mode: "none",
+        endpoint_template: "https://bsc-mainnet.nodereal.io/v1/64a9df0874fb4a93b9d0a3849de012d3",
         header_name: null,
         supported_networks: ["BSC"],
         docs_url: "https://docs.nodereal.io/reference",
@@ -289,11 +289,11 @@ export async function runScannerProviderMigrations(): Promise<void> {
       { network: "TRON",     provider_code: "trongrid",       enabled: 1, priority: 2, max_block_range: null, rps_limit: 15 },
       // TON — TonCenter (optional key)
       { network: "TON",      provider_code: "toncenter",      enabled: 1, priority: 1, max_block_range: null, rps_limit: null },
-      // BSC — 1rpc first (proven, 49 block limit), publicnode second, dataseed fallback
-      { network: "BSC",      provider_code: "1rpc_bsc",       enabled: 1, priority: 1, max_block_range: 49,   rps_limit: null },
+      // BSC — NodeReal first (free key embedded, large range), publicnode second, dataseed fallback; 1rpc disabled (rate-limited free tier)
+      { network: "BSC",      provider_code: "nodereal_bsc",   enabled: 1, priority: 1, max_block_range: 3000, rps_limit: null },
       { network: "BSC",      provider_code: "publicnode_bsc", enabled: 1, priority: 2, max_block_range: null, rps_limit: 20 },
       { network: "BSC",      provider_code: "bsc_dataseed",   enabled: 1, priority: 3, max_block_range: null, rps_limit: null },
-      { network: "BSC",      provider_code: "nodereal_bsc",   enabled: 0, priority: 4, max_block_range: null, rps_limit: null },
+      { network: "BSC",      provider_code: "1rpc_bsc",       enabled: 0, priority: 4, max_block_range: 49,   rps_limit: null },
       // ETH
       { network: "ETH",      provider_code: "publicnode_eth", enabled: 1, priority: 1, max_block_range: null, rps_limit: 20 },
       { network: "ETH",      provider_code: "llamarpc_eth",   enabled: 1, priority: 2, max_block_range: null, rps_limit: null },

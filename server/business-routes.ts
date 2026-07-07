@@ -254,11 +254,12 @@ async function solanaRpc(method: string, params: any[]): Promise<any> {
 async function bscScanIncoming(address: string): Promise<{ hash: string; value: string; to: string }[]> {
   const chain = await getProviderChain("BSC");
   const contractEntries = Object.entries(BSC_ACCEPTED_CONTRACTS);
-  const BLOCK_COVERAGE = 2400; // ~2 hours at 3s/block
+  const BLOCK_COVERAGE = 5760; // ~4.8 hours at 3s/block — large enough to cover slow payers
 
   const { result, errors } = await callWithFallback(chain, async (cfg) => {
     const seen = new Set<string>();
     const results: { hash: string; value: string; to: string }[] = [];
+    let providerErrors = 0;
 
     for (const [contract, label] of contractEntries) {
       try {
@@ -266,12 +267,20 @@ async function bscScanIncoming(address: string): Promise<{ hash: string; value: 
         for (const t of transfers) {
           if (!seen.has(t.txHash)) {
             seen.add(t.txHash);
-            if (transfers.length > 0) console.log(`[BSC] ${cfg.provider_code} ${label}: found ${transfers.length} transfer(s)`);
+            console.log(`[BSC] ${cfg.provider_code} ${label}: found ${transfers.length} transfer(s), tx=${t.txHash}`);
             results.push({ hash: t.txHash, value: t.amountRaw, to: address });
           }
         }
-      } catch { /* skip this contract */ }
+      } catch (err: any) {
+        providerErrors++;
+      }
     }
+
+    // If every contract scan failed, this is a provider-level error — throw to try next provider
+    if (providerErrors === contractEntries.length) {
+      throw new Error(`${cfg.provider_code} failed for all contracts on BSC`);
+    }
+
     return results;
   });
 
@@ -476,7 +485,8 @@ function parseRawAmount(raw: string, decimals: number): string {
 
 /** Resolve the formatted amount for each scanner result based on network. */
 function resolveAmount(network: string, amountRaw: string): string {
-  if (network === "BSC" || network === "BEP20") return parseRawAmount(amountRaw, 18);
+  // BSC USDT is BEP-20 with 6 decimals; amountRaw is hex from eth_getLogs data field
+  if (network === "BSC" || network === "BEP20") return hexAmountToDecimal(amountRaw, 6);
   if (network === "ETH" || network === "ARBITRUM" || network === "POLYGON") {
     return hexAmountToDecimal(amountRaw, EVM_NETWORKS[network]?.decimals ?? 6);
   }
@@ -506,14 +516,19 @@ async function pollAddressForPayment(
       // Confirm payment row — atomic UPDATE guards against race conditions (status='pending' check).
       // txHash uniqueness across confirmed rows prevents double-crediting the same tx.
       const confirmPayment = async (txHash: string, txAmount: string) => {
+        // MySQL does not allow referencing the updated table in a NOT EXISTS subquery.
+        // Pre-check for duplicate tx_hash in a separate query, then UPDATE.
+        const [dup] = await db.execute(sql`
+          SELECT 1 FROM merchant_payments WHERE tx_hash = ${txHash} AND status = 'confirmed' LIMIT 1
+        `);
+        if ((dup as any[]).length > 0) {
+          console.log(`[merchant] payment ${paymentId} tx ${txHash} already confirmed in another payment — skipping`);
+          return;
+        }
         const [upd] = await db.execute(sql`
           UPDATE merchant_payments
           SET status = 'confirmed', tx_hash = ${txHash}, amount_received = ${txAmount}, confirmed_at = NOW()
           WHERE id = ${paymentId} AND status = 'pending'
-            AND NOT EXISTS (
-              SELECT 1 FROM merchant_payments mp2
-              WHERE mp2.tx_hash = ${txHash} AND mp2.status = 'confirmed'
-            )
         `);
         if ((upd as any).affectedRows === 1) {
           console.log(`[merchant] payment ${paymentId} confirmed: ${txHash} +${txAmount} USDT (${network})`);
@@ -558,7 +573,7 @@ async function pollAddressForPayment(
         const txs = await bscScanIncoming(address);
         const inbound = txs.find(tx => tx.to?.toLowerCase() === address.toLowerCase());
         if (inbound)
-          await confirmPayment(inbound.hash, parseRawAmount(inbound.value ?? "0", 18));
+          await confirmPayment(inbound.hash, hexAmountToDecimal(inbound.value ?? "0x0", 6));
       } else if (network === "TON") {
         const transfers = await scanTonIncoming(address);
         if (transfers.length > 0)
@@ -580,7 +595,8 @@ async function pollAddressForPayment(
         interval = Math.min(Math.round(interval * 1.5), maxInterval);
         setTimeout(check, interval);
       }
-    } catch {
+    } catch (err: any) {
+      console.error(`[merchant] payment ${paymentId} poll error:`, err?.message ?? err);
       if (Date.now() < deadline) {
         interval = Math.min(interval * 2, maxInterval);
         setTimeout(check, interval);
@@ -629,7 +645,7 @@ async function pollInvoiceForPayment(
         const inbound = txs.find(tx => tx.to?.toLowerCase() === address.toLowerCase());
         if (inbound) {
           txHash = inbound.hash;
-          amountReceived = parseRawAmount(inbound.value ?? "0", 18);
+          amountReceived = hexAmountToDecimal(inbound.value ?? "0x0", 6);
           found = true;
         }
       } else if (network === "TON") {
@@ -1353,7 +1369,7 @@ export function registerBusinessRoutes(app: Express) {
           const inbound = txs.find((tx: any) => tx.to?.toLowerCase() === payment.wallet_address.toLowerCase());
           if (inbound) {
             txHash = inbound.hash;
-            amountReceived = parseRawAmount(inbound.value ?? "0", 18);
+            amountReceived = hexAmountToDecimal(inbound.value ?? "0x0", 6);
             found = true;
           }
         } else if (net === "TON") {
