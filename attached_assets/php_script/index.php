@@ -405,11 +405,11 @@ if ($action) {
         $apiNet  = ($network === 'TRON_GASFREE') ? 'TRON' : $network;
 
         $apiResp = api($baseUrl, $shopKey, 'POST', '/api/merchant/payout', [
-            'network'  => $apiNet,
-            'address'  => $address,
-            'amount'   => $amount,
-            'currency' => $currency,
-            'order_id' => $orderId,
+            'network'    => $apiNet,
+            'to_address' => $address,
+            'amount'     => $amount,
+            'currency'   => $currency,
+            'order_id'   => $orderId,
         ]);
 
         $payoutId  = $apiResp['payout_id']  ?? null;
