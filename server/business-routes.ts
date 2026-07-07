@@ -1128,12 +1128,21 @@ export function registerBusinessRoutes(app: Express) {
       const [payout] = await db.select().from(merchantPayoutRequests).where(and(eq(merchantPayoutRequests.id, payoutId), eq(merchantPayoutRequests.shopId, shopId))).limit(1);
       if (!payout) return res.status(404).json({ error: "Payout not found" });
 
+      // Guard: completed/cancelled are terminal — cannot change again
+      if (["completed", "cancelled"].includes((payout as any).status)) {
+        return res.status(409).json({ error: `Payout already ${(payout as any).status}` });
+      }
+
       const updates: any = { status };
       if (txHash) updates.txHash = txHash;
       if (status === "completed" || status === "cancelled") updates.processedAt = new Date();
+
+      // Persist status to DB first
+      await db.update(merchantPayoutRequests).set(updates).where(eq(merchantPayoutRequests.id, payoutId));
+
       if (status === "completed") {
         await db.update(merchantShops).set({ totalPaidOut: sql`total_paid_out + ${parseFloat(payout.amount)}` }).where(eq(merchantShops.id, shopId));
-        // Send webhook for API-sourced payouts
+        // Send webhook for API-sourced payouts only
         if ((payout as any).source === "api" && shop.webhookUrl) {
           sendWebhook(shop.webhookUrl, {
             event: "payout.completed",
@@ -1148,10 +1157,11 @@ export function registerBusinessRoutes(app: Express) {
           });
         }
       }
-      if (status === "cancelled") {
+      // Refund balance only for manual payouts (API payouts never deducted balance)
+      if (status === "cancelled" && (payout as any).source === "manual") {
         await db.update(merchantShops).set({ balanceUsdt: sql`balance_usdt + ${parseFloat(payout.amount)}` }).where(eq(merchantShops.id, shopId));
       }
-      await db.update(merchantPayoutRequests).set(updates).where(eq(merchantPayoutRequests.id, payoutId));
+
       res.json({ ok: true });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
@@ -1542,12 +1552,7 @@ export function registerBusinessRoutes(app: Express) {
     if (isNaN(amountNum) || amountNum <= 0) return res.status(400).json({ error: "Invalid amount" });
 
     try {
-      const shopRows = await db.execute(sql`SELECT balance_usdt FROM merchant_shops WHERE id = ${shop.id} FOR UPDATE`);
-      const balance = parseFloat((shopRows[0] as any[])[0]?.balance_usdt ?? "0");
-      if (balance < amountNum) return res.status(400).json({ error: "Insufficient balance" });
-
       const reference = order_id ? `API-${order_id}` : generatePayoutRef();
-      await db.execute(sql`UPDATE merchant_shops SET balance_usdt = balance_usdt - ${amountNum} WHERE id = ${shop.id}`);
       const result = await db.execute(sql`
         INSERT INTO merchant_payout_requests
           (shop_id, to_address, network, currency, amount, status, source, external_order_id, reference)
