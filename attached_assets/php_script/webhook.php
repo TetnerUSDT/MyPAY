@@ -85,6 +85,61 @@ app_log('INFO', "Webhook received: {$eventType}", [
     'ip'             => $_SERVER['REMOTE_ADDR'] ?? '',
 ]);
 
+// ── Handle payout.completed ───────────────────────────────────────────────────
+if ($eventType === 'payout.completed') {
+    $apiPayoutId      = $payload['payout_id']         ?? null;
+    $externalOrderId  = $payload['external_order_id'] ?? null;
+    $reference        = $payload['reference']         ?? null;
+
+    $payout = null;
+    try {
+        // Сначала ищем по payout_id, fallback — по external_order_id
+        if ($apiPayoutId !== null) {
+            $stmt = $pdo->prepare("SELECT * FROM payouts WHERE payout_id = ? LIMIT 1");
+            $stmt->execute([(int)$apiPayoutId]);
+            $payout = $stmt->fetch();
+        }
+        if (!$payout && $externalOrderId) {
+            $stmt = $pdo->prepare("SELECT * FROM payouts WHERE external_order_id = ? LIMIT 1");
+            $stmt->execute([$externalOrderId]);
+            $payout = $stmt->fetch();
+        }
+    } catch (PDOException $e) {
+        app_log('ERROR', 'Webhook: payout lookup failed', ['error' => $e->getMessage()]);
+    }
+
+    if ($payout) {
+        if ($payout['status'] !== 'completed') {
+            try {
+                $pdo->prepare("UPDATE payouts SET status='completed', tx_hash=?, updated_at=NOW() WHERE id=?")
+                    ->execute([$txHash, $payout['id']]);
+                app_log('INFO', "Payout #{$payout['id']} marked completed", ['payout_id' => $apiPayoutId, 'tx_hash' => $txHash]);
+            } catch (PDOException $e) {
+                app_log('ERROR', "Webhook: payout update failed #{$payout['id']}", ['error' => $e->getMessage()]);
+            }
+        } else {
+            app_log('INFO', "Payout #{$payout['id']} already completed — idempotent skip");
+        }
+    } else {
+        app_log('WARN', 'Webhook: no matching payout found', [
+            'payout_id'        => $apiPayoutId,
+            'external_order_id'=> $externalOrderId,
+        ]);
+    }
+
+    // Сохранить в webhook_log и ответить
+    try {
+        $pdo->prepare("INSERT INTO webhook_log (event_type, payload, order_id) VALUES (?, ?, ?)")
+            ->execute([$eventType, json_encode($payload, JSON_UNESCAPED_UNICODE), null]);
+    } catch (PDOException $e) {
+        app_log('ERROR', 'Webhook: failed to save payout event to webhook_log', ['error' => $e->getMessage()]);
+    }
+
+    http_response_code(200);
+    echo json_encode(['ok' => true, 'event' => $eventType, 'payout_id' => $apiPayoutId]);
+    exit;
+}
+
 // ── Find matching order ───────────────────────────────────────────────────────
 $orderId = null;
 $order   = null;

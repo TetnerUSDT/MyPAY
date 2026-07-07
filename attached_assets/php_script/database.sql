@@ -91,3 +91,24 @@ CREATE TABLE IF NOT EXISTS webhook_log (
   INDEX idx_event_type  (event_type),
   INDEX idx_received_at (received_at)          -- для ORDER BY received_at DESC
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- ── Payouts ───────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS payouts (
+  id                INT UNSIGNED   AUTO_INCREMENT PRIMARY KEY,
+  external_order_id VARCHAR(200)   NOT NULL,
+  payout_id         INT UNSIGNED   DEFAULT NULL,   -- ID из ответа API
+  reference         VARCHAR(255)   DEFAULT NULL,   -- reference из ответа API
+  network           VARCHAR(30)    NOT NULL,
+  to_address        VARCHAR(300)   NOT NULL,
+  amount            DECIMAL(18,6)  NOT NULL,
+  currency          VARCHAR(20)    NOT NULL DEFAULT 'USDT',
+  status            ENUM('pending','completed','failed') NOT NULL DEFAULT 'pending',
+  tx_hash           VARCHAR(200)   DEFAULT NULL,
+  api_response      JSON           DEFAULT NULL,
+  created_at        TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
+  updated_at        TIMESTAMP      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_external_order_id (external_order_id),
+  INDEX idx_payout_id   (payout_id),
+  INDEX idx_status      (status),
+  INDEX idx_created_at  (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

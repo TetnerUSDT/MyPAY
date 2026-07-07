@@ -159,14 +159,13 @@ $action = $_GET['action'] ?? '';
 if ($action) {
     header('Content-Type: application/json; charset=utf-8');
 
-    $baseUrl  = cfg($pdo, 'base_url',       'https://mypay.casa');
-    $shopKey  = cfg($pdo, 'shop_key',       '');
-    $defNet   = cfg($pdo, 'default_network','TRON');
+    $baseUrl  = cfg($pdo, 'base_url',  'https://mypay.casa');
+    $shopKey  = cfg($pdo, 'shop_key', '');
     $input   = json_decode(file_get_contents('php://input'), true) ?? [];
 
     // ── Сохранить настройки ───────────────────────────────────
     if ($action === 'save_settings') {
-        $allowed = ['base_url','shop_key','default_network'];
+        $allowed = ['base_url','shop_key'];
         foreach ($allowed as $f) {
             if (array_key_exists($f, $input)) {
                 setcfg($pdo, $f, trim((string)$input[$f]));
@@ -180,9 +179,8 @@ if ($action) {
     // ── Загрузить настройки ───────────────────────────────────
     if ($action === 'get_settings') {
         echo json_encode([
-            'base_url'       => $baseUrl,
-            'shop_key'       => $shopKey,
-            'default_network'=> $defNet,
+            'base_url' => $baseUrl,
+            'shop_key' => $shopKey,
         ]);
         exit;
     }
@@ -194,7 +192,7 @@ if ($action) {
 
         // network_id — внутренний идентификатор (TRON, TRON_GASFREE, BSC, TON, ETH, POLYGON, SOLANA, ARBITRUM)
         $VALID_NETS = ['TRON','TRON_GASFREE','BSC','TON','ETH','POLYGON','SOLANA','ARBITRUM'];
-        $networkId  = in_array($input['network'] ?? '', $VALID_NETS) ? $input['network'] : $defNet;
+        $networkId  = in_array($input['network'] ?? '', $VALID_NETS) ? $input['network'] : 'TRON';
 
         // Маппинг на параметры API
         $apiNet  = ($networkId === 'TRON_GASFREE') ? 'TRON' : $networkId;
@@ -375,9 +373,66 @@ if ($action) {
         exit;
     }
 
-    // ── Данные вебхуков для таблицы ───────────────────────────
+    // ── Данные вебхуков для таблицы (с поддержкой since_id) ──
     if ($action === 'get_webhooks') {
-        $rows = $pdo->query("SELECT * FROM webhook_log ORDER BY received_at DESC LIMIT 50")->fetchAll();
+        $sinceId = (int)($input['since_id'] ?? 0);
+        if ($sinceId > 0) {
+            $stmt = $pdo->prepare("SELECT * FROM webhook_log WHERE id > ? ORDER BY id ASC LIMIT 50");
+            $stmt->execute([$sinceId]);
+            $rows = $stmt->fetchAll();
+        } else {
+            $rows = $pdo->query("SELECT * FROM webhook_log ORDER BY id DESC LIMIT 50")->fetchAll();
+        }
+        echo json_encode($rows);
+        exit;
+    }
+
+    // ── Создать выплату ───────────────────────────────────────
+    if ($action === 'create_payout') {
+        if (!$shopKey) { echo json_encode(['error' => 'Не задан Shop API Key в настройках']); exit; }
+        $VALID_NETS = ['TRON','TRON_GASFREE','BSC','TON','ETH','POLYGON','SOLANA','ARBITRUM'];
+        $network  = in_array($input['network'] ?? '', $VALID_NETS) ? $input['network'] : null;
+        $address  = trim((string)($input['address'] ?? ''));
+        $amount   = (float)($input['amount'] ?? 0);
+        $currency = trim((string)($input['currency'] ?? 'USDT'));
+        $orderId  = trim((string)($input['order_id'] ?? ''));
+        if (!$network) { echo json_encode(['error' => 'Не выбрана сеть']); exit; }
+        if (!$address) { echo json_encode(['error' => 'Не указан адрес получателя']); exit; }
+        if ($amount <= 0) { echo json_encode(['error' => 'Сумма должна быть больше 0']); exit; }
+        if (!$orderId)  { $orderId = 'payout_' . $uid . '_' . bin2hex(random_bytes(5)); }
+
+        // Маппинг сети
+        $apiNet  = ($network === 'TRON_GASFREE') ? 'TRON' : $network;
+
+        $apiResp = api($baseUrl, $shopKey, 'POST', '/api/merchant/payout', [
+            'network'  => $apiNet,
+            'address'  => $address,
+            'amount'   => $amount,
+            'currency' => $currency,
+            'order_id' => $orderId,
+        ]);
+
+        $payoutId  = $apiResp['payout_id']  ?? null;
+        $reference = $apiResp['reference']  ?? null;
+        $isError   = isset($apiResp['error']) || (!$payoutId && !isset($apiResp['payout_id']));
+
+        try {
+            $pdo->prepare("INSERT INTO payouts (external_order_id, payout_id, reference, network, to_address, amount, currency, status, api_response) VALUES (?,?,?,?,?,?,?,?,?)")
+                ->execute([$orderId, $payoutId, $reference, $network, $address, $amount, $currency, $isError ? 'failed' : 'pending', json_encode($apiResp)]);
+            $localId = $pdo->lastInsertId();
+        } catch (PDOException $e) {
+            app_log('ERROR', 'Payout insert failed', ['error' => $e->getMessage()]);
+            $localId = null;
+        }
+
+        app_log('INFO', 'Payout created', ['order_id' => $orderId, 'network' => $network, 'amount' => $amount, 'payout_id' => $payoutId, 'error' => $isError ? ($apiResp['error'] ?? 'yes') : null]);
+        echo json_encode(['api' => $apiResp, 'local_id' => $localId, 'order_id' => $orderId]);
+        exit;
+    }
+
+    // ── Список выплат ─────────────────────────────────────────
+    if ($action === 'get_payouts') {
+        $rows = $pdo->query("SELECT * FROM payouts ORDER BY created_at DESC LIMIT 100")->fetchAll();
         echo json_encode($rows);
         exit;
     }
@@ -410,7 +465,7 @@ if ($action) {
 // ═══════════════════════════════════════════════════════════════
 // РЕНДЕР СТРАНИЦЫ
 // ═══════════════════════════════════════════════════════════════
-$page     = in_array($_GET['page'] ?? '', ['shop','orders','webhooks','settings','log']) ? $_GET['page'] : 'shop';
+$page     = in_array($_GET['page'] ?? '', ['shop','orders','webhooks','payouts','settings','log']) ? $_GET['page'] : 'shop';
 $users    = $pdo->query("SELECT * FROM users ORDER BY id")->fetchAll();
 $products = $pdo->query("SELECT * FROM products ORDER BY id")->fetchAll();
 $curUser  = array_values(array_filter($users, fn($u) => (int)$u['id'] === $uid))[0] ?? ($users[0] ?? []);
@@ -597,6 +652,14 @@ $webRoot = $proto . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirna
   #toast.ok  { border-color: rgba(58,179,104,0.4); }
   #toast.err { border-color: rgba(255,79,79,0.4); color: var(--danger); }
   @media (max-width: 500px) { .products { grid-template-columns: 1fr 1fr; } .tab-btn { font-size: 11px; } }
+
+  /* Webhook new-row highlight */
+  @keyframes wh-flash { 0%,100% { background: transparent; } 30% { background: rgba(58,179,104,0.18); } }
+  tr.wh-new td { animation: wh-flash 3s ease; }
+
+  /* Payout status badges */
+  .s-completed { background: rgba(58,179,104,0.15); color: var(--green); }
+  .s-failed    { background: rgba(255,79,79,0.15);  color: var(--danger); }
 </style>
 </head>
 <body>
@@ -632,6 +695,7 @@ $webRoot = $proto . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirna
     <a href="?page=webhooks&user_id=<?= $uid ?>" class="<?= $page==='webhooks' ? 'active':'' ?>">
       🔔 Вебхуки<?php if ($webhookCount>0): ?><span class="nav-badge"><?= $webhookCount ?></span><?php endif; ?>
     </a>
+    <a href="?page=payouts&user_id=<?= $uid ?>"  class="<?= $page==='payouts'  ? 'active':'' ?>">💸 Выплаты</a>
     <a href="?page=settings&user_id=<?= $uid ?>" class="<?= $page==='settings' ? 'active':'' ?>">⚙️ Настройки</a>
     <a href="?page=log&user_id=<?= $uid ?>"      class="<?= $page==='log'      ? 'active':'' ?>">
       📋 Лог<?php if ($logExists && filesize(LOG_FILE)>0): ?><span class="nav-badge" style="background:var(--warn)">!</span><?php endif; ?>
@@ -709,6 +773,57 @@ $webRoot = $proto . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirna
   </div>
   <?php endif; ?>
 
+  <!-- ══════════════════ PAYOUTS ══════════════════ -->
+  <?php if ($page === 'payouts'): ?>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+    <div>
+      <div style="font-weight:600;font-size:15px">Выплаты (Payout API)</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:3px">
+        Тест API: <code style="color:var(--green);font-size:11px">POST /api/merchant/payout</code>
+      </div>
+    </div>
+    <button class="btn btn-outline btn-sm" onclick="refreshPayouts()">↻ Обновить</button>
+  </div>
+
+  <div class="card card-pad" style="margin-bottom:16px">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)">Создать выплату</div>
+    <div class="field">
+      <label>Сеть</label>
+      <div class="net-list" id="payout-net-list"></div>
+    </div>
+    <div class="field">
+      <label>Адрес получателя</label>
+      <input type="text" id="payout-address" placeholder="TXyz123... / 0x... / UQA...">
+    </div>
+    <div style="display:flex;gap:12px">
+      <div class="field" style="flex:1">
+        <label>Сумма</label>
+        <input type="text" id="payout-amount" placeholder="1.00">
+      </div>
+      <div class="field" style="flex:1">
+        <label>Валюта</label>
+        <input type="text" id="payout-currency" value="USDT" readonly style="background:rgba(255,255,255,0.04);cursor:default">
+      </div>
+    </div>
+    <div class="field">
+      <label>Order ID (оставь пустым — сгенерируется)</label>
+      <input type="text" id="payout-order-id" placeholder="payout_uid_xxxxx">
+    </div>
+    <button class="btn btn-primary" id="payout-btn" onclick="createPayout()">💸 Отправить выплату</button>
+    <div id="payout-result" style="margin-top:12px"></div>
+  </div>
+
+  <div class="card">
+    <div style="padding:14px 20px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">История выплат</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Order ID</th><th>Payout ID</th><th>Сеть</th><th>Адрес</th><th>Сумма</th><th>Статус</th><th>Дата</th></tr></thead>
+        <tbody id="payouts-body"><tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)"><span class="spin"></span></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+  <?php endif; ?>
+
   <!-- ══════════════════ SETTINGS ══════════════════ -->
   <?php if ($page === 'settings'): ?>
   <div style="font-weight:600;font-size:15px;margin-bottom:20px">Настройки</div>
@@ -724,19 +839,6 @@ $webRoot = $proto . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirna
     <div class="settings-section">
       <h4>Сервер myPay</h4>
       <div class="field"><label>Base URL сервера</label><input type="url" id="cfg_base_url" placeholder="https://mypay.casa"></div>
-      <div class="field">
-        <label>Сеть по умолчанию (выбирается при открытии модала)</label>
-        <select id="cfg_default_network">
-          <option value="TRON">TRON — TRC20 USDT (standard)</option>
-          <option value="TRON_GASFREE">TRON — TRC20 USDT (GasFree)</option>
-          <option value="BSC">BNB Chain — BEP20 USDT</option>
-          <option value="TON">TON — Jetton USDT</option>
-          <option value="ETH">Ethereum — ERC20 USDT</option>
-          <option value="POLYGON">Polygon — ERC20 USDT</option>
-          <option value="SOLANA">Solana — SPL USDT</option>
-          <option value="ARBITRUM">Arbitrum — ERC20 USDT</option>
-        </select>
-      </div>
     </div>
 
     <div class="settings-section">
@@ -848,7 +950,8 @@ const NETWORKS = [
 ];
 
 // selectedNetwork[tabId] → network id string
-const selectedNetwork = { permanent: '<?= htmlspecialchars(cfg($pdo,'default_network','TRON'), ENT_QUOTES, 'UTF-8') ?>', temporary: '<?= htmlspecialchars(cfg($pdo,'default_network','TRON'), ENT_QUOTES, 'UTF-8') ?>' };
+const selectedNetwork = { permanent: 'TRON', temporary: 'TRON' };
+let selectedPayoutNetwork = 'TRON';
 
 function renderNetworkPicker(containerId, tabId) {
   const el = document.getElementById(containerId);
@@ -1038,16 +1141,14 @@ function toggleJson(oid) {
 <?php if ($page === 'settings'): ?>
 (async () => {
   const s = await fetch('?action=get_settings').then(r=>r.json()).catch(()=>({}));
-  document.getElementById('cfg_base_url').value        = s.base_url       || '';
-  document.getElementById('cfg_shop_key').value        = s.shop_key       || '';
-  document.getElementById('cfg_default_network').value = s.default_network || 'TRON';
+  document.getElementById('cfg_base_url').value = s.base_url || '';
+  document.getElementById('cfg_shop_key').value = s.shop_key || '';
 })();
 
 async function saveSettings() {
   const r = await post('save_settings', {
-    base_url:        document.getElementById('cfg_base_url').value.trim(),
-    shop_key:        document.getElementById('cfg_shop_key').value.trim(),
-    default_network: document.getElementById('cfg_default_network').value,
+    base_url: document.getElementById('cfg_base_url').value.trim(),
+    shop_key: document.getElementById('cfg_shop_key').value.trim(),
   });
   if (r.ok) {
     const msg = document.getElementById('settings-msg');
@@ -1091,32 +1192,73 @@ setInterval(refreshOrders, 15000);
 
 // ─── Webhooks ─────────────────────────────────────────────────────────────────
 <?php if ($page === 'webhooks'): ?>
-async function refreshWebhooks() {
-  const rows = await fetch('?action=get_webhooks').then(r=>r.json()).catch(()=>[]);
-  const tbody = document.getElementById('webhooks-body');
-  if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="5"><div class="empty"><div class="empty-icon">🔔</div>Вебхуков нет<br><small style="font-size:12px">Укажи Webhook URL в настройках магазина myPay</small></div></td></tr>';
-    return;
-  }
-  tbody.innerHTML = rows.map((w, i) => {
-    let pl = {};
-    try { pl = JSON.parse(w.payload); } catch(e) {}
-    return `<tr>
-      <td class="mono">#${w.id}</td>
-      <td><code style="font-size:11px;background:rgba(58,179,104,0.1);color:var(--green);padding:2px 7px;border-radius:5px">${esc(w.event_type||'—')}</code></td>
-      <td class="mono">${w.order_id ? '#'+esc(String(w.order_id)) : '—'}</td>
-      <td style="font-size:11px;color:var(--muted);white-space:nowrap">${esc(w.received_at||'')}</td>
-      <td>
-        <details>
-          <summary style="cursor:pointer;font-size:11px;color:var(--muted)">${esc(JSON.stringify(pl).slice(0,70))}…</summary>
-          <pre style="margin-top:6px;background:#0A0D12;padding:8px;border-radius:6px;font-size:11px;color:#a8d5b5;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow-y:auto">${esc(JSON.stringify(pl,null,2))}</pre>
-        </details>
-      </td>
-    </tr>`;
-  }).join('');
+let lastWebhookId = parseInt(localStorage.getItem('mypay_last_webhook_id') || '0', 10);
+const knownWebhookIds = new Set();
+
+function renderWebhookRow(w, isNew) {
+  let pl = {};
+  try { pl = JSON.parse(w.payload); } catch(e) {}
+  const highlightAttr = isNew ? ' class="wh-new"' : '';
+  return `<tr${highlightAttr}>
+    <td class="mono">#${w.id}</td>
+    <td><code style="font-size:11px;background:rgba(58,179,104,0.1);color:var(--green);padding:2px 7px;border-radius:5px">${esc(w.event_type||'—')}</code></td>
+    <td class="mono">${w.order_id ? '#'+esc(String(w.order_id)) : '—'}</td>
+    <td style="font-size:11px;color:var(--muted);white-space:nowrap">${esc(w.received_at||'')}</td>
+    <td>
+      <details>
+        <summary style="cursor:pointer;font-size:11px;color:var(--muted)">${esc(JSON.stringify(pl).slice(0,70))}…</summary>
+        <pre style="margin-top:6px;background:#0A0D12;padding:8px;border-radius:6px;font-size:11px;color:#a8d5b5;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow-y:auto">${esc(JSON.stringify(pl,null,2))}</pre>
+      </details>
+    </td>
+  </tr>`;
 }
-refreshWebhooks();
-setInterval(refreshWebhooks, 8000);
+
+async function refreshWebhooks(initial) {
+  const tbody = document.getElementById('webhooks-body');
+  if (initial) {
+    // Начальная загрузка — загружаем последние 50, маркируем все как известные
+    const rows = await fetch('?action=get_webhooks').then(r=>r.json()).catch(()=>[]);
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="5"><div class="empty"><div class="empty-icon">🔔</div>Вебхуков нет<br><small style="font-size:12px">Укажи Webhook URL в настройках магазина myPay</small></div></td></tr>';
+      return;
+    }
+    rows.forEach(w => knownWebhookIds.add(w.id));
+    const maxId = Math.max(...rows.map(w => parseInt(w.id, 10)));
+    if (maxId > lastWebhookId) {
+      lastWebhookId = maxId;
+      localStorage.setItem('mypay_last_webhook_id', lastWebhookId);
+    }
+    tbody.innerHTML = rows.map(w => renderWebhookRow(w, false)).join('');
+  } else {
+    // Инкрементальный опрос — запрашиваем только новые (id > lastWebhookId)
+    const newRows = await fetch('?action=get_webhooks', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({since_id: lastWebhookId})
+    }).then(r=>r.json()).catch(()=>[]);
+    if (!newRows.length) return;
+    // Сортируем по id desc (как исходная таблица)
+    newRows.sort((a,b) => parseInt(b.id,10) - parseInt(a.id,10));
+    const maxId = Math.max(...newRows.map(w => parseInt(w.id, 10)));
+    if (maxId > lastWebhookId) {
+      lastWebhookId = maxId;
+      localStorage.setItem('mypay_last_webhook_id', lastWebhookId);
+    }
+    // Добавляем новые строки сверху
+    const fragment = newRows.map(w => renderWebhookRow(w, true)).join('');
+    const emptyRow = tbody.querySelector('.empty');
+    if (emptyRow) { tbody.innerHTML = fragment; }
+    else { tbody.insertAdjacentHTML('afterbegin', fragment); }
+    newRows.forEach(w => { knownWebhookIds.add(w.id); });
+    toast('🔔 ' + newRows.length + ' новый вебхук' + (newRows.length > 1 ? 'а' : ''), 'ok');
+    // Снять подсветку через 3 секунды
+    setTimeout(() => {
+      tbody.querySelectorAll('.wh-new').forEach(tr => tr.classList.remove('wh-new'));
+    }, 3000);
+  }
+}
+refreshWebhooks(true);
+setInterval(() => refreshWebhooks(false), 3500);
 <?php endif; ?>
 
 // ─── Log page ─────────────────────────────────────────────────────────────────
@@ -1146,6 +1288,109 @@ async function clearLog() {
 
 refreshLog();
 setInterval(refreshLog, 10000);
+<?php endif; ?>
+
+// ─── Payouts ──────────────────────────────────────────────────────────────────
+<?php if ($page === 'payouts'): ?>
+(function() {
+  renderPayoutNetworkPicker();
+})();
+
+function renderPayoutNetworkPicker() {
+  const el = document.getElementById('payout-net-list');
+  if (!el) return;
+  el.innerHTML = NETWORKS.map(n => {
+    const isSel = (selectedPayoutNetwork === n.id);
+    const badge = n.type === 'gasfree'
+      ? `<span class="net-badge net-badge-gf">GasFree</span>`
+      : `<span class="net-badge net-badge-std">standard</span>`;
+    return `<div class="net-item${isSel?' selected':''}" onclick="selectPayoutNetwork('${n.id}')">
+      <div class="net-dot" style="background:${n.color}"></div>
+      <div>
+        <div class="net-name">${esc(n.name)}</div>
+        <div class="net-proto">${esc(n.proto)} · ${esc(n.currency)}</div>
+      </div>
+      ${badge}
+      <div class="net-radio"></div>
+    </div>`;
+  }).join('');
+}
+
+function selectPayoutNetwork(netId) {
+  selectedPayoutNetwork = netId;
+  renderPayoutNetworkPicker();
+}
+
+async function createPayout() {
+  const btn = document.getElementById('payout-btn');
+  const resultEl = document.getElementById('payout-result');
+  const address = document.getElementById('payout-address').value.trim();
+  const amount  = parseFloat(document.getElementById('payout-amount').value) || 0;
+  const currency= document.getElementById('payout-currency').value.trim() || 'USDT';
+  const orderId = document.getElementById('payout-order-id').value.trim();
+  if (!address) { toast('Введи адрес получателя', 'err'); return; }
+  if (amount <= 0) { toast('Введи сумму больше 0', 'err'); return; }
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Отправка...';
+  const data = await post('create_payout', {
+    network: selectedPayoutNetwork, address, amount, currency, order_id: orderId
+  });
+  btn.disabled = false; btn.textContent = '💸 Отправить выплату';
+  if (data.error) {
+    resultEl.innerHTML = renderError(data.error);
+    if (data.api) {
+      const pid = 'pay-err-' + Date.now();
+      resultEl.innerHTML += `<button class="json-toggle" onclick="document.getElementById('${pid}').classList.toggle('open')">▶ Ответ API (JSON)</button>
+        <pre class="json-pre" id="${pid}">${esc(JSON.stringify(data.api, null, 2))}</pre>`;
+    }
+  } else {
+    const api = data.api || {};
+    const payoutId  = api.payout_id  ?? '—';
+    const reference = api.reference  ?? '—';
+    resultEl.innerHTML = `<div class="result-box">
+      <div class="result-head">Выплата отправлена &nbsp; <span class="result-status s-pending">⏳ pending</span></div>
+      <div class="result-body">
+        <div class="info-row"><span class="k">Payout ID</span><span class="v">${esc(String(payoutId))}</span></div>
+        <div class="info-row"><span class="k">Reference</span><span class="v">${esc(String(reference))}</span></div>
+        <div class="info-row"><span class="k">Order ID</span><span class="v">${esc(data.order_id||'—')}</span></div>
+        <div class="info-row"><span class="k">Сеть</span><span class="v">${esc(selectedPayoutNetwork)}</span></div>
+        <div class="info-row"><span class="k">Адрес</span><span class="v" style="word-break:break-all">${esc(address)}</span></div>
+        <div class="info-row"><span class="k">Сумма</span><span class="v">${esc(String(amount))} ${esc(currency)}</span></div>
+        <div class="notice" style="margin-top:10px">Вебхук <strong>payout.completed</strong> придёт автоматически при завершении выплаты.</div>
+      </div>
+      <button class="json-toggle" onclick="this.nextElementSibling.classList.toggle('open')">▶ Ответ API (JSON)</button>
+      <pre class="json-pre">${esc(JSON.stringify(api, null, 2))}</pre>
+    </div>`;
+    toast('✅ Выплата создана! Payout ID: ' + payoutId, 'ok');
+    refreshPayouts();
+    document.getElementById('payout-address').value  = '';
+    document.getElementById('payout-amount').value   = '';
+    document.getElementById('payout-order-id').value = '';
+  }
+}
+
+async function refreshPayouts() {
+  const rows = await fetch('?action=get_payouts').then(r=>r.json()).catch(()=>[]);
+  const tbody = document.getElementById('payouts-body');
+  if (!tbody) return;
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="8"><div class="empty"><div class="empty-icon">💸</div>Выплат пока нет<br><small style="font-size:12px">Создай первую выплату выше</small></div></td></tr>';
+    return;
+  }
+  const stMap = {pending:'⏳ pending', completed:'✅ completed', failed:'❌ failed'};
+  tbody.innerHTML = rows.map(p => `
+    <tr>
+      <td class="mono">#${p.id}</td>
+      <td class="mono" style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(p.external_order_id||'')}">${esc(p.external_order_id||'—')}</td>
+      <td class="mono">${p.payout_id ? esc(String(p.payout_id)) : '—'}</td>
+      <td>${esc(p.network||'—')}</td>
+      <td class="mono" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(p.to_address||'')}">${esc((p.to_address||'').slice(0,14))}…</td>
+      <td class="mono">${parseFloat(p.amount||0).toFixed(4)} ${esc(p.currency||'USDT')}</td>
+      <td><span class="result-status s-${esc(p.status)}">${esc(stMap[p.status]||p.status)}</span></td>
+      <td style="font-size:11px;color:var(--muted);white-space:nowrap">${esc(p.created_at||'')}</td>
+    </tr>`).join('');
+}
+refreshPayouts();
+setInterval(refreshPayouts, 10000);
 <?php endif; ?>
 
 // ─── Utils ────────────────────────────────────────────────────────────────────
