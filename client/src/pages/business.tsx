@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { gsap } from "gsap";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -1581,6 +1582,60 @@ function PayoutCard({ payout, shopId, wallets, onUpdate }: {
   const isPending = payout.status === "pending" || payout.status === "processing";
   const compatibleWallets = wallets.filter(w => w.network === payout.network);
 
+  // GSAP refs
+  const singleBtnRef = useRef<HTMLButtonElement>(null);
+  const splitRowRef = useRef<HTMLDivElement>(null);
+  const manualBtnRef = useRef<HTMLButtonElement>(null);
+  const semiBtnRef = useRef<HTMLButtonElement>(null);
+  const animatingRef = useRef(false);
+  const ctxRef = useRef<gsap.Context | null>(null);
+
+  useEffect(() => {
+    if (!isPending) return;
+    ctxRef.current = gsap.context(() => {
+      // Initial state: split row hidden, single btn visible
+      gsap.set(splitRowRef.current, { autoAlpha: 0, scaleY: 0.8, transformOrigin: "top center", pointerEvents: "none" });
+      gsap.set(manualBtnRef.current, { autoAlpha: 0, x: 12, scaleX: 0.7, transformOrigin: "left center" });
+      gsap.set(semiBtnRef.current, { autoAlpha: 0, x: -12, scaleX: 0.7, transformOrigin: "right center" });
+      gsap.set(singleBtnRef.current, { autoAlpha: 1, scale: 1 });
+    });
+    return () => { ctxRef.current?.revert(); };
+  }, [isPending]);
+
+  const expandToSplit = useCallback(() => {
+    if (animatingRef.current) return;
+    animatingRef.current = true;
+    const tl = gsap.timeline({
+      onComplete: () => {
+        animatingRef.current = false;
+        setMode("choose");
+        gsap.set(splitRowRef.current, { pointerEvents: "auto" });
+      }
+    });
+    tl.to(singleBtnRef.current, { autoAlpha: 0, scale: 0.88, y: -4, duration: 0.16, ease: "power2.in" })
+      .set(singleBtnRef.current, { pointerEvents: "none" })
+      .to(splitRowRef.current, { autoAlpha: 1, scaleY: 1, duration: 0.2, ease: "power2.out" }, "<0.04")
+      .to([manualBtnRef.current, semiBtnRef.current], { autoAlpha: 1, x: 0, scaleX: 1, duration: 0.28, ease: "power3.out", stagger: 0.04 }, "<0.04");
+  }, []);
+
+  const collapseToSingle = useCallback(() => {
+    if (animatingRef.current) return;
+    animatingRef.current = true;
+    gsap.set(splitRowRef.current, { pointerEvents: "none" });
+    const tl = gsap.timeline({
+      onComplete: () => {
+        animatingRef.current = false;
+        setMode(null);
+        setSelectedWalletId("");
+        setGasInfo(null);
+        gsap.set(singleBtnRef.current, { pointerEvents: "auto" });
+      }
+    });
+    tl.to([semiBtnRef.current, manualBtnRef.current], { autoAlpha: 0, x: (i) => i === 0 ? -10 : 10, scaleX: 0.7, duration: 0.18, ease: "power2.in", stagger: 0.03 })
+      .to(splitRowRef.current, { autoAlpha: 0, scaleY: 0.85, duration: 0.16, ease: "power2.in" }, "<0.05")
+      .to(singleBtnRef.current, { autoAlpha: 1, scale: 1, y: 0, duration: 0.22, ease: "back.out(1.4)" }, "<0.08");
+  }, []);
+
   const checkGas = async (walletId: string) => {
     if (!walletId) { setGasInfo(null); return; }
     setGasChecking(true);
@@ -1604,7 +1659,7 @@ function PayoutCard({ payout, shopId, wallets, onUpdate }: {
       qc.invalidateQueries({ queryKey: ["/api/business/payouts", shopId] });
       qc.invalidateQueries({ queryKey: ["/api/business/shops", shopId] });
       toast({ title: "Выплата отправлена", description: `TX: ${d.txHash?.slice(0, 20)}…` });
-      setMode(null);
+      collapseToSingle();
     },
     onError: (e: any) => toast({ title: "Ошибка", description: e.message, variant: "destructive" }),
   });
@@ -1614,14 +1669,17 @@ function PayoutCard({ payout, shopId, wallets, onUpdate }: {
     checkGas(v);
   };
 
-  const resetSemiAuto = () => {
-    setMode("choose");
-    setSelectedWalletId("");
-    setGasInfo(null);
+  const handleBack = () => {
+    if (mode === "manual" || mode === "semiauto") {
+      setMode("choose");
+    } else {
+      collapseToSingle();
+    }
   };
 
   return (
     <div className="bg-[#13151A] border border-white/5 rounded-2xl p-4">
+      {/* Header row */}
       <div className="flex items-start justify-between mb-2">
         <div>
           <div className="flex items-center gap-2 mb-0.5">
@@ -1641,42 +1699,71 @@ function PayoutCard({ payout, shopId, wallets, onUpdate }: {
           <div className="text-[10px] text-white/30">{formatDate(payout.createdAt)}</div>
         </div>
       </div>
+
+      {/* Address row */}
       <div className="text-[10px] text-white/30 font-mono bg-[#0E1014] rounded-lg px-2 py-1.5 flex justify-between items-center mb-2">
         <span>{truncate(payout.toAddress, 20)}</span>
         <CopyButton text={payout.toAddress} />
       </div>
       {payout.note && <div className="text-xs text-white/40 mb-2">{payout.note}</div>}
 
+      {/* Process controls */}
       {isPending && (
-        <div className="mt-2 space-y-2">
-          {mode === null && (
-            <button onClick={() => setMode("choose")} className="text-xs text-[#3ab368] underline-offset-2 underline">
+        <div className="mt-3 space-y-3">
+          {/* ── Animated chooser: single pill → two pills ── */}
+          <div className="relative" style={{ minHeight: 38 }}>
+            {/* Single "Обработать" pill */}
+            <button
+              ref={singleBtnRef}
+              onClick={expandToSplit}
+              className="absolute inset-0 flex items-center justify-center gap-1.5 w-full rounded-xl text-xs font-semibold text-white shadow-lg"
+              style={{
+                background: "linear-gradient(135deg, #3ab368 0%, #2a9951 60%, #1e7a40 100%)",
+                boxShadow: "0 0 18px rgba(58,179,104,0.22), inset 0 1px 0 rgba(255,255,255,0.12)",
+                border: "1px solid rgba(58,179,104,0.4)",
+              }}
+            >
+              <Zap className="w-3 h-3 opacity-90" />
               Обработать
             </button>
-          )}
 
-          {mode === "choose" && (
-            <div className="flex gap-2">
+            {/* Split row: two pills side by side */}
+            <div ref={splitRowRef} className="flex gap-2 w-full" style={{ pointerEvents: "none" }}>
               <button
+                ref={manualBtnRef}
                 onClick={() => setMode("manual")}
-                className="flex-1 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/70 text-xs font-medium hover:bg-white/10 transition-colors"
+                className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-colors"
+                style={{
+                  background: "linear-gradient(135deg, #1a1e26 0%, #131720 100%)",
+                  border: "1px solid rgba(255,255,255,0.13)",
+                  color: "rgba(255,255,255,0.75)",
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
+                }}
               >
                 В ручную
               </button>
               <button
+                ref={semiBtnRef}
                 onClick={() => setMode("semiauto")}
                 disabled={compatibleWallets.length === 0}
                 title={compatibleWallets.length === 0 ? `Нет кошельков ${payout.network}` : ""}
-                className="flex-1 py-2.5 rounded-xl bg-[#3ab368]/15 border border-[#3ab368]/30 text-[#3ab368] text-xs font-medium hover:bg-[#3ab368]/25 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex-1 py-2.5 rounded-xl text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                style={{
+                  background: "linear-gradient(135deg, rgba(58,179,104,0.18) 0%, rgba(42,153,81,0.12) 100%)",
+                  border: "1px solid rgba(58,179,104,0.35)",
+                  color: "#4fd47a",
+                  boxShadow: "inset 0 1px 0 rgba(58,179,104,0.1)",
+                }}
               >
                 Полуавтомат
               </button>
             </div>
-          )}
+          </div>
 
+          {/* ── Manual mode panel ── */}
           {mode === "manual" && (
-            <div className="space-y-2">
-              <button onClick={() => setMode("choose")} className="text-[10px] text-white/40 hover:text-white/70 transition-colors">← Назад</button>
+            <div className="space-y-2 pt-1">
+              <button onClick={handleBack} className="text-[10px] text-white/40 hover:text-white/60 transition-colors">← Назад</button>
               <input
                 value={txHash} onChange={e => setTxHash(e.target.value)}
                 placeholder="TX Hash (необязательно)"
@@ -1690,9 +1777,10 @@ function PayoutCard({ payout, shopId, wallets, onUpdate }: {
             </div>
           )}
 
+          {/* ── Semi-auto mode panel ── */}
           {mode === "semiauto" && (
-            <div className="space-y-2.5">
-              <button onClick={resetSemiAuto} className="text-[10px] text-white/40 hover:text-white/70 transition-colors">← Назад</button>
+            <div className="space-y-2.5 pt-1">
+              <button onClick={handleBack} className="text-[10px] text-white/40 hover:text-white/60 transition-colors">← Назад</button>
               <div>
                 <label className="text-[10px] text-white/40 mb-1 block">Кошелёк-источник ({payout.network})</label>
                 <select
@@ -1745,7 +1833,11 @@ function PayoutCard({ payout, shopId, wallets, onUpdate }: {
               <button
                 onClick={() => executePayout.mutate()}
                 disabled={!selectedWalletId || gasChecking || !gasInfo || !gasInfo.hasEnoughGas || executePayout.isPending}
-                className="w-full py-2.5 rounded-xl bg-[#3ab368] text-white text-xs font-semibold disabled:opacity-40 flex items-center justify-center gap-2 transition-opacity"
+                className="w-full py-2.5 rounded-xl text-white text-xs font-semibold disabled:opacity-40 flex items-center justify-center gap-2"
+                style={{
+                  background: "linear-gradient(135deg, #3ab368 0%, #2a9951 100%)",
+                  boxShadow: "0 0 16px rgba(58,179,104,0.2)",
+                }}
               >
                 {executePayout.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                 Выплатить {parseFloat(payout.amount).toFixed(4)} {payout.currency}
