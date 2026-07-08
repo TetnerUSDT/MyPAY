@@ -49,22 +49,33 @@ function CopyBtn({ text, className = "" }: { text: string, className?: string })
 }
 
 function CountdownTimer({ expiresAt, onExpire }: { expiresAt: string; onExpire?: () => void }) {
-  const [remaining, setRemaining] = useState(0);
+  const [remaining, setRemaining] = useState(() =>
+    Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000))
+  );
   const expiredRef = useRef(false);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     expiredRef.current = false;
+
     const update = () => {
       const diff = Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
       setRemaining(diff);
-      if (diff === 0 && !expiredRef.current) {
-        expiredRef.current = true;
-        onExpire?.();
+      if (diff === 0) {
+        // Stop interval — no need to keep running after expiry
+        if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+        if (!expiredRef.current) {
+          expiredRef.current = true;
+          onExpire?.();
+        }
       }
     };
+
     update();
-    const t = setInterval(update, 1000);
-    return () => clearInterval(t);
+    if (Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000)) > 0) {
+      timerRef.current = setInterval(update, 1000);
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [expiresAt, onExpire]);
 
   const mins = Math.floor(remaining / 60);
@@ -301,7 +312,8 @@ export default function MerchantPayPage() {
                 </div>
               </div>
               
-              {invoice.expires_at && (
+              {/* Show header timer only when network is NOT yet selected */}
+              {invoice.expires_at && !invoice.wallet_address && (
                 <CountdownTimer expiresAt={invoice.expires_at} onExpire={fetchInvoice} />
               )}
             </div>

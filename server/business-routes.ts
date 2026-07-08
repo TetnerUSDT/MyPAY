@@ -891,6 +891,12 @@ export async function recoverPendingPollers() {
   const PAYMENT_TTL  = 3 * 60 * 60 * 1000;  // 3 hours — same as pollAddressForPayment deadline
   const INVOICE_TTL  = 30 * 60 * 1000;       // 30 min — same as pollInvoiceForPayment deadline
   try {
+    // Repair shops with broken invoice_minutes (0 or null → causes instant expiry)
+    await db.execute(sql`
+      UPDATE merchant_shops SET invoice_minutes = 60
+      WHERE invoice_minutes IS NULL OR invoice_minutes < 1
+    `);
+
     // Fix old invoices created before 2-phase expiry: clear expires_at for pending invoices
     // that have no wallet_address yet — the clock should only start after network selection.
     await db.execute(sql`
@@ -941,7 +947,8 @@ export async function recoverPendingPollers() {
     `);
     let rInvoices = 0;
     for (const row of (invRows as any[])) {
-      const deadline = new Date(row.created_at).getTime() + INVOICE_TTL;
+      // Use actual expires_at from DB as deadline (not hardcoded TTL)
+      const deadline = row.expires_at ? new Date(row.expires_at).getTime() : Date.now() + INVOICE_TTL;
       if (Date.now() < deadline) {
         pollInvoiceForPayment(
           row.id, row.wallet_address, row.network_chosen, row.currency,
@@ -1924,7 +1931,10 @@ export function registerBusinessRoutes(app: Express) {
       const walletNetwork = network === "TRON_GF" ? "TRON" : network;
       const walletMode = network === "TRON_GF" ? "gasfree" : "standard";
 
-      const invMinsNet = parseInt(String(inv.invoice_minutes ?? 60));
+      // Clamp invoice_minutes: minimum 1, fallback 60, prevents instant expiry when value is 0/null
+      const rawMins = parseInt(String(inv.invoice_minutes));
+      const invMinsNet = (isNaN(rawMins) || rawMins < 1) ? 60 : rawMins;
+
       const wallet = await findOrReserveMerchantWallet(inv.shop_id, walletNetwork, walletMode, undefined, inv.invoice_number, "temporary", invMinsNet);
       const address = (walletMode === "gasfree" ? wallet.gasfree_address : null) || wallet.address;
       const expiresAt = new Date(Date.now() + invMinsNet * 60 * 1000);
@@ -1935,8 +1945,8 @@ export function registerBusinessRoutes(app: Express) {
         WHERE id = ${inv.id}
       `);
 
-      // Start polling for this invoice payment (use walletNetwork for scanner)
-      pollInvoiceForPayment(inv.id, address, walletNetwork, inv.currency, inv.amount, inv.shop_id, inv.webhook_url, inv.order_ref);
+      // Start polling for this invoice payment (use walletNetwork for scanner, pass actual deadline)
+      pollInvoiceForPayment(inv.id, address, walletNetwork, inv.currency, inv.amount, inv.shop_id, inv.webhook_url, inv.order_ref, expiresAt.getTime());
 
       return res.json({ address, network, expires_at: expiresAt });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
