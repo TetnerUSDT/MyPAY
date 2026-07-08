@@ -1017,7 +1017,12 @@ export function registerBusinessRoutes(app: Express) {
       const updates: any = {};
       if (name) updates.name = name;
       if (domain) updates.domain = domain;
-      if (webhookUrl !== undefined) updates.webhookUrl = webhookUrl;
+      if (webhookUrl !== undefined) {
+        // Always store webhook_url as HTTPS — no http:// allowed
+        updates.webhookUrl = webhookUrl
+          ? webhookUrl.replace(/^http:\/\//i, "https://")
+          : webhookUrl;
+      }
       if (addressMode && ["permanent", "temporary", "invoice"].includes(addressMode)) updates.addressMode = addressMode;
       if (enabledNetworks !== undefined) {
         updates.enabledNetworks = Array.isArray(enabledNetworks) ? JSON.stringify(enabledNetworks) : enabledNetworks;
