@@ -38,8 +38,8 @@ function CopyBtn({ text, className = "" }: { text: string, className?: string })
     setTimeout(() => setCopied(false), 2000);
   };
   return (
-    <button 
-      onClick={copy} 
+    <button
+      onClick={copy}
       className={`text-[#2EEA7F] hover:text-white transition-colors flex-shrink-0 bg-[#2EEA7F]/10 hover:bg-[#2EEA7F]/20 p-2 rounded-lg ${className}`}
       title="Скопировать"
     >
@@ -62,7 +62,6 @@ function CountdownTimer({ expiresAt, onExpire }: { expiresAt: string; onExpire?:
       const diff = Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
       setRemaining(diff);
       if (diff === 0) {
-        // Stop interval — no need to keep running after expiry
         if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
         if (!expiredRef.current) {
           expiredRef.current = true;
@@ -72,10 +71,11 @@ function CountdownTimer({ expiresAt, onExpire }: { expiresAt: string; onExpire?:
     };
 
     update();
-    if (Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000)) > 0) {
+    const initialDiff = Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
+    if (initialDiff > 0) {
       timerRef.current = setInterval(update, 1000);
     }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    return () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; } };
   }, [expiresAt, onExpire]);
 
   const mins = Math.floor(remaining / 60);
@@ -83,7 +83,7 @@ function CountdownTimer({ expiresAt, onExpire }: { expiresAt: string; onExpire?:
   const isUrgent = remaining < 300;
 
   if (remaining === 0) return (
-    <div className="flex items-center gap-1.5 text-red-400 text-sm font-medium bg-red-400/10 px-3 py-1.5 rounded-full border border-red-400/20">
+    <div className="flex items-center gap-1.5 text-red-400 text-sm font-medium bg-red-400/10 border border-red-400/20 px-3 py-1.5 rounded-full">
       <XCircle className="w-4 h-4" /> Истёк
     </div>
   );
@@ -100,21 +100,33 @@ function MyPayLogo() {
   return (
     <div className="flex flex-col items-center animate-fadeIn">
       <div className="relative w-24 h-24 mb-3" style={{ aspectRatio: "1 / 1" }}>
-        <img
-          src="/uploads/assets/logo-1.webp"
-          alt="MyPay"
-          className="absolute inset-0 w-full h-full object-contain animate-glitch-logo1"
-        />
-        <img
-          src="/uploads/assets/logo-2.webp"
-          alt=""
-          className="absolute inset-0 w-full h-full object-contain animate-spin-cw-85"
-        />
-        <img
-          src="/uploads/assets/logo-3.webp"
-          alt=""
-          className="absolute inset-0 w-full h-full object-contain animate-spin-ccw"
-        />
+        <img src="/uploads/assets/logo-1.webp" alt="MyPay" className="absolute inset-0 w-full h-full object-contain animate-glitch-logo1" />
+        <img src="/uploads/assets/logo-2.webp" alt="" className="absolute inset-0 w-full h-full object-contain animate-spin-cw-85" />
+        <img src="/uploads/assets/logo-3.webp" alt="" className="absolute inset-0 w-full h-full object-contain animate-spin-ccw" />
+      </div>
+    </div>
+  );
+}
+
+// PageLayout MUST be defined at module level (outside MerchantPayPage).
+// If defined inside, every re-render creates a new component type →
+// React unmounts/remounts children → CountdownTimer resets expiredRef → infinite loop.
+function PageLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen bg-[#0A0D12] text-white font-sans relative selection:bg-[#2EEA7F]/30 selection:text-white flex flex-col items-center justify-center p-4">
+      <div
+        className="fixed inset-0 z-0 opacity-[0.02] pointer-events-none"
+        style={{ backgroundImage: `url("${HONEYCOMB_SVG}")`, backgroundSize: '40px' }}
+      ></div>
+      <div className="fixed top-0 inset-x-0 h-[50vh] bg-gradient-to-b from-[#113B22]/10 to-transparent pointer-events-none z-0"></div>
+
+      <div className="relative z-10 w-full max-w-md">
+        {children}
+      </div>
+
+      <div className="mt-8 flex items-center justify-center gap-2 text-white/30 text-xs font-medium z-10 animate-fadeIn">
+        <ShieldCheck className="w-3.5 h-3.5" />
+        Защищено MyPay
       </div>
     </div>
   );
@@ -151,7 +163,7 @@ export default function MerchantPayPage() {
     fetchInvoice().finally(() => setLoading(false));
   }, [fetchInvoice]);
 
-  // Auto-poll for payment if wallet is reserved
+  // Auto-poll every 15s while waiting for payment confirmation
   useEffect(() => {
     if (!invoice || invoice.status === "confirmed" || invoice.status === "expired" || !invoice.wallet_address) return;
     const interval = setInterval(async () => {
@@ -178,25 +190,6 @@ export default function MerchantPayPage() {
       setSelectingNetwork(null);
     }
   };
-
-  const PageLayout = ({ children }: { children: React.ReactNode }) => (
-    <div className="min-h-screen bg-[#0A0D12] text-white font-sans relative selection:bg-[#2EEA7F]/30 selection:text-white flex flex-col items-center justify-center p-4">
-      <div 
-        className="fixed inset-0 z-0 opacity-[0.02] pointer-events-none" 
-        style={{ backgroundImage: `url("${HONEYCOMB_SVG}")`, backgroundSize: '40px' }}
-      ></div>
-      <div className="fixed top-0 inset-x-0 h-[50vh] bg-gradient-to-b from-[#113B22]/10 to-transparent pointer-events-none z-0"></div>
-      
-      <div className="relative z-10 w-full max-w-md">
-        {children}
-      </div>
-      
-      <div className="mt-8 flex items-center justify-center gap-2 text-white/30 text-xs font-medium z-10 animate-fadeIn">
-        <ShieldCheck className="w-3.5 h-3.5" />
-        Защищено MyPay
-      </div>
-    </div>
-  );
 
   if (loading) return (
     <PageLayout>
@@ -227,25 +220,20 @@ export default function MerchantPayPage() {
     <PageLayout>
       <div className="bg-[#11141A]/80 backdrop-blur-xl border border-[#2EEA7F]/20 rounded-[2rem] p-8 text-center shadow-[0_0_50px_rgba(46,234,127,0.05)] animate-scaleIn overflow-hidden relative">
         <div className="absolute inset-0 bg-gradient-to-br from-[#2EEA7F]/5 to-transparent pointer-events-none"></div>
-        
         <div className="relative z-10">
           <div className="w-24 h-24 mx-auto bg-gradient-to-br from-[#1a3f2b] to-[#0A0D12] rounded-full flex items-center justify-center mb-6 border border-[#2EEA7F]/30 shadow-[0_0_40px_rgba(46,234,127,0.2)]">
             <CheckCircle2 className="w-12 h-12 text-[#2EEA7F]" />
           </div>
           <h1 className="text-3xl font-black text-white mb-2 tracking-tight">Оплата успешна</h1>
           <p className="text-[#2EEA7F] font-medium text-sm mb-8 bg-[#2EEA7F]/10 py-1.5 px-4 rounded-full inline-block border border-[#2EEA7F]/20">Средства зачислены</p>
-          
           <div className="bg-[#0A0D12]/80 border border-white/5 rounded-2xl p-5 mb-2 text-left">
             <div className="text-white/40 text-xs mb-1 uppercase tracking-wider">Сумма</div>
             <div className="text-2xl font-bold text-white">{parseFloat(invoice.amount).toFixed(2)} <span className="text-[#2EEA7F] text-lg">USDT</span></div>
-            
             <div className="h-px bg-white/5 my-4"></div>
-            
             <div className="flex justify-between items-center mb-3">
               <span className="text-white/40 text-sm">Магазин</span>
               <span className="text-white font-medium">{invoice.shop_name}</span>
             </div>
-            
             {invoice.order_ref && (
               <div className="flex justify-between items-center">
                 <span className="text-white/40 text-sm">Заказ</span>
@@ -253,7 +241,6 @@ export default function MerchantPayPage() {
               </div>
             )}
           </div>
-          
           {invoice.tx_hash && (
             <div className="flex items-center justify-between gap-3 bg-[#0A0D12]/50 border border-white/5 rounded-2xl px-4 py-3 mt-4">
               <div className="flex flex-col items-start overflow-hidden">
@@ -277,7 +264,6 @@ export default function MerchantPayPage() {
         </div>
         <h1 className="text-2xl font-bold text-white mb-3 tracking-tight">Время истекло</h1>
         <p className="text-white/50 text-sm leading-relaxed mb-6">Время, отведенное на оплату инвойса, закончилось. Пожалуйста, вернитесь в магазин и создайте новый заказ.</p>
-        
         <div className="bg-[#0A0D12] border border-white/5 rounded-xl p-4 text-left">
           <div className="flex justify-between items-center">
             <span className="text-white/40 text-sm">Инвойс</span>
@@ -294,28 +280,20 @@ export default function MerchantPayPage() {
         <MyPayLogo />
 
         <div className="w-full bg-[#11141A]/90 backdrop-blur-2xl border border-white/5 rounded-[2rem] overflow-hidden shadow-2xl relative mt-4">
-          {/* Top colored accent line */}
           <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-[#0F5A2F] via-[#2EEA7F] to-[#0F5A2F] opacity-80"></div>
-          
+
           {/* Header */}
           <div className="px-6 pt-8 pb-6 border-b border-white/5 relative overflow-hidden">
             <div className="absolute -top-20 -right-20 w-40 h-40 bg-[#2EEA7F] rounded-full blur-[80px] opacity-10 pointer-events-none"></div>
-            
+
             <div className="flex justify-between items-start mb-6">
               <div>
-                <div className="text-white/40 text-xs font-semibold uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
-                  К оплате
-                </div>
+                <div className="text-white/40 text-xs font-semibold uppercase tracking-widest mb-1.5">К оплате</div>
                 <div className="flex items-baseline gap-2">
                   <span className="text-4xl font-black text-white tracking-tighter">{parseFloat(invoice.amount).toFixed(2)}</span>
                   <span className="text-xl text-[#2EEA7F] font-bold">USDT</span>
                 </div>
               </div>
-              
-              {/* Show header timer only when network is NOT yet selected */}
-              {invoice.expires_at && !invoice.wallet_address && (
-                <CountdownTimer expiresAt={invoice.expires_at} onExpire={fetchInvoice} />
-              )}
             </div>
 
             <div className="bg-[#0A0D12]/50 border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
@@ -335,6 +313,7 @@ export default function MerchantPayPage() {
           <div className="px-6 py-6">
             {invoice.wallet_address && invoice.network_chosen ? (
               <div className="space-y-6 animate-fadeIn">
+                {/* Network row with timer */}
                 <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-2xl p-3">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-[#0A0D12] flex items-center justify-center border border-white/5 p-2">
@@ -347,12 +326,14 @@ export default function MerchantPayPage() {
                       <div className="text-sm text-white font-bold">{NETWORK_LABELS[invoice.network_chosen]?.label ?? invoice.network_chosen}</div>
                     </div>
                   </div>
-                  {invoice.expires_at && <CountdownTimer expiresAt={invoice.expires_at} onExpire={fetchInvoice} />}
+                  {invoice.expires_at && (
+                    <CountdownTimer expiresAt={invoice.expires_at} onExpire={fetchInvoice} />
+                  )}
                 </div>
 
+                {/* QR Code */}
                 <div className="bg-[#0A0D12] border border-white/5 rounded-3xl p-6 flex flex-col items-center shadow-inner relative overflow-hidden">
                   <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white/[0.03] to-transparent"></div>
-                  
                   <div className="bg-white p-3 rounded-2xl mb-5 shadow-[0_0_20px_rgba(255,255,255,0.1)] relative z-10">
                     <img
                       src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=0&color=000000&bgcolor=ffffff&data=${encodeURIComponent(invoice.wallet_address)}`}
@@ -361,7 +342,6 @@ export default function MerchantPayPage() {
                       style={{ imageRendering: 'pixelated' }}
                     />
                   </div>
-                  
                   <div className="w-full">
                     <div className="text-xs text-white/40 mb-2 font-medium ml-1">Адрес кошелька</div>
                     <div className="flex items-center gap-2 bg-[#11141A] border border-white/5 rounded-xl p-2 pl-4">
@@ -371,13 +351,21 @@ export default function MerchantPayPage() {
                   </div>
                 </div>
 
+                {/* Info */}
                 <div className="flex items-start gap-3 bg-[#2EEA7F]/10 border border-[#2EEA7F]/20 rounded-2xl p-4">
                   <Info className="w-5 h-5 text-[#2EEA7F] flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-white/80 leading-relaxed">
-                    Отправьте точно <span className="font-bold text-[#2EEA7F] bg-[#2EEA7F]/10 px-1.5 py-0.5 rounded">{parseFloat(invoice.amount).toFixed(6)} USDT</span> в сети <span className="font-medium text-white">{NETWORK_LABELS[invoice.network_chosen]?.label ?? invoice.network_chosen}</span>. Платеж подтвердится автоматически.
+                    Отправьте точно{" "}
+                    <span className="font-bold text-[#2EEA7F] bg-[#2EEA7F]/10 px-1.5 py-0.5 rounded">
+                      {parseFloat(invoice.amount).toFixed(6)} USDT
+                    </span>{" "}
+                    в сети{" "}
+                    <span className="font-medium text-white">{NETWORK_LABELS[invoice.network_chosen]?.label ?? invoice.network_chosen}</span>.{" "}
+                    Платеж подтвердится автоматически.
                   </p>
                 </div>
 
+                {/* Check status button */}
                 <button
                   onClick={async () => { setPolling(true); await fetchInvoice(); setPolling(false); }}
                   disabled={polling}
@@ -404,7 +392,6 @@ export default function MerchantPayPage() {
                         className="group w-full flex items-center gap-4 p-4 rounded-2xl bg-[#0A0D12] border border-white/5 hover:border-[#2EEA7F]/50 hover:shadow-[0_0_20px_rgba(46,234,127,0.1)] transition-all disabled:opacity-50 text-left relative overflow-hidden"
                       >
                         <div className="absolute inset-0 bg-gradient-to-r from-[#2EEA7F]/0 to-[#2EEA7F]/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                        
                         <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center border border-white/5 p-2.5 group-hover:scale-110 group-hover:bg-white/10 transition-all flex-shrink-0">
                           {info?.icon ? (
                             <img src={info.icon} alt="" className="w-full h-full object-contain drop-shadow-md" />
@@ -412,12 +399,10 @@ export default function MerchantPayPage() {
                             <div className="w-6 h-6 rounded-full bg-white/10" />
                           )}
                         </div>
-                        
                         <div className="flex-1">
                           <div className="text-base font-bold text-white group-hover:text-[#2EEA7F] transition-colors">{info?.label ?? net}</div>
                           <div className="text-sm text-white/40 font-medium">USDT</div>
                         </div>
-                        
                         {selectingNetwork === net ? (
                           <Loader2 className="w-5 h-5 text-[#2EEA7F] animate-spin flex-shrink-0" />
                         ) : (
@@ -432,8 +417,8 @@ export default function MerchantPayPage() {
               </div>
             )}
           </div>
-          
-          {/* Footer ID */}
+
+          {/* Footer */}
           <div className="bg-[#0A0D12] py-4 text-center border-t border-white/5">
             <span className="text-white/20 text-xs font-mono tracking-widest">INV-{invoice.invoice_number.slice(0, 12)}...</span>
           </div>
