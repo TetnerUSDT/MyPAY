@@ -18,10 +18,14 @@ interface InvoiceData {
 }
 
 const NETWORK_LABELS: Record<string, { label: string; icon: string; color: string }> = {
-  TRON:    { label: "TRON (TRC20)", icon: "/uploads/icons/cryptocurrency/tron.svg",    color: "#ff4c3b" },
-  BSC:     { label: "BNB Chain (BEP20)", icon: "/uploads/icons/cryptocurrency/bnb.svg", color: "#f0b90b" },
-  TON:     { label: "TON",          icon: "/uploads/icons/cryptocurrency/ton.svg",    color: "#0088cc" },
-  POLYGON: { label: "Polygon",      icon: "/uploads/icons/cryptocurrency/polygon.svg",  color: "#8247e5" },
+  TRON:     { label: "TRON (TRC20)",      icon: "/uploads/icons/cryptocurrency/tron.svg",     color: "#ff4c3b" },
+  TRON_GF:  { label: "TRON (Gasfree)",    icon: "/uploads/icons/cryptocurrency/tron.svg",     color: "#ff4c3b" },
+  BSC:      { label: "BNB Chain (BEP20)", icon: "/uploads/icons/cryptocurrency/bnb.svg",      color: "#f0b90b" },
+  TON:      { label: "TON",              icon: "/uploads/icons/cryptocurrency/ton.svg",      color: "#0088cc" },
+  POLYGON:  { label: "Polygon",           icon: "/uploads/icons/cryptocurrency/polygon.svg",  color: "#8247e5" },
+  SOLANA:   { label: "Solana",            icon: "/uploads/icons/cryptocurrency/solana.svg",   color: "#9945ff" },
+  ARBITRUM: { label: "Arbitrum",          icon: "/uploads/icons/cryptocurrency/arbitrum.svg", color: "#28a0f0" },
+  ETH:      { label: "Ethereum",          icon: "/uploads/icons/cryptocurrency/ethereum.svg", color: "#627eea" },
 };
 
 const HONEYCOMB_SVG = `data:image/svg+xml,%3Csvg width='40' height='69.28203230275509' viewBox='0 0 40 69.28203230275509' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M20 69.28203230275509L0 57.73502691896258V34.64101615137754L20 23.09401076758504l20 11.547005383792504v23.09401076758504zm10-51.96152422706632L20 5.773502691896258 10 17.32050807568877v11.547005383792504l10 5.773502691896258 10-5.773502691896258z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E`;
@@ -75,16 +79,26 @@ function CountdownTimer({ expiresAt }: { expiresAt: string }) {
   );
 }
 
-function PremiumLogo() {
+function MyPayLogo() {
   return (
     <div className="flex flex-col items-center animate-fadeIn">
-      <div className="relative w-16 h-16 mb-4">
-        <div className="absolute inset-0 bg-gradient-to-tr from-[#0F5A2F] to-[#2EEA7F] rounded-2xl blur-xl opacity-40 animate-pulse"></div>
-        <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-[#131A16] to-[#0A0D12] border border-[#2EEA7F]/30 flex items-center justify-center shadow-[0_0_30px_rgba(46,234,127,0.15)]">
-          <span className="text-transparent bg-clip-text bg-gradient-to-br from-white to-[#2EEA7F] font-black text-2xl tracking-tighter">SX</span>
-        </div>
+      <div className="relative w-24 h-24 mb-3" style={{ aspectRatio: "1 / 1" }}>
+        <img
+          src="/uploads/assets/logo-1.webp"
+          alt="MyPay"
+          className="absolute inset-0 w-full h-full object-contain animate-glitch-logo1"
+        />
+        <img
+          src="/uploads/assets/logo-2.webp"
+          alt=""
+          className="absolute inset-0 w-full h-full object-contain animate-spin-cw-85"
+        />
+        <img
+          src="/uploads/assets/logo-3.webp"
+          alt=""
+          className="absolute inset-0 w-full h-full object-contain animate-spin-ccw"
+        />
       </div>
-      <span className="text-white/60 text-sm font-medium tracking-widest uppercase">SwiftX Pay</span>
     </div>
   );
 }
@@ -162,7 +176,7 @@ export default function MerchantPayPage() {
       
       <div className="mt-8 flex items-center justify-center gap-2 text-white/30 text-xs font-medium z-10 animate-fadeIn">
         <ShieldCheck className="w-3.5 h-3.5" />
-        Защищено SwiftX
+        Защищено MyPay
       </div>
     </div>
   );
@@ -260,9 +274,9 @@ export default function MerchantPayPage() {
   return (
     <PageLayout>
       <div className="flex flex-col items-center w-full animate-slideUp">
-        <PremiumLogo />
+        <MyPayLogo />
 
-        <div className="w-full bg-[#11141A]/90 backdrop-blur-2xl border border-white/5 rounded-[2rem] overflow-hidden shadow-2xl relative mt-6">
+        <div className="w-full bg-[#11141A]/90 backdrop-blur-2xl border border-white/5 rounded-[2rem] overflow-hidden shadow-2xl relative mt-4">
           {/* Top colored accent line */}
           <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-[#0F5A2F] via-[#2EEA7F] to-[#0F5A2F] opacity-80"></div>
           
@@ -281,7 +295,7 @@ export default function MerchantPayPage() {
                 </div>
               </div>
               
-              {invoice.expires_at && !invoice.wallet_address && (
+              {invoice.expires_at && (
                 <CountdownTimer expiresAt={invoice.expires_at} />
               )}
             </div>
@@ -373,8 +387,12 @@ export default function MerchantPayPage() {
                       >
                         <div className="absolute inset-0 bg-gradient-to-r from-[#2EEA7F]/0 to-[#2EEA7F]/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         
-                        <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center border border-white/5 p-2.5 group-hover:scale-110 group-hover:bg-white/10 transition-all">
-                          {info?.icon && <img src={info.icon} alt="" className="w-full h-full object-contain drop-shadow-md" />}
+                        <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center border border-white/5 p-2.5 group-hover:scale-110 group-hover:bg-white/10 transition-all flex-shrink-0">
+                          {info?.icon ? (
+                            <img src={info.icon} alt="" className="w-full h-full object-contain drop-shadow-md" />
+                          ) : (
+                            <div className="w-6 h-6 rounded-full bg-white/10" />
+                          )}
                         </div>
                         
                         <div className="flex-1">
@@ -383,9 +401,9 @@ export default function MerchantPayPage() {
                         </div>
                         
                         {selectingNetwork ? (
-                          <Loader2 className="w-5 h-5 text-[#2EEA7F] animate-spin" />
+                          <Loader2 className="w-5 h-5 text-[#2EEA7F] animate-spin flex-shrink-0" />
                         ) : (
-                          <div className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center group-hover:bg-[#2EEA7F] group-hover:border-[#2EEA7F] transition-colors">
+                          <div className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center group-hover:bg-[#2EEA7F] group-hover:border-[#2EEA7F] transition-colors flex-shrink-0">
                             <div className="w-1.5 h-1.5 rounded-full bg-white/20 group-hover:bg-black transition-colors"></div>
                           </div>
                         )}

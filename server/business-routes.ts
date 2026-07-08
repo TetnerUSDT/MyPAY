@@ -1501,8 +1501,6 @@ export function registerBusinessRoutes(app: Express) {
       if (invoiceNetworks.length === 0) return res.status(400).json({ error: "No networks specified or enabled" });
 
       const invoiceNumber = generateInvoiceNumber();
-      const invMins = parseInt(String(shop.invoice_minutes ?? 60));
-      const expiresAt = new Date(Date.now() + invMins * 60 * 1000);
       try {
         await db.insert(merchantInvoices).values({
           shopId: shop.id,
@@ -1512,7 +1510,7 @@ export function registerBusinessRoutes(app: Express) {
           currency: currency ?? "USDT",
           networks: JSON.stringify(invoiceNetworks),
           status: "pending",
-          expiresAt,
+          expiresAt: null,
         });
         const appBase = process.env.APP_URL ?? `https://${process.env.REPLIT_DOMAINS?.split(",")[0] ?? "localhost:5000"}`;
         return res.json({
@@ -1523,7 +1521,7 @@ export function registerBusinessRoutes(app: Express) {
           amount,
           currency: currency ?? "USDT",
           networks: invoiceNetworks,
-          expires_at: expiresAt,
+          expires_at: null,
         });
       } catch (err: any) {
         return res.status(500).json({ error: err.message });
@@ -1843,8 +1841,8 @@ export function registerBusinessRoutes(app: Express) {
       const inv = (rows[0] as any[])[0];
       if (!inv) return res.status(404).json({ error: "Invoice not found" });
 
-      // Auto-expire
-      if (inv.status === "pending" && inv.expires_at && new Date(inv.expires_at) < new Date()) {
+      // Auto-expire only after network is selected (wallet_address set = payment window started)
+      if (inv.status === "pending" && inv.wallet_address && inv.expires_at && new Date(inv.expires_at) < new Date()) {
         await db.execute(sql`UPDATE merchant_invoices SET status = 'expired' WHERE id = ${inv.id}`);
         inv.status = "expired";
       }
@@ -1881,7 +1879,7 @@ export function registerBusinessRoutes(app: Express) {
       const inv = (rows[0] as any[])[0];
       if (!inv) return res.status(404).json({ error: "Invoice not found" });
       if (inv.status !== "pending") return res.status(400).json({ error: `Invoice is ${inv.status}` });
-      if (inv.expires_at && new Date(inv.expires_at) < new Date()) {
+      if (inv.wallet_address && inv.expires_at && new Date(inv.expires_at) < new Date()) {
         await db.execute(sql`UPDATE merchant_invoices SET status = 'expired' WHERE id = ${inv.id}`);
         return res.status(400).json({ error: "Invoice expired" });
       }
@@ -1895,9 +1893,13 @@ export function registerBusinessRoutes(app: Express) {
         return res.status(400).json({ error: `Network ${network} not allowed for this invoice` });
       }
 
+      // Normalize TRON_GF → TRON + gasfree mode
+      const walletNetwork = network === "TRON_GF" ? "TRON" : network;
+      const walletMode = network === "TRON_GF" ? "gasfree" : "standard";
+
       const invMinsNet = parseInt(String(inv.invoice_minutes ?? 60));
-      const wallet = await findOrReserveMerchantWallet(inv.shop_id, network, "standard", undefined, inv.invoice_number, "temporary", invMinsNet);
-      const address = wallet.gasfree_address || wallet.address;
+      const wallet = await findOrReserveMerchantWallet(inv.shop_id, walletNetwork, walletMode, undefined, inv.invoice_number, "temporary", invMinsNet);
+      const address = (walletMode === "gasfree" ? wallet.gasfree_address : null) || wallet.address;
       const expiresAt = new Date(Date.now() + invMinsNet * 60 * 1000);
 
       await db.execute(sql`
@@ -1906,8 +1908,8 @@ export function registerBusinessRoutes(app: Express) {
         WHERE id = ${inv.id}
       `);
 
-      // Start polling for this invoice payment
-      pollInvoiceForPayment(inv.id, address, network, inv.currency, inv.amount, inv.shop_id, inv.webhook_url, inv.order_ref);
+      // Start polling for this invoice payment (use walletNetwork for scanner)
+      pollInvoiceForPayment(inv.id, address, walletNetwork, inv.currency, inv.amount, inv.shop_id, inv.webhook_url, inv.order_ref);
 
       return res.json({ address, network, expires_at: expiresAt });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
