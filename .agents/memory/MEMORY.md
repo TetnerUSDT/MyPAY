@@ -1,3 +1,4 @@
+- [MySQL timezone bug](mysql-timezone-bug.md) — Remote MySQL is UTC+3; NEVER use JS Date() for expires_at; use `NOW() + INTERVAL X MINUTE` in SQL and read via UNIX_TIMESTAMP()
 - [P2P DB migrations](p2p-db-migrations.md) — MySQL needs INFORMATION_SCHEMA checks; auto_reply/price_type/price_offset/p2p_blocked/doc_*_url/selfie_url columns added via p2p-migrations.ts
 - [P2P modular architecture](p2p-modular-arch.md) — p2p-routes.ts is a re-export shim; real code in server/p2p/ (helpers, routes-ads, routes-orders, routes-misc, index)
 - [P2P escrow pattern](p2p-escrow.md) — balance deducted at lock creation (order open), restored at cancel; release only credits buyer; admin resolve uses winner logic

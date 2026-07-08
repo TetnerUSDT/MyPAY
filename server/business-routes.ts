@@ -1854,7 +1854,9 @@ export function registerBusinessRoutes(app: Express) {
   app.get("/api/merchant/invoice/:number", async (req, res) => {
     try {
       const rows = await db.execute(sql`
-        SELECT i.*, s.name AS shop_name, s.webhook_url
+        SELECT i.*,
+          s.name AS shop_name, s.webhook_url,
+          UNIX_TIMESTAMP(i.expires_at) AS expires_at_unix
         FROM merchant_invoices i
         JOIN merchant_shops s ON s.id = i.shop_id
         WHERE i.invoice_number = ${req.params.number}
@@ -1874,6 +1876,9 @@ export function registerBusinessRoutes(app: Express) {
         if ((expRows as any).affectedRows > 0) inv.status = "expired";
       }
 
+      // Convert MySQL DATETIME to UTC ISO string via UNIX_TIMESTAMP to avoid timezone ambiguity
+      const expiresAtIso = inv.expires_at_unix ? new Date(Number(inv.expires_at_unix) * 1000).toISOString() : null;
+
       return res.json({
         invoice_number: inv.invoice_number,
         shop_name: inv.shop_name,
@@ -1884,7 +1889,7 @@ export function registerBusinessRoutes(app: Express) {
         status: inv.status,
         wallet_address: inv.wallet_address,
         network_chosen: inv.network_chosen,
-        expires_at: inv.expires_at,
+        expires_at: expiresAtIso,
         confirmed_at: inv.confirmed_at,
         tx_hash: inv.tx_hash,
       });
@@ -1937,18 +1942,25 @@ export function registerBusinessRoutes(app: Express) {
 
       const wallet = await findOrReserveMerchantWallet(inv.shop_id, walletNetwork, walletMode, undefined, inv.invoice_number, "temporary", invMinsNet);
       const address = (walletMode === "gasfree" ? wallet.gasfree_address : null) || wallet.address;
-      const expiresAt = new Date(Date.now() + invMinsNet * 60 * 1000);
 
+      // Use MySQL NOW() + INTERVAL to avoid timezone mismatch between Node.js (UTC) and MySQL server timezone
       await db.execute(sql`
         UPDATE merchant_invoices
-        SET wallet_id = ${wallet.id}, wallet_address = ${address}, network_chosen = ${network}, expires_at = ${expiresAt}
+        SET wallet_id = ${wallet.id}, wallet_address = ${address}, network_chosen = ${network},
+            expires_at = NOW() + INTERVAL ${invMinsNet} MINUTE
         WHERE id = ${inv.id}
       `);
 
-      // Start polling for this invoice payment (use walletNetwork for scanner, pass actual deadline)
-      pollInvoiceForPayment(inv.id, address, walletNetwork, inv.currency, inv.amount, inv.shop_id, inv.webhook_url, inv.order_ref, expiresAt.getTime());
+      // Read back expires_at via UNIX_TIMESTAMP for timezone-safe UTC conversion
+      const [updRows] = await db.execute(sql`SELECT UNIX_TIMESTAMP(expires_at) AS expires_at_unix FROM merchant_invoices WHERE id = ${inv.id}`);
+      const expiresAtUnix: number | null = (updRows as any[])[0]?.expires_at_unix ?? null;
+      const expiresAtIso = expiresAtUnix ? new Date(Number(expiresAtUnix) * 1000).toISOString() : null;
+      const deadlineMs = expiresAtUnix ? Number(expiresAtUnix) * 1000 : Date.now() + invMinsNet * 60 * 1000;
 
-      return res.json({ address, network, expires_at: expiresAt });
+      // Start polling for this invoice payment (use walletNetwork for scanner, pass actual deadline)
+      pollInvoiceForPayment(inv.id, address, walletNetwork, inv.currency, inv.amount, inv.shop_id, inv.webhook_url, inv.order_ref, deadlineMs);
+
+      return res.json({ address, network, expires_at: expiresAtIso });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
