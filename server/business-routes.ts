@@ -721,9 +721,10 @@ async function pollPermanentAddress(
           await db.execute(sql`INSERT INTO merchant_payment_txs (payment_id, tx_hash, amount) VALUES (${paymentId}, ${txHash}, ${txNum})`);
         } catch { return; }
 
-        // Update running total on payment record
+        // Confirm and update running total on payment record
         await db.execute(sql`
-          UPDATE merchant_payments SET amount_received = COALESCE(amount_received, 0) + ${txNum}, tx_hash = ${txHash}
+          UPDATE merchant_payments
+          SET status = 'confirmed', amount_received = COALESCE(amount_received, 0) + ${txNum}, tx_hash = ${txHash}
           WHERE id = ${paymentId}
         `);
 
@@ -1536,8 +1537,23 @@ export function registerBusinessRoutes(app: Express) {
         }
       }
       // Refund balance only for manual payouts (API payouts never deducted balance)
-      if (status === "cancelled" && (payout as any).source === "manual") {
-        await db.update(merchantShops).set({ balanceUsdt: sql`balance_usdt + ${parseFloat(payout.amount)}` }).where(eq(merchantShops.id, shopId));
+      if (status === "cancelled") {
+        if ((payout as any).source === "manual") {
+          await db.update(merchantShops).set({ balanceUsdt: sql`balance_usdt + ${parseFloat(payout.amount)}` }).where(eq(merchantShops.id, shopId));
+        }
+        // Send payout.cancelled webhook for all sourced payouts
+        if (shop.webhookUrl) {
+          sendWebhook(shop.webhookUrl, {
+            event_type: "payout.cancelled",
+            payout_id: payoutId,
+            external_order_id: (payout as any).externalOrderId,
+            reference: (payout as any).reference,
+            to_address: payout.toAddress,
+            network: payout.network,
+            amount: payout.amount,
+            currency: payout.currency,
+          });
+        }
       }
 
       res.json({ ok: true });

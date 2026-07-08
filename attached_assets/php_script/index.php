@@ -1574,7 +1574,25 @@ function esc(s) {
   return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 function copyText(text) {
-  navigator.clipboard?.writeText(text).then(() => toast('Скопировано!','ok')).catch(() => toast('Ошибка копирования','err'));
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(() => toast('Скопировано!','ok')).catch(() => _copyFallback(text));
+  } else {
+    _copyFallback(text);
+  }
+}
+function _copyFallback(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+  document.body.appendChild(ta);
+  ta.focus(); ta.select();
+  try {
+    document.execCommand('copy');
+    toast('Скопировано!','ok');
+  } catch(e) {
+    toast('Ошибка копирования','err');
+  }
+  document.body.removeChild(ta);
 }
 
 // ─── Toast stack ──────────────────────────────────────────────────────────────
@@ -1622,7 +1640,7 @@ function formatWebhookNotification(w) {
     const tx = pl.tx_hash ? `<small>TX: ${esc(String(pl.tx_hash).slice(0,14))}…</small>` : '';
     return `💸 Выплата выполнена ${amtHtml}${tx ? '<br>'+tx : ''}`;
   }
-  if (et === 'payout.failed')
+  if (et === 'payout.cancelled' || et === 'payout.failed')
     return `❌ Выплата отменена${amtHtml ? ' '+amtHtml : ''}${sub ? '<br>'+sub : ''}`;
   if (et === 'invoice.expired')
     return `⏱ Инвойс истёк${sub ? '<br>'+sub : ''}`;

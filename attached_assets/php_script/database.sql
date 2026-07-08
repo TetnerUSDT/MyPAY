@@ -69,7 +69,7 @@ ON DUPLICATE KEY UPDATE name = name;
 CREATE TABLE IF NOT EXISTS orders (
   id             INT UNSIGNED  AUTO_INCREMENT PRIMARY KEY,
   user_id        INT UNSIGNED  NOT NULL,
-  product_id     INT UNSIGNED  NOT NULL,
+  product_id     INT UNSIGNED  DEFAULT NULL,
   payment_mode   ENUM('permanent','temporary','invoice') NOT NULL,
   network        VARCHAR(20)   DEFAULT NULL,
   amount         DECIMAL(10,6) NOT NULL,
@@ -88,6 +88,10 @@ CREATE TABLE IF NOT EXISTS orders (
   INDEX idx_status         (status),
   INDEX idx_created_at     (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Migration: make product_id nullable (needed for permanent topup orders)
+-- Run this on existing installs:
+-- ALTER TABLE orders MODIFY COLUMN product_id INT UNSIGNED DEFAULT NULL;
 
 -- ── Order receipts — для permanent-кошельков ──────────────────
 -- Каждый входящий tx на постоянный адрес сохраняется отдельной строкой.

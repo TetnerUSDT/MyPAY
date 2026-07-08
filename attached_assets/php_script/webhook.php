@@ -154,6 +154,55 @@ if ($eventType === 'payout.completed') {
     exit;
 }
 
+// ── Handle payout.cancelled ───────────────────────────────────────────────────
+if ($eventType === 'payout.cancelled') {
+    $apiPayoutId     = $payload['payout_id']         ?? null;
+    $externalOrderId = $payload['external_order_id'] ?? null;
+
+    $payout = null;
+    try {
+        if ($apiPayoutId !== null) {
+            $stmt = $pdo->prepare("SELECT * FROM payouts WHERE payout_id = ? LIMIT 1");
+            $stmt->execute([(int)$apiPayoutId]);
+            $payout = $stmt->fetch();
+        }
+        if (!$payout && $externalOrderId) {
+            $stmt = $pdo->prepare("SELECT * FROM payouts WHERE external_order_id = ? LIMIT 1");
+            $stmt->execute([$externalOrderId]);
+            $payout = $stmt->fetch();
+        }
+    } catch (PDOException $e) {
+        app_log('ERROR', 'Webhook: payout lookup failed', ['error' => $e->getMessage()]);
+    }
+
+    if ($payout) {
+        if ($payout['status'] === 'pending') {
+            try {
+                $pdo->prepare("UPDATE payouts SET status='failed', updated_at=NOW() WHERE id=?")
+                    ->execute([$payout['id']]);
+                app_log('INFO', "Payout #{$payout['id']} marked cancelled/failed", ['payout_id' => $apiPayoutId]);
+            } catch (PDOException $e) {
+                app_log('ERROR', "Webhook: payout cancel update failed #{$payout['id']}", ['error' => $e->getMessage()]);
+            }
+        } else {
+            app_log('INFO', "Payout #{$payout['id']} already {$payout['status']} — idempotent skip");
+        }
+    } else {
+        app_log('WARN', 'Webhook: no matching payout found for cancellation', ['payout_id' => $apiPayoutId, 'external_order_id' => $externalOrderId]);
+    }
+
+    try {
+        $pdo->prepare("INSERT INTO webhook_log (event_type, payload, order_id) VALUES (?, ?, ?)")
+            ->execute([$eventType, json_encode($payload, JSON_UNESCAPED_UNICODE), null]);
+    } catch (PDOException $e) {
+        app_log('ERROR', 'Webhook: failed to save payout.cancelled to webhook_log', ['error' => $e->getMessage()]);
+    }
+
+    http_response_code(200);
+    echo json_encode(['ok' => true, 'event' => $eventType, 'payout_id' => $apiPayoutId]);
+    exit;
+}
+
 // ── Find matching order ───────────────────────────────────────────────────────
 $orderId = null;
 $order   = null;
