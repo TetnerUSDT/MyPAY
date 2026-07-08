@@ -116,6 +116,33 @@ CREATE TABLE IF NOT EXISTS webhook_log (
   INDEX idx_received_at (received_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- ── Users Balances (пополняются через постоянные кошельки) ───
+CREATE TABLE IF NOT EXISTS users_balances (
+  user_id      INT UNSIGNED   NOT NULL,
+  balance_usdt DECIMAL(18,8)  NOT NULL DEFAULT 0.00000000,
+  last_updated TIMESTAMP      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Инициализация балансов для всех существующих пользователей
+INSERT IGNORE INTO users_balances (user_id) SELECT id FROM users;
+
+-- ── Balance Transactions (история пополнений/списаний) ────────
+CREATE TABLE IF NOT EXISTS balance_transactions (
+  id         INT UNSIGNED   AUTO_INCREMENT PRIMARY KEY,
+  user_id    INT UNSIGNED   NOT NULL,
+  order_id   INT UNSIGNED   DEFAULT NULL,
+  tx_hash    VARCHAR(200)   NOT NULL,
+  amount     DECIMAL(18,8)  NOT NULL,
+  direction  ENUM('credit','debit') NOT NULL DEFAULT 'credit',
+  event_type VARCHAR(100)   DEFAULT NULL,
+  created_at TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_tx_hash (tx_hash),
+  INDEX idx_user_id   (user_id),
+  INDEX idx_order_id  (order_id),
+  INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 -- ── Payouts ───────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS payouts (
   id                INT UNSIGNED   AUTO_INCREMENT PRIMARY KEY,

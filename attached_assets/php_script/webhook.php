@@ -182,13 +182,40 @@ if ($eventType === 'payment.received') {
 
         if (!$dup) {
             try {
+                $pdo->beginTransaction();
+
+                // 1) Record receipt
                 $pdo->prepare("INSERT INTO order_receipts (order_id, tx_hash, amount, network) VALUES (?,?,?,?)")
                     ->execute([$orderId, $txHash, $txAmount, $payload['network'] ?? null]);
-                // Accumulate received amount on the order (informational)
+
+                // 2) Accumulate received amount on the order
                 $pdo->prepare("UPDATE orders SET amount_received = COALESCE(amount_received, 0) + ?, updated_at=NOW() WHERE id=?")
                     ->execute([$txAmount ?? 0, $orderId]);
+
+                // 3) Credit user balance (idempotent via UNIQUE tx_hash in balance_transactions)
+                $userId = $order['user_id'] ?? null;
+                if ($userId && $txAmount) {
+                    $btStmt = $pdo->prepare("
+                        INSERT IGNORE INTO balance_transactions (user_id, order_id, tx_hash, amount, direction, event_type)
+                        VALUES (?, ?, ?, ?, 'credit', 'payment.received')
+                    ");
+                    $btStmt->execute([$userId, $orderId, $txHash, $txAmount]);
+
+                    if ($btStmt->rowCount() > 0) {
+                        // Upsert user balance
+                        $pdo->prepare("
+                            INSERT INTO users_balances (user_id, balance_usdt)
+                            VALUES (?, ?)
+                            ON DUPLICATE KEY UPDATE balance_usdt = balance_usdt + VALUES(balance_usdt), last_updated = NOW()
+                        ")->execute([$userId, $txAmount]);
+                        app_log('INFO', "Balance credited: user #{$userId} +{$txAmount} USDT from tx {$txHash}");
+                    }
+                }
+
+                $pdo->commit();
                 app_log('INFO', "Order #{$orderId} received tx {$txHash} +{$txAmount} USDT (permanent)", ['network' => $payload['network'] ?? null]);
             } catch (PDOException $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
                 app_log('ERROR', "Webhook: receipt insert failed #{$orderId}", ['error' => $e->getMessage()]);
             }
         } else {

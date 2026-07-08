@@ -453,6 +453,89 @@ if ($action) {
         exit;
     }
 
+    // ── Балансы пользователей ─────────────────────────────────
+    if ($action === 'get_balances') {
+        try {
+            $rows = $pdo->query("
+                SELECT u.id, u.name, u.avatar, u.email,
+                       COALESCE(ub.balance_usdt, 0) AS balance_usdt,
+                       ub.last_updated
+                FROM users u
+                LEFT JOIN users_balances ub ON ub.user_id = u.id
+                ORDER BY u.id
+            ")->fetchAll();
+            echo json_encode($rows);
+        } catch (PDOException $e) {
+            echo json_encode(['error' => $e->getMessage()]);
+        }
+        exit;
+    }
+
+    // ── История транзакций баланса ─────────────────────────────
+    if ($action === 'get_balance_history') {
+        $filterUid = (int)($input['user_id'] ?? 0);
+        try {
+            if ($filterUid > 0) {
+                $stmt = $pdo->prepare("
+                    SELECT bt.*, u.name AS uname, u.avatar AS uavatar
+                    FROM balance_transactions bt
+                    JOIN users u ON u.id = bt.user_id
+                    WHERE bt.user_id = ?
+                    ORDER BY bt.created_at DESC LIMIT 100
+                ");
+                $stmt->execute([$filterUid]);
+            } else {
+                $stmt = $pdo->query("
+                    SELECT bt.*, u.name AS uname, u.avatar AS uavatar
+                    FROM balance_transactions bt
+                    JOIN users u ON u.id = bt.user_id
+                    ORDER BY bt.created_at DESC LIMIT 100
+                ");
+            }
+            echo json_encode($stmt->fetchAll());
+        } catch (PDOException $e) {
+            echo json_encode(['error' => $e->getMessage()]);
+        }
+        exit;
+    }
+
+    // ── Создать постоянный адрес для пополнения баланса ───────
+    if ($action === 'get_topup_address') {
+        $VALID_NETS = ['TRON','TRON_GASFREE','BSC','TON','ETH','POLYGON','SOLANA','ARBITRUM'];
+        $networkId  = in_array($input['network'] ?? '', $VALID_NETS) ? $input['network'] : 'TRON';
+        $targetUid  = (int)($input['user_id'] ?? $uid);
+        if (!$shopKey) { echo json_encode(['error' => 'Не задан Shop API Key в настройках']); exit; }
+
+        $apiNet     = ($networkId === 'TRON_GASFREE') ? 'TRON' : $networkId;
+        $walletMode = ($networkId === 'TRON_GASFREE') ? 'gasfree' : 'standard';
+        $ordRef     = 'topup_' . $targetUid . '_' . bin2hex(random_bytes(5));
+
+        $apiResp = api($baseUrl, $shopKey, 'POST', '/api/merchant/address', [
+            'payment_mode' => 'permanent',
+            'network'      => $apiNet,
+            'mode'         => $walletMode,
+            'user_id'      => (string)$targetUid,
+            'order_id'     => $ordRef,
+            'currency'     => 'USDT',
+        ]);
+
+        if (!isset($apiResp['error'])) {
+            $paymentId = $apiResp['payment_id'] ?? null;
+            $address   = $apiResp['address']    ?? null;
+            try {
+                $pdo->prepare("INSERT INTO orders (user_id,product_id,payment_mode,network,amount,payment_id,wallet_address,api_response) VALUES (?,NULL,?,?,0,?,?,?)")
+                    ->execute([$targetUid, 'permanent', $networkId, $paymentId, $address, json_encode($apiResp)]);
+            } catch (PDOException $e) {
+                // product_id may be NOT NULL — fallback: store without product
+                app_log('WARN', 'Topup order insert failed — product_id NOT NULL? ' . $e->getMessage());
+            }
+            app_log('INFO', 'Topup address created', ['uid' => $targetUid, 'network' => $networkId, 'payment_id' => $paymentId]);
+        }
+
+        echo json_encode(['api' => $apiResp]);
+        exit;
+    }
+
     // ── Последние строки лога ─────────────────────────────────
     if ($action === 'get_log') {
         $logFile = LOG_FILE;
@@ -481,13 +564,16 @@ if ($action) {
 // ═══════════════════════════════════════════════════════════════
 // РЕНДЕР СТРАНИЦЫ
 // ═══════════════════════════════════════════════════════════════
-$page     = in_array($_GET['page'] ?? '', ['shop','orders','webhooks','payouts','settings','log']) ? $_GET['page'] : 'shop';
+$page     = in_array($_GET['page'] ?? '', ['shop','orders','webhooks','payouts','balances','settings','log']) ? $_GET['page'] : 'shop';
 $users    = $pdo->query("SELECT * FROM users ORDER BY id")->fetchAll();
 $products = $pdo->query("SELECT * FROM products ORDER BY id")->fetchAll();
 $curUser  = array_values(array_filter($users, fn($u) => (int)$u['id'] === $uid))[0] ?? ($users[0] ?? []);
 
 $orderCount   = (int)$pdo->query("SELECT COUNT(*) FROM orders WHERE status='pending'")->fetchColumn();
 $webhookCount = (int)$pdo->query("SELECT COUNT(*) FROM webhook_log WHERE received_at > NOW() - INTERVAL 1 HOUR")->fetchColumn();
+try {
+    $balanceTotal = (string)$pdo->query("SELECT COALESCE(SUM(balance_usdt),0) FROM users_balances")->fetchColumn();
+} catch (PDOException $e) { $balanceTotal = '0'; }
 $logExists    = file_exists(LOG_FILE);
 
 $proto   = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
@@ -663,10 +749,13 @@ $webRoot = $proto . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirna
   .empty-icon { font-size: 40px; margin-bottom: 12px; }
   .spin { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  #toast { position: fixed; bottom: 24px; right: 16px; background: var(--card2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 18px; font-size: 13px; font-weight: 500; z-index: 999; transform: translateY(80px); opacity: 0; transition: all .25s; max-width: 280px; }
-  #toast.show { transform: translateY(0); opacity: 1; }
-  #toast.ok  { border-color: rgba(58,179,104,0.4); }
-  #toast.err { border-color: rgba(255,79,79,0.4); color: var(--danger); }
+  /* Toast stack — глобальные webhook-уведомления */
+  #toast-stack { position: fixed; bottom: 24px; right: 16px; z-index: 999; display: flex; flex-direction: column-reverse; gap: 8px; max-width: 300px; pointer-events: none; }
+  .toast-card { background: var(--card2); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; font-size: 13px; font-weight: 500; transform: translateX(120%); opacity: 0; transition: all .3s cubic-bezier(.34,1.56,.64,1); pointer-events: all; line-height: 1.5; cursor: pointer; box-shadow: 0 4px 20px rgba(0,0,0,.45); }
+  .toast-card.show { transform: translateX(0); opacity: 1; }
+  .toast-card.ok  { border-color: rgba(58,179,104,0.4); }
+  .toast-card.err { border-color: rgba(255,79,79,0.4); color: var(--danger); }
+  .toast-card small { display: block; font-size: 11px; color: var(--muted); margin-top: 3px; }
   @media (max-width: 500px) { .products { grid-template-columns: 1fr 1fr; } .tab-btn { font-size: 11px; } }
 
   /* Webhook new-row highlight */
@@ -712,6 +801,9 @@ $webRoot = $proto . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirna
       🔔 Вебхуки<?php if ($webhookCount>0): ?><span class="nav-badge"><?= $webhookCount ?></span><?php endif; ?>
     </a>
     <a href="?page=payouts&user_id=<?= $uid ?>"  class="<?= $page==='payouts'  ? 'active':'' ?>">💸 Выплаты</a>
+    <a href="?page=balances&user_id=<?= $uid ?>" class="<?= $page==='balances' ? 'active':'' ?>">
+      💰 Балансы<?php if ((float)$balanceTotal > 0): ?><span class="nav-badge" style="background:rgba(58,179,104,.8)"><?= number_format((float)$balanceTotal,2) ?></span><?php endif; ?>
+    </a>
     <a href="?page=settings&user_id=<?= $uid ?>" class="<?= $page==='settings' ? 'active':'' ?>">⚙️ Настройки</a>
     <a href="?page=log&user_id=<?= $uid ?>"      class="<?= $page==='log'      ? 'active':'' ?>">
       📋 Лог<?php if ($logExists && filesize(LOG_FILE)>0): ?><span class="nav-badge" style="background:var(--warn)">!</span><?php endif; ?>
@@ -873,6 +965,73 @@ $webRoot = $proto . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirna
   </div>
   <?php endif; ?>
 
+  <!-- ══════════════════ BALANCES ══════════════════ -->
+  <?php if ($page === 'balances'): ?>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+    <div>
+      <div style="font-weight:600;font-size:15px">💰 Балансы пользователей</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:3px">Пополняются через постоянные кошельки (payment.received)</div>
+    </div>
+    <button class="btn btn-outline btn-sm" onclick="refreshBalances()">↻ Обновить</button>
+  </div>
+
+  <!-- Таблица балансов -->
+  <div class="card" style="margin-bottom:16px">
+    <div style="padding:14px 20px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Текущие балансы</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Пользователь</th><th>Email</th><th>Баланс USDT</th><th>Последнее пополнение</th><th>Действие</th></tr></thead>
+        <tbody id="balances-body"><tr><td colspan="6" style="text-align:center;padding:40px;color:var(--muted)"><span class="spin"></span></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Создать адрес пополнения -->
+  <div class="card card-pad" style="margin-bottom:16px">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+      Создать постоянный адрес для пополнения
+    </div>
+    <div class="notice" style="margin-bottom:14px">
+      Постоянный адрес не привязан к сумме — принимает любые переводы. Каждый поступивший платёж автоматически зачисляется на баланс пользователя через вебхук <strong>payment.received</strong>.
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+      <div style="flex:1;min-width:160px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:500">Пользователь</div>
+        <select id="topup-user" style="width:100%;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none">
+          <?php foreach ($users as $u): ?>
+          <option value="<?= (int)$u['id'] ?>" <?= ((int)$u['id'] === $uid) ? 'selected' : '' ?>><?= htmlspecialchars($u['avatar'].' '.$u['name'], ENT_QUOTES, 'UTF-8') ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+      <div style="flex:1;min-width:160px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:500">Сеть</div>
+        <div class="net-list" id="topup-net-list" style="margin-bottom:0"></div>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="topup-btn" onclick="createTopupAddress()">💳 Получить адрес пополнения</button>
+    <div id="topup-result" style="margin-top:12px"></div>
+  </div>
+
+  <!-- История транзакций -->
+  <div class="card">
+    <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">История пополнений</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <select id="history-user-filter" onchange="refreshBalanceHistory()" style="background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:5px 10px;color:var(--text);font-family:inherit;font-size:12px;outline:none">
+          <option value="0">Все пользователи</option>
+          <?php foreach ($users as $u): ?><option value="<?= (int)$u['id'] ?>"><?= htmlspecialchars($u['avatar'].' '.$u['name'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?>
+        </select>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Пользователь</th><th>Сумма</th><th>TX Hash</th><th>Заказ</th><th>Дата</th></tr></thead>
+        <tbody id="balance-history-body"><tr><td colspan="6" style="text-align:center;padding:40px;color:var(--muted)"><span class="spin"></span></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+  <?php endif; ?>
+
   <!-- ══════════════════ LOG ══════════════════ -->
   <?php if ($page === 'log'): ?>
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
@@ -912,22 +1071,12 @@ $webRoot = $proto . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirna
       <button class="modal-close" onclick="closeModal()">✕</button>
     </div>
     <div class="tabs">
-      <button class="tab-btn active" onclick="switchTab('permanent',this)">🟢 Постоянный</button>
-      <button class="tab-btn"        onclick="switchTab('temporary',this)">🔵 Временный</button>
+      <button class="tab-btn active" onclick="switchTab('temporary',this)">🔵 Временный</button>
       <button class="tab-btn"        onclick="switchTab('invoice',this)">🟡 Инвойс</button>
     </div>
 
-    <!-- Permanent -->
-    <div class="tab-panel active" id="tab-permanent">
-      <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Выбери сеть</div>
-      <div class="net-list" id="perm-net-list"></div>
-      <div class="notice">Один адрес на пользователя. Повторная покупка тем же ID вернёт тот же адрес. <strong>Вебхук не приходит</strong> — используй кнопку «Проверить».</div>
-      <button class="btn btn-primary" id="perm-btn" onclick="getAddress('permanent')" style="margin-top:12px">Создать оплату</button>
-      <div id="perm-result"></div>
-    </div>
-
     <!-- Temporary -->
-    <div class="tab-panel" id="tab-temporary">
+    <div class="tab-panel active" id="tab-temporary">
       <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Выбери сеть</div>
       <div class="net-list" id="temp-net-list"></div>
       <div class="notice">Новый адрес на каждый заказ, действует 30 минут. <strong>Вебхук не приходит</strong> — используй кнопку «Проверить».</div>
@@ -947,7 +1096,7 @@ $webRoot = $proto . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirna
   </div>
 </div>
 
-<div id="toast"></div>
+<div id="toast-stack"></div>
 
 <script>
 const UID = <?= (int)$uid ?>;
@@ -966,8 +1115,9 @@ const NETWORKS = [
 ];
 
 // selectedNetwork[tabId] → network id string
-const selectedNetwork = { permanent: 'TRON', temporary: 'TRON' };
+const selectedNetwork = { temporary: 'TRON' };
 let selectedPayoutNetwork = 'TRON';
+let selectedTopupNetwork  = 'TRON';
 
 function renderNetworkPicker(containerId, tabId) {
   const el = document.getElementById(containerId);
@@ -1001,8 +1151,7 @@ function openModal(p) {
   document.getElementById('m-name').textContent  = p.name  || '';
   document.getElementById('m-price').textContent = parseFloat(p.price_usdt || 0).toFixed(2) + ' USDT';
   document.getElementById('modal').classList.add('open');
-  ['perm-result','temp-result','inv-result'].forEach(id => { document.getElementById(id).innerHTML = ''; });
-  renderNetworkPicker('perm-net-list', 'permanent');
+  ['temp-result','inv-result'].forEach(id => { document.getElementById(id).innerHTML = ''; });
   renderNetworkPicker('temp-net-list', 'temporary');
 }
 function closeModal() { document.getElementById('modal').classList.remove('open'); }
@@ -1030,8 +1179,8 @@ async function post(action, body) {
 async function getAddress(mode) {
   if (!currentProduct) return;
   const netId   = selectedNetwork[mode] || 'TRON';
-  const btn     = document.getElementById(mode === 'permanent' ? 'perm-btn' : 'temp-btn');
-  const resultEl= document.getElementById(mode === 'permanent' ? 'perm-result' : 'temp-result');
+  const btn     = document.getElementById('temp-btn');
+  const resultEl= document.getElementById('temp-result');
   btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Запрос...';
   const data = await post('get_address', {mode, product_id: currentProduct.id, network: netId});
   btn.disabled = false; btn.textContent = 'Создать оплату';
@@ -1207,10 +1356,6 @@ setInterval(refreshOrders, 15000);
 <?php endif; ?>
 
 // ─── Webhooks ─────────────────────────────────────────────────────────────────
-<?php if ($page === 'webhooks'): ?>
-let lastWebhookId = parseInt(localStorage.getItem('mypay_last_webhook_id') || '0', 10);
-const knownWebhookIds = new Set();
-
 function renderWebhookRow(w, isNew) {
   let pl = {};
   try { pl = JSON.parse(w.payload); } catch(e) {}
@@ -1229,52 +1374,26 @@ function renderWebhookRow(w, isNew) {
   </tr>`;
 }
 
-async function refreshWebhooks(initial) {
+<?php if ($page === 'webhooks'): ?>
+// Начальная загрузка таблицы (обновления — через глобальный поллер)
+(async () => {
   const tbody = document.getElementById('webhooks-body');
-  if (initial) {
-    // Начальная загрузка — загружаем последние 50, маркируем все как известные
-    const rows = await fetch('?action=get_webhooks').then(r=>r.json()).catch(()=>[]);
-    if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="5"><div class="empty"><div class="empty-icon">🔔</div>Вебхуков нет<br><small style="font-size:12px">Укажи Webhook URL в настройках магазина myPay</small></div></td></tr>';
-      return;
-    }
-    rows.forEach(w => knownWebhookIds.add(w.id));
-    const maxId = Math.max(...rows.map(w => parseInt(w.id, 10)));
-    if (maxId > lastWebhookId) {
-      lastWebhookId = maxId;
-      localStorage.setItem('mypay_last_webhook_id', lastWebhookId);
-    }
-    tbody.innerHTML = rows.map(w => renderWebhookRow(w, false)).join('');
-  } else {
-    // Инкрементальный опрос — запрашиваем только новые (id > lastWebhookId)
-    const newRows = await fetch('?action=get_webhooks', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({since_id: lastWebhookId})
-    }).then(r=>r.json()).catch(()=>[]);
-    if (!newRows.length) return;
-    // Сортируем по id desc (как исходная таблица)
-    newRows.sort((a,b) => parseInt(b.id,10) - parseInt(a.id,10));
-    const maxId = Math.max(...newRows.map(w => parseInt(w.id, 10)));
-    if (maxId > lastWebhookId) {
-      lastWebhookId = maxId;
-      localStorage.setItem('mypay_last_webhook_id', lastWebhookId);
-    }
-    // Добавляем новые строки сверху
-    const fragment = newRows.map(w => renderWebhookRow(w, true)).join('');
-    const emptyRow = tbody.querySelector('.empty');
-    if (emptyRow) { tbody.innerHTML = fragment; }
-    else { tbody.insertAdjacentHTML('afterbegin', fragment); }
-    newRows.forEach(w => { knownWebhookIds.add(w.id); });
-    toast('🔔 ' + newRows.length + ' новый вебхук' + (newRows.length > 1 ? 'а' : ''), 'ok');
-    // Снять подсветку через 3 секунды
-    setTimeout(() => {
-      tbody.querySelectorAll('.wh-new').forEach(tr => tr.classList.remove('wh-new'));
-    }, 3000);
+  if (!tbody) return;
+  const rows = await fetch('?action=get_webhooks').then(r=>r.json()).catch(()=>[]);
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="5"><div class="empty"><div class="empty-icon">🔔</div>Вебхуков нет<br><small style="font-size:12px">Укажи Webhook URL в настройках магазина myPay</small></div></td></tr>';
+    return;
   }
+  tbody.innerHTML = rows.map(w => renderWebhookRow(w, false)).join('');
+})();
+function refreshWebhooks() {
+  fetch('?action=get_webhooks').then(r=>r.json()).then(rows => {
+    const tbody = document.getElementById('webhooks-body');
+    if (!tbody) return;
+    if (!rows.length) return;
+    tbody.innerHTML = rows.map(w => renderWebhookRow(w, false)).join('');
+  }).catch(()=>{});
 }
-refreshWebhooks(true);
-setInterval(() => refreshWebhooks(false), 3500);
 <?php endif; ?>
 
 // ─── Log page ─────────────────────────────────────────────────────────────────
@@ -1409,6 +1528,104 @@ refreshPayouts();
 setInterval(refreshPayouts, 10000);
 <?php endif; ?>
 
+// ─── Balances page ────────────────────────────────────────────────────────────
+<?php if ($page === 'balances'): ?>
+(function() { renderTopupNetworkPicker(); })();
+
+function renderTopupNetworkPicker() {
+  const el = document.getElementById('topup-net-list');
+  if (!el) return;
+  el.innerHTML = NETWORKS.map(n => {
+    const isSel = (selectedTopupNetwork === n.id);
+    const badge = n.type === 'gasfree'
+      ? `<span class="net-badge net-badge-gf">GasFree</span>`
+      : `<span class="net-badge net-badge-std">standard</span>`;
+    return `<div class="net-item${isSel?' selected':''}" onclick="selectTopupNetwork('${n.id}')">
+      <div class="net-dot" style="background:${n.color}"></div>
+      <div><div class="net-name">${esc(n.name)}</div><div class="net-proto">${esc(n.proto)} · ${esc(n.currency)}</div></div>
+      ${badge}<div class="net-radio"></div>
+    </div>`;
+  }).join('');
+}
+function selectTopupNetwork(netId) { selectedTopupNetwork = netId; renderTopupNetworkPicker(); }
+
+async function createTopupAddress() {
+  const btn = document.getElementById('topup-btn');
+  const resultEl = document.getElementById('topup-result');
+  const userId = document.getElementById('topup-user').value;
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Запрос...';
+  const data = await post('get_topup_address', { network: selectedTopupNetwork, user_id: parseInt(userId) });
+  btn.disabled = false; btn.textContent = '💳 Получить адрес пополнения';
+  if (data.error || data.api?.error) {
+    const msg = data.error || data.api?.error || 'Неизвестная ошибка';
+    resultEl.innerHTML = `<div class="notice" style="background:rgba(255,79,79,0.08);border-color:rgba(255,79,79,0.25);color:var(--danger);margin-top:12px">❌ ${esc(msg)}</div>`;
+    return;
+  }
+  const api = data.api || {};
+  const addr = esc(api.address || '');
+  const qr = addr ? `<div class="qr-wrap"><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(api.address)}" alt="QR" loading="lazy"></div>` : '';
+  resultEl.innerHTML = `<div class="result-box">
+    <div class="result-head">Постоянный адрес пополнения</div>
+    <div class="result-body">
+      <div class="address-block">
+        <div class="address-label">${esc(api.network||selectedTopupNetwork)} · постоянный</div>
+        <div class="address-value">${addr}</div>
+        <div class="address-copy"><button class="btn-copy" onclick="copyText(${JSON.stringify(api.address||'')})">Копировать</button></div>
+      </div>
+      ${qr}
+      <div class="info-row"><span class="k">Payment ID</span><span class="v">${esc(String(api.payment_id||'—'))}</span></div>
+      <div class="notice" style="margin-top:10px">Отправь любую сумму на этот адрес. Баланс пользователя пополнится автоматически при получении вебхука <strong>payment.received</strong>.</div>
+    </div>
+  </div>`;
+  toast('✅ Адрес создан', 'ok');
+}
+
+async function refreshBalances() {
+  const rows = await fetch('?action=get_balances').then(r=>r.json()).catch(()=>[]);
+  const tbody = document.getElementById('balances-body');
+  if (!tbody) return;
+  if (rows.error || !rows.length) {
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty"><div class="empty-icon">💰</div>' + (rows.error || 'Нет данных') + '</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(u => `
+    <tr>
+      <td class="mono">#${u.id}</td>
+      <td>${esc(u.avatar||'')} ${esc(u.name||'')}</td>
+      <td style="color:var(--muted);font-size:11px">${esc(u.email||'')}</td>
+      <td><span style="font-size:14px;font-weight:700;color:var(--green)">${parseFloat(u.balance_usdt||0).toFixed(4)}</span> <small style="color:var(--muted)">USDT</small></td>
+      <td style="font-size:11px;color:var(--muted)">${u.last_updated ? esc(u.last_updated) : '—'}</td>
+      <td><button class="btn-copy" onclick="document.getElementById('history-user-filter').value=${u.id};refreshBalanceHistory()">История</button></td>
+    </tr>`).join('');
+}
+
+async function refreshBalanceHistory() {
+  const userId = parseInt(document.getElementById('history-user-filter')?.value || '0');
+  const data = await fetch('?action=get_balance_history', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ user_id: userId })
+  }).then(r=>r.json()).catch(()=>[]);
+  const tbody = document.getElementById('balance-history-body');
+  if (!tbody) return;
+  if (!Array.isArray(data) || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty"><div class="empty-icon">📋</div>Транзакций пока нет</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(t => `
+    <tr>
+      <td class="mono">#${t.id}</td>
+      <td>${esc(t.uavatar||'')} ${esc(t.uname||'')}</td>
+      <td><span style="color:var(--green);font-weight:700">+${parseFloat(t.amount||0).toFixed(4)} USDT</span></td>
+      <td class="mono" style="font-size:10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(t.tx_hash||'')}">${esc((t.tx_hash||'').slice(0,16))}…</td>
+      <td class="mono">${t.order_id ? '#'+t.order_id : '—'}</td>
+      <td style="font-size:11px;color:var(--muted);white-space:nowrap">${esc(t.created_at||'')}</td>
+    </tr>`).join('');
+}
+
+refreshBalances();
+refreshBalanceHistory();
+setInterval(refreshBalances, 15000);
+<?php endif; ?>
+
 // ─── Utils ────────────────────────────────────────────────────────────────────
 function esc(s) {
   return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -1416,11 +1633,117 @@ function esc(s) {
 function copyText(text) {
   navigator.clipboard?.writeText(text).then(() => toast('Скопировано!','ok')).catch(() => toast('Ошибка копирования','err'));
 }
-function toast(msg, type='') {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.className = 'show ' + type;
-  setTimeout(() => t.className = '', 2800);
+
+// ─── Toast stack ──────────────────────────────────────────────────────────────
+function showNotification(htmlMsg, type='', duration=5000) {
+  const stack = document.getElementById('toast-stack');
+  if (!stack) return;
+  const card = document.createElement('div');
+  card.className = 'toast-card' + (type ? ' ' + type : '');
+  card.innerHTML = htmlMsg;
+  card.onclick = () => card.remove();
+  stack.appendChild(card);
+  // Limit to 4 visible cards
+  const cards = stack.querySelectorAll('.toast-card');
+  if (cards.length > 4) cards[0].remove();
+  requestAnimationFrame(() => { requestAnimationFrame(() => card.classList.add('show')); });
+  setTimeout(() => {
+    card.classList.remove('show');
+    setTimeout(() => card.remove(), 400);
+  }, duration);
 }
+
+function toast(msg, type='') {
+  showNotification(esc(msg), type, 2800);
+}
+
+// ─── Webhook event formatter ──────────────────────────────────────────────────
+function formatWebhookNotification(w) {
+  let pl = {};
+  try { pl = JSON.parse(w.payload); } catch(e) {}
+  const et  = w.event_type || '';
+  const amt = pl.amount_received ?? pl.amount ?? null;
+  const amtHtml = amt != null ? `<strong>+${parseFloat(amt).toFixed(2)} USDT</strong>` : '';
+  const ordId = w.order_id ? `Заказ #${w.order_id}` : (pl.payment_id ? `PID:${pl.payment_id}` : '');
+  const sub   = ordId ? `<small>${esc(ordId)}</small>` : '';
+
+  if (et === 'payment.received')
+    return `💰 Получено ${amtHtml} · постоянный адрес${sub ? '<br>'+sub : ''}`;
+  if (et === 'payment.confirmed' || et === 'invoice.confirmed')
+    return `✅ Платёж подтверждён ${amtHtml}${sub ? '<br>'+sub : ''}`;
+  if (et === 'payment.partial') {
+    const req = pl.amount_required ? parseFloat(pl.amount_required).toFixed(2) : '?';
+    return `⚡ Частичная оплата: ${amtHtml} из ${req} USDT${sub ? '<br>'+sub : ''}`;
+  }
+  if (et === 'payout.completed') {
+    const tx = pl.tx_hash ? `<small>TX: ${esc(String(pl.tx_hash).slice(0,14))}…</small>` : '';
+    return `💸 Выплата выполнена ${amtHtml}${tx ? '<br>'+tx : ''}`;
+  }
+  if (et === 'payout.failed')
+    return `❌ Выплата отменена${amtHtml ? ' '+amtHtml : ''}${sub ? '<br>'+sub : ''}`;
+  if (et === 'invoice.expired')
+    return `⏱ Инвойс истёк${sub ? '<br>'+sub : ''}`;
+  return `🔔 ${esc(et)}${sub ? '<br>'+sub : ''}`;
+}
+
+// ─── Global webhook poller (all pages) ───────────────────────────────────────
+let _globalLastWid = parseInt(localStorage.getItem('mypay_last_webhook_id') || '0', 10);
+
+async function _globalPollWebhooks() {
+  try {
+    const newRows = await fetch('?action=get_webhooks', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ since_id: _globalLastWid })
+    }).then(r => r.json()).catch(() => []);
+
+    if (!Array.isArray(newRows) || !newRows.length) return;
+
+    const maxId = Math.max(...newRows.map(w => parseInt(w.id, 10)));
+    if (maxId > _globalLastWid) {
+      _globalLastWid = maxId;
+      localStorage.setItem('mypay_last_webhook_id', maxId);
+    }
+
+    // Show notifications (only when page is visible)
+    if (document.visibilityState === 'visible') {
+      newRows.sort((a, b) => parseInt(a.id,10) - parseInt(b.id,10)).forEach(w => {
+        const isErr = /failed|expired|cancel/.test(w.event_type || '');
+        showNotification(formatWebhookNotification(w), isErr ? 'err' : 'ok', 6000);
+      });
+    }
+
+    // Update webhooks table if on that page
+    const tbody = document.getElementById('webhooks-body');
+    if (tbody) {
+      newRows.sort((a,b) => parseInt(b.id,10) - parseInt(a.id,10));
+      const fragment = newRows.map(w => renderWebhookRow(w, true)).join('');
+      const emptyRow = tbody.querySelector('.empty');
+      if (emptyRow) tbody.innerHTML = fragment;
+      else tbody.insertAdjacentHTML('afterbegin', fragment);
+      setTimeout(() => tbody.querySelectorAll('.wh-new').forEach(tr => tr.classList.remove('wh-new')), 3000);
+    }
+
+    // Refresh balances table if on that page (new balance may have been credited)
+    if (document.getElementById('balances-body') && newRows.some(w => w.event_type === 'payment.received')) {
+      if (typeof refreshBalances === 'function')       setTimeout(refreshBalances, 1500);
+      if (typeof refreshBalanceHistory === 'function') setTimeout(refreshBalanceHistory, 1500);
+    }
+  } catch(e) {}
+}
+
+// Init: set _globalLastWid from current max if first visit (no notifications for old webhooks)
+(async () => {
+  if (_globalLastWid === 0) {
+    const rows = await fetch('?action=get_webhooks').then(r=>r.json()).catch(()=>[]);
+    if (Array.isArray(rows) && rows.length) {
+      const maxId = Math.max(...rows.map(w => parseInt(w.id, 10)));
+      _globalLastWid = maxId;
+      localStorage.setItem('mypay_last_webhook_id', maxId);
+    }
+  }
+  setInterval(_globalPollWebhooks, 3500);
+})();
 </script>
 </body>
 </html>
