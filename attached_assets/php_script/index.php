@@ -76,6 +76,38 @@ try {
         . '<br><br>Проверь константы DB_* в начале index.php</h2>');
 }
 
+// ── Авто-миграция: создаём таблицы баланса если ещё нет ───────────────────────
+try {
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS users_balances (
+          user_id      INT UNSIGNED   NOT NULL,
+          balance_usdt DECIMAL(18,8)  NOT NULL DEFAULT 0.00000000,
+          last_updated TIMESTAMP      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (user_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS balance_transactions (
+          id         INT UNSIGNED   AUTO_INCREMENT PRIMARY KEY,
+          user_id    INT UNSIGNED   NOT NULL,
+          order_id   INT UNSIGNED   DEFAULT NULL,
+          tx_hash    VARCHAR(200)   NOT NULL,
+          amount     DECIMAL(18,8)  NOT NULL,
+          direction  ENUM('credit','debit') NOT NULL DEFAULT 'credit',
+          event_type VARCHAR(100)   DEFAULT NULL,
+          created_at TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE KEY uq_tx_hash (tx_hash),
+          INDEX idx_user_id   (user_id),
+          INDEX idx_order_id  (order_id),
+          INDEX idx_created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
+    // Инициализируем balance=0 для всех существующих пользователей
+    $pdo->exec("INSERT IGNORE INTO users_balances (user_id) SELECT id FROM users");
+} catch (PDOException $e) {
+    app_log('WARN', 'Auto-migrate failed', ['error' => $e->getMessage()]);
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function cfg(PDO $pdo, string $key, string $default = ''): string {
     static $cache = [];
