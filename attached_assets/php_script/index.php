@@ -1000,6 +1000,20 @@ $webRoot = $proto . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirna
       <div id="current-balance" style="font-size:24px;font-weight:700;color:var(--green)"><span class="spin"></span></div>
     </div>
   </div>
+  <script>
+  window.refreshBalances = async function() {
+    var el = document.getElementById('current-balance');
+    if (!el) return;
+    var data = await fetch('?action=get_balances').then(function(r){return r.json();}).catch(function(){return [];});
+    var uid = <?= $uid ?>;
+    var user = Array.isArray(data) ? data.find(function(u){return +u.id===uid;}) : null;
+    el.textContent = parseFloat((user && user.balance_usdt) || 0).toFixed(4) + ' USDT';
+    var wrap = document.querySelector('select#topup-user') ? document.querySelector('select#topup-user').closest('[style*="flex:1"]') : null;
+    if (wrap) wrap.style.display = 'none';
+  };
+  refreshBalances();
+  setInterval(refreshBalances, 15000);
+  </script>
 
   <!-- Создать адрес пополнения -->
   <div class="card card-pad" style="margin-bottom:16px">
@@ -1121,6 +1135,24 @@ const NETWORKS = [
 const selectedNetwork = { temporary: 'TRON' };
 let selectedPayoutNetwork = 'TRON';
 let selectedTopupNetwork  = 'TRON';
+
+async function refreshBalances() {
+  const data = await fetch('?action=get_balances').then(r => r.json()).catch(() => []);
+  const uid = <?= $uid ?>;
+  const user = Array.isArray(data) ? data.find(u => +u.id === uid) : null;
+  const balance = parseFloat(user?.balance_usdt || 0).toFixed(4) + ' USDT';
+  let el = document.getElementById('current-balance');
+  if (el) { el.textContent = balance; return; }
+  const first = document.querySelector('.card');
+  if (!first) return;
+  const div = document.createElement('div');
+  div.className = 'card card-pad';
+  div.style.cssText = 'margin-bottom:16px;display:flex;align-items:center;justify-content:space-between';
+  div.innerHTML = '<div><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Ваш баланс</div><div style="font-size:24px;font-weight:700;color:var(--green)">' + balance + '</div></div>';
+  first.parentNode.insertBefore(div, first);
+  const wrap = document.querySelector('select#topup-user')?.closest('[style*="flex:1"]');
+  if (wrap) wrap.style.display = 'none';
+}
 
 function renderNetworkPicker(containerId, tabId) {
   const el = document.getElementById(containerId);
