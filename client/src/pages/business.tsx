@@ -1111,7 +1111,7 @@ function PaymentsTab({ shop, payments }: { shop: Shop; payments: Payment[] }) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-3">
       {payments.map(p => (
         <div key={p.id} className="bg-[#13151A] border border-white/5 rounded-2xl p-4">
           <div className="flex items-start justify-between mb-2">
@@ -1414,7 +1414,7 @@ function WalletsTab({ shop, wallets, onRefresh }: { shop: Shop; wallets: Merchan
           <p className="text-xs mt-1 text-center">Добавьте кошельки в пул для приёма платежей</p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-2">
           {wallets.map(w => (
             <WalletCard key={w.id} wallet={w} shopId={shop.id} onRefresh={onRefresh} />
           ))}
@@ -1550,9 +1550,13 @@ function PayoutsTab({ shop, payouts, wallets }: { shop: Shop; payouts: Payout[];
           <ArrowUpRight className="w-10 h-10 mb-3 opacity-30" />
           <p className="text-sm">Заявок на выплату нет</p>
         </div>
-      ) : payouts.map(p => (
-        <PayoutCard key={p.id} payout={p} shopId={shop.id} wallets={wallets} onUpdate={(status, txHash) => updatePayout.mutate({ payoutId: p.id, status, txHash })} />
-      ))}
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          {payouts.map(p => (
+            <PayoutCard key={p.id} payout={p} shopId={shop.id} wallets={wallets} onUpdate={(status, txHash) => updatePayout.mutate({ payoutId: p.id, status, txHash })} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
