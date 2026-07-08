@@ -891,6 +891,14 @@ export async function recoverPendingPollers() {
   const PAYMENT_TTL  = 3 * 60 * 60 * 1000;  // 3 hours — same as pollAddressForPayment deadline
   const INVOICE_TTL  = 30 * 60 * 1000;       // 30 min — same as pollInvoiceForPayment deadline
   try {
+    // Fix old invoices created before 2-phase expiry: clear expires_at for pending invoices
+    // that have no wallet_address yet — the clock should only start after network selection.
+    await db.execute(sql`
+      UPDATE merchant_invoices
+      SET expires_at = NULL
+      WHERE status = 'pending' AND wallet_address IS NULL AND expires_at IS NOT NULL
+    `);
+
     // Recover pending payments still within their TTL window
     const [payRows] = await db.execute(sql`
       SELECT id, wallet_address, network, currency, amount, created_at

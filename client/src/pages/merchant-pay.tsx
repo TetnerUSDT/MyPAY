@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "wouter";
 import { Loader2, CheckCircle2, XCircle, Copy, Check, Clock, RefreshCw, ShieldCheck, Info } from "lucide-react";
 
@@ -48,18 +48,24 @@ function CopyBtn({ text, className = "" }: { text: string, className?: string })
   );
 }
 
-function CountdownTimer({ expiresAt }: { expiresAt: string }) {
+function CountdownTimer({ expiresAt, onExpire }: { expiresAt: string; onExpire?: () => void }) {
   const [remaining, setRemaining] = useState(0);
+  const expiredRef = useRef(false);
 
   useEffect(() => {
+    expiredRef.current = false;
     const update = () => {
       const diff = Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
       setRemaining(diff);
+      if (diff === 0 && !expiredRef.current) {
+        expiredRef.current = true;
+        onExpire?.();
+      }
     };
     update();
     const t = setInterval(update, 1000);
     return () => clearInterval(t);
-  }, [expiresAt]);
+  }, [expiresAt, onExpire]);
 
   const mins = Math.floor(remaining / 60);
   const secs = remaining % 60;
@@ -296,7 +302,7 @@ export default function MerchantPayPage() {
               </div>
               
               {invoice.expires_at && (
-                <CountdownTimer expiresAt={invoice.expires_at} />
+                <CountdownTimer expiresAt={invoice.expires_at} onExpire={fetchInvoice} />
               )}
             </div>
 
@@ -329,7 +335,7 @@ export default function MerchantPayPage() {
                       <div className="text-sm text-white font-bold">{NETWORK_LABELS[invoice.network_chosen]?.label ?? invoice.network_chosen}</div>
                     </div>
                   </div>
-                  {invoice.expires_at && <CountdownTimer expiresAt={invoice.expires_at} />}
+                  {invoice.expires_at && <CountdownTimer expiresAt={invoice.expires_at} onExpire={fetchInvoice} />}
                 </div>
 
                 <div className="bg-[#0A0D12] border border-white/5 rounded-3xl p-6 flex flex-col items-center shadow-inner relative overflow-hidden">
