@@ -1147,12 +1147,135 @@ function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => v
   );
 }
 
+// ── Shared premium modal ──────────────────────────────────────────────────────
+
+function PremiumModal({
+  show, onClose, title, subtitle, Icon, children, maxWidth = "max-w-md",
+}: {
+  show: boolean;
+  onClose: () => void;
+  title: string;
+  subtitle?: string;
+  Icon?: React.ElementType;
+  children: React.ReactNode;
+  maxWidth?: string;
+}) {
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const closingRef = useRef(false);
+
+  useEffect(() => {
+    if (!show || !backdropRef.current || !modalRef.current) return;
+    closingRef.current = false;
+    gsap.set(backdropRef.current, { autoAlpha: 0 });
+    gsap.set(modalRef.current, { y: 60, scale: 0.94, autoAlpha: 0 });
+    const tl = gsap.timeline();
+    tl.to(backdropRef.current, { autoAlpha: 1, duration: 0.22, ease: "power2.out" })
+      .to(modalRef.current, { y: 0, scale: 1, autoAlpha: 1, duration: 0.4, ease: "back.out(1.1)" }, "<0.05");
+  }, [show]);
+
+  const handleClose = useCallback(() => {
+    if (closingRef.current || !backdropRef.current || !modalRef.current) { onClose(); return; }
+    closingRef.current = true;
+    const tl = gsap.timeline({ onComplete: onClose });
+    tl.to(modalRef.current, { y: 30, scale: 0.95, autoAlpha: 0, duration: 0.24, ease: "power2.in" })
+      .to(backdropRef.current, { autoAlpha: 0, duration: 0.18 }, "<0.06");
+  }, [onClose]);
+
+  if (!show) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+      <div ref={backdropRef} className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={handleClose} />
+      <div ref={modalRef} className={`relative z-10 w-full ${maxWidth} mx-4 mb-4 sm:mb-0`}>
+        <div
+          className="relative bg-[#0A0C10] border border-white/10 rounded-3xl p-6 overflow-hidden"
+          style={{ boxShadow: "0 0 80px rgba(58,179,104,0.07), 0 25px 60px rgba(0,0,0,0.7)" }}
+        >
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2/3 h-px bg-gradient-to-r from-transparent via-[#3ab368]/60 to-transparent" />
+          <div className="absolute -top-20 -right-20 w-48 h-48 bg-[#3ab368]/5 rounded-full blur-3xl pointer-events-none" />
+          <div className="flex items-start justify-between mb-5">
+            <div className="flex items-center gap-3">
+              {Icon && (
+                <div
+                  className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: "linear-gradient(135deg, rgba(58,179,104,0.2), rgba(58,179,104,0.05))", border: "1px solid rgba(58,179,104,0.25)" }}
+                >
+                  <Icon className="w-5 h-5 text-[#3ab368]" />
+                </div>
+              )}
+              <div>
+                <h2 className="text-base font-bold text-white">{title}</h2>
+                {subtitle && <p className="text-xs text-white/40 mt-0.5">{subtitle}</p>}
+              </div>
+            </div>
+            <button onClick={handleClose} className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors flex-shrink-0">
+              <X className="w-4 h-4 text-white/50" />
+            </button>
+          </div>
+          <div className="h-px bg-gradient-to-r from-transparent via-white/8 to-transparent mb-5" />
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Filter pills ──────────────────────────────────────────────────────────────
+
+function FilterPills<T extends string>({
+  options, value, onChange,
+}: {
+  options: { id: T; label: string; count?: number }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide">
+      {options.map(o => (
+        <button
+          key={o.id}
+          onClick={() => onChange(o.id)}
+          className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+            value === o.id
+              ? "bg-[#3ab368] text-white shadow-[0_0_12px_rgba(58,179,104,0.3)]"
+              : "bg-white/5 text-white/40 hover:bg-white/10 hover:text-white/70"
+          }`}
+        >
+          {o.label}
+          {o.count !== undefined && o.count > 0 && (
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+              value === o.id ? "bg-white/25 text-white" : "bg-white/10 text-white/50"
+            }`}>
+              {o.count}
+            </span>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── Premium card wrapper ───────────────────────────────────────────────────────
+
+function PremiumCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div
+      className={`relative bg-[#0D0F14] border border-white/8 rounded-2xl p-4 overflow-hidden hover:border-white/14 transition-all ${className}`}
+      style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
+    >
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/8 to-transparent" />
+      {children}
+    </div>
+  );
+}
+
 // ── Payments tab ──────────────────────────────────────────────────────────────
 
 function PaymentsTab({ shop, payments }: { shop: Shop; payments: Payment[] }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [checking, setChecking] = useState<number | null>(null);
+  const [filter, setFilter] = useState<"all" | "pending" | "confirmed" | "expired" | "failed">("all");
 
   const checkPayment = async (paymentId: number) => {
     setChecking(paymentId);
@@ -1176,86 +1299,109 @@ function PaymentsTab({ shop, payments }: { shop: Shop; payments: Payment[] }) {
     }
   };
 
-  if (payments.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-white/30">
-        <ArrowDownLeft className="w-10 h-10 mb-3 opacity-30" />
-        <p className="text-sm">Платежей пока нет</p>
-      </div>
-    );
-  }
+  const filtered = filter === "all" ? payments : payments.filter(p => p.status === filter);
+  const counts = {
+    pending: payments.filter(p => p.status === "pending").length,
+    confirmed: payments.filter(p => p.status === "confirmed").length,
+    expired: payments.filter(p => p.status === "expired").length,
+    failed: payments.filter(p => p.status === "failed").length,
+  };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-      {payments.map(p => (
-        <div key={p.id} className="bg-[#13151A] border border-white/5 rounded-2xl p-4">
-          <div className="flex items-start justify-between mb-2">
-            <div>
-              <div className="flex items-center gap-2 mb-0.5">
-                <span className="text-sm font-semibold text-white">#{p.id}</span>
-                <StatusBadge status={p.status} />
-              </div>
-              <div className="text-xs text-white/40">{p.network} · {p.currency}</div>
-            </div>
-            <div className="text-right">
-              <div className="text-sm font-bold text-[#3ab368]">
-                {p.amountReceived ? parseFloat(p.amountReceived).toFixed(4) : (p.amount ? parseFloat(p.amount).toFixed(4) : "—")}
-              </div>
-              <div className="text-[10px] text-white/30">{formatDate(p.createdAt)}</div>
-            </div>
-          </div>
+    <div className="space-y-3">
+      {/* Filter pills */}
+      <FilterPills
+        options={[
+          { id: "all" as const, label: "Все", count: payments.length },
+          { id: "pending" as const, label: "Ожидание", count: counts.pending },
+          { id: "confirmed" as const, label: "Подтверждено", count: counts.confirmed },
+          { id: "expired" as const, label: "Истекло", count: counts.expired },
+          { id: "failed" as const, label: "Ошибка", count: counts.failed },
+        ]}
+        value={filter}
+        onChange={setFilter}
+      />
 
-          {/* Timer row — only for pending */}
-          {p.status === "pending" && p.paymentMode !== "permanent" && (
-            <div className="flex items-center justify-between mt-1 mb-2">
-              <PaymentTimer expiresAt={p.expiresAt ?? null} />
-              <button
-                onClick={() => checkPayment(p.id)}
-                disabled={checking === p.id}
-                className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg bg-[#3ab368]/10 text-[#3ab368] hover:bg-[#3ab368]/20 transition-colors disabled:opacity-50"
-              >
-                {checking === p.id
-                  ? <Loader2 className="w-3 h-3 animate-spin" />
-                  : <RefreshCw className="w-3 h-3" />}
-                Проверить
-              </button>
-            </div>
-          )}
-          {/* Permanent mode label */}
-          {p.status === "pending" && p.paymentMode === "permanent" && (
-            <div className="flex items-center gap-1 text-[10px] text-white/30 mt-1 mb-2">
-              <Clock className="w-3 h-3" />
-              <span>постоянный адрес · фиксирует входящие транзакции</span>
-            </div>
-          )}
-
-          {/* Wallet address */}
-          {p.walletAddress && (
-            <div className="text-[10px] text-white/30 font-mono bg-[#0E1014] rounded-lg px-2 py-1.5 flex justify-between items-center">
-              <span>{truncate(p.walletAddress, 20)}</span>
-              <CopyButton text={p.walletAddress} />
-            </div>
-          )}
-
-          {/* TX hash */}
-          {p.txHash && (
-            <div className="text-[10px] text-[#3ab368]/70 font-mono mt-1 truncate">TX: {truncate(p.txHash, 24)}</div>
-          )}
-
-          {/* Confirmed time */}
-          {p.confirmedAt && (
-            <div className="text-[10px] text-[#3ab368]/60 mt-1">Подтверждён: {formatDate(p.confirmedAt)}</div>
-          )}
-
-          {/* External user / order */}
-          {(p.externalUserId || p.orderId) && (
-            <div className="text-[10px] text-white/20 mt-1">
-              {p.externalUserId && <span>uid: {p.externalUserId}</span>}
-              {p.orderId && <span className="ml-2">order: {p.orderId}</span>}
-            </div>
-          )}
+      {filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-white/30">
+          <ArrowDownLeft className="w-10 h-10 mb-3 opacity-30" />
+          <p className="text-sm">{filter === "all" ? "Платежей пока нет" : "Нет платежей в этой категории"}</p>
         </div>
-      ))}
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          {filtered.map(p => (
+            <PremiumCard key={p.id}>
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-bold text-white/50 font-mono">#{p.id}</span>
+                    <StatusBadge status={p.status} />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-white/35 font-medium">{p.network}</span>
+                    <span className="text-white/20">·</span>
+                    <span className="text-[10px] text-white/35">{p.currency}</span>
+                    {p.paymentMode && (
+                      <>
+                        <span className="text-white/20">·</span>
+                        <span className="text-[9px] text-white/25">{p.paymentMode}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-base font-bold text-[#3ab368]">
+                    {p.amountReceived ? parseFloat(p.amountReceived).toFixed(4) : (p.amount ? parseFloat(p.amount).toFixed(4) : "—")}
+                  </div>
+                  <div className="text-[10px] text-white/30 mt-0.5">{formatDate(p.createdAt)}</div>
+                </div>
+              </div>
+
+              {p.status === "pending" && p.paymentMode !== "permanent" && (
+                <div className="flex items-center justify-between mb-2 bg-white/3 rounded-xl px-2.5 py-1.5">
+                  <PaymentTimer expiresAt={p.expiresAt ?? null} />
+                  <button
+                    onClick={() => checkPayment(p.id)}
+                    disabled={checking === p.id}
+                    className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg bg-[#3ab368]/15 text-[#3ab368] hover:bg-[#3ab368]/25 transition-colors disabled:opacity-50"
+                  >
+                    {checking === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                    Проверить
+                  </button>
+                </div>
+              )}
+              {p.status === "pending" && p.paymentMode === "permanent" && (
+                <div className="flex items-center gap-1.5 text-[10px] text-white/25 mb-2 bg-white/3 rounded-xl px-2.5 py-1.5">
+                  <Clock className="w-3 h-3 flex-shrink-0" />
+                  <span>постоянный адрес · фиксирует входящие</span>
+                </div>
+              )}
+
+              {p.walletAddress && (
+                <div className="text-[10px] text-white/30 font-mono bg-black/30 border border-white/5 rounded-lg px-2.5 py-1.5 flex justify-between items-center">
+                  <span className="truncate">{truncate(p.walletAddress, 20)}</span>
+                  <CopyButton text={p.walletAddress} />
+                </div>
+              )}
+              {p.txHash && (
+                <div className="text-[10px] text-[#3ab368]/60 font-mono mt-1.5 truncate flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 flex-shrink-0" />
+                  {truncate(p.txHash, 24)}
+                </div>
+              )}
+              {p.confirmedAt && (
+                <div className="text-[10px] text-white/30 mt-1">✓ {formatDate(p.confirmedAt)}</div>
+              )}
+              {(p.externalUserId || p.orderId) && (
+                <div className="text-[9px] text-white/20 mt-1.5 flex gap-2">
+                  {p.externalUserId && <span>uid: {p.externalUserId}</span>}
+                  {p.orderId && <span>order: {p.orderId}</span>}
+                </div>
+              )}
+            </PremiumCard>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1403,7 +1549,9 @@ function WalletsTab({ shop, wallets, onRefresh }: { shop: Shop; wallets: Merchan
   const qc = useQueryClient();
   const [genNetwork, setGenNetwork] = useState("");
   const [genMode, setGenMode] = useState("standard");
-  const [showGen, setShowGen] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "reserved" | "permanent">("all");
+  const [filterNet, setFilterNet] = useState<string>("all");
   const enabledNets = parseNetworks(shop.enabledNetworks);
 
   const generate = useMutation({
@@ -1413,88 +1561,146 @@ function WalletsTab({ shop, wallets, onRefresh }: { shop: Shop; wallets: Merchan
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/business/wallets", shop.id] });
       toast({ title: "Кошелёк добавлен в пул" });
-      setShowGen(false);
+      setShowModal(false);
+      setGenNetwork(""); setGenMode("standard");
     },
     onError: (e: any) => toast({ title: "Ошибка", description: e.message, variant: "destructive" }),
   });
 
   const activeNets = NETWORKS.filter(n => n.selectable && enabledNets.includes(n.id));
+  const uniqueNetworks = [...new Set(wallets.map(w => w.network))];
 
+  const filtered = wallets.filter(w => {
+    const st = walletStatus(w);
+    if (filterStatus !== "all" && st !== filterStatus) return false;
+    if (filterNet !== "all" && w.network !== filterNet) return false;
+    return true;
+  });
+
+  const statusCounts = {
+    active: wallets.filter(w => walletStatus(w) === "active").length,
+    reserved: wallets.filter(w => walletStatus(w) === "reserved").length,
+    permanent: wallets.filter(w => walletStatus(w) === "permanent").length,
+  };
 
   return (
     <div className="space-y-3">
-      {shop.status === "active" && (
-        <button
-          onClick={() => setShowGen(v => !v)}
-          className="w-full py-3 rounded-2xl border border-dashed border-[#3ab368]/40 text-[#3ab368] text-sm font-medium flex items-center justify-center gap-2 hover:bg-[#3ab368]/5 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Добавить кошелёк в пул
-        </button>
-      )}
-
-      {showGen && (
-        <div className="bg-[#13151A] border border-white/5 rounded-2xl p-4 space-y-3">
-          <div className="text-sm font-semibold text-white">Генерация кошелька</div>
-          {enabledNets.length === 0 ? (
-            <p className="text-xs text-[#e9c46a]">Сначала выберите активные сети в Настройках магазина.</p>
-          ) : (
-            <>
-              <div>
-                <label className="text-xs text-white/40 mb-2 block">Выберите сеть</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {activeNets.map(n => (
-                    <button
-                      key={n.id}
-                      onClick={() => { setGenNetwork(n.apiNode!); setGenMode(n.apiMode!); }}
-                      className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all ${
-                        genNetwork === n.apiNode && genMode === n.apiMode
-                          ? "border-[#3ab368] bg-[#3ab368]/10"
-                          : "border-white/10 bg-[#0E1014] hover:border-white/20"
-                      }`}
-                    >
-                      <NetworkIcon iconFile={n.icon} size={22} />
-                      <div className="min-w-0">
-                        <div className="text-xs font-medium text-white truncate">{n.label}</div>
-                        {n.badge && <div className="text-[9px] text-[#3ab368]">{n.badge}</div>}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <button
-                onClick={() => generate.mutate()}
-                disabled={!genNetwork || generate.isPending}
-                className="w-full py-3 rounded-xl bg-[#3ab368] text-white text-sm font-semibold disabled:opacity-40 flex items-center justify-center gap-2"
-              >
-                {generate.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                Сгенерировать
-              </button>
-            </>
-          )}
-        </div>
-      )}
-
+      {/* Header row */}
       <div className="flex items-center justify-between">
-        <span className="text-xs text-white/40">Кошельков: {wallets.length}</span>
-        <button onClick={onRefresh} className="text-xs text-white/40 flex items-center gap-1 hover:text-white/70">
-          <RefreshCw className="w-3 h-3" /> Обновить
+        <div className="flex items-center gap-2">
+          {shop.status === "active" && (
+            <button
+              onClick={() => setShowModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#3ab368] text-white text-xs font-semibold hover:bg-[#2ea058] transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Добавить кошелёк
+            </button>
+          )}
+          <span className="text-xs text-white/30">Всего: {wallets.length}</span>
+        </div>
+        <button onClick={onRefresh} className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors">
+          <RefreshCw className="w-3.5 h-3.5 text-white/40" />
         </button>
       </div>
 
-      {wallets.length === 0 ? (
+      {/* Status filter */}
+      <FilterPills
+        options={[
+          { id: "all" as const, label: "Все", count: wallets.length },
+          { id: "active" as const, label: "Свободные", count: statusCounts.active },
+          { id: "reserved" as const, label: "Зарезервированные", count: statusCounts.reserved },
+          { id: "permanent" as const, label: "Постоянные", count: statusCounts.permanent },
+        ]}
+        value={filterStatus}
+        onChange={setFilterStatus}
+      />
+
+      {/* Network filter */}
+      {uniqueNetworks.length > 1 && (
+        <FilterPills
+          options={[
+            { id: "all", label: "Все сети" },
+            ...uniqueNetworks.map(n => {
+              const def = NETWORKS.find(nd => nd.apiNode === n);
+              return { id: n, label: def?.label ?? n };
+            }),
+          ]}
+          value={filterNet}
+          onChange={setFilterNet}
+        />
+      )}
+
+      {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-white/30">
           <Wallet className="w-10 h-10 mb-3 opacity-30" />
-          <p className="text-sm">Кошельков нет</p>
-          <p className="text-xs mt-1 text-center">Добавьте кошельки в пул для приёма платежей</p>
+          <p className="text-sm">{wallets.length === 0 ? "Кошельков нет" : "Нет кошельков по фильтру"}</p>
+          {wallets.length === 0 && <p className="text-xs mt-1 text-center">Добавьте кошельки в пул для приёма платежей</p>}
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-2">
-          {wallets.map(w => (
+          {filtered.map(w => (
             <WalletCard key={w.id} wallet={w} shopId={shop.id} onRefresh={onRefresh} />
           ))}
         </div>
       )}
+
+      {/* Generate wallet modal */}
+      <PremiumModal
+        show={showModal}
+        onClose={() => setShowModal(false)}
+        title="Добавить кошелёк"
+        subtitle="Генерация нового кошелька в пул"
+        Icon={Wallet}
+      >
+        {enabledNets.length === 0 ? (
+          <div className="flex items-start gap-2 bg-[#e9c46a]/8 border border-[#e9c46a]/20 rounded-xl p-3">
+            <AlertCircle className="w-4 h-4 text-[#e9c46a] flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-[#e9c46a]/80 leading-relaxed">Сначала выберите активные сети в Настройках магазина.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs text-white/40 mb-2.5 block font-medium">Выберите сеть</label>
+              <div className="grid grid-cols-2 gap-2">
+                {activeNets.map(n => (
+                  <button
+                    key={n.id}
+                    onClick={() => { setGenNetwork(n.apiNode!); setGenMode(n.apiMode!); }}
+                    className={`relative flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                      genNetwork === n.apiNode && genMode === n.apiMode
+                        ? "border-[#3ab368]/50 bg-[#3ab368]/8 shadow-[0_0_16px_rgba(58,179,104,0.08)]"
+                        : "border-white/8 bg-white/2 hover:border-white/15 hover:bg-white/5"
+                    }`}
+                  >
+                    {genNetwork === n.apiNode && genMode === n.apiMode && (
+                      <div className="absolute top-2 right-2 w-3.5 h-3.5 rounded-full bg-[#3ab368] flex items-center justify-center">
+                        <Check className="w-2 h-2 text-white" />
+                      </div>
+                    )}
+                    <NetworkIcon iconFile={n.icon} size={26} />
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-white truncate">{n.label}</div>
+                      {n.badge && <div className="text-[9px] text-[#3ab368] font-medium mt-0.5">{n.badge}</div>}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button
+              onClick={() => generate.mutate()}
+              disabled={!genNetwork || generate.isPending}
+              className="relative w-full py-3.5 rounded-2xl font-semibold text-sm overflow-hidden disabled:opacity-40 transition-opacity"
+              style={{ background: "linear-gradient(135deg, #3ab368, #2ea058)" }}
+            >
+              <span className="relative flex items-center justify-center gap-2 text-white">
+                {generate.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                Сгенерировать кошелёк
+              </span>
+            </button>
+          </div>
+        )}
+      </PremiumModal>
     </div>
   );
 }
@@ -1502,16 +1708,15 @@ function WalletsTab({ shop, wallets, onRefresh }: { shop: Shop; wallets: Merchan
 // ── Payouts tab ───────────────────────────────────────────────────────────────
 
 function PayoutsTab({ shop, payouts, wallets }: { shop: Shop; payouts: Payout[]; wallets: MerchantWallet[] }) {
-  const [showCreate, setShowCreate] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   const [toAddress, setToAddress] = useState("");
   const [network, setNetwork] = useState("TRON");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [fromWalletId, setFromWalletId] = useState<number | null>(null);
+  const [filter, setFilter] = useState<"all" | "pending" | "processing" | "completed" | "cancelled">("all");
   const { toast } = useToast();
   const qc = useQueryClient();
-
-  const activeWallets = wallets.filter(w => w.status === "active" || w.status === "permanent");
 
   const createPayout = useMutation({
     mutationFn: () => apiRequest("POST", `/api/business/shops/${shop.id}/payouts`, {
@@ -1522,8 +1727,8 @@ function PayoutsTab({ shop, payouts, wallets }: { shop: Shop; payouts: Payout[];
       qc.invalidateQueries({ queryKey: ["/api/business/payouts", shop.id] });
       qc.invalidateQueries({ queryKey: ["/api/business/shops", shop.id] });
       toast({ title: "Заявка на выплату создана" });
-      setShowCreate(false);
-      setToAddress(""); setAmount(""); setNote("");
+      setShowModal(false);
+      setToAddress(""); setAmount(""); setNote(""); setFromWalletId(null);
     },
     onError: (e: any) => toast({ title: "Ошибка", description: e.message, variant: "destructive" }),
   });
@@ -1539,99 +1744,154 @@ function PayoutsTab({ shop, payouts, wallets }: { shop: Shop; payouts: Payout[];
     onError: (e: any) => toast({ title: "Ошибка", description: e.message, variant: "destructive" }),
   });
 
+  const filtered = filter === "all" ? payouts : payouts.filter(p => p.status === filter);
+  const counts = {
+    pending: payouts.filter(p => p.status === "pending").length,
+    processing: payouts.filter(p => p.status === "processing").length,
+    completed: payouts.filter(p => p.status === "completed").length,
+    cancelled: payouts.filter(p => p.status === "cancelled").length,
+  };
+
+  const inputCls = "w-full bg-[#0A0C10] border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-[#3ab368]/50 transition-all";
+
   return (
     <div className="space-y-3">
+      {/* Header row */}
       {shop.status === "active" && (
-        <button
-          onClick={() => setShowCreate(v => !v)}
-          className="w-full py-3 rounded-2xl border border-dashed border-[#3ab368]/40 text-[#3ab368] text-sm font-medium flex items-center justify-center gap-2 hover:bg-[#3ab368]/5 transition-colors"
-        >
-          <ArrowUpRight className="w-4 h-4" />
-          Новая заявка на выплату
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#3ab368] text-white text-xs font-semibold hover:bg-[#2ea058] transition-colors"
+          >
+            <ArrowUpRight className="w-3.5 h-3.5" />
+            Новая заявка
+          </button>
+          <span className="text-xs text-white/30">Всего: {payouts.length}</span>
+        </div>
       )}
 
-      {showCreate && (
-        <div className="bg-[#13151A] border border-white/5 rounded-2xl p-4 space-y-3">
-          <div className="text-sm font-semibold text-white mb-1">Создать заявку на выплату</div>
+      {/* Filter pills */}
+      <FilterPills
+        options={[
+          { id: "all" as const, label: "Все", count: payouts.length },
+          { id: "pending" as const, label: "Ожидание", count: counts.pending },
+          { id: "processing" as const, label: "В обработке", count: counts.processing },
+          { id: "completed" as const, label: "Выполнено", count: counts.completed },
+          { id: "cancelled" as const, label: "Отменено", count: counts.cancelled },
+        ]}
+        value={filter}
+        onChange={setFilter}
+      />
+
+      {filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-white/30">
+          <ArrowUpRight className="w-10 h-10 mb-3 opacity-30" />
+          <p className="text-sm">{payouts.length === 0 ? "Заявок на выплату нет" : "Нет заявок в этой категории"}</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          {filtered.map(p => (
+            <PayoutCard key={p.id} payout={p} shopId={shop.id} wallets={wallets} onUpdate={(status, txHash) => updatePayout.mutate({ payoutId: p.id, status, txHash })} />
+          ))}
+        </div>
+      )}
+
+      {/* Create payout modal */}
+      <PremiumModal
+        show={showModal}
+        onClose={() => setShowModal(false)}
+        title="Новая заявка"
+        subtitle={`Баланс: ${parseFloat(shop.balanceUsdt).toFixed(4)} USDT`}
+        Icon={ArrowUpRight}
+      >
+        <div className="space-y-4">
           <div>
-            <label className="text-xs text-white/40 mb-1 block">Сеть</label>
-            <select value={network} onChange={e => setNetwork(e.target.value)} className="w-full bg-[#0E1014] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none">
+            <label className="text-xs text-white/40 mb-1.5 block">Сеть</label>
+            <select
+              value={network}
+              onChange={e => { setNetwork(e.target.value); setFromWalletId(null); }}
+              className={inputCls}
+              style={{ appearance: "none", backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23ffffff40' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 14px center" }}
+            >
               <option value="TRON">TRON (TRC20)</option>
               <option value="BSC">BNB Chain (BEP20)</option>
               <option value="TON">TON</option>
               <option value="POLYGON">Polygon</option>
             </select>
           </div>
+
           <div>
-            <label className="text-xs text-white/40 mb-1 block">Адрес получателя</label>
-            <input value={toAddress} onChange={e => setToAddress(e.target.value)} placeholder="T..." className="w-full bg-[#0E1014] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none" />
+            <label className="text-xs text-white/40 mb-1.5 block">Адрес получателя</label>
+            <input
+              value={toAddress}
+              onChange={e => setToAddress(e.target.value)}
+              placeholder={network === "TRON" ? "T..." : network === "TON" ? "EQ..." : "0x..."}
+              className={inputCls}
+            />
           </div>
+
           <div>
-            <label className="text-xs text-white/40 mb-1 block">Сумма USDT (баланс: {parseFloat(shop.balanceUsdt).toFixed(4)})</label>
-            <input value={amount} onChange={e => setAmount(e.target.value)} type="number" placeholder="0.00" className="w-full bg-[#0E1014] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none" />
+            <label className="text-xs text-white/40 mb-1.5 block">Сумма USDT</label>
+            <input
+              value={amount}
+              onChange={e => setAmount(e.target.value)}
+              type="number"
+              placeholder="0.00"
+              className={inputCls}
+            />
           </div>
-          {wallets.length > 0 && (
+
+          {wallets.filter(w => w.network === network).length > 0 && (
             <div>
-              <label className="text-xs text-white/40 mb-1 block">Кошелёк-источник (необязательно)</label>
+              <label className="text-xs text-white/40 mb-1.5 block">Кошелёк-источник <span className="text-white/25">(необязательно)</span></label>
               <select
                 value={fromWalletId ?? ""}
                 onChange={e => setFromWalletId(e.target.value ? parseInt(e.target.value) : null)}
-                className="w-full bg-[#0E1014] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none"
+                className={inputCls}
+                style={{ appearance: "none", backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23ffffff40' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 14px center" }}
               >
-                <option value="">— Выбрать кошелёк —</option>
-                {wallets.filter(w => w.network === network).map(w => {
-                  const bal = parseFloat(w.balanceUsdt ?? "0").toFixed(4);
-                  return (
-                    <option key={w.id} value={w.id}>
-                      {w.network} · {truncate(w.address, 14)} · {bal} USDT
-                    </option>
-                  );
-                })}
+                <option value="">— Автоматически —</option>
+                {wallets.filter(w => w.network === network).map(w => (
+                  <option key={w.id} value={w.id}>
+                    {truncate(w.address, 14)} · {parseFloat(w.balanceUsdt ?? "0").toFixed(4)} USDT
+                  </option>
+                ))}
               </select>
               {fromWalletId && (() => {
                 const sel = wallets.find(w => w.id === fromWalletId);
                 return sel ? (
-                  <div className="mt-2 bg-[#3ab368]/10 border border-[#3ab368]/20 rounded-xl px-3 py-2 flex items-center justify-between">
-                    <span className="text-xs text-white/60">Баланс кошелька</span>
+                  <div className="mt-2 flex items-center justify-between bg-[#3ab368]/8 border border-[#3ab368]/20 rounded-xl px-3 py-2">
+                    <span className="text-xs text-white/50">Баланс выбранного кошелька</span>
                     <span className="text-sm font-bold text-[#3ab368]">{parseFloat(sel.balanceUsdt ?? "0").toFixed(4)} USDT</span>
                   </div>
                 ) : null;
               })()}
-              {fromWalletId && (
-                <p className="text-[10px] text-[#3ab368]/70 mt-1">
-                  Средства будут переведены автоматически с выбранного кошелька
-                </p>
-              )}
             </div>
           )}
+
           <div>
-            <label className="text-xs text-white/40 mb-1 block">Комментарий (необязательно)</label>
-            <input value={note} onChange={e => setNote(e.target.value)} placeholder="Вывод прибыли" className="w-full bg-[#0E1014] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none" />
+            <label className="text-xs text-white/40 mb-1.5 block">Комментарий <span className="text-white/25">(необязательно)</span></label>
+            <input
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              placeholder="Вывод прибыли"
+              className={inputCls}
+            />
           </div>
+
           <button
             onClick={() => createPayout.mutate()}
             disabled={!toAddress || !amount || createPayout.isPending}
-            className="w-full py-3 rounded-xl bg-[#3ab368] text-white text-sm font-semibold disabled:opacity-40 flex items-center justify-center gap-2"
+            className="relative w-full py-3.5 rounded-2xl font-semibold text-sm overflow-hidden disabled:opacity-40 transition-opacity"
+            style={{ background: "linear-gradient(135deg, #3ab368, #2ea058)" }}
           >
-            {createPayout.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            {fromWalletId ? "Перевести" : "Создать заявку"}
+            <span className="relative flex items-center justify-center gap-2 text-white">
+              {createPayout.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUpRight className="w-4 h-4" />}
+              {fromWalletId ? "Перевести с кошелька" : "Создать заявку"}
+            </span>
           </button>
         </div>
-      )}
-
-      {payouts.length === 0 && !showCreate ? (
-        <div className="flex flex-col items-center justify-center py-16 text-white/30">
-          <ArrowUpRight className="w-10 h-10 mb-3 opacity-30" />
-          <p className="text-sm">Заявок на выплату нет</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {payouts.map(p => (
-            <PayoutCard key={p.id} payout={p} shopId={shop.id} wallets={wallets} onUpdate={(status, txHash) => updatePayout.mutate({ payoutId: p.id, status, txHash })} />
-          ))}
-        </div>
-      )}
+      </PremiumModal>
     </div>
   );
 }
