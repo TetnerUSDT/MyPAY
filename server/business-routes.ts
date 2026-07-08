@@ -674,6 +674,105 @@ async function pollAddressForPayment(
   setTimeout(check, interval);
 }
 
+// ── Permanent address receipt poller ─────────────────────────────────────────
+// Fires payment.received webhook for every NEW incoming tx within the monitoring window.
+// No amount matching — just "something arrived, here's the amount".
+
+async function pollPermanentAddress(
+  paymentId: number, address: string, network: string, currency: string,
+  monitorMinutes: number,
+) {
+  const deadline = Date.now() + monitorMinutes * 60 * 1000;
+  let interval = 10000;
+  const maxInterval = 60000;
+
+  const check = async () => {
+    if (Date.now() > deadline) {
+      await db.execute(sql`
+        UPDATE merchant_payments SET status = 'closed'
+        WHERE id = ${paymentId} AND status = 'pending'
+      `);
+      return;
+    }
+    try {
+      const rows = await db.execute(sql`SELECT status FROM merchant_payments WHERE id = ${paymentId} LIMIT 1`);
+      const payment = (rows[0] as any[])[0];
+      if (!payment || payment.status === "closed" || payment.status === "expired") return;
+
+      const processReceived = async (txHash: string, txAmountStr: string) => {
+        const txNum = parseFloat(txAmountStr);
+        if (txNum <= 0) return;
+        // Dedup — skip if already fired for this tx
+        const [dup] = await db.execute(sql`SELECT 1 FROM merchant_payment_txs WHERE tx_hash = ${txHash} LIMIT 1`);
+        if ((dup as any[]).length > 0) return;
+        try {
+          await db.execute(sql`INSERT INTO merchant_payment_txs (payment_id, tx_hash, amount) VALUES (${paymentId}, ${txHash}, ${txNum})`);
+        } catch { return; }
+
+        // Update running total on payment record
+        await db.execute(sql`
+          UPDATE merchant_payments SET amount_received = COALESCE(amount_received, 0) + ${txNum}, tx_hash = ${txHash}
+          WHERE id = ${paymentId}
+        `);
+
+        // Credit shop balance and send webhook
+        const [shopRows] = await db.execute(sql`
+          SELECT s.id, s.webhook_url, p.order_id as pay_order_id, p.external_user_id
+          FROM merchant_payments p JOIN merchant_shops s ON s.id = p.shop_id WHERE p.id = ${paymentId}
+        `);
+        const shopRow = (shopRows as any[])[0];
+        if (shopRow) {
+          await db.execute(sql`UPDATE merchant_shops SET balance_usdt = balance_usdt + ${txNum}, total_received = total_received + ${txNum} WHERE id = ${shopRow.id}`);
+          if (shopRow.webhook_url) {
+            sendWebhook(shopRow.webhook_url, {
+              event: "payment.received",
+              payment_id: paymentId,
+              order_id: shopRow.pay_order_id ?? null,
+              external_user_id: shopRow.external_user_id ?? null,
+              amount: txNum,
+              currency,
+              network,
+              tx_hash: txHash,
+            });
+          }
+        }
+        console.log(`[merchant] payment ${paymentId} received: ${txHash} +${txNum} USDT (${network})`);
+      };
+
+      if (network === "TRON" || network === "TRC20") {
+        const transfers = await scanTronIncoming(address);
+        for (const t of transfers) await processReceived(t.txHash, parseRawAmount(t.amountRaw, 6));
+      } else if (network === "BSC" || network === "BEP20") {
+        const txs = await bscScanIncoming(address);
+        for (const tx of txs) {
+          if (tx.to?.toLowerCase() === address.toLowerCase())
+            await processReceived(tx.hash, hexAmountToDecimal(tx.value ?? "0x0", 18));
+        }
+      } else if (network === "TON") {
+        const transfers = await scanTonIncoming(address);
+        for (const t of transfers) await processReceived(t.txHash, parseRawAmount(t.amountRaw, 6));
+      } else if (network === "ETH" || network === "ARBITRUM" || network === "POLYGON") {
+        const cfg = EVM_NETWORKS[network];
+        if (cfg) {
+          const txs = await scanEvmIncoming(network, address);
+          for (const t of txs) await processReceived(t.txHash, hexAmountToDecimal(t.amountRaw, cfg.decimals));
+        }
+      } else if (network === "SOLANA") {
+        const transfers = await scanSolanaIncoming(address);
+        for (const t of transfers) await processReceived(t.txHash, parseRawAmount(t.amountRaw, 6));
+      }
+
+      interval = Math.min(Math.round(interval * 1.5), maxInterval);
+      setTimeout(check, interval);
+    } catch (err: any) {
+      console.error(`[merchant] permanent payment ${paymentId} poll error:`, err?.message ?? err);
+      if (Date.now() < deadline) { interval = Math.min(interval * 2, maxInterval); setTimeout(check, interval); }
+    }
+  };
+
+  setTimeout(check, interval);
+}
+
 // ── Invoice payment poller ────────────────────────────────────────────────────
 
 async function pollInvoiceForPayment(
@@ -1090,7 +1189,10 @@ export function registerBusinessRoutes(app: Express) {
           ? webhookUrl.replace(/^http:\/\//i, "https://")
           : webhookUrl;
       }
-      if (addressMode && ["permanent", "temporary", "invoice"].includes(addressMode)) updates.addressMode = addressMode;
+      if (req.body.permanentMonitorMinutes !== undefined) {
+        const mins = parseInt(req.body.permanentMonitorMinutes);
+        if (!isNaN(mins) && mins >= 1 && mins <= 1440) updates.permanentMonitorMinutes = mins;
+      }
       if (enabledNetworks !== undefined) {
         updates.enabledNetworks = Array.isArray(enabledNetworks) ? JSON.stringify(enabledNetworks) : enabledNetworks;
       }
@@ -1308,14 +1410,18 @@ export function registerBusinessRoutes(app: Express) {
     } catch { return null; }
   }
 
-  // Generate/get address for payment (or invoice URL in invoice mode)
+  // Generate/get address for payment (or invoice URL in invoice mode).
+  // payment_mode is specified per-request: "permanent" | "temporary" | "invoice"
   app.post("/api/merchant/address", async (req, res) => {
     const shop = await getShopByKey(req);
     if (!shop) return res.status(401).json({ error: "Invalid shop API key or shop not active" });
-    const { user_id, order_id, network, mode, currency, amount, networks: networksOverride } = req.body;
+    const { user_id, order_id, network, mode, currency, amount, networks: networksOverride, payment_mode } = req.body;
+
+    // Resolve payment_mode: per-request value takes priority, fall back to legacy shop setting
+    const paymentMode: string = payment_mode ?? shop.address_mode ?? "temporary";
 
     // ── Invoice mode ─────────────────────────────────────────────────────────
-    if (shop.address_mode === "invoice") {
+    if (paymentMode === "invoice") {
       if (!amount) return res.status(400).json({ error: "amount is required for invoice mode" });
       const enabledNetworks: string[] = shop.enabled_networks ? JSON.parse(shop.enabled_networks) : [];
       const invoiceNetworks: string[] = networksOverride
@@ -1339,6 +1445,7 @@ export function registerBusinessRoutes(app: Express) {
         const appBase = process.env.APP_URL ?? `https://${process.env.REPLIT_DOMAINS?.split(",")[0] ?? "localhost:5000"}`;
         return res.json({
           type: "invoice",
+          payment_mode: "invoice",
           invoice_number: invoiceNumber,
           invoice_url: `${appBase}/pay/${invoiceNumber}`,
           amount,
@@ -1351,7 +1458,7 @@ export function registerBusinessRoutes(app: Express) {
       }
     }
 
-    // ── Standard address mode ────────────────────────────────────────────────
+    // ── Wallet-based modes (permanent / temporary) ───────────────────────────
     if (!network) return res.status(400).json({ error: "network is required" });
 
     // Validate against enabled networks
@@ -1365,21 +1472,11 @@ export function registerBusinessRoutes(app: Express) {
 
     try {
       const walletMode = mode === "gasfree" ? "gasfree" : "standard";
-      const wallet = await findOrReserveMerchantWallet(shop.id, network, walletMode, user_id, order_id, shop.address_mode);
+      const isTemp = paymentMode === "temporary";
+      const wallet = await findOrReserveMerchantWallet(shop.id, network, walletMode, user_id, order_id, isTemp ? "temporary" : "permanent");
 
       const address = walletMode === "gasfree" ? (wallet.gasfree_address || wallet.address) : wallet.address;
-      const isTemp = shop.address_mode === "temporary";
       const expiresAt = isTemp ? new Date(Date.now() + 30 * 60 * 1000) : null;
-
-      // On permanent addresses: expire any stale pending payments on the same address
-      // before creating a new one.  This prevents old on-chain txs from phantom-matching
-      // a brand-new payment session.
-      if (!isTemp) {
-        await db.execute(sql`
-          UPDATE merchant_payments SET status = 'expired'
-          WHERE wallet_address = ${address} AND status = 'pending'
-        `);
-      }
 
       const insertResult = await db.insert(merchantPayments).values({
         shopId: shop.id,
@@ -1390,21 +1487,32 @@ export function registerBusinessRoutes(app: Express) {
         currency: currency ?? "USDT",
         amount: amount ? String(amount) : null,
         status: "pending",
+        paymentMode,
         addressType: isTemp ? "temporary" : "permanent",
         expiresAt: expiresAt ?? undefined,
       }) as any;
       const paymentId = insertResult[0]?.insertId;
 
-      pollAddressForPayment(paymentId, address, network, currency ?? "USDT", amount ? String(amount) : undefined);
+      const monitorMinutes = parseInt(String(shop.permanent_monitor_minutes ?? 20));
+
+      if (paymentMode === "permanent") {
+        // Permanent: notify on any incoming tx, no amount matching
+        pollPermanentAddress(paymentId, address, network, currency ?? "USDT", monitorMinutes);
+      } else {
+        // Temporary: accumulate until required amount reached
+        if (!amount) return res.status(400).json({ error: "amount is required for temporary mode" });
+        pollAddressForPayment(paymentId, address, network, currency ?? "USDT", String(amount));
+      }
 
       return res.json({
         address,
         network,
-        mode: walletMode,
+        wallet_mode: walletMode,
+        payment_mode: paymentMode,
         currency: currency ?? "USDT",
-        type: isTemp ? "temporary" : "permanent",
         payment_id: paymentId,
         expires_at: expiresAt,
+        monitor_until: paymentMode === "permanent" ? new Date(Date.now() + monitorMinutes * 60 * 1000) : null,
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -1424,16 +1532,75 @@ export function registerBusinessRoutes(app: Express) {
       if (payment.status === "confirmed") {
         return res.json({ status: "confirmed", tx_hash: payment.tx_hash, amount_received: payment.amount_received, confirmed_at: payment.confirmed_at });
       }
-      if (payment.status === "expired") {
-        return res.json({ status: "expired", tx_hash: null, amount_received: payment.amount_received ?? null });
+      if (payment.status === "expired" || payment.status === "closed") {
+        return res.json({ status: payment.status, tx_hash: payment.tx_hash ?? null, amount_received: payment.amount_received ?? null });
       }
 
-      // ── Synchronous blockchain scan ─────────────────────────────────────────
+      const net = payment.network;
+      const paymentMode: string = payment.payment_mode ?? "temporary";
+
+      // ── Permanent mode: scan for new txs, fire payment.received for each ──
+      if (paymentMode === "permanent") {
+        let scanned: Array<{ txHash: string; amountStr: string }> = [];
+        try {
+          if (net === "TRON" || net === "TRC20") {
+            const transfers = await scanTronIncoming(payment.wallet_address);
+            scanned = transfers.map((t: any) => ({ txHash: t.txHash, amountStr: parseRawAmount(t.amountRaw, 6) }));
+          } else if (net === "BSC" || net === "BEP20") {
+            const txs = await bscScanIncoming(payment.wallet_address);
+            scanned = txs.filter((tx: any) => tx.to?.toLowerCase() === payment.wallet_address.toLowerCase())
+              .map((tx: any) => ({ txHash: tx.hash, amountStr: hexAmountToDecimal(tx.value ?? "0x0", 18) }));
+          } else if (net === "TON") {
+            const transfers = await scanTonIncoming(payment.wallet_address);
+            scanned = transfers.map((t: any) => ({ txHash: t.txHash, amountStr: parseRawAmount(t.amountRaw, 6) }));
+          } else if (net === "ETH" || net === "ARBITRUM" || net === "POLYGON") {
+            const cfg = EVM_NETWORKS[net];
+            if (cfg) {
+              const txs = await scanEvmIncoming(net, payment.wallet_address);
+              scanned = txs.map((t: any) => ({ txHash: t.txHash, amountStr: hexAmountToDecimal(t.amountRaw, cfg.decimals) }));
+            }
+          } else if (net === "SOLANA") {
+            const transfers = await scanSolanaIncoming(payment.wallet_address);
+            scanned = transfers.map((t: any) => ({ txHash: t.txHash, amountStr: parseRawAmount(t.amountRaw, 6) }));
+          }
+        } catch { /* network error */ }
+
+        let newTxCount = 0;
+        for (const { txHash, amountStr } of scanned) {
+          const txNum = parseFloat(amountStr);
+          if (txNum <= 0) continue;
+          const [dup] = await db.execute(sql`SELECT 1 FROM merchant_payment_txs WHERE tx_hash = ${txHash} LIMIT 1`);
+          if ((dup as any[]).length > 0) continue;
+          try {
+            await db.execute(sql`INSERT INTO merchant_payment_txs (payment_id, tx_hash, amount) VALUES (${payment.id}, ${txHash}, ${txNum})`);
+          } catch { continue; }
+          await db.execute(sql`UPDATE merchant_payments SET amount_received = COALESCE(amount_received, 0) + ${txNum}, tx_hash = ${txHash} WHERE id = ${payment.id}`);
+          await db.execute(sql`UPDATE merchant_shops SET balance_usdt = balance_usdt + ${txNum}, total_received = total_received + ${txNum} WHERE id = ${shop.id}`);
+          if (shop.webhookUrl) {
+            sendWebhook(shop.webhookUrl, {
+              event: "payment.received",
+              payment_id: payment.id,
+              order_id: payment.order_id ?? null,
+              external_user_id: payment.external_user_id ?? null,
+              amount: txNum,
+              currency: payment.currency,
+              network: net,
+              tx_hash: txHash,
+            });
+          }
+          console.log(`[merchant] check-payment(permanent) ${payment.id} received: ${txHash} +${txNum} USDT`);
+          newTxCount++;
+        }
+        const [updated] = await db.execute(sql`SELECT * FROM merchant_payments WHERE id = ${payment.id} LIMIT 1`);
+        const upd = (updated as any[])[0];
+        return res.json({ status: upd?.status ?? payment.status, new_tx_count: newTxCount, amount_received: upd?.amount_received ?? payment.amount_received });
+      }
+
+      // ── Temporary/invoice mode: accumulate until amount reached ─────────────
       let found = false;
       let txHash: string | null = null;
       let amountReceived: string | null = null;
 
-      const net = payment.network;
       try {
         if (net === "TRON" || net === "TRC20") {
           const transfers = await scanTronIncoming(payment.wallet_address);

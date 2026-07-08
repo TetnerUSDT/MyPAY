@@ -4,8 +4,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeft, Plus, Store, Copy, Check, RefreshCw, Settings,
   ArrowDownLeft, ArrowUpRight, Clock, CheckCircle2, XCircle,
-  Eye, EyeOff, Loader2, AlertCircle, ExternalLink, Zap, Wallet, Anchor, Timer,
-  FileText, Activity, Link2
+  Eye, EyeOff, Loader2, AlertCircle, ExternalLink, Zap, Wallet, Timer,
+  FileText, Activity
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -46,8 +46,6 @@ const NET_BY_ID: Record<string, NetworkDef> = Object.fromEntries(NETWORKS.map(n 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type ShopStatus = "pending" | "active" | "rejected" | "suspended";
-type AddressMode = "permanent" | "temporary" | "invoice";
-
 interface Shop {
   id: number;
   userId: number;
@@ -55,7 +53,8 @@ interface Shop {
   domain: string;
   apiKey: string;
   status: ShopStatus;
-  addressMode: AddressMode;
+  addressMode: string;
+  permanentMonitorMinutes: number;
   enabledNetworks: string | null;
   webhookUrl: string | null;
   balanceUsdt: string;
@@ -361,7 +360,10 @@ function ApiDocs({ apiKey, showKey }: { apiKey: string; showKey: boolean }) {
         {open === "address" && (
           <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
             <p className="text-[11px] text-white/50 leading-relaxed">
-              Генерирует адрес для приёма оплаты. В режиме <strong className="text-white/70">permanent</strong> — один адрес на пользователя (постоянный). В режиме <strong className="text-white/70">temporary</strong> — новый адрес на каждый заказ, действует 30 минут.
+              Генерирует адрес для приёма оплаты. Режим указывается в каждом запросе через поле <strong className="text-white/70">payment_mode</strong>:<br/>
+              <strong className="text-white/70">permanent</strong> — постоянный адрес на пользователя, вебхук на каждый входящий платёж.<br/>
+              <strong className="text-white/70">temporary</strong> — временный адрес на заказ (30 мин), накопление до нужной суммы.<br/>
+              <strong className="text-white/70">invoice</strong> — ссылка /pay/... для покупателя, сеть выбирается им.
             </p>
 
             <div>
@@ -370,27 +372,39 @@ function ApiDocs({ apiKey, showKey }: { apiKey: string; showKey: boolean }) {
             </div>
 
             <div>
-              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Тело запроса</div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Тело запроса (permanent)</div>
               <CodeBlock>{`{
-  "network":  "TRON",        // обязательно: TRON, BSC, TON, ETH, POLYGON, SOLANA, ARBITRUM
-  "mode":     "standard",   // опционально: "standard" | "gasfree" (только TRON)
-  "user_id":  "user_123",   // для постоянного режима — ID вашего пользователя
-  "order_id": "order_456",  // для временного режима — ID заказа
-  "currency": "USDT",       // опционально, по умолчанию USDT
-  "amount":   10.00         // опционально — ожидаемая сумма
+  "payment_mode": "permanent",   // "permanent" | "temporary" | "invoice"
+  "network":      "BSC",         // TRON, BSC, TON, ETH, POLYGON, SOLANA, ARBITRUM
+  "mode":         "standard",    // опционально: "standard" | "gasfree" (TRON only)
+  "user_id":      "user_123",    // ID пользователя — привязывает постоянный адрес
+  "order_id":     "order_456",   // опционально
+  "currency":     "USDT"         // опционально, по умолчанию USDT
+}`}</CodeBlock>
+            </div>
+
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Тело запроса (temporary)</div>
+              <CodeBlock>{`{
+  "payment_mode": "temporary",
+  "network":      "TRON",
+  "amount":       10.00,         // обязательно для temporary
+  "order_id":     "order_456",
+  "currency":     "USDT"
 }`}</CodeBlock>
             </div>
 
             <div>
               <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Ответ</div>
               <CodeBlock>{`{
-  "address":    "TXxxx...yyy",   // адрес для оплаты
-  "network":    "TRON",
-  "mode":       "standard",
-  "currency":   "USDT",
-  "type":       "permanent",     // "permanent" | "temporary"
-  "payment_id": 42,              // ID платежа для отслеживания
-  "expires_at": null             // для temporary — дата истечения
+  "address":       "TXxxx...yyy",
+  "network":       "TRON",
+  "wallet_mode":   "standard",
+  "payment_mode":  "permanent",  // режим, применённый к этому платежу
+  "currency":      "USDT",
+  "payment_id":    42,
+  "expires_at":    null,
+  "monitor_until": "2025-01-15T10:20:00.000Z"  // только для permanent
 }`}</CodeBlock>
             </div>
 
@@ -581,20 +595,45 @@ function ApiDocs({ apiKey, showKey }: { apiKey: string; showKey: boolean }) {
         {open === "webhook" && (
           <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
             <p className="text-[11px] text-white/50 leading-relaxed">
-              Когда платёж подтверждается, система отправляет POST-запрос на Webhook URL, указанный в настройках магазина.
+              Система отправляет POST-запрос на Webhook URL при каждом событии. Событие зависит от <strong className="text-white/70">payment_mode</strong>.
             </p>
             <div>
-              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Тело webhook-запроса</div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">permanent — payment.received (любой входящий платёж)</div>
+              <CodeBlock>{`{
+  "event":           "payment.received",
+  "payment_id":      42,
+  "order_id":        "order_456",
+  "external_user_id": "user_123",
+  "amount":          10.00,
+  "currency":        "USDT",
+  "network":         "BSC",
+  "tx_hash":         "0xabc123..."
+}`}</CodeBlock>
+            </div>
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">temporary/invoice — payment.partial (накопление)</div>
+              <CodeBlock>{`{
+  "event":            "payment.partial",
+  "payment_id":       42,
+  "amount_required":  10.00,
+  "amount_received":  6.00,
+  "amount_remaining": 4.00,
+  "currency":         "USDT",
+  "network":          "TRON",
+  "tx_hash":          "abc123..."
+}`}</CodeBlock>
+            </div>
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">temporary/invoice — payment.confirmed (полная оплата)</div>
               <CodeBlock>{`{
   "event":           "payment.confirmed",
   "payment_id":      42,
   "order_id":        "order_456",
-  "user_id":         "user_123",
-  "network":         "TRON",
+  "amount_required": 10.00,
+  "amount_received": 10.05,
   "currency":        "USDT",
-  "amount_received": "10.000000",
-  "tx_hash":         "abc123...",
-  "confirmed_at":    "2025-01-15T12:00:00Z"
+  "network":         "TRON",
+  "tx_hash":         "abc123..."
 }`}</CodeBlock>
             </div>
             <div className="bg-[#e9c46a]/5 border border-[#e9c46a]/15 rounded-xl p-3">
@@ -625,10 +664,11 @@ const res = await fetch('${baseUrl}/api/merchant/address', {
     'Content-Type': 'application/json'
   },
   body: JSON.stringify({
-    network:  'TRON',
-    user_id:  String(userId),
-    order_id: String(orderId),
-    amount:   9.99
+    payment_mode: 'temporary',  // 'permanent' | 'temporary' | 'invoice'
+    network:      'TRON',
+    user_id:      String(userId),
+    order_id:     String(orderId),
+    amount:       9.99             // обязательно для temporary
   })
 });
 const { address, payment_id } = await res.json();
@@ -826,13 +866,9 @@ function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => v
                 <div className="text-xs text-white/40">USDT</div>
               </div>
               <div className="bg-[#13151A] border border-white/5 rounded-2xl p-4">
-                <div className="text-[10px] text-white/40 uppercase tracking-wide mb-1">Режим адресов</div>
-                <div className="text-sm font-bold text-white">
-                  {shop.addressMode === "permanent" ? "Постоянный" : shop.addressMode === "invoice" ? "Инвойс-ссылка" : "Временный"}
-                </div>
-                <div className="text-xs text-white/40">
-                  {shop.addressMode === "permanent" ? "по user_id" : shop.addressMode === "invoice" ? "покупатель выбирает сеть" : "по order_id"}
-                </div>
+                <div className="text-[10px] text-white/40 uppercase tracking-wide mb-1">Режим</div>
+                <div className="text-sm font-bold text-white">Per-request</div>
+                <div className="text-xs text-white/40">payment_mode в запросе</div>
               </div>
             </div>
 
@@ -1398,7 +1434,7 @@ function SettingsTab({ shop }: { shop: Shop }) {
   const [name, setName] = useState(shop.name);
   const [domain, setDomain] = useState(shop.domain);
   const [webhookUrl, setWebhookUrl] = useState(shop.webhookUrl ?? "");
-  const [addressMode, setAddressMode] = useState<AddressMode>(shop.addressMode);
+  const [permanentMonitorMinutes, setPermanentMonitorMinutes] = useState<number>(shop.permanentMonitorMinutes ?? 20);
   const [selectedNets, setSelectedNets] = useState<string[]>(parseNetworks(shop.enabledNetworks));
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -1411,7 +1447,7 @@ function SettingsTab({ shop }: { shop: Shop }) {
 
   const save = useMutation({
     mutationFn: () => apiRequest("PATCH", `/api/business/shops/${shop.id}`, {
-      name, domain, webhookUrl, addressMode, enabledNetworks: selectedNets
+      name, domain, webhookUrl, permanentMonitorMinutes, enabledNetworks: selectedNets
     }).then(r => r.json()),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/business/shops", shop.id] });
@@ -1442,42 +1478,16 @@ function SettingsTab({ shop }: { shop: Shop }) {
         </div>
       </div>
 
-      {/* Address mode */}
+      {/* Permanent monitor minutes */}
       <div>
-        <label className="text-xs text-white/40 mb-2 block">Режим приёма платежей</label>
-        <div className="space-y-2">
-          <button
-            onClick={() => setAddressMode("permanent")}
-            className={`w-full p-3 rounded-xl border text-left transition-colors ${addressMode === "permanent" ? "border-[#3ab368] bg-[#3ab368]/10" : "border-white/10 bg-[#13151A]"}`}
-          >
-            <div className="flex items-center gap-2 mb-0.5">
-              <Anchor size={14} className={addressMode === "permanent" ? "text-[#3ab368]" : "text-white/40"} />
-              <div className="text-sm font-medium text-white">Постоянный адрес</div>
-            </div>
-            <div className="text-[10px] text-white/40 pl-[22px]">Один адрес на пользователя (user_id). Для подписок.</div>
-          </button>
-          <button
-            onClick={() => setAddressMode("temporary")}
-            className={`w-full p-3 rounded-xl border text-left transition-colors ${addressMode === "temporary" ? "border-[#3ab368] bg-[#3ab368]/10" : "border-white/10 bg-[#13151A]"}`}
-          >
-            <div className="flex items-center gap-2 mb-0.5">
-              <Timer size={14} className={addressMode === "temporary" ? "text-[#3ab368]" : "text-white/40"} />
-              <div className="text-sm font-medium text-white">Временный адрес</div>
-            </div>
-            <div className="text-[10px] text-white/40 pl-[22px]">Новый адрес на каждый заказ (order_id). TTL 30 мин.</div>
-          </button>
-          <button
-            onClick={() => setAddressMode("invoice")}
-            className={`w-full p-3 rounded-xl border text-left transition-colors ${addressMode === "invoice" ? "border-[#3ab368] bg-[#3ab368]/10" : "border-white/10 bg-[#13151A]"}`}
-          >
-            <div className="flex items-center gap-2 mb-0.5">
-              <Link2 size={14} className={addressMode === "invoice" ? "text-[#3ab368]" : "text-white/40"} />
-              <div className="text-sm font-medium text-white">Инвойс (ссылка)</div>
-              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#3ab368]/20 text-[#3ab368] font-medium">Новое</span>
-            </div>
-            <div className="text-[10px] text-white/40 pl-[22px]">API возвращает ссылку /pay/... Покупатель выбирает сеть сам. Вебхук при оплате.</div>
-          </button>
-        </div>
+        <label className="text-xs text-white/40 mb-1.5 block">Окно мониторинга постоянного адреса (мин)</label>
+        <input
+          type="number" min={1} max={1440}
+          value={permanentMonitorMinutes}
+          onChange={e => setPermanentMonitorMinutes(parseInt(e.target.value) || 20)}
+          className="w-full bg-[#13151A] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#3ab368]/50"
+        />
+        <div className="text-[10px] text-white/40 mt-1">Сколько минут отслеживать входящие платежи после вызова /api/merchant/address в режиме permanent. По умолчанию: 20 мин.</div>
       </div>
 
       {/* Network selection */}

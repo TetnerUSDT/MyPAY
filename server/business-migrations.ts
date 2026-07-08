@@ -48,6 +48,9 @@ export async function runBusinessMigrations() {
       if (!await columnExists("merchant_shops", "enabled_networks")) {
         await db.execute(sql`ALTER TABLE merchant_shops ADD COLUMN enabled_networks TEXT NULL AFTER address_mode`);
       }
+      if (!await columnExists("merchant_shops", "permanent_monitor_minutes")) {
+        await db.execute(sql`ALTER TABLE merchant_shops ADD COLUMN permanent_monitor_minutes INT NOT NULL DEFAULT 20 AFTER address_mode`);
+      }
     }
 
     if (!await tableExists("merchant_payments")) {
@@ -64,6 +67,7 @@ export async function runBusinessMigrations() {
           amount_received DECIMAL(18,8) NULL,
           tx_hash VARCHAR(255) NULL,
           status VARCHAR(20) NOT NULL DEFAULT 'pending',
+          payment_mode VARCHAR(20) NOT NULL DEFAULT 'temporary',
           address_type VARCHAR(20) NOT NULL DEFAULT 'permanent',
           expires_at TIMESTAMP NULL,
           confirmed_at TIMESTAMP NULL,
@@ -71,6 +75,12 @@ export async function runBusinessMigrations() {
           FOREIGN KEY (shop_id) REFERENCES merchant_shops(id) ON DELETE CASCADE
         )
       `);
+    } else {
+      if (!await columnExists("merchant_payments", "payment_mode")) {
+        await db.execute(sql`ALTER TABLE merchant_payments ADD COLUMN payment_mode VARCHAR(20) NOT NULL DEFAULT 'temporary' AFTER status`);
+        // Backfill from address_type: permanent address_type → permanent payment_mode
+        await db.execute(sql`UPDATE merchant_payments SET payment_mode = 'permanent' WHERE address_type = 'permanent'`);
+      }
     }
 
     if (!await tableExists("merchant_payout_requests")) {
