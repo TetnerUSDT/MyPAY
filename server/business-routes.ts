@@ -793,12 +793,15 @@ function generatePayoutRef(): string {
 
 async function sendWebhook(webhookUrl: string, payload: object): Promise<void> {
   try {
-    await fetch(webhookUrl, {
+    // Force HTTPS to avoid POST→GET downgrade on 301 redirect
+    const url = webhookUrl.replace(/^http:\/\//i, "https://");
+    const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(10000),
     });
+    console.log(`[Webhook] Delivered to ${url}: ${res.status}`);
   } catch (e) {
     console.warn("[Webhook] Failed to deliver:", e);
   }
