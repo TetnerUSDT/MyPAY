@@ -14,7 +14,7 @@
 // ═══════════════════════════════════════════════════════════════
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'mypay_test');
-define('DB_USER', 'root');
+define('DB_USER', 'mypay_test');
 define('DB_PASS', '');
 define('LOG_FILE', __DIR__ . '/log.txt');
 // ═══════════════════════════════════════════════════════════════
