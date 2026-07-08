@@ -690,66 +690,116 @@ async function pollAddressForPayment(
 // Fires payment.received webhook for every NEW incoming tx within the monitoring window.
 // No amount matching — just "something arrived, here's the amount".
 
+// In-memory guard: prevents duplicate pollers for the same wallet on repeated API calls
+const activeWalletMonitors = new Set<number>();
+
+// pollPermanentAddress — monitors a wallet for any incoming tx.
+// No upfront payment record. On tx detection: creates merchant_payments (confirmed),
+// credits shop balance, sends payment.received webhook.
+// Used for both: permanent wallets and temporary monitoring-only mode (no fixed amount).
 async function pollPermanentAddress(
-  paymentId: number, address: string, network: string, currency: string,
-  monitorMinutes: number,
+  walletId: number, shopId: number, address: string, network: string, currency: string,
+  deadlineMs: number, externalUserId?: string, orderRef?: string,
 ) {
-  const deadline = Date.now() + monitorMinutes * 60 * 1000;
+  if (activeWalletMonitors.has(walletId)) {
+    // Monitoring already active — monitoring_until was updated by caller, existing poller continues
+    console.log(`[merchant] wallet ${walletId} monitoring extended (poller already active)`);
+    return;
+  }
+  activeWalletMonitors.add(walletId);
+
   let interval = 10000;
   const maxInterval = 60000;
 
+  const done = () => {
+    activeWalletMonitors.delete(walletId);
+  };
+
   const check = async () => {
-    if (Date.now() > deadline) {
-      await db.execute(sql`
-        UPDATE merchant_payments SET status = 'closed'
-        WHERE id = ${paymentId} AND status = 'pending'
-      `);
-      return;
-    }
     try {
-      const rows = await db.execute(sql`SELECT status FROM merchant_payments WHERE id = ${paymentId} LIMIT 1`);
-      const payment = (rows[0] as any[])[0];
-      if (!payment || payment.status === "closed" || payment.status === "expired") return;
+      // Read current monitoring window from DB — also picks up extended deadlines
+      // if the user called /api/merchant/address again for the same wallet
+      const wRows = await db.execute(sql`
+        SELECT monitoring_until FROM merchant_wallets WHERE id = ${walletId} LIMIT 1
+      `);
+      const wRow = (wRows[0] as any[])[0];
+      if (!wRow || !wRow.monitoring_until) { done(); return; } // cleared externally
+
+      const currentDeadline = new Date(wRow.monitoring_until).getTime();
+      if (Date.now() > currentDeadline) {
+        // Monitoring window expired — clear the flag and stop
+        await db.execute(sql`
+          UPDATE merchant_wallets SET monitoring_until = NULL
+          WHERE id = ${walletId} AND monitoring_until IS NOT NULL
+        `).catch(() => {});
+        done();
+        return;
+      }
 
       const processReceived = async (txHash: string, txAmountStr: string) => {
         const txNum = parseFloat(txAmountStr);
         if (txNum <= 0) return;
-        // Dedup — skip if already fired for this tx
-        const [dup] = await db.execute(sql`SELECT 1 FROM merchant_payment_txs WHERE tx_hash = ${txHash} LIMIT 1`);
-        if ((dup as any[]).length > 0) return;
-        try {
-          await db.execute(sql`INSERT INTO merchant_payment_txs (payment_id, tx_hash, amount) VALUES (${paymentId}, ${txHash}, ${txNum})`);
-        } catch { return; }
 
-        // Confirm and update running total on payment record
+        // Dedup: skip if this tx was already processed globally
+        const [dup] = await db.execute(sql`
+          SELECT 1 FROM merchant_payment_txs WHERE tx_hash = ${txHash} LIMIT 1
+        `);
+        if ((dup as any[]).length > 0) return;
+
+        // Create a confirmed payment record at the moment of detection
+        let paymentId: number;
+        try {
+          const ins = await db.execute(sql`
+            INSERT INTO merchant_payments
+              (shop_id, order_id, external_user_id, wallet_address, network, currency,
+               amount, amount_received, status, payment_mode, address_type, tx_hash, confirmed_at)
+            VALUES
+              (${shopId}, ${orderRef ?? null}, ${externalUserId ?? null}, ${address}, ${network}, ${currency},
+               ${txAmountStr}, ${txNum}, 'confirmed', 'permanent', 'permanent', ${txHash}, NOW())
+          `) as any;
+          paymentId = ins[0]?.insertId;
+          if (!paymentId) return;
+        } catch {
+          return; // race condition — another poller created the payment
+        }
+
+        // Link tx to this payment (UNIQUE on tx_hash is the final race guard)
+        try {
+          await db.execute(sql`
+            INSERT INTO merchant_payment_txs (payment_id, tx_hash, amount)
+            VALUES (${paymentId}, ${txHash}, ${txNum})
+          `);
+        } catch {
+          // Another poller grabbed this tx first — delete the orphan payment we just created
+          await db.execute(sql`DELETE FROM merchant_payments WHERE id = ${paymentId}`).catch(() => {});
+          return;
+        }
+
+        // Credit shop balance
         await db.execute(sql`
-          UPDATE merchant_payments
-          SET status = 'confirmed', amount_received = COALESCE(amount_received, 0) + ${txNum}, tx_hash = ${txHash}
-          WHERE id = ${paymentId}
+          UPDATE merchant_shops
+          SET balance_usdt = balance_usdt + ${txNum}, total_received = total_received + ${txNum}
+          WHERE id = ${shopId}
         `);
 
-        // Credit shop balance and send webhook
+        // Send webhook
         const [shopRows] = await db.execute(sql`
-          SELECT s.id, s.webhook_url, p.order_id as pay_order_id, p.external_user_id
-          FROM merchant_payments p JOIN merchant_shops s ON s.id = p.shop_id WHERE p.id = ${paymentId}
+          SELECT webhook_url FROM merchant_shops WHERE id = ${shopId} LIMIT 1
         `);
         const shopRow = (shopRows as any[])[0];
-        if (shopRow) {
-          await db.execute(sql`UPDATE merchant_shops SET balance_usdt = balance_usdt + ${txNum}, total_received = total_received + ${txNum} WHERE id = ${shopRow.id}`);
-          if (shopRow.webhook_url) {
-            sendWebhook(shopRow.webhook_url, {
-              event_type: "payment.received",
-              payment_id: paymentId,
-              order_id: shopRow.pay_order_id ?? null,
-              external_user_id: shopRow.external_user_id ?? null,
-              amount: txNum,
-              currency,
-              network,
-              tx_hash: txHash,
-            });
-          }
+        if (shopRow?.webhook_url) {
+          sendWebhook(shopRow.webhook_url, {
+            event_type: "payment.received",
+            payment_id: paymentId,
+            order_id: orderRef ?? null,
+            external_user_id: externalUserId ?? null,
+            amount: txNum,
+            currency,
+            network,
+            tx_hash: txHash,
+          });
         }
-        console.log(`[merchant] payment ${paymentId} received: ${txHash} +${txNum} USDT (${network})`);
+        console.log(`[merchant] wallet ${walletId} tx ${txHash} +${txNum} ${currency} (${network}) → payment #${paymentId} [confirmed]`);
       };
 
       if (network === "TRON" || network === "TRC20") {
@@ -778,8 +828,13 @@ async function pollPermanentAddress(
       interval = Math.min(Math.round(interval * 1.5), maxInterval);
       setTimeout(check, interval);
     } catch (err: any) {
-      console.error(`[merchant] permanent payment ${paymentId} poll error:`, err?.message ?? err);
-      if (Date.now() < deadline) { interval = Math.min(interval * 2, maxInterval); setTimeout(check, interval); }
+      console.error(`[merchant] wallet ${walletId} poll error:`, err?.message ?? err);
+      if (Date.now() < deadlineMs) {
+        interval = Math.min(interval * 2, maxInterval);
+        setTimeout(check, interval);
+      } else {
+        done();
+      }
     }
   };
 
@@ -1020,10 +1075,34 @@ export async function recoverPendingPollers() {
       WHERE mi.status IN ('confirmed', 'expired') AND mw.status = 'reserved'
     `);
 
-    // Recover pending payments still within their TTL window
+    // Recover wallets under active monitoring (permanent or temporary mode B)
+    const [walletMonRows] = await db.execute(sql`
+      SELECT mw.id, mw.address, mw.network, mw.external_user_id, mw.order_id, mw.monitoring_until,
+             ms.id AS shop_id
+      FROM merchant_wallets mw
+      JOIN merchant_shops ms ON ms.id = mw.shop_id
+      WHERE mw.monitoring_until IS NOT NULL AND mw.monitoring_until > NOW()
+    `);
+    let rWallets = 0;
+    for (const row of (walletMonRows as any[])) {
+      const deadline = new Date(row.monitoring_until).getTime();
+      if (Date.now() < deadline) {
+        pollPermanentAddress(
+          row.id, row.shop_id, row.address, row.network, "USDT",
+          deadline, row.external_user_id ?? undefined, row.order_id ?? undefined,
+        );
+        rWallets++;
+      }
+    }
+    if (rWallets > 0) {
+      console.log(`[merchant] Startup recovery: resumed monitoring for ${rWallets} wallet(s)`);
+    }
+
+    // Recover pending payments still within their TTL window (temporary accumulative mode only)
     const [payRows] = await db.execute(sql`
       SELECT id, wallet_address, network, currency, amount, created_at
-      FROM merchant_payments WHERE status = 'pending'
+      FROM merchant_payments
+      WHERE status = 'pending' AND (payment_mode IS NULL OR payment_mode = 'temporary')
     `);
     let rPayments = 0;
     for (const row of (payRows as any[])) {
@@ -1720,46 +1799,82 @@ export function registerBusinessRoutes(app: Express) {
       const walletMode = mode === "gasfree" ? "gasfree" : "standard";
       const isTemp = paymentMode === "temporary";
       const tempMins = parseInt(String(shop.temporary_minutes ?? 30));
-      const wallet = await findOrReserveMerchantWallet(shop.id, network, walletMode, user_id, order_id, isTemp ? "temporary" : "permanent", tempMins);
-
-      const address = walletMode === "gasfree" ? (wallet.gasfree_address || wallet.address) : wallet.address;
-      const expiresAt = isTemp ? new Date(Date.now() + tempMins * 60 * 1000) : null;
-
-      const insertResult = await db.insert(merchantPayments).values({
-        shopId: shop.id,
-        orderId: order_id ?? null,
-        externalUserId: user_id ?? null,
-        walletAddress: address,
-        network,
-        currency: currency ?? "USDT",
-        amount: amount ? String(amount) : null,
-        status: "pending",
-        paymentMode,
-        addressType: isTemp ? "temporary" : "permanent",
-        expiresAt: expiresAt ?? undefined,
-      }) as any;
-      const paymentId = insertResult[0]?.insertId;
-
       const monitorMinutes = parseInt(String(shop.permanent_monitor_minutes ?? 20));
 
+      const wallet = await findOrReserveMerchantWallet(
+        shop.id, network, walletMode, user_id, order_id,
+        isTemp ? "temporary" : "permanent",
+        isTemp ? tempMins : monitorMinutes,
+      );
+      const address = walletMode === "gasfree" ? (wallet.gasfree_address || wallet.address) : wallet.address;
+
+      // ── Permanent mode: monitor wallet, create payment only when tx arrives ──
       if (paymentMode === "permanent") {
-        // Permanent: notify on any incoming tx, no amount matching
-        pollPermanentAddress(paymentId, address, network, currency ?? "USDT", monitorMinutes);
-      } else {
-        // Temporary: accumulate until required amount reached
-        if (!amount) return res.status(400).json({ error: "amount is required for temporary mode" });
-        pollAddressForPayment(paymentId, address, network, currency ?? "USDT", String(amount));
+        const monitorUntil = new Date(Date.now() + monitorMinutes * 60 * 1000);
+        await db.execute(sql`
+          UPDATE merchant_wallets SET monitoring_until = ${monitorUntil} WHERE id = ${wallet.id}
+        `);
+        pollPermanentAddress(
+          wallet.id, shop.id, address, network, currency ?? "USDT",
+          monitorUntil.getTime(), user_id ?? undefined, order_id ?? undefined,
+        );
+        return res.json({
+          address,
+          network,
+          wallet_mode: walletMode,
+          payment_mode: "permanent",
+          currency: currency ?? "USDT",
+          wallet_id: wallet.id,
+          monitor_until: monitorUntil,
+        });
       }
 
+      // ── Temporary mode A: amount + order_id → accumulative payment ─────────
+      if (amount && order_id) {
+        const expiresAt = new Date(Date.now() + tempMins * 60 * 1000);
+        const insertResult = await db.insert(merchantPayments).values({
+          shopId: shop.id,
+          orderId: order_id,
+          externalUserId: user_id ?? null,
+          walletAddress: address,
+          network,
+          currency: currency ?? "USDT",
+          amount: String(amount),
+          status: "pending",
+          paymentMode: "temporary",
+          addressType: "temporary",
+          expiresAt,
+        }) as any;
+        const paymentId = insertResult[0]?.insertId;
+        pollAddressForPayment(paymentId, address, network, currency ?? "USDT", String(amount));
+        return res.json({
+          address,
+          network,
+          wallet_mode: walletMode,
+          payment_mode: "temporary",
+          currency: currency ?? "USDT",
+          payment_id: paymentId,
+          expires_at: expiresAt,
+        });
+      }
+
+      // ── Temporary mode B: monitoring only (no fixed amount/order) ──────────
+      const monitorUntil = new Date(Date.now() + tempMins * 60 * 1000);
+      await db.execute(sql`
+        UPDATE merchant_wallets SET monitoring_until = ${monitorUntil} WHERE id = ${wallet.id}
+      `);
+      pollPermanentAddress(
+        wallet.id, shop.id, address, network, currency ?? "USDT",
+        monitorUntil.getTime(), user_id ?? undefined, order_id ?? undefined,
+      );
       return res.json({
         address,
         network,
         wallet_mode: walletMode,
-        payment_mode: paymentMode,
+        payment_mode: "temporary",
         currency: currency ?? "USDT",
-        payment_id: paymentId,
-        expires_at: expiresAt,
-        monitor_until: paymentMode === "permanent" ? new Date(Date.now() + monitorMinutes * 60 * 1000) : null,
+        wallet_id: wallet.id,
+        monitor_until: monitorUntil,
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message });

@@ -283,7 +283,45 @@ if ($eventType === 'payment.received') {
             app_log('INFO', "Webhook: duplicate tx {$txHash} for order #{$orderId} — skipped");
         }
     } else {
-        app_log('WARN', 'Webhook: payment.received — no matching order', ['payment_id' => $paymentId, 'tx_hash' => $txHash]);
+        // No matching order — try to credit balance directly via external_user_id from payload
+        $extUserId = isset($payload['external_user_id']) ? (int)$payload['external_user_id'] : 0;
+        $txAmount  = $payload['amount'] ?? null;
+        if ($extUserId > 0 && $txAmount && $txHash) {
+            $dup2 = false;
+            try {
+                $s2 = $pdo->prepare("SELECT 1 FROM balance_transactions WHERE tx_hash = ? LIMIT 1");
+                $s2->execute([$txHash]);
+                $dup2 = (bool)$s2->fetchColumn();
+            } catch (PDOException $e) {
+                app_log('ERROR', 'Webhook: balance dedup check failed', ['error' => $e->getMessage()]);
+            }
+            if (!$dup2) {
+                try {
+                    $pdo->beginTransaction();
+                    $btStmt2 = $pdo->prepare("
+                        INSERT IGNORE INTO balance_transactions (user_id, order_id, tx_hash, amount, direction, event_type)
+                        VALUES (?, NULL, ?, ?, 'credit', 'payment.received')
+                    ");
+                    $btStmt2->execute([$extUserId, $txHash, $txAmount]);
+                    if ($btStmt2->rowCount() > 0) {
+                        $pdo->prepare("
+                            INSERT INTO users_balances (user_id, balance_usdt)
+                            VALUES (?, ?)
+                            ON DUPLICATE KEY UPDATE balance_usdt = balance_usdt + VALUES(balance_usdt), last_updated = NOW()
+                        ")->execute([$extUserId, $txAmount]);
+                        app_log('INFO', "Balance credited via external_user_id: user #{$extUserId} +{$txAmount} USDT from tx {$txHash}");
+                    }
+                    $pdo->commit();
+                } catch (PDOException $e) {
+                    if ($pdo->inTransaction()) $pdo->rollBack();
+                    app_log('ERROR', "Webhook: direct balance credit failed user #{$extUserId}", ['error' => $e->getMessage()]);
+                }
+            } else {
+                app_log('INFO', "Webhook: duplicate tx {$txHash} for user #{$extUserId} — skipped");
+            }
+        } else {
+            app_log('WARN', 'Webhook: payment.received — no matching order and no external_user_id', ['payment_id' => $paymentId, 'tx_hash' => $txHash]);
+        }
     }
 
     // Save to webhook_log

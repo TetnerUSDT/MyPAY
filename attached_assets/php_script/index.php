@@ -490,30 +490,43 @@ if ($action) {
 
         $apiNet     = ($networkId === 'TRON_GASFREE') ? 'TRON' : $networkId;
         $walletMode = ($networkId === 'TRON_GASFREE') ? 'gasfree' : 'standard';
-        $ordRef     = 'topup_' . $targetUid . '_' . bin2hex(random_bytes(5));
 
         $apiResp = api($baseUrl, $shopKey, 'POST', '/api/merchant/address', [
             'payment_mode' => 'permanent',
             'network'      => $apiNet,
             'mode'         => $walletMode,
             'user_id'      => (string)$targetUid,
-            'order_id'     => $ordRef,
             'currency'     => 'USDT',
         ]);
 
         if (!isset($apiResp['error'])) {
-            $paymentId = $apiResp['payment_id'] ?? null;
-            $address   = $apiResp['address']    ?? null;
-            try {
-                $pdo->prepare("INSERT INTO orders (user_id,product_id,payment_mode,network,amount,payment_id,wallet_address,api_response) VALUES (?,NULL,?,?,0,?,?,?)")
-                    ->execute([$targetUid, 'permanent', $networkId, $paymentId, $address, json_encode($apiResp)]);
-            } catch (PDOException $e) {
-                app_log('WARN', 'Topup order insert failed — product_id NOT NULL? ' . $e->getMessage());
-            }
-            app_log('INFO', 'Topup address created', ['uid' => $targetUid, 'network' => $networkId, 'payment_id' => $paymentId]);
+            app_log('INFO', 'Topup address created (monitoring started)', [
+                'uid'          => $targetUid,
+                'network'      => $networkId,
+                'wallet_id'    => $apiResp['wallet_id'] ?? null,
+                'monitor_until'=> $apiResp['monitor_until'] ?? null,
+            ]);
         }
 
         echo json_encode(['api' => $apiResp]);
+        exit;
+    }
+
+    // ── Балансы пользователей ─────────────────────────────────
+    if ($action === 'get_balances') {
+        try {
+            $rows = $pdo->query("
+                SELECT u.id, u.name, u.avatar,
+                       COALESCE(ub.balance_usdt, 0) AS balance_usdt,
+                       ub.last_updated
+                FROM users u
+                LEFT JOIN users_balances ub ON ub.user_id = u.id
+                ORDER BY u.id
+            ")->fetchAll();
+            echo json_encode($rows);
+        } catch (PDOException $e) {
+            echo json_encode(['error' => $e->getMessage()]);
+        }
         exit;
     }
 
@@ -948,6 +961,16 @@ $webRoot = $proto . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirna
     <div style="font-size:12px;color:var(--muted);margin-top:3px">Постоянные кошельки для пополнения (payment.received)</div>
   </div>
 
+  <!-- Текущие балансы пользователей -->
+  <div class="card card-pad" style="margin-bottom:16px">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+      Балансы пользователей
+    </div>
+    <div id="balances-list">
+      <div style="text-align:center;padding:20px;color:var(--muted)"><span class="spin"></span></div>
+    </div>
+  </div>
+
   <!-- Создать адрес пополнения -->
   <div class="card card-pad" style="margin-bottom:16px">
     <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)">
@@ -1304,7 +1327,7 @@ async function refreshOrders() {
       <td>${esc(o.uavatar||'')} ${esc(o.uname||'')}</td>
       <td>${esc(o.pemoji||'')} ${esc(o.pname||'')}</td>
       <td><span class="mode-badge mode-${esc(o.payment_mode)}">${esc(modeLabel[o.payment_mode]||o.payment_mode)}</span></td>
-      <td class="mono">${parseFloat(o.amount||0).toFixed(4)} USDT</td>
+      <td class="mono">${parseFloat(o.amount_received ?? o.amount ?? 0).toFixed(4)} USDT</td>
       <td>${renderStatusBadge(o.status)}</td>
       <td style="color:var(--muted);font-size:11px;white-space:nowrap">${esc(o.created_at||'')}</td>
       <td class="mono" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(o.payment_id||o.invoice_number||'')}">
@@ -1535,7 +1558,8 @@ async function createTopupAddress() {
         <div class="address-copy"><button class="btn-copy" onclick="copyText(${JSON.stringify(api.address||'')})">Копировать</button></div>
       </div>
       ${qr}
-      <div class="info-row"><span class="k">Payment ID</span><span class="v">${esc(String(api.payment_id||'—'))}</span></div>
+      <div class="info-row"><span class="k">Wallet ID</span><span class="v">${esc(String(api.wallet_id||'—'))}</span></div>
+      ${api.monitor_until ? `<div class="info-row"><span class="k">Мониторинг до</span><span class="v">${esc(new Date(api.monitor_until).toLocaleString('ru'))}</span></div>` : ''}
       <div class="notice" style="margin-top:10px">Отправь любую сумму на этот адрес. Баланс пользователя пополнится автоматически при получении вебхука <strong>payment.received</strong>.</div>
     </div>
   </div>`;
@@ -1562,6 +1586,28 @@ async function refreshBalanceHistory() {
       <td class="mono">${t.order_id ? '#'+t.order_id : '—'}</td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${esc(t.created_at||'')}</td>
     </tr>`).join('');
+}
+
+async function refreshBalances() {
+  const data = await fetch('?action=get_balances').then(r => r.json()).catch(() => []);
+  const el = document.getElementById('balances-list');
+  if (!el) return;
+  if (!Array.isArray(data) || !data.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Нет пользователей</div>';
+    return;
+  }
+  el.innerHTML = data.map(u => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:16px">${esc(u.avatar||'👤')}</span>
+        <div>
+          <div style="font-weight:600;font-size:13px">${esc(u.name||'')}</div>
+          ${u.last_updated ? `<div style="font-size:10px;color:var(--muted)">обновлён ${esc(u.last_updated)}</div>` : ''}
+        </div>
+      </div>
+      <div style="font-weight:700;font-size:15px;color:var(--green)">${parseFloat(u.balance_usdt||0).toFixed(4)} USDT</div>
+    </div>
+  `).join('');
 }
 
 refreshBalances();
