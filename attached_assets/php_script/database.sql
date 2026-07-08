@@ -6,7 +6,7 @@
 
 CREATE DATABASE IF NOT EXISTS mypay_test
   CHARACTER SET utf8mb4
-  COLLATE utf8mb4_0900_ai_ci;          -- MySQL 8 native collation
+  COLLATE utf8mb4_0900_ai_ci;
 
 USE mypay_test;
 
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS users (
   id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   name       VARCHAR(100) NOT NULL,
   email      VARCHAR(150) NOT NULL,
-  avatar     VARCHAR(32)  NOT NULL DEFAULT '👤',   -- VARCHAR(32) для ZWJ-эмодзи
+  avatar     VARCHAR(32)  NOT NULL DEFAULT '👤',
   created_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS products (
   name        VARCHAR(200)  NOT NULL,
   description VARCHAR(500)  NOT NULL DEFAULT '',
   price_usdt  DECIMAL(10,4) NOT NULL,
-  emoji       VARCHAR(32)   NOT NULL DEFAULT '📦',  -- VARCHAR(32) для ZWJ-эмодзи
+  emoji       VARCHAR(32)   NOT NULL DEFAULT '📦',
   category    VARCHAR(50)   NOT NULL DEFAULT 'digital'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -58,6 +58,14 @@ INSERT INTO products (name, description, price_usdt, emoji, category) VALUES
 ON DUPLICATE KEY UPDATE name = name;
 
 -- ── Orders ────────────────────────────────────────────────────
+-- payment_mode: permanent = постоянный адрес (уведомление о каждом tx),
+--               temporary = временный адрес (накопление до нужной суммы),
+--               invoice   = ссылка /pay/... (покупатель выбирает сеть)
+-- status:       pending        — ожидаем оплату
+--               partially_paid — часть суммы получена (temporary/invoice)
+--               confirmed      — полностью оплачен
+--               expired        — время истекло
+--               failed         — ошибка
 CREATE TABLE IF NOT EXISTS orders (
   id             INT UNSIGNED  AUTO_INCREMENT PRIMARY KEY,
   user_id        INT UNSIGNED  NOT NULL,
@@ -65,11 +73,12 @@ CREATE TABLE IF NOT EXISTS orders (
   payment_mode   ENUM('permanent','temporary','invoice') NOT NULL,
   network        VARCHAR(20)   DEFAULT NULL,
   amount         DECIMAL(10,6) NOT NULL,
-  status         ENUM('pending','confirmed','expired','failed') NOT NULL DEFAULT 'pending',
+  amount_received DECIMAL(10,6) DEFAULT NULL,   -- сколько фактически получено
+  status         ENUM('pending','partially_paid','confirmed','expired','failed') NOT NULL DEFAULT 'pending',
   payment_id     VARCHAR(100)  DEFAULT NULL,
   invoice_number VARCHAR(100)  DEFAULT NULL,
   wallet_address VARCHAR(300)  DEFAULT NULL,
-  tx_hash        VARCHAR(200)  DEFAULT NULL,   -- 66 chars BSC/ETH, 64 TRON — запас есть
+  tx_hash        VARCHAR(200)  DEFAULT NULL,
   api_response   JSON          DEFAULT NULL,
   created_at     TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
   updated_at     TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -77,7 +86,22 @@ CREATE TABLE IF NOT EXISTS orders (
   INDEX idx_invoice_number (invoice_number),
   INDEX idx_user_id        (user_id),
   INDEX idx_status         (status),
-  INDEX idx_created_at     (created_at)        -- для ORDER BY created_at DESC
+  INDEX idx_created_at     (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- ── Order receipts — для permanent-кошельков ──────────────────
+-- Каждый входящий tx на постоянный адрес сохраняется отдельной строкой.
+-- Один заказ может иметь много поступлений (пополнение баланса пользователя).
+-- tx_hash — UNIQUE: гарантирует идемпотентность обработки вебхуков.
+CREATE TABLE IF NOT EXISTS order_receipts (
+  id         INT UNSIGNED   AUTO_INCREMENT PRIMARY KEY,
+  order_id   INT UNSIGNED   NOT NULL,
+  tx_hash    VARCHAR(200)   NOT NULL,
+  amount     DECIMAL(18,8)  DEFAULT NULL,
+  network    VARCHAR(30)    DEFAULT NULL,
+  created_at TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_tx_hash (tx_hash),
+  INDEX idx_order_id (order_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ── Webhook log ───────────────────────────────────────────────
@@ -89,15 +113,15 @@ CREATE TABLE IF NOT EXISTS webhook_log (
   received_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_order_id    (order_id),
   INDEX idx_event_type  (event_type),
-  INDEX idx_received_at (received_at)          -- для ORDER BY received_at DESC
+  INDEX idx_received_at (received_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ── Payouts ───────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS payouts (
   id                INT UNSIGNED   AUTO_INCREMENT PRIMARY KEY,
   external_order_id VARCHAR(200)   NOT NULL,
-  payout_id         INT UNSIGNED   DEFAULT NULL,   -- ID из ответа API
-  reference         VARCHAR(255)   DEFAULT NULL,   -- reference из ответа API
+  payout_id         INT UNSIGNED   DEFAULT NULL,
+  reference         VARCHAR(255)   DEFAULT NULL,
   network           VARCHAR(30)    NOT NULL,
   to_address        VARCHAR(300)   NOT NULL,
   amount            DECIMAL(18,6)  NOT NULL,
@@ -108,7 +132,7 @@ CREATE TABLE IF NOT EXISTS payouts (
   created_at        TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
   updated_at        TIMESTAMP      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uq_external_order_id (external_order_id),
-  INDEX idx_payout_id   (payout_id),
-  INDEX idx_status      (status),
-  INDEX idx_created_at  (created_at)
+  INDEX idx_payout_id  (payout_id),
+  INDEX idx_status     (status),
+  INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

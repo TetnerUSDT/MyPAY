@@ -3,6 +3,14 @@
  * myPay Test Shop — Webhook Receiver
  * URL: https://yourdomain.com/webhook.php
  * Set this URL in your myPay shop settings as Webhook URL
+ *
+ * Supported events:
+ *   payment.received  — permanent wallet: any incoming tx (no amount matching)
+ *   payment.partial   — temporary/invoice: partial payment accumulated
+ *   payment.confirmed — temporary/invoice: fully paid
+ *   invoice.confirmed — invoice fully paid (alias)
+ *   invoice.expired   — invoice expired
+ *   payout.completed  — payout sent
  */
 
 // ── DB credentials (same as index.php) ───────────────────────────────────────
@@ -19,7 +27,6 @@ function app_log(string $level, string $message, array $context = []): void {
     @file_put_contents(__DIR__ . '/log.txt', $line, FILE_APPEND | LOCK_EX);
 }
 
-// Перехват фатальных ошибок PHP
 register_shutdown_function(function () {
     $err = error_get_last();
     if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
@@ -69,31 +76,30 @@ if (!$payload || !is_array($payload)) {
     exit;
 }
 
-// ── Extract fields ────────────────────────────────────────────────────────────
+// ── Extract common fields ─────────────────────────────────────────────────────
 $eventType      = $payload['event']           ?? $payload['type']    ?? 'unknown';
 $paymentId      = $payload['payment_id']      ?? null;
 $invoiceNumber  = $payload['invoice_number']  ?? null;
 $status         = $payload['status']          ?? null;
 $txHash         = $payload['tx_hash']         ?? null;
-$amountReceived = $payload['amount_received'] ?? null;
+$amountReceived = $payload['amount_received'] ?? $payload['amount']  ?? null;
 
 app_log('INFO', "Webhook received: {$eventType}", [
     'payment_id'     => $paymentId,
     'invoice_number' => $invoiceNumber,
     'status'         => $status,
-    'tx_hash'        => $txHash ? substr($txHash, 0, 16) . '…' : null,
+    'tx_hash'        => $txHash ? substr((string)$txHash, 0, 16) . '…' : null,
+    'amount'         => $amountReceived,
     'ip'             => $_SERVER['REMOTE_ADDR'] ?? '',
 ]);
 
 // ── Handle payout.completed ───────────────────────────────────────────────────
 if ($eventType === 'payout.completed') {
-    $apiPayoutId      = $payload['payout_id']         ?? null;
-    $externalOrderId  = $payload['external_order_id'] ?? null;
-    $reference        = $payload['reference']         ?? null;
+    $apiPayoutId     = $payload['payout_id']         ?? null;
+    $externalOrderId = $payload['external_order_id'] ?? null;
 
     $payout = null;
     try {
-        // Сначала ищем по payout_id, fallback — по external_order_id
         if ($apiPayoutId !== null) {
             $stmt = $pdo->prepare("SELECT * FROM payouts WHERE payout_id = ? LIMIT 1");
             $stmt->execute([(int)$apiPayoutId]);
@@ -121,13 +127,9 @@ if ($eventType === 'payout.completed') {
             app_log('INFO', "Payout #{$payout['id']} already completed — idempotent skip");
         }
     } else {
-        app_log('WARN', 'Webhook: no matching payout found', [
-            'payout_id'        => $apiPayoutId,
-            'external_order_id'=> $externalOrderId,
-        ]);
+        app_log('WARN', 'Webhook: no matching payout found', ['payout_id' => $apiPayoutId, 'external_order_id' => $externalOrderId]);
     }
 
-    // Сохранить в webhook_log и ответить
     try {
         $pdo->prepare("INSERT INTO webhook_log (event_type, payload, order_id) VALUES (?, ?, ?)")
             ->execute([$eventType, json_encode($payload, JSON_UNESCAPED_UNICODE), null]);
@@ -162,7 +164,83 @@ if ($order) {
     $orderId = $order['id'];
 }
 
-// ── Update order status ───────────────────────────────────────────────────────
+// ── payment.received — permanent wallet: any incoming tx ─────────────────────
+// Do NOT close the order — just record the receipt and let the admin handle it.
+if ($eventType === 'payment.received') {
+    $txAmount = $payload['amount'] ?? null;
+
+    if ($order && $txHash) {
+        // Idempotent: skip if this tx_hash already recorded
+        $dup = false;
+        try {
+            $stmt = $pdo->prepare("SELECT 1 FROM order_receipts WHERE tx_hash = ? LIMIT 1");
+            $stmt->execute([$txHash]);
+            $dup = (bool)$stmt->fetchColumn();
+        } catch (PDOException $e) {
+            app_log('ERROR', 'Webhook: receipt dedup check failed', ['error' => $e->getMessage()]);
+        }
+
+        if (!$dup) {
+            try {
+                $pdo->prepare("INSERT INTO order_receipts (order_id, tx_hash, amount, network) VALUES (?,?,?,?)")
+                    ->execute([$orderId, $txHash, $txAmount, $payload['network'] ?? null]);
+                // Accumulate received amount on the order (informational)
+                $pdo->prepare("UPDATE orders SET amount_received = COALESCE(amount_received, 0) + ?, updated_at=NOW() WHERE id=?")
+                    ->execute([$txAmount ?? 0, $orderId]);
+                app_log('INFO', "Order #{$orderId} received tx {$txHash} +{$txAmount} USDT (permanent)", ['network' => $payload['network'] ?? null]);
+            } catch (PDOException $e) {
+                app_log('ERROR', "Webhook: receipt insert failed #{$orderId}", ['error' => $e->getMessage()]);
+            }
+        } else {
+            app_log('INFO', "Webhook: duplicate tx {$txHash} for order #{$orderId} — skipped");
+        }
+    } else {
+        app_log('WARN', 'Webhook: payment.received — no matching order', ['payment_id' => $paymentId, 'tx_hash' => $txHash]);
+    }
+
+    // Save to webhook_log
+    try {
+        $pdo->prepare("INSERT INTO webhook_log (event_type, payload, order_id) VALUES (?, ?, ?)")
+            ->execute([$eventType, json_encode($payload, JSON_UNESCAPED_UNICODE), $orderId]);
+    } catch (PDOException $e) {
+        app_log('ERROR', 'Webhook: failed to save to webhook_log', ['error' => $e->getMessage()]);
+    }
+
+    http_response_code(200);
+    echo json_encode(['ok' => true, 'event' => $eventType, 'order_id' => $orderId]);
+    exit;
+}
+
+// ── payment.partial — temporary/invoice: partial accumulation ─────────────────
+if ($eventType === 'payment.partial') {
+    $amountReq  = $payload['amount_required']  ?? null;
+    $amountRem  = $payload['amount_remaining'] ?? null;
+
+    if ($order) {
+        try {
+            $pdo->prepare("UPDATE orders SET status='partially_paid', amount_received=?, tx_hash=?, updated_at=NOW() WHERE id=? AND status IN ('pending','partially_paid')")
+                ->execute([$amountReceived, $txHash, $orderId]);
+            app_log('INFO', "Order #{$orderId} partially paid", ['received' => $amountReceived, 'required' => $amountReq, 'remaining' => $amountRem]);
+        } catch (PDOException $e) {
+            app_log('ERROR', "Webhook: partial update failed #{$orderId}", ['error' => $e->getMessage()]);
+        }
+    } else {
+        app_log('WARN', 'Webhook: payment.partial — no matching order', ['payment_id' => $paymentId]);
+    }
+
+    try {
+        $pdo->prepare("INSERT INTO webhook_log (event_type, payload, order_id) VALUES (?, ?, ?)")
+            ->execute([$eventType, json_encode($payload, JSON_UNESCAPED_UNICODE), $orderId]);
+    } catch (PDOException $e) {
+        app_log('ERROR', 'Webhook: failed to save to webhook_log', ['error' => $e->getMessage()]);
+    }
+
+    http_response_code(200);
+    echo json_encode(['ok' => true, 'event' => $eventType, 'order_id' => $orderId]);
+    exit;
+}
+
+// ── payment.confirmed / invoice.confirmed — full payment ──────────────────────
 if ($order) {
     $isConfirmed = in_array($eventType, ['invoice.confirmed', 'payment.confirmed', 'confirmed'])
                    || $status === 'confirmed';
@@ -171,9 +249,9 @@ if ($order) {
 
     try {
         if ($isConfirmed && $order['status'] !== 'confirmed') {
-            $pdo->prepare("UPDATE orders SET status='confirmed', tx_hash=?, updated_at=NOW() WHERE id=?")
-                ->execute([$txHash, $orderId]);
-            app_log('INFO', "Order #{$orderId} marked confirmed", ['tx_hash' => $txHash]);
+            $pdo->prepare("UPDATE orders SET status='confirmed', tx_hash=?, amount_received=?, updated_at=NOW() WHERE id=?")
+                ->execute([$txHash, $amountReceived ?? $order['amount_received'], $orderId]);
+            app_log('INFO', "Order #{$orderId} marked confirmed", ['tx_hash' => $txHash, 'amount' => $amountReceived]);
         } elseif ($isExpired && $order['status'] === 'pending') {
             $pdo->prepare("UPDATE orders SET status='expired', updated_at=NOW() WHERE id=?")
                 ->execute([$orderId]);
@@ -184,6 +262,7 @@ if ($order) {
     }
 } else {
     app_log('WARN', 'Webhook: no matching order found', [
+        'event'          => $eventType,
         'payment_id'     => $paymentId,
         'invoice_number' => $invoiceNumber,
     ]);

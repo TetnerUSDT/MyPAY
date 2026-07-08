@@ -185,18 +185,19 @@ if ($action) {
         exit;
     }
 
-    // ── Получить адрес (постоянный / временный) ───────────────
+    // ── Получить адрес (permanent / temporary) ───────────────
+    // payment_mode передаётся явно в каждом запросе к API — больше не берётся из настроек магазина
     if ($action === 'get_address') {
-        $mode      = in_array($input['mode'] ?? '', ['permanent','temporary']) ? $input['mode'] : 'permanent';
-        $productId = (int)($input['product_id'] ?? 0);
+        $paymentMode = in_array($input['mode'] ?? '', ['permanent','temporary']) ? $input['mode'] : 'permanent';
+        $productId   = (int)($input['product_id'] ?? 0);
 
         // network_id — внутренний идентификатор (TRON, TRON_GASFREE, BSC, TON, ETH, POLYGON, SOLANA, ARBITRUM)
         $VALID_NETS = ['TRON','TRON_GASFREE','BSC','TON','ETH','POLYGON','SOLANA','ARBITRUM'];
         $networkId  = in_array($input['network'] ?? '', $VALID_NETS) ? $input['network'] : 'TRON';
 
-        // Маппинг на параметры API
-        $apiNet  = ($networkId === 'TRON_GASFREE') ? 'TRON' : $networkId;
-        $apiMode = ($networkId === 'TRON_GASFREE') ? 'gasfree' : 'standard';
+        // Маппинг на параметры API: wallet_mode (gasfree/standard) != payment_mode
+        $apiNet      = ($networkId === 'TRON_GASFREE') ? 'TRON' : $networkId;
+        $walletMode  = ($networkId === 'TRON_GASFREE') ? 'gasfree' : 'standard';
 
         if (!$shopKey) {
             echo json_encode(['error' => 'Не задан Shop API Key в настройках']);
@@ -208,19 +209,27 @@ if ($action) {
         $product = $stmt->fetch();
         if (!$product) { echo json_encode(['error' => 'Товар не найден']); exit; }
 
-        $ordRef  = makeOrderRef($uid, $productId);
-        $apiResp = api($baseUrl, $shopKey, 'POST', '/api/merchant/address', [
-            'network'  => $apiNet,
-            'mode'     => $apiMode,
-            'user_id'  => (string)$uid,
-            'order_id' => $ordRef,
-            'amount'   => (float)$product['price_usdt'],
-            'currency' => 'USDT',
-        ]);
+        $ordRef = makeOrderRef($uid, $productId);
+
+        // Permanent: не передаём amount — кошелёк мониторит любые входящие, сумма не важна
+        // Temporary: amount обязателен — накопление до нужной суммы
+        $body = [
+            'payment_mode' => $paymentMode,    // ← новое поле: указывает режим платежа
+            'network'      => $apiNet,
+            'mode'         => $walletMode,     // ← transport mode: standard | gasfree
+            'user_id'      => (string)$uid,
+            'order_id'     => $ordRef,
+            'currency'     => 'USDT',
+        ];
+        if ($paymentMode === 'temporary') {
+            $body['amount'] = (float)$product['price_usdt'];
+        }
+
+        $apiResp = api($baseUrl, $shopKey, 'POST', '/api/merchant/address', $body);
 
         // Если API вернул ошибку — логируем и возвращаем понятное сообщение
         if (isset($apiResp['error'])) {
-            $errMsg  = $apiResp['error'] ?? 'Unknown error';
+            $errMsg   = $apiResp['error'] ?? 'Unknown error';
             $isNetErr = stripos($errMsg, 'network') !== false
                      || stripos($errMsg, 'not supported') !== false
                      || stripos($errMsg, 'not enabled') !== false
@@ -238,12 +247,12 @@ if ($action) {
 
         try {
             $pdo->prepare("INSERT INTO orders (user_id,product_id,payment_mode,network,amount,payment_id,wallet_address,api_response) VALUES (?,?,?,?,?,?,?,?)")
-                ->execute([$uid, $productId, $mode, $networkId, $product['price_usdt'], $paymentId, $address, json_encode($apiResp)]);
+                ->execute([$uid, $productId, $paymentMode, $networkId, $product['price_usdt'], $paymentId, $address, json_encode($apiResp)]);
         } catch (PDOException $e) {
             app_log('ERROR', 'Order insert failed', ['error' => $e->getMessage()]);
         }
 
-        app_log('INFO', "New {$mode} payment", ['uid' => $uid, 'product_id' => $productId, 'network' => $networkId, 'api_mode' => $apiMode, 'payment_id' => $paymentId]);
+        app_log('INFO', "New {$paymentMode} payment", ['uid' => $uid, 'product_id' => $productId, 'network' => $networkId, 'wallet_mode' => $walletMode, 'payment_id' => $paymentId]);
         echo json_encode(['api' => $apiResp, 'order_id' => $pdo->lastInsertId(), 'product' => $product['name']]);
         exit;
     }
@@ -260,10 +269,11 @@ if ($action) {
 
         $ordRef  = makeOrderRef($uid, $productId);
         $apiResp = api($baseUrl, $shopKey, 'POST', '/api/merchant/address', [
-            'user_id'  => (string)$uid,
-            'order_id' => $ordRef,
-            'amount'   => (float)$product['price_usdt'],
-            'currency' => 'USDT',
+            'payment_mode' => 'invoice',       // ← явно указываем режим
+            'user_id'      => (string)$uid,
+            'order_id'     => $ordRef,
+            'amount'       => (float)$product['price_usdt'],
+            'currency'     => 'USDT',
         ]);
 
         $invoiceNumber = $apiResp['invoice_number'] ?? null;
@@ -280,7 +290,7 @@ if ($action) {
         exit;
     }
 
-    // ── Проверить статус платежа ──────────────────────────────
+    // ── Проверить статус платежа (с триггером re-check) ──────
     if ($action === 'check_status') {
         $orderId = (int)($input['order_id'] ?? 0);
         $stmt = $pdo->prepare("SELECT * FROM orders WHERE id=? LIMIT 1");
@@ -288,17 +298,16 @@ if ($action) {
         $order = $stmt->fetch();
         if (!$order) { echo json_encode(['error' => 'Заказ не найден']); exit; }
 
-        $mode    = $order['payment_mode'];
+        $mode = $order['payment_mode'];
         if (!$shopKey) { echo json_encode(['error' => 'Не задан Shop API Key в настройках']); exit; }
 
         if ($mode === 'invoice' && $order['invoice_number']) {
-            // Invoice endpoint is public — no shop key needed, but we send it anyway (ignored)
             $apiResp = api($baseUrl, $shopKey, 'GET', '/api/merchant/invoice/' . rawurlencode($order['invoice_number']));
             $status  = $apiResp['status']  ?? null;
             $txHash  = $apiResp['tx_hash'] ?? null;
         } else {
-            // Триггер re-check
-            api($baseUrl, $shopKey, 'POST', '/api/merchant/check-payment', ['payment_id' => (int)$order['payment_id']]);
+            // Триггер re-check на сервере (сканирует блокчейн немедленно)
+            $checkResp = api($baseUrl, $shopKey, 'POST', '/api/merchant/check-payment', ['payment_id' => (int)$order['payment_id']]);
             // Получить актуальный статус
             $apiResp = api($baseUrl, $shopKey, 'GET', '/api/merchant/payment/' . rawurlencode($order['payment_id']));
             $status  = $apiResp['status']  ?? null;
@@ -311,7 +320,11 @@ if ($action) {
                 $pdo->prepare("UPDATE orders SET status='confirmed', tx_hash=?, updated_at=NOW() WHERE id=?")
                     ->execute([$txHash, $orderId]);
                 app_log('INFO', "Order #{$orderId} confirmed via manual check", ['tx_hash' => $txHash]);
-            } elseif ($status === 'expired' && $order['status'] === 'pending') {
+            } elseif ($status === 'partially_paid' && $order['status'] === 'pending') {
+                $pdo->prepare("UPDATE orders SET status='partially_paid', amount_received=?, updated_at=NOW() WHERE id=?")
+                    ->execute([$apiResp['amount_received'] ?? null, $orderId]);
+                app_log('INFO', "Order #{$orderId} partially paid via manual check");
+            } elseif (in_array($status, ['expired','closed']) && $order['status'] === 'pending') {
                 $pdo->prepare("UPDATE orders SET status='expired', updated_at=NOW() WHERE id=?")
                     ->execute([$orderId]);
                 app_log('INFO', "Order #{$orderId} expired via manual check");
@@ -346,14 +359,17 @@ if ($action) {
             $txHash  = $apiResp['tx_hash'] ?? null;
         }
 
-        // Обновить локально если подтверждён
-        if ($status === 'confirmed' && $order['status'] !== 'confirmed') {
-            try {
+        // Обновить локально в зависимости от статуса
+        try {
+            if ($status === 'confirmed' && $order['status'] !== 'confirmed') {
                 $pdo->prepare("UPDATE orders SET status='confirmed', tx_hash=?, updated_at=NOW() WHERE id=?")
                     ->execute([$txHash, $orderId]);
                 app_log('INFO', "Order #{$orderId} confirmed via poll", ['tx_hash' => $txHash]);
-            } catch (PDOException $e) {}
-        }
+            } elseif ($status === 'partially_paid' && $order['status'] === 'pending') {
+                $pdo->prepare("UPDATE orders SET status='partially_paid', amount_received=?, updated_at=NOW() WHERE id=?")
+                    ->execute([$apiResp['amount_received'] ?? null, $orderId]);
+            }
+        } catch (PDOException $e) {}
 
         $order['status'] = $status ?: $order['status'];
         echo json_encode(['api' => $apiResp, 'local_status' => $order['status']]);
