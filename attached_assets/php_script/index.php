@@ -993,13 +993,11 @@ $webRoot = $proto . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirna
     <div style="font-size:12px;color:var(--muted);margin-top:3px">Постоянные кошельки для пополнения (payment.received)</div>
   </div>
 
-  <!-- Текущие балансы пользователей -->
-  <div class="card card-pad" style="margin-bottom:16px">
-    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)">
-      Балансы пользователей
-    </div>
-    <div id="balances-list">
-      <div style="text-align:center;padding:20px;color:var(--muted)"><span class="spin"></span></div>
+  <!-- Баланс текущего пользователя -->
+  <div class="card card-pad" style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between">
+    <div>
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Ваш баланс</div>
+      <div id="current-balance" style="font-size:24px;font-weight:700;color:var(--green)"><span class="spin"></span></div>
     </div>
   </div>
 
@@ -1011,20 +1009,8 @@ $webRoot = $proto . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirna
     <div class="notice" style="margin-bottom:14px">
       Постоянный адрес не привязан к сумме — принимает любые переводы. Каждый поступивший платёж автоматически зачисляется на баланс пользователя через вебхук <strong>payment.received</strong>.
     </div>
-    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
-      <div style="flex:1;min-width:160px">
-        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:500">Пользователь</div>
-        <select id="topup-user" style="width:100%;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none">
-          <?php foreach ($users as $u): ?>
-          <option value="<?= (int)$u['id'] ?>" <?= ((int)$u['id'] === $uid) ? 'selected' : '' ?>><?= htmlspecialchars($u['avatar'].' '.$u['name'], ENT_QUOTES, 'UTF-8') ?></option>
-          <?php endforeach; ?>
-        </select>
-      </div>
-      <div style="flex:1;min-width:160px">
-        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:500">Сеть</div>
-        <div class="net-list" id="topup-net-list" style="margin-bottom:0"></div>
-      </div>
-    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:500">Сеть</div>
+    <div class="net-list" id="topup-net-list" style="margin-bottom:12px"></div>
     <button class="btn btn-primary" id="topup-btn" onclick="createTopupAddress()">💳 Получить адрес пополнения</button>
     <div id="topup-result" style="margin-top:12px"></div>
   </div>
@@ -1569,7 +1555,7 @@ function selectTopupNetwork(netId) { selectedTopupNetwork = netId; renderTopupNe
 async function createTopupAddress() {
   const btn = document.getElementById('topup-btn');
   const resultEl = document.getElementById('topup-result');
-  const userId = document.getElementById('topup-user').value;
+  const userId = <?= $uid ?>;
   btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Запрос...';
   const data = await post('get_topup_address', { network: selectedTopupNetwork, user_id: parseInt(userId) });
   btn.disabled = false; btn.textContent = '💳 Получить адрес пополнения';
@@ -1599,38 +1585,12 @@ async function createTopupAddress() {
 }
 
 async function refreshBalances() {
-  const data = await fetch('?action=get_balances').then(r => r.json()).catch(() => []);
-
-  // Create the card dynamically if it was missing from the HTML
-  let el = document.getElementById('balances-list');
-  if (!el) {
-    const card = document.createElement('div');
-    card.className = 'card card-pad';
-    card.style.cssText = 'margin-bottom:16px';
-    card.innerHTML = '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)">Балансы пользователей</div><div id="balances-list"></div>';
-    const firstCard = document.querySelector('.card');
-    if (firstCard) firstCard.parentNode.insertBefore(card, firstCard);
-    else document.body.prepend(card);
-    el = document.getElementById('balances-list');
-  }
-
+  const el = document.getElementById('current-balance');
   if (!el) return;
-  if (!Array.isArray(data) || !data.length) {
-    el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Нет пользователей</div>';
-    return;
-  }
-  el.innerHTML = data.map(u => `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border)">
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:16px">${esc(u.avatar||'👤')}</span>
-        <div>
-          <div style="font-weight:600;font-size:13px">${esc(u.name||'')}</div>
-          ${u.last_updated ? `<div style="font-size:10px;color:var(--muted)">обновлён ${esc(u.last_updated)}</div>` : ''}
-        </div>
-      </div>
-      <div style="font-weight:700;font-size:15px;color:var(--green)">${parseFloat(u.balance_usdt||0).toFixed(4)} USDT</div>
-    </div>
-  `).join('');
+  const data = await fetch('?action=get_balances').then(r => r.json()).catch(() => []);
+  const uid = <?= $uid ?>;
+  const user = Array.isArray(data) ? data.find(u => u.id == uid) : null;
+  el.textContent = parseFloat(user?.balance_usdt || 0).toFixed(4) + ' USDT';
 }
 
 async function refreshBalanceHistory() {
