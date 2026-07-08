@@ -4,9 +4,10 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeft, Plus, Store, Copy, Check, RefreshCw, Settings,
-  ArrowDownLeft, ArrowUpRight, Clock, CheckCircle2, XCircle,
+  ArrowDownLeft, ArrowUpRight, Clock, CheckCircle2, XCircle, X,
   Eye, EyeOff, Loader2, AlertCircle, ExternalLink, Zap, Wallet, Timer,
-  FileText, Activity, AlertTriangle
+  FileText, Activity, AlertTriangle, TrendingUp, CreditCard, Building2,
+  Globe, Webhook, Network, BarChart3, Shield, Sparkles
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -979,74 +980,148 @@ function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => v
         {/* ── Overview ── */}
         {tab === "overview" && (
           <>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-[#13151A] border border-white/5 rounded-2xl p-4">
-                <div className="text-[10px] text-white/40 uppercase tracking-wide mb-1">Баланс кошельков</div>
-                <div className="text-xl font-bold text-white">{parseFloat(shop.walletBalanceSum ?? shop.balanceUsdt).toFixed(4)}</div>
-                <div className="text-xs text-white/40">USDT</div>
+            {/* Stats — 2 cols mobile, 4 cols desktop */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Wallet balance */}
+              <div
+                className="relative bg-[#0D0F14] border border-white/8 rounded-2xl p-4 overflow-hidden group hover:border-white/15 transition-all"
+                style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
+              >
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center mb-3">
+                  <Wallet className="w-4 h-4 text-white/50" />
+                </div>
+                <div className="text-[10px] text-white/35 uppercase tracking-widest mb-1.5">Баланс</div>
+                <div className="text-2xl font-bold text-white tracking-tight">
+                  {parseFloat(shop.walletBalanceSum ?? shop.balanceUsdt).toFixed(2)}
+                </div>
+                <div className="text-[11px] text-white/35 mt-0.5 font-medium">USDT</div>
               </div>
-              <div className="bg-[#13151A] border border-white/5 rounded-2xl p-4">
-                <div className="text-[10px] text-white/40 uppercase tracking-wide mb-1">Всего получено</div>
-                <div className="text-xl font-bold text-[#3ab368]">{parseFloat(shop.totalReceived).toFixed(4)}</div>
-                <div className="text-xs text-white/40">USDT</div>
+
+              {/* Total received */}
+              <div
+                className="relative bg-[#0D0F14] border border-[#3ab368]/15 rounded-2xl p-4 overflow-hidden group hover:border-[#3ab368]/30 transition-all"
+                style={{ boxShadow: "inset 0 1px 0 rgba(58,179,104,0.08), 0 0 30px rgba(58,179,104,0.04)" }}
+              >
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#3ab368]/40 to-transparent" />
+                <div className="w-8 h-8 rounded-xl bg-[#3ab368]/10 flex items-center justify-center mb-3">
+                  <TrendingUp className="w-4 h-4 text-[#3ab368]" />
+                </div>
+                <div className="text-[10px] text-white/35 uppercase tracking-widest mb-1.5">Получено</div>
+                <div className="text-2xl font-bold text-[#3ab368] tracking-tight">
+                  {parseFloat(shop.totalReceived).toFixed(2)}
+                </div>
+                <div className="text-[11px] text-[#3ab368]/60 mt-0.5 font-medium">USDT</div>
               </div>
-              <div className="bg-[#13151A] border border-white/5 rounded-2xl p-4">
-                <div className="text-[10px] text-white/40 uppercase tracking-wide mb-1">Выведено</div>
-                <div className="text-xl font-bold text-white">{parseFloat(shop.totalPaidOut).toFixed(4)}</div>
-                <div className="text-xs text-white/40">USDT</div>
+
+              {/* Paid out */}
+              <div
+                className="relative bg-[#0D0F14] border border-white/8 rounded-2xl p-4 overflow-hidden hover:border-white/15 transition-all"
+                style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
+              >
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center mb-3">
+                  <ArrowUpRight className="w-4 h-4 text-white/50" />
+                </div>
+                <div className="text-[10px] text-white/35 uppercase tracking-widest mb-1.5">Выведено</div>
+                <div className="text-2xl font-bold text-white tracking-tight">
+                  {parseFloat(shop.totalPaidOut).toFixed(2)}
+                </div>
+                <div className="text-[11px] text-white/35 mt-0.5 font-medium">USDT</div>
               </div>
-              <div className="bg-[#13151A] border border-white/5 rounded-2xl p-4">
-                <div className="text-[10px] text-white/40 uppercase tracking-wide mb-1">Режим</div>
-                <div className="text-sm font-bold text-white">Per-request</div>
-                <div className="text-xs text-white/40">payment_mode в запросе</div>
+
+              {/* Mode */}
+              <div
+                className="relative bg-[#0D0F14] border border-white/8 rounded-2xl p-4 overflow-hidden hover:border-white/15 transition-all"
+                style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
+              >
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center mb-3">
+                  <Zap className="w-4 h-4 text-white/50" />
+                </div>
+                <div className="text-[10px] text-white/35 uppercase tracking-widest mb-1.5">Режим</div>
+                <div className="text-sm font-bold text-white tracking-tight">Per-request</div>
+                <div className="text-[10px] text-white/30 mt-0.5">payment_mode</div>
               </div>
             </div>
 
-            {/* Enabled networks */}
-            {enabledNets.length > 0 && (
-              <div className="bg-[#13151A] border border-white/5 rounded-2xl p-4">
-                <div className="text-[10px] text-white/40 uppercase tracking-wide mb-3">Активные сети</div>
-                <div className="flex flex-wrap gap-2">
-                  {enabledNets.map(n => {
-                    const def = NET_BY_ID[n];
-                    if (!def) return null;
-                    return (
-                      <div key={n} className="flex items-center gap-2 bg-[#3ab368]/10 border border-[#3ab368]/20 rounded-xl px-3 py-2">
-                        <NetworkIcon iconFile={def.icon} size={18} />
-                        <div>
-                          <div className="text-xs font-medium text-white leading-none">{def.label}</div>
-                          {def.badge && <div className="text-[9px] text-[#3ab368] leading-none mt-0.5">{def.badge}</div>}
+            {/* Networks + API Key — side by side on desktop */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {/* Networks */}
+              {enabledNets.length > 0 ? (
+                <div
+                  className="relative bg-[#0D0F14] border border-white/8 rounded-2xl p-4 overflow-hidden"
+                  style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
+                >
+                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#3ab368]" />
+                    <span className="text-[10px] text-white/40 uppercase tracking-widest font-semibold">Активные сети</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {enabledNets.map(n => {
+                      const def = NET_BY_ID[n];
+                      if (!def) return null;
+                      return (
+                        <div
+                          key={n}
+                          className="flex items-center gap-2 rounded-xl px-3 py-2 border border-[#3ab368]/20 bg-[#3ab368]/8 hover:bg-[#3ab368]/12 transition-colors"
+                        >
+                          <NetworkIcon iconFile={def.icon} size={18} />
+                          <div>
+                            <div className="text-xs font-semibold text-white leading-none">{def.label}</div>
+                            {def.badge && <div className="text-[9px] text-[#3ab368] leading-none mt-0.5 font-medium">{def.badge}</div>}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
+              ) : (
+                <div
+                  className="relative bg-[#0D0F14] border border-dashed border-white/8 rounded-2xl p-4 flex items-center justify-center"
+                >
+                  <div className="text-center">
+                    <Network className="w-6 h-6 text-white/20 mx-auto mb-2" />
+                    <p className="text-xs text-white/30">Нет активных сетей</p>
+                    <p className="text-[10px] text-white/20 mt-0.5">Включите сети в настройках</p>
+                  </div>
+                </div>
+              )}
 
-            {/* API Key */}
-            <div className="bg-[#13151A] border border-white/5 rounded-2xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-white/40 uppercase tracking-wide">API-ключ магазина</span>
-                <div className="flex gap-1.5">
-                  <button onClick={() => setShowKey(v => !v)} className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
-                    {showKey ? <EyeOff className="w-3.5 h-3.5 text-white/40" /> : <Eye className="w-3.5 h-3.5 text-white/40" />}
-                  </button>
-                  <CopyButton text={shop.apiKey} />
-                  <button
-                    onClick={() => regenKey.mutate()}
-                    disabled={regenKey.isPending}
-                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
-                    title="Перегенерировать"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 text-white/40 ${regenKey.isPending ? "animate-spin" : ""}`} />
-                  </button>
+              {/* API Key */}
+              <div
+                className="relative bg-[#0D0F14] border border-white/8 rounded-2xl p-4 overflow-hidden"
+                style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
+              >
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-white/30" />
+                    <span className="text-[10px] text-white/40 uppercase tracking-widest font-semibold">API-ключ</span>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <button onClick={() => setShowKey(v => !v)} className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+                      {showKey ? <EyeOff className="w-3.5 h-3.5 text-white/40" /> : <Eye className="w-3.5 h-3.5 text-white/40" />}
+                    </button>
+                    <CopyButton text={shop.apiKey} />
+                    <button
+                      onClick={() => regenKey.mutate()}
+                      disabled={regenKey.isPending}
+                      className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+                      title="Перегенерировать"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 text-white/40 ${regenKey.isPending ? "animate-spin" : ""}`} />
+                    </button>
+                  </div>
                 </div>
+                <div className="font-mono text-xs text-white/70 bg-black/30 border border-white/5 rounded-xl px-3 py-2.5 break-all leading-relaxed">
+                  {showKey ? shop.apiKey : "•".repeat(32)}
+                </div>
+                <p className="text-[10px] text-white/25 mt-2.5 leading-relaxed">
+                  Используйте в заголовке <code className="text-white/40 bg-white/5 px-1 rounded">x-shop-key</code> при запросах к API
+                </p>
               </div>
-              <div className="font-mono text-xs text-white/70 bg-[#0E1014] rounded-xl px-3 py-2.5 break-all">
-                {showKey ? shop.apiKey : "•".repeat(32)}
-              </div>
-              <p className="text-[10px] text-white/30 mt-2">Используйте этот ключ в заголовке <code className="text-white/50">x-shop-key</code> при запросах к API</p>
             </div>
 
             {/* API Docs */}
@@ -1892,142 +1967,202 @@ function SettingsTab({ shop }: { shop: Shop }) {
   const selectableNets = NETWORKS.filter(n => n.selectable);
   const disabledNets = NETWORKS.filter(n => !n.selectable);
 
+  const inputCls = "w-full bg-[#0A0C10] border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-[#3ab368]/50 focus:bg-[#0D1018] transition-all";
+
   return (
-    <div className="space-y-5">
-      {/* Basic info */}
-      <div className="space-y-3">
-        <div>
-          <label className="text-xs text-white/40 mb-1.5 block">Название</label>
-          <input value={name} onChange={e => setName(e.target.value)} className="w-full bg-[#13151A] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#3ab368]/50" />
-        </div>
-        <div>
-          <label className="text-xs text-white/40 mb-1.5 block">Домен</label>
-          <input value={domain} onChange={e => setDomain(e.target.value)} className="w-full bg-[#13151A] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#3ab368]/50" />
-        </div>
-        <div>
-          <label className="text-xs text-white/40 mb-1.5 block">Webhook URL</label>
-          <input value={webhookUrl} onChange={e => setWebhookUrl(e.target.value)} placeholder="https://yoursite.com/webhook" className="w-full bg-[#13151A] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-[#3ab368]/50" />
-        </div>
-      </div>
+    <div className="space-y-4">
 
-      {/* Per-request mode hint */}
-      <div className="bg-[#3ab368]/5 border border-[#3ab368]/15 rounded-xl p-3">
-        <div className="flex items-start gap-2">
-          <div className="w-1.5 h-1.5 rounded-full bg-[#3ab368] mt-1.5 flex-shrink-0" />
-          <div>
-            <div className="text-[11px] font-semibold text-[#3ab368] mb-0.5">Режим — per-request</div>
-            <p className="text-[10px] text-white/40 leading-relaxed">
-              Режим приёма (<code className="text-white/60">payment_mode</code>) указывается в каждом API-запросе отдельно —
-              <strong className="text-white/60"> permanent</strong>, <strong className="text-white/60">temporary</strong> или <strong className="text-white/60">invoice</strong>.
-              Единый переключатель для всего магазина больше не используется.
-              Подробнее см. раздел <strong className="text-white/60">API-документация</strong> на вкладке Обзор.
-            </p>
-          </div>
-        </div>
-      </div>
+      {/* ── Desktop 2-column grid ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-      {/* Timing settings */}
-      <div className="space-y-3">
-        <div className="text-xs text-white/40 font-semibold uppercase tracking-wider mb-1">Окна времени (мин)</div>
-        <div className="grid grid-cols-3 gap-3">
-          <div>
-            <label className="text-[10px] text-white/30 mb-1 block">Постоянный адрес</label>
-            <input
-              type="number" min={1} max={1440}
-              value={permanentMonitorMinutes}
-              onChange={e => setPermanentMonitorMinutes(parseInt(e.target.value) || 20)}
-              className="w-full bg-[#13151A] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#3ab368]/50"
-            />
-            <div className="text-[9px] text-white/25 mt-1">Мониторинг входящих</div>
-          </div>
-          <div>
-            <label className="text-[10px] text-white/30 mb-1 block">Временный адрес</label>
-            <input
-              type="number" min={1} max={1440}
-              value={temporaryMinutes}
-              onChange={e => setTemporaryMinutes(parseInt(e.target.value) || 30)}
-              className="w-full bg-[#13151A] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#3ab368]/50"
-            />
-            <div className="text-[9px] text-white/25 mt-1">Резерв адреса</div>
-          </div>
-          <div>
-            <label className="text-[10px] text-white/30 mb-1 block">Инвойс</label>
-            <input
-              type="number" min={1} max={1440}
-              value={invoiceMinutes}
-              onChange={e => setInvoiceMinutes(parseInt(e.target.value) || 60)}
-              className="w-full bg-[#13151A] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#3ab368]/50"
-            />
-            <div className="text-[9px] text-white/25 mt-1">Резерв адреса</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Network selection */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <label className="text-xs text-white/40">Принимаемые сети</label>
-          <span className="text-xs text-[#3ab368]">{selectedNets.length} выбрано</span>
-        </div>
-
-        {/* Active selectable networks */}
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          {selectableNets.map(n => {
-            const isOn = selectedNets.includes(n.id);
-            return (
-              <button
-                key={n.id}
-                onClick={() => toggleNet(n.id)}
-                className={`relative flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
-                  isOn
-                    ? "border-[#3ab368] bg-[#3ab368]/10"
-                    : "border-white/8 bg-[#13151A] hover:border-white/20"
-                }`}
-              >
-                {/* Checkmark */}
-                <div className={`absolute top-2 right-2 w-4 h-4 rounded-full border flex items-center justify-center transition-all ${
-                  isOn ? "bg-[#3ab368] border-[#3ab368]" : "border-white/20"
-                }`}>
-                  {isOn && <Check className="w-2.5 h-2.5 text-white" />}
-                </div>
-
-                <NetworkIcon iconFile={n.icon} size={30} />
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-semibold text-white leading-tight">{n.label}</div>
-                  <div className="text-[9px] text-white/40 mt-0.5 leading-tight">{n.sub}</div>
-                  {n.badge && (
-                    <span className="inline-block mt-1 text-[8px] px-1.5 py-0.5 rounded-full bg-[#3ab368]/20 text-[#3ab368] font-medium">
-                      {n.badge}
-                    </span>
-                  )}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Coming soon (disabled) */}
-        <div className="text-[10px] text-white/20 mb-2 uppercase tracking-wider">Скоро</div>
-        <div className="grid grid-cols-4 gap-2">
-          {disabledNets.map(n => (
-            <div
-              key={n.id}
-              className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl border border-white/5 bg-[#13151A]/50 opacity-40"
-            >
-              <NetworkIcon iconFile={n.icon} size={24} />
-              <span className="text-[9px] text-white/40 text-center leading-tight">{n.label}</span>
+        {/* Left column — basic info + webhook */}
+        <div className="space-y-4">
+          {/* Basic info card */}
+          <div
+            className="relative bg-[#0D0F14] border border-white/8 rounded-2xl p-5 overflow-hidden"
+            style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
+          >
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center">
+                <Building2 className="w-3.5 h-3.5 text-white/50" />
+              </div>
+              <span className="text-xs font-semibold text-white/60 uppercase tracking-widest">Основное</span>
             </div>
-          ))}
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-white/40 mb-1.5 block">Название магазина</label>
+                <input value={name} onChange={e => setName(e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className="text-xs text-white/40 mb-1.5 block">Домен сайта</label>
+                <div className="relative">
+                  <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/25 pointer-events-none" />
+                  <input value={domain} onChange={e => setDomain(e.target.value)} className={`${inputCls} pl-9`} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Webhook card */}
+          <div
+            className="relative bg-[#0D0F14] border border-white/8 rounded-2xl p-5 overflow-hidden"
+            style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
+          >
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center">
+                <Zap className="w-3.5 h-3.5 text-white/50" />
+              </div>
+              <span className="text-xs font-semibold text-white/60 uppercase tracking-widest">Webhook</span>
+            </div>
+            <div>
+              <label className="text-xs text-white/40 mb-1.5 block">URL для уведомлений</label>
+              <input
+                value={webhookUrl}
+                onChange={e => setWebhookUrl(e.target.value)}
+                placeholder="https://yoursite.com/webhook"
+                className={inputCls}
+              />
+            </div>
+            <div className="mt-3 bg-[#3ab368]/5 border border-[#3ab368]/15 rounded-xl p-3">
+              <div className="flex items-start gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#3ab368] mt-1.5 flex-shrink-0" />
+                <div>
+                  <div className="text-[11px] font-semibold text-[#3ab368] mb-0.5">Режим — per-request</div>
+                  <p className="text-[10px] text-white/40 leading-relaxed">
+                    Режим (<code className="text-white/60 bg-white/5 px-0.5 rounded">payment_mode</code>) указывается в каждом запросе —
+                    <span className="text-white/55"> permanent</span>, <span className="text-white/55">temporary</span> или <span className="text-white/55">invoice</span>.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right column — timing + networks */}
+        <div className="space-y-4">
+          {/* Timing card */}
+          <div
+            className="relative bg-[#0D0F14] border border-white/8 rounded-2xl p-5 overflow-hidden"
+            style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
+          >
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center">
+                <Timer className="w-3.5 h-3.5 text-white/50" />
+              </div>
+              <span className="text-xs font-semibold text-white/60 uppercase tracking-widest">Тайм-ауты (мин)</span>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: "Постоянный", hint: "Мониторинг", val: permanentMonitorMinutes, set: setPermanentMonitorMinutes, def: 20 },
+                { label: "Временный", hint: "Резерв адреса", val: temporaryMinutes, set: setTemporaryMinutes, def: 30 },
+                { label: "Инвойс", hint: "Резерв адреса", val: invoiceMinutes, set: setInvoiceMinutes, def: 60 },
+              ].map(({ label, hint, val, set, def }) => (
+                <div key={label}>
+                  <label className="text-[10px] text-white/35 mb-1.5 block font-medium">{label}</label>
+                  <input
+                    type="number" min={1} max={1440}
+                    value={val}
+                    onChange={e => set(parseInt(e.target.value) || def)}
+                    className="w-full bg-[#0A0C10] border border-white/8 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#3ab368]/50 transition-all text-center font-mono"
+                  />
+                  <div className="text-[9px] text-white/25 mt-1 text-center">{hint}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Networks card */}
+          <div
+            className="relative bg-[#0D0F14] border border-white/8 rounded-2xl p-5 overflow-hidden"
+            style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
+          >
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center">
+                  <Network className="w-3.5 h-3.5 text-white/50" />
+                </div>
+                <span className="text-xs font-semibold text-white/60 uppercase tracking-widest">Сети</span>
+              </div>
+              <span className="text-xs font-semibold text-[#3ab368] bg-[#3ab368]/10 px-2.5 py-1 rounded-full">
+                {selectedNets.length} активно
+              </span>
+            </div>
+
+            {/* Selectable nets — 2 cols */}
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              {selectableNets.map(n => {
+                const isOn = selectedNets.includes(n.id);
+                return (
+                  <button
+                    key={n.id}
+                    onClick={() => toggleNet(n.id)}
+                    className={`relative flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                      isOn
+                        ? "border-[#3ab368]/50 bg-[#3ab368]/8 shadow-[0_0_20px_rgba(58,179,104,0.06)]"
+                        : "border-white/6 bg-[#0A0C10] hover:border-white/15 hover:bg-white/3"
+                    }`}
+                  >
+                    <div className={`absolute top-2 right-2 w-4 h-4 rounded-full border flex items-center justify-center transition-all ${
+                      isOn ? "bg-[#3ab368] border-[#3ab368]" : "border-white/15"
+                    }`}>
+                      {isOn && <Check className="w-2.5 h-2.5 text-white" />}
+                    </div>
+                    <NetworkIcon iconFile={n.icon} size={28} />
+                    <div className="min-w-0 flex-1 pr-4">
+                      <div className="text-xs font-semibold text-white leading-tight">{n.label}</div>
+                      <div className="text-[9px] text-white/35 mt-0.5 leading-tight">{n.sub}</div>
+                      {n.badge && (
+                        <span className="inline-block mt-1 text-[8px] px-1.5 py-0.5 rounded-full bg-[#3ab368]/20 text-[#3ab368] font-medium">
+                          {n.badge}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Coming soon */}
+            {disabledNets.length > 0 && (
+              <>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="flex-1 h-px bg-white/5" />
+                  <span className="text-[9px] text-white/20 uppercase tracking-widest">Скоро</span>
+                  <div className="flex-1 h-px bg-white/5" />
+                </div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {disabledNets.map(n => (
+                    <div
+                      key={n.id}
+                      className="flex flex-col items-center gap-1 p-2 rounded-xl border border-white/4 bg-[#0A0C10]/50 opacity-35"
+                    >
+                      <NetworkIcon iconFile={n.icon} size={20} />
+                      <span className="text-[8px] text-white/40 text-center leading-tight">{n.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
+      {/* Save button — full width */}
       <button
         onClick={() => save.mutate()}
         disabled={save.isPending}
-        className="w-full py-3.5 rounded-2xl bg-[#3ab368] text-white font-semibold text-sm disabled:opacity-40 flex items-center justify-center gap-2"
+        className="relative w-full py-3.5 rounded-2xl font-semibold text-sm overflow-hidden group disabled:opacity-40 transition-opacity"
+        style={{ background: "linear-gradient(135deg, #3ab368, #2ea058)" }}
       >
-        {save.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-        Сохранить
+        <div className="absolute inset-0 bg-white/0 group-hover:bg-white/5 transition-colors" />
+        <span className="relative flex items-center justify-center gap-2 text-white">
+          {save.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+          Сохранить настройки
+        </span>
       </button>
     </div>
   );
@@ -2038,12 +2173,31 @@ function SettingsTab({ shop }: { shop: Shop }) {
 export default function BusinessPage() {
   const [, setLocation] = useLocation();
   const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   const { data: shops = [], isLoading } = useQuery<Shop[]>({
     queryKey: ["/api/business/shops"],
     queryFn: () => fetchBusiness("/api/business/shops"),
   });
+
+  // Open animation
+  useEffect(() => {
+    if (!showModal || !backdropRef.current || !modalRef.current) return;
+    gsap.set(backdropRef.current, { autoAlpha: 0 });
+    gsap.set(modalRef.current, { y: 60, scale: 0.94, autoAlpha: 0 });
+    const tl = gsap.timeline();
+    tl.to(backdropRef.current, { autoAlpha: 1, duration: 0.22, ease: "power2.out" })
+      .to(modalRef.current, { y: 0, scale: 1, autoAlpha: 1, duration: 0.4, ease: "back.out(1.1)" }, "<0.05");
+  }, [showModal]);
+
+  const closeModal = useCallback(() => {
+    if (!backdropRef.current || !modalRef.current) { setShowModal(false); return; }
+    const tl = gsap.timeline({ onComplete: () => setShowModal(false) });
+    tl.to(modalRef.current, { y: 30, scale: 0.95, autoAlpha: 0, duration: 0.24, ease: "power2.in" })
+      .to(backdropRef.current, { autoAlpha: 0, duration: 0.18 }, "<0.06");
+  }, []);
 
   if (selectedShop) {
     const current = shops.find(s => s.id === selectedShop.id) ?? selectedShop;
@@ -2061,68 +2215,120 @@ export default function BusinessPage() {
         <button onClick={() => setLocation("/home")} className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center">
           <ChevronLeft className="w-5 h-5 text-white" />
         </button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-lg font-bold text-white">Business</h1>
           <p className="text-xs text-white/40">Приём криптовалюты на вашем сайте</p>
         </div>
+        <button
+          onClick={() => setShowModal(true)}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#3ab368] text-white text-sm font-semibold hover:bg-[#2ea058] transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          <span className="hidden sm:inline">Подключить</span>
+        </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-6 space-y-3 pt-2">
+      <div className="flex-1 overflow-y-auto px-4 pb-6 pt-2">
 
-        {showCreate ? (
-          <div className="bg-[#13151A] border border-white/5 rounded-2xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <span className="font-semibold text-white">Новый магазин</span>
-              <button onClick={() => setShowCreate(false)} className="text-white/40 hover:text-white">
-                <XCircle className="w-5 h-5" />
-              </button>
-            </div>
-            <CreateShopForm onSuccess={() => setShowCreate(false)} />
-          </div>
-        ) : (
+        {/* Mobile connect button */}
+        <div className="sm:hidden mb-3">
           <button
-            onClick={() => setShowCreate(true)}
+            onClick={() => setShowModal(true)}
             className="w-full py-4 rounded-2xl border border-dashed border-[#3ab368]/40 text-[#3ab368] font-medium flex items-center justify-center gap-2 hover:bg-[#3ab368]/5 transition-colors"
           >
             <Plus className="w-5 h-5" />
             Подключить магазин
           </button>
-        )}
+        </div>
 
         {isLoading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="w-6 h-6 text-[#3ab368] animate-spin" />
           </div>
         ) : shops.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-white/30">
-            <Store className="w-12 h-12 mb-4 opacity-30" />
-            <p className="text-sm font-medium mb-1">Нет подключённых магазинов</p>
-            <p className="text-xs text-center">Добавьте первый магазин, чтобы начать принимать криптовалюту</p>
-          </div>
-        ) : shops.map(shop => (
-          <ShopCard key={shop.id} shop={shop} onSelect={() => setSelectedShop(shop)} />
-        ))}
-
-        {!showCreate && shops.length === 0 && (
-          <div className="bg-[#0D1117] border border-white/5 rounded-2xl p-4 space-y-3 mt-2">
-            <p className="text-xs font-semibold text-white/60 uppercase tracking-wide">Как это работает</p>
-            {[
-              ["1", "Создайте магазин", "Укажите название и домен сайта"],
-              ["2", "Пройдите проверку", "Администратор проверит сайт (до 24ч)"],
-              ["3", "Выберите сети", "Настройте методы оплаты в настройках"],
-              ["4", "Принимайте платежи", "Средства зачисляются на баланс магазина"],
-            ].map(([n, title, desc]) => (
-              <div key={n} className="flex gap-3">
-                <div className="w-6 h-6 rounded-full bg-[#3ab368]/20 text-[#3ab368] text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{n}</div>
-                <div>
-                  <div className="text-sm text-white">{title}</div>
-                  <div className="text-xs text-white/40">{desc}</div>
+          <div className="space-y-3">
+            <div className="flex flex-col items-center justify-center py-16 text-white/30">
+              <Store className="w-12 h-12 mb-4 opacity-30" />
+              <p className="text-sm font-medium mb-1">Нет подключённых магазинов</p>
+              <p className="text-xs text-center">Добавьте первый магазин, чтобы начать принимать криптовалюту</p>
+            </div>
+            <div className="bg-[#0D1117] border border-white/5 rounded-2xl p-4 space-y-3">
+              <p className="text-xs font-semibold text-white/60 uppercase tracking-wide">Как это работает</p>
+              {[
+                ["1", "Создайте магазин", "Укажите название и домен сайта"],
+                ["2", "Пройдите проверку", "Администратор проверит сайт (до 24ч)"],
+                ["3", "Выберите сети", "Настройте методы оплаты в настройках"],
+                ["4", "Принимайте платежи", "Средства зачисляются на баланс магазина"],
+              ].map(([n, title, desc]) => (
+                <div key={n} className="flex gap-3">
+                  <div className="w-6 h-6 rounded-full bg-[#3ab368]/20 text-[#3ab368] text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{n}</div>
+                  <div>
+                    <div className="text-sm text-white">{title}</div>
+                    <div className="text-xs text-white/40">{desc}</div>
+                  </div>
                 </div>
-              </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {shops.map(shop => (
+              <ShopCard key={shop.id} shop={shop} onSelect={() => setSelectedShop(shop)} />
             ))}
           </div>
         )}
       </div>
+
+      {/* Premium Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          {/* Backdrop */}
+          <div
+            ref={backdropRef}
+            className="absolute inset-0 bg-black/75 backdrop-blur-sm"
+            onClick={closeModal}
+          />
+          {/* Modal */}
+          <div ref={modalRef} className="relative z-10 w-full max-w-md mx-4 mb-4 sm:mb-0">
+            <div
+              className="relative bg-[#0A0C10] border border-white/10 rounded-3xl p-6 overflow-hidden"
+              style={{ boxShadow: "0 0 80px rgba(58,179,104,0.07), 0 25px 60px rgba(0,0,0,0.7)" }}
+            >
+              {/* Green glow top border */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2/3 h-px bg-gradient-to-r from-transparent via-[#3ab368]/60 to-transparent" />
+              {/* Subtle corner glow */}
+              <div className="absolute -top-20 -right-20 w-48 h-48 bg-[#3ab368]/5 rounded-full blur-3xl pointer-events-none" />
+
+              {/* Header */}
+              <div className="flex items-start justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: "linear-gradient(135deg, rgba(58,179,104,0.2), rgba(58,179,104,0.05))", border: "1px solid rgba(58,179,104,0.25)" }}
+                  >
+                    <Building2 className="w-5 h-5 text-[#3ab368]" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-white">Новый магазин</h2>
+                    <p className="text-xs text-white/40 mt-0.5">Заполните данные для подключения</p>
+                  </div>
+                </div>
+                <button
+                  onClick={closeModal}
+                  className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors flex-shrink-0"
+                >
+                  <X className="w-4 h-4 text-white/50" />
+                </button>
+              </div>
+
+              {/* Divider */}
+              <div className="h-px bg-gradient-to-r from-transparent via-white/8 to-transparent mb-6" />
+
+              <CreateShopForm onSuccess={closeModal} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

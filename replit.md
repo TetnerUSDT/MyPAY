@@ -1,6 +1,6 @@
 # Overview
 
-SwiftX is a cryptocurrency exchange application designed for converting cryptocurrencies to traditional currencies, primarily targeting Russian users for USDT to RUB exchanges. It is a modern, mobile-first, full-stack web application featuring a React frontend and an Express.js backend with MySQL database integration. The project aims to provide a seamless and efficient exchange experience.
+SwiftX / MyPay — двойной продукт: **SwiftX** — криптовалютный обменник (USDT→RUB), **MyPay** — B2B-платёжный модуль для приёма криптовалюты на сайтах. Технологический стек: React 18 + TypeScript (фронтенд), Express.js ESM (бэкенд), MySQL + Drizzle ORM.
 
 # User Preferences
 
@@ -9,62 +9,120 @@ Preferred communication style: Simple, everyday language.
 # System Architecture
 
 ## Frontend Architecture
-The client is built with React 18 and TypeScript, utilizing a component-based architecture. Key aspects include:
-- **Routing**: Wouter for lightweight client-side navigation.
-- **State Management**: TanStack Query (React Query) for efficient server state management.
-- **UI Framework**: shadcn/ui components built on Radix UI for accessibility and customization.
-- **Styling**: Tailwind CSS with a custom design system and CSS custom properties for theming.
-- **Design**: Mobile-first approach with optimized layouts and bottom navigation.
-- **Pages**: Structured with screens for splash, service selection (with tabs: Banks, Cryptocurrency, Cash), exchange (supports both bank and crypto modes), top-up, selling, waiting, success, and support.
-- **Service Selection**: Tabbed interface at /select-country displays three service categories. Bank tab shows country cards with flag icons, crypto tab displays available cryptocurrency exchange rates, cash tab shows coming-soon placeholder.
+- **Routing**: Wouter (lightweight client-side)
+- **State Management**: TanStack Query v5 для серверного стейта
+- **UI Framework**: shadcn/ui (Radix UI), Tailwind CSS, кастомный дизайн-токен
+- **Design**: Mobile-first; responsive breakpoints для `lg`/`xl` десктопа
+- **Animation**: GSAP (installed) — сплит-кнопка в PayoutCard, модалка в BusinessPage
+- **Pages**:
+  - `/` — Splash/Auth (Telegram Mini App или Login with Telegram widget)
+  - `/home` — Главная (баланс, действия)
+  - `/select-country` — Выбор сервиса (Banks / Cryptocurrency / Cash)
+  - `/exchange`, `/top-up`, `/selling`, `/waiting`, `/success` — Обменный флоу
+  - `/business` — MyPay кабинет мерчанта
+  - `/pay/:invoiceNumber` — Публичная страница инвойса для клиентов
 
 ## Backend Architecture
-The server uses Express.js with TypeScript in ESM mode, focusing on clean separation of concerns:
-- **Storage Layer**: Interface-based pattern allowing flexible database implementations.
-- **Route Handling**: Centralized routing with error handling and logging. Admin routes are separated into `admin-routes.ts` with path prefix `/{adminPath}/api/*`.
-- **Development**: Vite integration for hot module replacement.
-- **API Design**: RESTful endpoints for transactions, exchange rates, and support.
-- **Telegram Webhook**: Public webhook endpoint at `/api/telegram/webhook` for Telegram updates. Webhook management (set/info/delete) available at `/{adminPath}/api/telegram/webhook/*` (admin only).
-- **File Upload System**: Multer-based file upload with validation (JPEG/PNG/GIF/WebP, 5MB limit). Organized structure in `public/uploads/`:
-  - `public/uploads/system/` - Bot reaction images (Telegram bot)
-  - `public/uploads/users/` - User-uploaded content
-  - `public/uploads/icons/` - Application icons and logos
-  - `public/uploads/icons/cryptocurrency/` - Cryptocurrency network icons (ethereum, bnb, ton, tron, solana)
-  - `public/uploads/balances/` - Balance icons named by database ID (e.g., `3.png` for balance id=3). Universal approach for displaying balance icons throughout the app using `getBalanceIcon(id)` helper from `client/src/lib/balanceIcons.ts`
-  - `public/uploads/assets/` - Application static assets
-  - `public/uploads/support/` - Support system assets (avatars, etc.)
-  - All files accessible via `/uploads/*` URLs in frontend
+- **Express.js ESM** + `tsx` (dev runner)
+- **Route groups**:
+  - `/api/*` — публичные (auth, exchange, notifications, Telegram webhook)
+  - `/api/business/*` — кабинет мерчанта (требует `x-api-key` юзера)
+  - `/api/merchant/*` — публичный API магазина (требует `x-shop-key`)
+  - `/{adminPath}/api/*` — Admin panel (secret URL + basic auth)
+- **Telegram Webhook**: `/api/telegram/webhook` (public); управление `/#{adminPath}/api/telegram/webhook/*`
+- **File Upload (Multer)**: JPEG/PNG/GIF/WebP, 5MB. Структура `public/uploads/`:
+  - `system/` — Bot reaction images
+  - `users/` — User content
+  - `icons/`, `icons/cryptocurrency/` — Network icons
+  - `balances/` — Balance icons (ID-named, напр. `3.png`); хелпер `getBalanceIcon(id)` в `client/src/lib/balanceIcons.ts`
+  - `assets/`, `support/` — Static / support assets
 
-## Data Storage Solutions
-The application uses MySQL exclusively with Drizzle ORM for type-safe operations:
-- **Database**: MySQL with connection pooling via `mysql2/promise` driver.
-- **Schema Design**: Well-structured tables for users, wallets, transactions, exchange rates, support chats, notifications, invoices, and a referral system.
-- **Service Categories System**: Exchange rates and cards organized by category enum ('bank', 'crypto', 'cash'). Category-aware API endpoints (/api/services/banks, /api/services/crypto, /api/services/cash) filter data by service type. Crypto mode supports direct cryptocurrency-to-cryptocurrency exchanges without requiring bank card selection.
-- **Bot Commands System**: Database-driven command management with `botCommands`, `botCommandReactions`, `botMenus`, and `botMenuButtons` tables. Supports dynamic command text, images, inline buttons with links, and conditional execution.
-- **Referral System**: Unique referral codes (1 uppercase letter + 9 digits) generated on user registration.
-- **Type Safety**: Drizzle-Zod integration for runtime validation and TypeScript types.
-- **Migration Tools**: Custom shell scripts (`./scripts/db-push.sh`, `./scripts/db-generate.sh`, `./scripts/db-studio.sh`) using `drizzle.mysql.config.ts` for MySQL-specific operations. See DATABASE.md for detailed guide.
-- **MySQL Helpers**: Custom helper functions (`insertAndReturn`, `updateAndReturn`, `insertAndReturnTx`) in `server/mysql-helpers.ts` to handle MySQL's lack of native `RETURNING` clause support.
-- **Data Modeling**: Emphasizes decimal precision for crypto amounts, auto-increment serial IDs, JSON fields, and foreign key relationships.
+## Data Storage
+- **MySQL** (Drizzle ORM + `mysql2/promise`)
+- **Migration tools**: `./scripts/db-push.sh`, `./scripts/db-generate.sh`, `./scripts/db-studio.sh` → `drizzle.mysql.config.ts`. See `DATABASE.md`.
+- **MySQL helpers**: `insertAndReturn`, `updateAndReturn`, `insertAndReturnTx` в `server/mysql-helpers.ts`
+- **Key tables**: `users`, `wallets`, `transactions`, `exchangeRates`, `supportChats`, `notifications`, `invoices`, referral system, P2P system, Business system (см. ниже)
 
-## Authentication and Authorization
-- **Authentication**: Dual strategy with Telegram Mini App `initData` for in-app access and "Login with Telegram" widget for browser users. Backend validates Telegram auth data using HMAC-SHA256.
-- **Admin Panel**: Features access control via secret URL, basic authentication, and role-based permissions. Provides management for balances, exchanges, cards, banks, exchange rates, support, users, and wallets.
-- **Telegram User Profile Integration**: Fetches and updates Telegram user data (username, avatar) via Bot API on login and webhook updates.
+## Authentication
+- **Telegram Mini App**: `initData` HMAC-SHA256 validation
+- **Browser**: Login with Telegram widget
+- **Admin Panel**: secret URL + basic auth + role check (`requireSuperAdmin`)
 
-## UI/UX Decisions
-- **Green-themed UI**: Consistent visual design with green gradients.
-- **Interactive Customer Engagement**: Notification badges with unread counts, detailed notification pages with rich media, and invoice pages with countdown timers and payment options.
-- **Referral System UI**: Dedicated loyalty program page with "Link" and "My Partners" tabs, copy-to-clipboard functionality, and Telegram share integration.
-- **Service Category Navigation**: Three-tab interface (Banks, Cryptocurrency, Cash) for organizing exchange services by type. Bank mode requires card selection for receiving fiat, crypto mode enables direct crypto-to-crypto exchanges without card requirements.
+---
 
-# External Dependencies
+# Business / MyPay Merchant Module
 
-- **Database**: MySQL (via Drizzle ORM and mysql2 driver).
-- **Telegram API**: For user authentication, fetching user profile data (avatars, usernames), and sharing features.
-- **Payment Processing**: Integration points for blockchain payments (transaction hash tracking) and balance payments.
-- **Exchange Rate APIs**: Modular design for integrating real-time cryptocurrency exchange rate providers.
-- **Wallet API**: External wallet generation service at `https://pay.swiftx.online/api/wallet/create`. Configured via `WALLET_API_URL` and `WALLET_API_KEY` environment variables. Supports networks: BSC (BEP20), TRON (TRC20), TON, and POLYGON (for DAI/POL).
+## Core entities
+| Table | Назначение |
+|-------|-----------|
+| `merchant_shops` | Магазины с API-ключами, статусами, настройками |
+| `merchant_payments` | Входящие платежи (все режимы) |
+| `merchant_payout_requests` | Заявки на выплату |
+| `merchant_wallets` | Пул кошельков магазина |
+| `merchant_invoices` | Инвойсы (hosted payment page) |
+
+## Shop lifecycle
+`pending` (новый) → `active` / `rejected` / `suspended` (admin-управление через `/{adminPath}/api/business/shops/:id`)  
+Публичный merchant API (`x-shop-key`) принимает только `active` магазины.
+
+## Payment modes (per-request, поле `payment_mode` в запросе)
+| Режим | Поведение |
+|-------|-----------|
+| `permanent` | Стабильный адрес, привязанный к `external_user_id`; мониторится `permanentMonitorMinutes` мин |
+| `temporary` | Временно зарезервированный адрес (`temporaryMinutes` мин); опционально отслеживает конкретную сумму |
+| `invoice` | Создаёт инвойс + страницу `/pay/:invoiceNumber`; клиент выбирает сеть, адрес резервируется под инвойс TTL |
+
+Режим указывается **в каждом запросе отдельно** (legacy `shop.address_mode` используется только как fallback).
+
+## Wallet pool
+- Кошельки pre-generated через Wallet API (`POST /api/business/shops/:id/wallets/generate`)
+- Статусы: `active` → `reserved` (temporary/invoice) → `permanent` (привязан к юзеру)
+- Истёкшие резервирования авто-освобождаются при следующем запросе адреса
+
+## Payout flow
+1. **Создание**: `POST /api/business/shops/:id/payouts` (или через UI)
+2. **Manual**: мерчант ставит `processing` / `completed` / `cancelled` + TX hash вручную
+3. **Semi-auto**: GSAP split-button UI → `POST /api/business/shops/:id/payouts/:id/check-gas` → `POST .../execute` (вызывает Wallet Transfer API)
+
+## API routes summary
+**Cabinet** (auth: `x-api-key` = user API key):
+- `GET/POST /api/business/shops`
+- `GET/PATCH /api/business/shops/:id`
+- `GET /api/business/shops/:id/payments`
+- `GET/POST /api/business/shops/:id/payouts`
+- `PATCH /api/business/shops/:id/payouts/:id`
+- `POST /api/business/shops/:id/payouts/:id/check-gas`
+- `POST /api/business/shops/:id/payouts/:id/execute`
+- `GET/POST /api/business/shops/:id/wallets`
+- `POST /api/business/shops/:id/wallets/generate`
+- `POST /api/business/shops/:id/wallets/:id/check-balance`
+- `POST /api/business/shops/:id/wallets/:id/start-monitoring`
+
+**Merchant public** (auth: `x-shop-key`):
+- `POST /api/merchant/address` — выдать адрес/инвойс
+- `POST /api/merchant/check-payment` — проверить статус
+- `GET /api/merchant/payment/:id`
+- `POST /api/merchant/verify-tx`
+- `POST /api/merchant/payout`
+- `GET /api/merchant/invoice/:number`
+- `POST /api/merchant/invoice/:number/select-network`
+
+## Frontend components (business.tsx)
+- `BusinessPage` — список магазинов + premium animated modal для "Подключить магазин"
+- `ShopCard` — карточка магазина в сетке (3 col lg, 2 col md, 1 col mobile)
+- `ShopDetail` — детальная страница магазина с табами
+- Tabs: `overview` | `payments` | `payouts` | `wallets` | `settings`
+- `PayoutCard` — карточка выплаты с GSAP split-button (В ручную / Полуавтомат)
+- `WalletsTab`, `PaymentsTab`, `PayoutsTab` — адаптивные гриды (3 col lg, 4 col xl)
+- `SettingsTab` — 2-column desktop layout
+- `ApiDocs` — интерактивная API-документация с code blocks
+- `CreateShopForm` — форма создания магазина (внутри premium модалки)
+
+## GSAP usage
+- `PayoutCard` — animated split CTA: одна пилюля → две кнопки (`В ручную` / `Полуавтомат`)
+- `BusinessPage` modal — slide-up open/scale-out close animation
+
+---
 
 # Supported Cryptocurrency Networks
 
@@ -75,7 +133,16 @@ The application uses MySQL exclusively with Drizzle ORM for type-safe operations
 | TON | TON | USDT |
 | Polygon | POLYGON | DAI, POL |
 
-Exchange rates for DAI and POL are auto-initialized on application startup. Supported pairs:
+Exchange rates for DAI and POL are auto-initialized on startup. Supported pairs:
 - USDT (BEP20/TRC20/TON) ↔ DAI (Polygon)
 - USDT (BEP20/TRC20/TON) ↔ POL (Polygon)
 - POL ↔ DAI exchanges not yet configured
+
+# External Dependencies
+
+- **Database**: MySQL via Drizzle ORM + mysql2
+- **Telegram API**: Auth, user profile (avatar/username), sharing
+- **Wallet API**: `https://pay.swiftx.online/api/wallet/create` — generate/transfer wallets. Env: `WALLET_API_URL`, `WALLET_API_KEY`. Networks: BSC, TRON, TON, POLYGON
+- **Blockchain RPCs**: Direct on-chain balance checks for BNB/TRX/TON/ETH/MATIC (gas precheck before semi-auto payout)
+- **P2P System**: Peer-to-peer crypto trading with escrow, disputes, merchants, ads, orders (see `server/p2p/`)
+- **Scanner**: Blockchain transaction scanner (`server/scanner/`)
