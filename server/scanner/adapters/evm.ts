@@ -5,6 +5,7 @@ export interface EvmTransfer {
   txHash: string;
   amountRaw: string; // 0x-prefixed hex
   contractAddress?: string;
+  blockNumber?: number; // decimal block number
 }
 
 const ERC20_TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
@@ -118,7 +119,7 @@ export async function getEvmTransfers(
       for (const log of r.value) {
         if (!seen.has(log.transactionHash)) {
           seen.add(log.transactionHash);
-          transfers.push({ txHash: log.transactionHash, amountRaw: log.data, contractAddress });
+          transfers.push({ txHash: log.transactionHash, amountRaw: log.data, contractAddress, blockNumber: log.blockNumber ? parseInt(log.blockNumber, 16) : undefined });
         }
       }
     }
@@ -136,6 +137,7 @@ export async function getEvmTransfers(
       txHash: log.transactionHash,
       amountRaw: log.data,
       contractAddress,
+      blockNumber: log.blockNumber ? parseInt(log.blockNumber, 16) : undefined,
     }));
   }
 }

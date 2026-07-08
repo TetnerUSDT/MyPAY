@@ -4,6 +4,7 @@ import { leaseKeyForProvider, recordKeyError, recordKeySuccess } from "../key-le
 export interface SolanaTransfer {
   txHash: string;
   amountRaw: string; // base units decimal string (6 decimals for USDT)
+  blockTimestampMs?: number; // unix ms when tx was confirmed
 }
 
 const SOLANA_USDT_MINT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
@@ -119,7 +120,11 @@ export async function getSolanaTransfers(
         const postBal = BigInt(post.uiTokenAmount?.amount ?? "0");
         const delta = postBal - preBal;
         if (delta > BigInt(0)) {
-          results.push({ txHash: sig.signature, amountRaw: delta.toString() });
+          results.push({
+            txHash: sig.signature,
+            amountRaw: delta.toString(),
+            blockTimestampMs: sig.blockTime ? Number(sig.blockTime) * 1000 : undefined,
+          });
         }
       }
     } catch { /* skip this tx */ }

@@ -252,14 +252,14 @@ async function solanaRpc(method: string, params: any[]): Promise<any> {
  * Uses ProviderRegistry to get ordered provider chain, tries each with fallback.
  * For providers with max_block_range (e.g. 1rpc.io = 49), makes parallel chunked requests.
  */
-async function bscScanIncoming(address: string): Promise<{ hash: string; value: string; to: string }[]> {
+async function bscScanIncoming(address: string): Promise<{ hash: string; value: string; to: string; blockNumber?: number }[]> {
   const chain = await getProviderChain("BSC");
   const contractEntries = Object.entries(BSC_ACCEPTED_CONTRACTS);
   const BLOCK_COVERAGE = 5760; // ~4.8 hours at 3s/block — large enough to cover slow payers
 
   const { result, errors } = await callWithFallback(chain, async (cfg) => {
     const seen = new Set<string>();
-    const results: { hash: string; value: string; to: string }[] = [];
+    const results: { hash: string; value: string; to: string; blockNumber?: number }[] = [];
     let providerErrors = 0;
 
     for (const [contract, label] of contractEntries) {
@@ -269,7 +269,7 @@ async function bscScanIncoming(address: string): Promise<{ hash: string; value: 
           if (!seen.has(t.txHash)) {
             seen.add(t.txHash);
             console.log(`[BSC] ${cfg.provider_code} ${label}: found ${transfers.length} transfer(s), tx=${t.txHash}`);
-            results.push({ hash: t.txHash, value: t.amountRaw, to: address });
+            results.push({ hash: t.txHash, value: t.amountRaw, to: address, blockNumber: t.blockNumber });
           }
         }
       } catch (err: any) {
@@ -776,26 +776,44 @@ async function pollPermanentAddress(
 
 // ── Invoice payment poller ────────────────────────────────────────────────────
 
+// Helper type for scanner candidates inside pollInvoiceForPayment
+type InvoiceTxCandidate = {
+  txHash: string;
+  amount: number;
+  blockTimestampMs?: number; // for timestamp filtering
+  blockNumber?: number;      // EVM: for approximate time filtering
+};
+
 async function pollInvoiceForPayment(
   invoiceId: number, address: string, network: string,
   currency: string, expectedAmount: string, shopId: number,
   webhookUrl: string | null, orderRef: string | null,
   deadlineMs?: number,
+  invoiceCreatedAt?: Date,   // used to filter out pre-invoice txs
 ) {
   const deadline = deadlineMs ?? Date.now() + 30 * 60 * 1000;
   let interval = 10000;
   const maxInterval = 60000;
-  // Tracks tx hashes processed in this polling session to prevent double-counting
+  // In-process fast-path seen set (prevents reprocessing in same session)
   const seenTxIds = new Set<string>();
 
-  // Pre-seed seenTxIds from DB so restarts don't reprocess already-credited txs
+  // Pre-seed from global merchant_payment_txs table — covers any tx already credited
+  // to this invoice (on restart) or to ANY other invoice/payment on the same address.
   try {
-    const [seedRows] = await db.execute(sql`SELECT tx_hash, amount_received FROM merchant_invoices WHERE id = ${invoiceId} LIMIT 1`);
-    const seed = (seedRows as any[])[0];
-    if (seed?.tx_hash) {
-      for (const h of String(seed.tx_hash).split(",")) { const t = h.trim(); if (t) seenTxIds.add(t); }
+    const [existingRows] = await db.execute(sql`
+      SELECT tx_hash FROM merchant_payment_txs
+      WHERE invoice_id = ${invoiceId}
+    `);
+    for (const row of (existingRows as any[])) {
+      if (row.tx_hash) seenTxIds.add(String(row.tx_hash));
     }
-  } catch { /* non-fatal */ }
+  } catch { /* non-fatal — will re-check via global table on each cycle */ }
+
+  // Cutoff: reject any tx confirmed more than 2 minutes before invoice was created.
+  // Gives 2-min clock skew buffer; defence-in-depth alongside global dedup.
+  const cutoffMs = invoiceCreatedAt
+    ? invoiceCreatedAt.getTime() - 2 * 60 * 1000
+    : 0;
 
   const check = async () => {
     if (Date.now() > deadline) {
@@ -803,133 +821,138 @@ async function pollInvoiceForPayment(
       return;
     }
     try {
-      const rows = await db.execute(sql`SELECT status, amount_received, tx_hash FROM merchant_invoices WHERE id = ${invoiceId} LIMIT 1`);
-      const inv = (rows[0] as any[])[0];
+      const [invRows] = await db.execute(sql`SELECT status, amount_received FROM merchant_invoices WHERE id = ${invoiceId} LIMIT 1`);
+      const inv = (invRows as any[])[0];
       if (!inv || (inv.status !== "pending" && inv.status !== "partially_paid")) return;
 
       const required = parseFloat(expectedAmount);
-      const alreadyReceived = parseFloat(inv.amount_received ?? "0");
-      // DB-level seen tx set: comma-separated hashes stored in tx_hash column
-      const dbSeenTxIds = new Set<string>(
-        (inv.tx_hash ? String(inv.tx_hash).split(",") : []).map((h: string) => h.trim()).filter(Boolean)
-      );
 
-      let found = false;
-      let txHash: string | null = null;
-      let txAmount = 0;
+      // Collect all candidates from scanner (iterate ALL results, not just [0])
+      const candidates: InvoiceTxCandidate[] = [];
 
       if (network === "TRON" || network === "TRC20") {
         const transfers = await scanTronIncoming(address);
-        if (transfers.length > 0) {
-          txHash = transfers[0].txHash;
-          txAmount = parseFloat(parseRawAmount(transfers[0].amountRaw, 6));
-          found = true;
+        for (const t of transfers) {
+          candidates.push({ txHash: t.txHash, amount: parseFloat(parseRawAmount(t.amountRaw, 6)), blockTimestampMs: t.blockTimestampMs });
         }
       } else if (network === "BSC" || network === "BEP20") {
         const txs = await bscScanIncoming(address);
-        const inbound = txs.find(tx => tx.to?.toLowerCase() === address.toLowerCase());
-        if (inbound) {
-          txHash = inbound.hash;
-          txAmount = parseFloat(hexAmountToDecimal(inbound.value ?? "0x0", 18));
-          found = true;
+        for (const tx of txs) {
+          if (tx.to?.toLowerCase() === address.toLowerCase()) {
+            candidates.push({ txHash: tx.hash, amount: parseFloat(hexAmountToDecimal(tx.value ?? "0x0", 18)), blockNumber: tx.blockNumber });
+          }
         }
       } else if (network === "TON") {
         const transfers = await scanTonIncoming(address);
-        if (transfers.length > 0) {
-          txHash = transfers[0].txHash;
-          txAmount = parseFloat(parseRawAmount(transfers[0].amountRaw, 6));
-          found = true;
+        for (const t of transfers) {
+          candidates.push({ txHash: t.txHash, amount: parseFloat(parseRawAmount(t.amountRaw, 6)), blockTimestampMs: t.blockTimestampMs });
         }
       } else if (network === "ETH" || network === "ARBITRUM" || network === "POLYGON") {
         const cfg = EVM_NETWORKS[network];
         if (cfg) {
           const txs = await scanEvmIncoming(network, address);
-          if (txs.length > 0) {
-            txHash = txs[0].txHash;
-            txAmount = parseFloat(hexAmountToDecimal(txs[0].amountRaw, cfg.decimals));
-            found = true;
+          for (const t of txs) {
+            candidates.push({ txHash: t.txHash, amount: parseFloat(hexAmountToDecimal(t.amountRaw, cfg.decimals)), blockNumber: t.blockNumber });
           }
         }
       } else if (network === "SOLANA") {
         const transfers = await scanSolanaIncoming(address);
-        if (transfers.length > 0) {
-          txHash = transfers[0].txHash;
-          txAmount = parseFloat(parseRawAmount(transfers[0].amountRaw, 6));
-          found = true;
+        for (const t of transfers) {
+          candidates.push({ txHash: t.txHash, amount: parseFloat(parseRawAmount(t.amountRaw, 6)), blockTimestampMs: t.blockTimestampMs });
         }
       }
 
-      // Skip already-processed transactions — checked against both closure set AND DB to handle parallel instances
-      if (found && txHash && (seenTxIds.has(txHash) || dbSeenTxIds.has(txHash))) {
-        found = false;
-      }
+      // Re-read current total from DB (may have been updated by a concurrent instance)
+      const [freshRows] = await db.execute(sql`SELECT amount_received FROM merchant_invoices WHERE id = ${invoiceId} LIMIT 1`);
+      let currentTotal = parseFloat((freshRows as any[])[0]?.amount_received ?? "0");
 
-      if (found && txHash && txAmount > 0) {
-        // Track in closure set (fast path for next poll cycle in this instance)
-        seenTxIds.add(txHash);
-        const newTotal = alreadyReceived + txAmount;
-        const newTotalStr = newTotal.toFixed(8);
-        // Store all seen tx hashes as comma-separated for cross-instance deduplication
-        const allTxHashes = [...dbSeenTxIds, txHash].join(",");
+      let anyCredit = false;
+      let lastCreditedHash: string | null = null;
 
-        if (newTotal >= required) {
-          // Fully paid — mark confirmed; only proceed if this instance wins the race
-          const [invUpd] = await db.execute(sql`
-            UPDATE merchant_invoices
-            SET status = 'confirmed', tx_hash = ${allTxHashes}, amount_received = ${newTotalStr}, confirmed_at = NOW()
-            WHERE id = ${invoiceId} AND status IN ('pending', 'partially_paid')
-              AND (tx_hash IS NULL OR tx_hash NOT LIKE ${`%${txHash}%`})
+      for (const c of candidates) {
+        // Fast-path in-process dedup
+        if (seenTxIds.has(c.txHash)) continue;
+
+        // Timestamp filter: skip txs confirmed before invoice was created (with buffer)
+        if (cutoffMs > 0 && c.blockTimestampMs !== undefined && c.blockTimestampMs < cutoffMs) {
+          seenTxIds.add(c.txHash); // mark to avoid logging repeatedly
+          continue;
+        }
+
+        // Global atomic dedup via UNIQUE tx_hash in merchant_payment_txs
+        // If another invoice/payment already credited this tx, the INSERT will fail (duplicate key).
+        try {
+          await db.execute(sql`
+            INSERT INTO merchant_payment_txs (payment_id, invoice_id, tx_hash, amount)
+            VALUES (0, ${invoiceId}, ${c.txHash}, ${c.amount})
           `);
-          if ((invUpd as any).affectedRows === 1) {
+        } catch {
+          // Already credited globally — mark seen and skip
+          seenTxIds.add(c.txHash);
+          continue;
+        }
+
+        seenTxIds.add(c.txHash);
+        currentTotal += c.amount;
+        anyCredit = true;
+        lastCreditedHash = c.txHash;
+
+        const currentTotalStr = currentTotal.toFixed(8);
+
+        if (currentTotal >= required) {
+          // Fully paid
+          const [upd] = await db.execute(sql`
+            UPDATE merchant_invoices
+            SET status = 'confirmed', tx_hash = ${c.txHash}, amount_received = ${currentTotalStr}, confirmed_at = NOW()
+            WHERE id = ${invoiceId} AND status IN ('pending', 'partially_paid')
+          `);
+          if ((upd as any).affectedRows > 0) {
             await db.execute(sql`
-              UPDATE merchant_shops SET balance_usdt = balance_usdt + ${newTotal},
-              total_received = total_received + ${newTotal}
+              UPDATE merchant_shops SET balance_usdt = balance_usdt + ${currentTotal},
+              total_received = total_received + ${currentTotal}
               WHERE id = ${shopId}
             `);
             if (webhookUrl) {
+              const [invNumRows] = await db.execute(sql`SELECT invoice_number FROM merchant_invoices WHERE id = ${invoiceId} LIMIT 1`);
               sendWebhook(webhookUrl, {
                 event: "invoice.confirmed",
-                invoice_number: (await db.execute(sql`SELECT invoice_number FROM merchant_invoices WHERE id = ${invoiceId} LIMIT 1`) as any)[0]?.[0]?.invoice_number,
+                invoice_number: (invNumRows as any[])[0]?.invoice_number,
                 order_ref: orderRef,
-                amount_received: newTotalStr,
+                amount_received: currentTotalStr,
                 currency,
                 network,
-                tx_hash: txHash,
+                tx_hash: c.txHash,
               });
             }
           }
-          // Don't reschedule — invoice is done
+          return; // Invoice done — stop polling
         } else {
-          // Partial payment — only record if this tx hash not yet in DB
-          const [partUpd] = await db.execute(sql`
+          // Partial payment
+          await db.execute(sql`
             UPDATE merchant_invoices
-            SET status = 'partially_paid', tx_hash = ${allTxHashes}, amount_received = ${newTotalStr}
+            SET status = 'partially_paid', tx_hash = ${c.txHash}, amount_received = ${currentTotalStr}
             WHERE id = ${invoiceId} AND status IN ('pending', 'partially_paid')
-              AND (tx_hash IS NULL OR tx_hash NOT LIKE ${`%${txHash}%`})
           `);
-          if ((partUpd as any).affectedRows === 1) {
-            console.log(`[merchant] invoice ${invoiceId} partial: ${txHash} +${txAmount} total=${newTotalStr}/${required} — waiting for ${(required - newTotal).toFixed(8)} more`);
-            if (webhookUrl) {
-              sendWebhook(webhookUrl, {
-                event: "invoice.partial",
-                invoice_number: (await db.execute(sql`SELECT invoice_number FROM merchant_invoices WHERE id = ${invoiceId} LIMIT 1`) as any)[0]?.[0]?.invoice_number,
-                order_ref: orderRef,
-                amount_received: newTotalStr,
-                amount_remaining: parseFloat((required - newTotal).toFixed(8)),
-                currency,
-                network,
-                tx_hash: txHash,
-              });
-            }
-          }
-          // Continue polling for the remaining amount
-          if (Date.now() < deadline) {
-            interval = Math.min(Math.round(interval * 1.5), maxInterval);
-            setTimeout(check, interval);
+          console.log(`[merchant] invoice ${invoiceId} partial: ${c.txHash} +${c.amount} total=${currentTotalStr}/${required} remaining=${(required - currentTotal).toFixed(8)}`);
+          if (webhookUrl) {
+            const [invNumRows] = await db.execute(sql`SELECT invoice_number FROM merchant_invoices WHERE id = ${invoiceId} LIMIT 1`);
+            sendWebhook(webhookUrl, {
+              event: "invoice.partial",
+              invoice_number: (invNumRows as any[])[0]?.invoice_number,
+              order_ref: orderRef,
+              amount_received: currentTotalStr,
+              amount_remaining: parseFloat((required - currentTotal).toFixed(8)),
+              currency,
+              network,
+              tx_hash: c.txHash,
+            });
           }
         }
-      } else if (Date.now() < deadline) {
-        interval = Math.min(Math.round(interval * 1.5), maxInterval);
+      }
+
+      // Reschedule if still within deadline
+      if (Date.now() < deadline) {
+        interval = Math.min(Math.round(interval * (anyCredit ? 1 : 1.5)), maxInterval);
         setTimeout(check, interval);
       }
     } catch {
@@ -1012,6 +1035,7 @@ export async function recoverPendingPollers() {
         pollInvoiceForPayment(
           row.id, row.wallet_address, row.network_chosen, row.currency,
           row.amount, row.shop_id, row.webhook_url ?? null, row.order_ref ?? null, deadline,
+          row.created_at ? new Date(row.created_at) : undefined,
         );
         rInvoices++;
       }
@@ -2047,8 +2071,9 @@ export function registerBusinessRoutes(app: Express) {
       const expiresAtIso = expiresAtUnix ? new Date(Number(expiresAtUnix) * 1000).toISOString() : null;
       const deadlineMs = expiresAtUnix ? Number(expiresAtUnix) * 1000 : Date.now() + invMinsNet * 60 * 1000;
 
-      // Start polling for this invoice payment (use walletNetwork for scanner, pass actual deadline)
-      pollInvoiceForPayment(inv.id, address, walletNetwork, inv.currency, inv.amount, inv.shop_id, inv.webhook_url, inv.order_ref, deadlineMs);
+      // Start polling for this invoice payment (use walletNetwork for scanner, pass actual deadline and created_at for time-based filtering)
+      pollInvoiceForPayment(inv.id, address, walletNetwork, inv.currency, inv.amount, inv.shop_id, inv.webhook_url, inv.order_ref, deadlineMs,
+        inv.created_at ? new Date(inv.created_at) : new Date());
 
       return res.json({ address, network, expires_at: expiresAtIso });
     } catch (err: any) { res.status(500).json({ error: err.message }); }

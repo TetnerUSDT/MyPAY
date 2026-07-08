@@ -244,6 +244,12 @@ export async function runBusinessMigrations() {
       `);
     }
 
+    // Add invoice_id column to merchant_payment_txs for global cross-invoice dedup
+    if (!await columnExists("merchant_payment_txs", "invoice_id")) {
+      await db.execute(sql`ALTER TABLE merchant_payment_txs ADD COLUMN invoice_id INT NULL AFTER payment_id`);
+      await db.execute(sql`ALTER TABLE merchant_payment_txs ADD INDEX idx_mpt_invoice (invoice_id)`);
+    }
+
     await runScannerProviderMigrations();
 
     console.log("[Business] Migrations completed");

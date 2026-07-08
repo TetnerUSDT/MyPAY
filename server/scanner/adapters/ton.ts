@@ -4,6 +4,7 @@ import { leaseKeyForProvider, recordKeyError, recordKeySuccess } from "../key-le
 export interface TonTransfer {
   txHash: string;
   amountRaw: string; // base units, 6 decimals
+  blockTimestampMs?: number; // unix ms when tx was confirmed
 }
 
 const TON_USDT_MASTER_ADDR = "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs";
@@ -50,6 +51,7 @@ export async function getTonTransfers(
     return transfers.map(t => ({
       txHash: t.transaction_hash ?? t.trace_id ?? "",
       amountRaw: t.amount ?? "0",
+      blockTimestampMs: (t.transaction_now ?? t.utime) ? Number(t.transaction_now ?? t.utime) * 1000 : undefined,
     }));
   } catch (err) {
     if (keyId !== undefined) await recordKeyError(keyId);

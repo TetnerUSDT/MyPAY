@@ -4,6 +4,7 @@ import { leaseKeyForProvider, recordKeyError, recordKeySuccess } from "../key-le
 export interface TronTransfer {
   txHash: string;
   amountRaw: string; // decimal string
+  blockTimestampMs?: number; // unix ms when tx was confirmed
 }
 
 const TRON_USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
@@ -51,12 +52,14 @@ export async function getTronTransfers(
       parser = (data) => (data.data ?? []).map((tx: any) => ({
         txHash: tx.transactionId,
         amountRaw: tx.amount ?? "0",
+        blockTimestampMs: tx.timestamp ? Number(tx.timestamp) : undefined,
       }));
     } else if (providerCode === "trongrid") {
       url = `${baseUrl}/v1/accounts/${address}/transactions/trc20?contract_address=${TRON_USDT_CONTRACT}&limit=10&only_to=true`;
       parser = (data) => (data.data ?? []).map((tx: any) => ({
         txHash: tx.transaction_id,
         amountRaw: tx.value ?? "0",
+        blockTimestampMs: tx.block_timestamp ? Number(tx.block_timestamp) : undefined,
       }));
     } else {
       throw new Error(`Unknown TRON provider: ${providerCode}`);
