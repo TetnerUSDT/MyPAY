@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -78,6 +78,7 @@ interface Payment {
   txHash: string | null;
   status: string;
   addressType: string;
+  paymentMode: string | null;
   expiresAt: string | null;
   confirmedAt: string | null;
   createdAt: string;
@@ -187,7 +188,7 @@ function truncate(s: string, n = 16) {
   return s.slice(0, 8) + "..." + s.slice(-6);
 }
 
-function PaymentTimer({ expiresAt, createdAt }: { expiresAt: string | null; createdAt: string }) {
+function PaymentTimer({ expiresAt }: { expiresAt: string | null }) {
   const [, forceUpdate] = useState(0);
 
   useEffect(() => {
@@ -196,13 +197,11 @@ function PaymentTimer({ expiresAt, createdAt }: { expiresAt: string | null; crea
   }, []);
 
   if (!expiresAt) {
-    const elapsed = Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000);
-    const m = Math.floor(elapsed / 60);
-    const s = elapsed % 60;
+    // Permanent mode — no timer, just a static label
     return (
       <div className="flex items-center gap-1 text-[10px] text-white/30">
         <Clock className="w-3 h-3" />
-        <span>Мониторинг {m}:{String(s).padStart(2, "0")} · постоянный</span>
+        <span>постоянный адрес · мониторинг</span>
       </div>
     );
   }
@@ -219,6 +218,50 @@ function PaymentTimer({ expiresAt, createdAt }: { expiresAt: string | null; crea
         ? <span>Время проверки истекло</span>
         : <span>Проверяется ещё {m}:{String(s).padStart(2, "0")}</span>
       }
+    </div>
+  );
+}
+
+function WalletCountdown({ reservedUntil, onExpired }: { reservedUntil: string; onExpired: () => void }) {
+  const [, forceUpdate] = useState(0);
+  const notifiedRef = useRef(false);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      forceUpdate(n => n + 1);
+      const rem = new Date(reservedUntil).getTime() - Date.now();
+      if (rem <= 0 && !notifiedRef.current) {
+        notifiedRef.current = true;
+        onExpired();
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [reservedUntil, onExpired]);
+
+  const remaining = Math.max(0, Math.floor((new Date(reservedUntil).getTime() - Date.now()) / 1000));
+  const h = Math.floor(remaining / 3600);
+  const m = Math.floor((remaining % 3600) / 60);
+  const s = remaining % 60;
+
+  if (remaining === 0) {
+    return (
+      <div className="flex items-center gap-1 text-[10px] text-white/30">
+        <Clock className="w-3 h-3" />
+        <span>Освобождается...</span>
+      </div>
+    );
+  }
+
+  const timeStr = h > 0
+    ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+    : `${m}:${String(s).padStart(2, "0")}`;
+
+  const isUrgent = remaining < 300; // < 5 min
+
+  return (
+    <div className={`flex items-center gap-1 text-[10px] ${isUrgent ? "text-orange-400/80" : "text-[#e9c46a]/70"}`}>
+      <Clock className="w-3 h-3" />
+      <span>Зарезервирован ещё {timeStr}</span>
     </div>
   );
 }
@@ -1075,7 +1118,14 @@ function PaymentsTab({ shop, payments }: { shop: Shop; payments: Payment[] }) {
           {/* Timer row — only for pending */}
           {p.status === "pending" && (
             <div className="flex items-center justify-between mt-1 mb-2">
-              <PaymentTimer expiresAt={p.expiresAt ?? null} createdAt={p.createdAt} />
+              {p.paymentMode === "permanent" ? (
+                <div className="flex items-center gap-1 text-[10px] text-white/30">
+                  <Clock className="w-3 h-3" />
+                  <span>постоянный адрес · мониторинг</span>
+                </div>
+              ) : (
+                <PaymentTimer expiresAt={p.expiresAt ?? null} />
+              )}
               <button
                 onClick={() => checkPayment(p.id)}
                 disabled={checking === p.id}
@@ -1172,8 +1222,11 @@ function WalletCard({ wallet: w, shopId, onRefresh }: { wallet: MerchantWallet; 
             </div>
           )}
           {w.reservedUntil && w.status === "reserved" && (
-            <div className="text-[10px] text-[#e9c46a]/70 mt-0.5 flex items-center gap-1">
-              <Clock className="w-3 h-3" /> до {formatDate(w.reservedUntil)}
+            <div className="mt-0.5">
+              <WalletCountdown
+                reservedUntil={w.reservedUntil}
+                onExpired={onRefresh}
+              />
             </div>
           )}
           {/* Balance row */}

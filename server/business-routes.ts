@@ -1018,15 +1018,59 @@ async function checkWalletBalanceOnChain(network: string, address: string): Prom
       return null;
     }
     if (network === "BSC") {
-      // USDT BEP20 contract
+      // USDT BEP20 contract (18 decimals)
       const contract = "0x55d398326f99059fF775485246999027B3197955";
-      const url = `https://api.bscscan.com/api?module=account&action=tokenbalance&contractaddress=${contract}&address=${address}&tag=latest`;
-      const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
-      if (!r.ok) return null;
-      const data = await r.json() as any;
-      if (data.status === "1" && data.result) return parseFloat(data.result) / 1e18;
-      // BSCScan returned error — not a fatal failure, return null to try fallback
-      return null;
+
+      // Source 1: BSCScan API (may be rate-limited without API key)
+      try {
+        const url = `https://api.bscscan.com/api?module=account&action=tokenbalance&contractaddress=${contract}&address=${address}&tag=latest`;
+        const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        if (r.ok) {
+          const data = await r.json() as any;
+          if (data.status === "1" && data.result) {
+            console.log(`[Balance] BSCScan OK: raw=${data.result}`);
+            return parseFloat(data.result) / 1e18;
+          }
+          console.log(`[Balance] BSCScan returned status=${data.status} message=${data.message}`);
+        }
+      } catch (e) { console.log(`[Balance] BSCScan error: ${e}`); }
+
+      // Source 2: Direct BSC JSON-RPC eth_call (no API key needed)
+      try {
+        const BSC_RPC_URLS = [
+          "https://bsc-dataseed1.binance.org/",
+          "https://bsc-dataseed2.binance.org/",
+          "https://bsc-dataseed1.defibit.io/",
+        ];
+        // balanceOf(address) selector = 0x70a08231
+        const paddedAddr = address.toLowerCase().replace("0x", "").padStart(64, "0");
+        const callData = "0x70a08231" + paddedAddr;
+        for (const rpcUrl of BSC_RPC_URLS) {
+          try {
+            const r = await fetch(rpcUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ jsonrpc: "2.0", method: "eth_call", params: [{ to: contract, data: callData }, "latest"], id: 1 }),
+              signal: AbortSignal.timeout(8000),
+            });
+            if (r.ok) {
+              const data = await r.json() as any;
+              const hex = data.result as string;
+              if (hex && hex !== "0x" && hex !== "0x0") {
+                const raw = BigInt(hex);
+                const balance = Number(raw) / 1e18;
+                console.log(`[Balance] BSC RPC ${rpcUrl} OK: raw=${hex} => ${balance}`);
+                return balance;
+              }
+              // 0x or 0x0 = truly 0 balance
+              console.log(`[Balance] BSC RPC ${rpcUrl} => 0 balance`);
+              return 0;
+            }
+          } catch (e) { console.log(`[Balance] BSC RPC ${rpcUrl} error: ${e}`); }
+        }
+      } catch (e) { console.log(`[Balance] BSC RPC all failed: ${e}`); }
+
+      return null; // All sources failed
     }
     if (network === "TON") {
       // Source 1: tonapi.io free public API
