@@ -51,6 +51,12 @@ export async function runBusinessMigrations() {
       if (!await columnExists("merchant_shops", "permanent_monitor_minutes")) {
         await db.execute(sql`ALTER TABLE merchant_shops ADD COLUMN permanent_monitor_minutes INT NOT NULL DEFAULT 20 AFTER address_mode`);
       }
+      if (!await columnExists("merchant_shops", "temporary_minutes")) {
+        await db.execute(sql`ALTER TABLE merchant_shops ADD COLUMN temporary_minutes INT NOT NULL DEFAULT 30 AFTER permanent_monitor_minutes`);
+      }
+      if (!await columnExists("merchant_shops", "invoice_minutes")) {
+        await db.execute(sql`ALTER TABLE merchant_shops ADD COLUMN invoice_minutes INT NOT NULL DEFAULT 60 AFTER temporary_minutes`);
+      }
     }
 
     if (!await tableExists("merchant_payments")) {
@@ -193,6 +199,9 @@ export async function runBusinessMigrations() {
       }
       if (!await columnExists("merchant_wallets", "balance_updated_at")) {
         await db.execute(sql`ALTER TABLE merchant_wallets ADD COLUMN balance_updated_at TIMESTAMP NULL AFTER balance_usdt`);
+      }
+      if (!await columnExists("merchant_wallets", "monitoring_until")) {
+        await db.execute(sql`ALTER TABLE merchant_wallets ADD COLUMN monitoring_until TIMESTAMP NULL AFTER reserved_until`);
       }
     }
 

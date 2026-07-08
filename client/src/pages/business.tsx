@@ -55,6 +55,8 @@ interface Shop {
   status: ShopStatus;
   addressMode: string;
   permanentMonitorMinutes: number;
+  temporaryMinutes: number;
+  invoiceMinutes: number;
   enabledNetworks: string | null;
   webhookUrl: string | null;
   balanceUsdt: string;
@@ -112,6 +114,7 @@ interface MerchantWallet {
   externalUserId: string | null;
   orderId: string | null;
   reservedUntil: string | null;
+  monitoringUntil: string | null;
   status: string;
   balanceUsdt: string | null;
   balanceUpdatedAt: string | null;
@@ -222,7 +225,7 @@ function PaymentTimer({ expiresAt }: { expiresAt: string | null }) {
   );
 }
 
-function WalletCountdown({ reservedUntil, onExpired }: { reservedUntil: string; onExpired: () => void }) {
+function WalletCountdown({ reservedUntil, onExpired, mode = "reserved" }: { reservedUntil: string; onExpired: () => void; mode?: "reserved" | "monitoring" }) {
   const [, forceUpdate] = useState(0);
   const notifiedRef = useRef(false);
 
@@ -258,10 +261,14 @@ function WalletCountdown({ reservedUntil, onExpired }: { reservedUntil: string; 
 
   const isUrgent = remaining < 300; // < 5 min
 
+  const label = mode === "monitoring"
+    ? `На мониторинге ещё ${timeStr}`
+    : `Зарезервирован ещё ${timeStr}`;
+
   return (
     <div className={`flex items-center gap-1 text-[10px] ${isUrgent ? "text-orange-400/80" : "text-[#e9c46a]/70"}`}>
       <Clock className="w-3 h-3" />
-      <span>Зарезервирован ещё {timeStr}</span>
+      <span>{label}</span>
     </div>
   );
 }
@@ -1116,16 +1123,9 @@ function PaymentsTab({ shop, payments }: { shop: Shop; payments: Payment[] }) {
           </div>
 
           {/* Timer row — only for pending */}
-          {p.status === "pending" && (
+          {p.status === "pending" && p.paymentMode !== "permanent" && (
             <div className="flex items-center justify-between mt-1 mb-2">
-              {p.paymentMode === "permanent" ? (
-                <div className="flex items-center gap-1 text-[10px] text-white/30">
-                  <Clock className="w-3 h-3" />
-                  <span>постоянный адрес · мониторинг</span>
-                </div>
-              ) : (
-                <PaymentTimer expiresAt={p.expiresAt ?? null} />
-              )}
+              <PaymentTimer expiresAt={p.expiresAt ?? null} />
               <button
                 onClick={() => checkPayment(p.id)}
                 disabled={checking === p.id}
@@ -1136,6 +1136,13 @@ function PaymentsTab({ shop, payments }: { shop: Shop; payments: Payment[] }) {
                   : <RefreshCw className="w-3 h-3" />}
                 Проверить
               </button>
+            </div>
+          )}
+          {/* Permanent mode label */}
+          {p.status === "pending" && p.paymentMode === "permanent" && (
+            <div className="flex items-center gap-1 text-[10px] text-white/30 mt-1 mb-2">
+              <Clock className="w-3 h-3" />
+              <span>постоянный адрес · фиксирует входящие транзакции</span>
             </div>
           )}
 
@@ -1174,8 +1181,32 @@ function PaymentsTab({ shop, payments }: { shop: Shop; payments: Payment[] }) {
 
 function WalletCard({ wallet: w, shopId, onRefresh }: { wallet: MerchantWallet; shopId: number; onRefresh: () => void }) {
   const { toast } = useToast();
+  const qc = useQueryClient();
   const [checking, setChecking] = useState(false);
+  const [monitoring, setMonitoring] = useState(false);
   const def = NETWORKS.find(n => n.apiNode === w.network && n.apiMode === w.mode) ?? NETWORKS.find(n => n.apiNode === w.network);
+
+  const startMonitoring = async () => {
+    setMonitoring(true);
+    try {
+      const r = await fetch(`/api/business/shops/${shopId}/wallets/${w.id}/start-monitoring`, {
+        method: "POST",
+        headers: { "x-api-key": userApiKey() },
+      });
+      const data = await r.json();
+      if (r.ok) {
+        toast({ title: `Мониторинг запущен на ${data.minutes} мин` });
+        qc.invalidateQueries({ queryKey: ["/api/business/wallets", shopId] });
+        onRefresh();
+      } else {
+        toast({ title: "Ошибка", description: data.error, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Ошибка мониторинга", variant: "destructive" });
+    } finally {
+      setMonitoring(false);
+    }
+  };
 
   const checkBalance = async () => {
     setChecking(true);
@@ -1223,10 +1254,12 @@ function WalletCard({ wallet: w, shopId, onRefresh }: { wallet: MerchantWallet; 
           )}
           {w.reservedUntil && w.status === "reserved" && (
             <div className="mt-0.5">
-              <WalletCountdown
-                reservedUntil={w.reservedUntil}
-                onExpired={onRefresh}
-              />
+              <WalletCountdown reservedUntil={w.reservedUntil} onExpired={onRefresh} mode="reserved" />
+            </div>
+          )}
+          {w.monitoringUntil && new Date(w.monitoringUntil) > new Date() && (
+            <div className="mt-0.5">
+              <WalletCountdown reservedUntil={w.monitoringUntil} onExpired={onRefresh} mode="monitoring" />
             </div>
           )}
           {/* Balance row */}
@@ -1242,14 +1275,24 @@ function WalletCard({ wallet: w, shopId, onRefresh }: { wallet: MerchantWallet; 
                 <span className="text-[9px] text-white/20 ml-1">{formatDate(w.balanceUpdatedAt)}</span>
               )}
             </div>
-            <button
-              onClick={checkBalance}
-              disabled={checking}
-              className="flex items-center gap-1 text-[10px] text-white/30 hover:text-[#3ab368] transition-colors"
-            >
-              {checking ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-              Проверить
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={startMonitoring}
+                disabled={monitoring}
+                className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md bg-[#3ab368]/10 text-[#3ab368] hover:bg-[#3ab368]/20 transition-colors disabled:opacity-50"
+              >
+                {monitoring ? <Loader2 className="w-3 h-3 animate-spin" /> : <Activity className="w-3 h-3" />}
+                Мониторинг
+              </button>
+              <button
+                onClick={checkBalance}
+                disabled={checking}
+                className="flex items-center gap-1 text-[10px] text-white/30 hover:text-[#3ab368] transition-colors"
+              >
+                {checking ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                Проверить
+              </button>
+            </div>
           </div>
         </div>
         <div className="text-[10px] text-white/20 flex-shrink-0">#{w.id}</div>
@@ -1560,6 +1603,8 @@ function SettingsTab({ shop }: { shop: Shop }) {
   const [domain, setDomain] = useState(shop.domain);
   const [webhookUrl, setWebhookUrl] = useState(shop.webhookUrl ?? "");
   const [permanentMonitorMinutes, setPermanentMonitorMinutes] = useState<number>(shop.permanentMonitorMinutes ?? 20);
+  const [temporaryMinutes, setTemporaryMinutes] = useState<number>(shop.temporaryMinutes ?? 30);
+  const [invoiceMinutes, setInvoiceMinutes] = useState<number>(shop.invoiceMinutes ?? 60);
   const [selectedNets, setSelectedNets] = useState<string[]>(parseNetworks(shop.enabledNetworks));
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -1572,7 +1617,7 @@ function SettingsTab({ shop }: { shop: Shop }) {
 
   const save = useMutation({
     mutationFn: () => apiRequest("PATCH", `/api/business/shops/${shop.id}`, {
-      name, domain, webhookUrl, permanentMonitorMinutes, enabledNetworks: selectedNets
+      name, domain, webhookUrl, permanentMonitorMinutes, temporaryMinutes, invoiceMinutes, enabledNetworks: selectedNets
     }).then(r => r.json()),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/business/shops", shop.id] });
@@ -1619,16 +1664,41 @@ function SettingsTab({ shop }: { shop: Shop }) {
         </div>
       </div>
 
-      {/* Permanent monitor minutes */}
-      <div>
-        <label className="text-xs text-white/40 mb-1.5 block">Окно мониторинга постоянного адреса (мин)</label>
-        <input
-          type="number" min={1} max={1440}
-          value={permanentMonitorMinutes}
-          onChange={e => setPermanentMonitorMinutes(parseInt(e.target.value) || 20)}
-          className="w-full bg-[#13151A] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#3ab368]/50"
-        />
-        <div className="text-[10px] text-white/40 mt-1">Сколько минут отслеживать входящие платежи после вызова /api/merchant/address в режиме permanent. По умолчанию: 20 мин.</div>
+      {/* Timing settings */}
+      <div className="space-y-3">
+        <div className="text-xs text-white/40 font-semibold uppercase tracking-wider mb-1">Окна времени (мин)</div>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="text-[10px] text-white/30 mb-1 block">Постоянный адрес</label>
+            <input
+              type="number" min={1} max={1440}
+              value={permanentMonitorMinutes}
+              onChange={e => setPermanentMonitorMinutes(parseInt(e.target.value) || 20)}
+              className="w-full bg-[#13151A] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#3ab368]/50"
+            />
+            <div className="text-[9px] text-white/25 mt-1">Мониторинг входящих</div>
+          </div>
+          <div>
+            <label className="text-[10px] text-white/30 mb-1 block">Временный адрес</label>
+            <input
+              type="number" min={1} max={1440}
+              value={temporaryMinutes}
+              onChange={e => setTemporaryMinutes(parseInt(e.target.value) || 30)}
+              className="w-full bg-[#13151A] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#3ab368]/50"
+            />
+            <div className="text-[9px] text-white/25 mt-1">Резерв адреса</div>
+          </div>
+          <div>
+            <label className="text-[10px] text-white/30 mb-1 block">Инвойс</label>
+            <input
+              type="number" min={1} max={1440}
+              value={invoiceMinutes}
+              onChange={e => setInvoiceMinutes(parseInt(e.target.value) || 60)}
+              className="w-full bg-[#13151A] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#3ab368]/50"
+            />
+            <div className="text-[9px] text-white/25 mt-1">Время жизни ссылки</div>
+          </div>
+        </div>
       </div>
 
       {/* Network selection */}

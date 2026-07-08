@@ -453,24 +453,6 @@ if ($action) {
         exit;
     }
 
-    // ── Балансы пользователей ─────────────────────────────────
-    if ($action === 'get_balances') {
-        try {
-            $rows = $pdo->query("
-                SELECT u.id, u.name, u.avatar, u.email,
-                       COALESCE(ub.balance_usdt, 0) AS balance_usdt,
-                       ub.last_updated
-                FROM users u
-                LEFT JOIN users_balances ub ON ub.user_id = u.id
-                ORDER BY u.id
-            ")->fetchAll();
-            echo json_encode($rows);
-        } catch (PDOException $e) {
-            echo json_encode(['error' => $e->getMessage()]);
-        }
-        exit;
-    }
-
     // ── История транзакций баланса ─────────────────────────────
     if ($action === 'get_balance_history') {
         $filterUid = (int)($input['user_id'] ?? 0);
@@ -526,7 +508,6 @@ if ($action) {
                 $pdo->prepare("INSERT INTO orders (user_id,product_id,payment_mode,network,amount,payment_id,wallet_address,api_response) VALUES (?,NULL,?,?,0,?,?,?)")
                     ->execute([$targetUid, 'permanent', $networkId, $paymentId, $address, json_encode($apiResp)]);
             } catch (PDOException $e) {
-                // product_id may be NOT NULL — fallback: store without product
                 app_log('WARN', 'Topup order insert failed — product_id NOT NULL? ' . $e->getMessage());
             }
             app_log('INFO', 'Topup address created', ['uid' => $targetUid, 'network' => $networkId, 'payment_id' => $paymentId]);
@@ -571,9 +552,6 @@ $curUser  = array_values(array_filter($users, fn($u) => (int)$u['id'] === $uid))
 
 $orderCount   = (int)$pdo->query("SELECT COUNT(*) FROM orders WHERE status='pending'")->fetchColumn();
 $webhookCount = (int)$pdo->query("SELECT COUNT(*) FROM webhook_log WHERE received_at > NOW() - INTERVAL 1 HOUR")->fetchColumn();
-try {
-    $balanceTotal = (string)$pdo->query("SELECT COALESCE(SUM(balance_usdt),0) FROM users_balances")->fetchColumn();
-} catch (PDOException $e) { $balanceTotal = '0'; }
 $logExists    = file_exists(LOG_FILE);
 
 $proto   = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
@@ -800,11 +778,9 @@ $webRoot = $proto . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirna
     <a href="?page=webhooks&user_id=<?= $uid ?>" class="<?= $page==='webhooks' ? 'active':'' ?>">
       🔔 Вебхуки<?php if ($webhookCount>0): ?><span class="nav-badge"><?= $webhookCount ?></span><?php endif; ?>
     </a>
-    <a href="?page=payouts&user_id=<?= $uid ?>"  class="<?= $page==='payouts'  ? 'active':'' ?>">💸 Выплаты</a>
-    <a href="?page=balances&user_id=<?= $uid ?>" class="<?= $page==='balances' ? 'active':'' ?>">
-      💰 Балансы<?php if ((float)$balanceTotal > 0): ?><span class="nav-badge" style="background:rgba(58,179,104,.8)"><?= number_format((float)$balanceTotal,2) ?></span><?php endif; ?>
-    </a>
-    <a href="?page=settings&user_id=<?= $uid ?>" class="<?= $page==='settings' ? 'active':'' ?>">⚙️ Настройки</a>
+    <a href="?page=payouts&user_id=<?= $uid ?>"   class="<?= $page==='payouts'   ? 'active':'' ?>">💸 Выплаты</a>
+    <a href="?page=balances&user_id=<?= $uid ?>"  class="<?= $page==='balances'  ? 'active':'' ?>">💰 Балансы</a>
+    <a href="?page=settings&user_id=<?= $uid ?>"  class="<?= $page==='settings'  ? 'active':'' ?>">⚙️ Настройки</a>
     <a href="?page=log&user_id=<?= $uid ?>"      class="<?= $page==='log'      ? 'active':'' ?>">
       📋 Лог<?php if ($logExists && filesize(LOG_FILE)>0): ?><span class="nav-badge" style="background:var(--warn)">!</span><?php endif; ?>
     </a>
@@ -967,23 +943,9 @@ $webRoot = $proto . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirna
 
   <!-- ══════════════════ BALANCES ══════════════════ -->
   <?php if ($page === 'balances'): ?>
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
-    <div>
-      <div style="font-weight:600;font-size:15px">💰 Балансы пользователей</div>
-      <div style="font-size:12px;color:var(--muted);margin-top:3px">Пополняются через постоянные кошельки (payment.received)</div>
-    </div>
-    <button class="btn btn-outline btn-sm" onclick="refreshBalances()">↻ Обновить</button>
-  </div>
-
-  <!-- Таблица балансов -->
-  <div class="card" style="margin-bottom:16px">
-    <div style="padding:14px 20px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Текущие балансы</div>
-    <div class="tbl-wrap">
-      <table>
-        <thead><tr><th>#</th><th>Пользователь</th><th>Email</th><th>Баланс USDT</th><th>Последнее пополнение</th><th>Действие</th></tr></thead>
-        <tbody id="balances-body"><tr><td colspan="6" style="text-align:center;padding:40px;color:var(--muted)"><span class="spin"></span></td></tr></tbody>
-      </table>
-    </div>
+  <div style="margin-bottom:16px">
+    <div style="font-weight:600;font-size:15px">💰 Пополнение балансов</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:3px">Постоянные кошельки для пополнения (payment.received)</div>
   </div>
 
   <!-- Создать адрес пополнения -->
@@ -1580,25 +1542,6 @@ async function createTopupAddress() {
   toast('✅ Адрес создан', 'ok');
 }
 
-async function refreshBalances() {
-  const rows = await fetch('?action=get_balances').then(r=>r.json()).catch(()=>[]);
-  const tbody = document.getElementById('balances-body');
-  if (!tbody) return;
-  if (rows.error || !rows.length) {
-    tbody.innerHTML = '<tr><td colspan="6"><div class="empty"><div class="empty-icon">💰</div>' + (rows.error || 'Нет данных') + '</div></td></tr>';
-    return;
-  }
-  tbody.innerHTML = rows.map(u => `
-    <tr>
-      <td class="mono">#${u.id}</td>
-      <td>${esc(u.avatar||'')} ${esc(u.name||'')}</td>
-      <td style="color:var(--muted);font-size:11px">${esc(u.email||'')}</td>
-      <td><span style="font-size:14px;font-weight:700;color:var(--green)">${parseFloat(u.balance_usdt||0).toFixed(4)}</span> <small style="color:var(--muted)">USDT</small></td>
-      <td style="font-size:11px;color:var(--muted)">${u.last_updated ? esc(u.last_updated) : '—'}</td>
-      <td><button class="btn-copy" onclick="document.getElementById('history-user-filter').value=${u.id};refreshBalanceHistory()">История</button></td>
-    </tr>`).join('');
-}
-
 async function refreshBalanceHistory() {
   const userId = parseInt(document.getElementById('history-user-filter')?.value || '0');
   const data = await fetch('?action=get_balance_history', {
@@ -1725,8 +1668,7 @@ async function _globalPollWebhooks() {
     }
 
     // Refresh balances table if on that page (new balance may have been credited)
-    if (document.getElementById('balances-body') && newRows.some(w => w.event_type === 'payment.received')) {
-      if (typeof refreshBalances === 'function')       setTimeout(refreshBalances, 1500);
+    if (newRows.some(w => w.event_type === 'payment.received')) {
       if (typeof refreshBalanceHistory === 'function') setTimeout(refreshBalanceHistory, 1500);
     }
   } catch(e) {}

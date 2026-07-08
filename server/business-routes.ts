@@ -101,6 +101,7 @@ async function findOrReserveMerchantWallet(
   externalUserId?: string,
   orderId?: string,
   addressMode: string = "permanent",
+  reserveMinutes: number = 30,
 ): Promise<any> {
   await releaseExpiredMerchantWallets(shopId);
 
@@ -143,7 +144,7 @@ async function findOrReserveMerchantWallet(
       LIMIT 1
     `);
     const poolWallet = (poolRows[0] as any[])[0];
-    const reservedUntil = new Date(Date.now() + 30 * 60 * 1000);
+    const reservedUntil = new Date(Date.now() + reserveMinutes * 60 * 1000);
 
     if (poolWallet) {
       await db.execute(sql`
@@ -1237,6 +1238,14 @@ export function registerBusinessRoutes(app: Express) {
         const mins = parseInt(req.body.permanentMonitorMinutes);
         if (!isNaN(mins) && mins >= 1 && mins <= 1440) updates.permanentMonitorMinutes = mins;
       }
+      if (req.body.temporaryMinutes !== undefined) {
+        const mins = parseInt(req.body.temporaryMinutes);
+        if (!isNaN(mins) && mins >= 1 && mins <= 1440) updates.temporaryMinutes = mins;
+      }
+      if (req.body.invoiceMinutes !== undefined) {
+        const mins = parseInt(req.body.invoiceMinutes);
+        if (!isNaN(mins) && mins >= 1 && mins <= 1440) updates.invoiceMinutes = mins;
+      }
       if (enabledNetworks !== undefined) {
         updates.enabledNetworks = Array.isArray(enabledNetworks) ? JSON.stringify(enabledNetworks) : enabledNetworks;
       }
@@ -1420,6 +1429,24 @@ export function registerBusinessRoutes(app: Express) {
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
+  // Start monitoring for a wallet (permanent address monitoring)
+  app.post("/api/business/shops/:id/wallets/:walletId/start-monitoring", requireApiKey, async (req, res) => {
+    const user = await getUserFromRequest(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const shopId = parseInt(req.params.id);
+    const walletId = parseInt(req.params.walletId);
+    try {
+      const [shop] = await db.select().from(merchantShops).where(and(eq(merchantShops.id, shopId), eq(merchantShops.userId, user.id))).limit(1);
+      if (!shop) return res.status(404).json({ error: "Shop not found" });
+      const [wallet] = await db.select().from(merchantWallets).where(and(eq(merchantWallets.id, walletId), eq(merchantWallets.shopId, shopId))).limit(1);
+      if (!wallet) return res.status(404).json({ error: "Wallet not found" });
+      const monitorMins = parseInt(String(shop.permanentMonitorMinutes ?? 20));
+      const monitoringUntil = new Date(Date.now() + monitorMins * 60 * 1000);
+      await db.update(merchantWallets).set({ monitoringUntil }).where(eq(merchantWallets.id, walletId));
+      res.json({ ok: true, monitoring_until: monitoringUntil, minutes: monitorMins });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
   // Pre-generate a wallet for the pool
   app.post("/api/business/shops/:id/wallets/generate", requireApiKey, async (req, res) => {
     const user = await getUserFromRequest(req);
@@ -1474,7 +1501,8 @@ export function registerBusinessRoutes(app: Express) {
       if (invoiceNetworks.length === 0) return res.status(400).json({ error: "No networks specified or enabled" });
 
       const invoiceNumber = generateInvoiceNumber();
-      const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+      const invMins = parseInt(String(shop.invoice_minutes ?? 60));
+      const expiresAt = new Date(Date.now() + invMins * 60 * 1000);
       try {
         await db.insert(merchantInvoices).values({
           shopId: shop.id,
@@ -1517,10 +1545,11 @@ export function registerBusinessRoutes(app: Express) {
     try {
       const walletMode = mode === "gasfree" ? "gasfree" : "standard";
       const isTemp = paymentMode === "temporary";
-      const wallet = await findOrReserveMerchantWallet(shop.id, network, walletMode, user_id, order_id, isTemp ? "temporary" : "permanent");
+      const tempMins = parseInt(String(shop.temporary_minutes ?? 30));
+      const wallet = await findOrReserveMerchantWallet(shop.id, network, walletMode, user_id, order_id, isTemp ? "temporary" : "permanent", tempMins);
 
       const address = walletMode === "gasfree" ? (wallet.gasfree_address || wallet.address) : wallet.address;
-      const expiresAt = isTemp ? new Date(Date.now() + 30 * 60 * 1000) : null;
+      const expiresAt = isTemp ? new Date(Date.now() + tempMins * 60 * 1000) : null;
 
       const insertResult = await db.insert(merchantPayments).values({
         shopId: shop.id,
@@ -1843,7 +1872,7 @@ export function registerBusinessRoutes(app: Express) {
     if (!network) return res.status(400).json({ error: "network is required" });
     try {
       const rows = await db.execute(sql`
-        SELECT i.*, s.webhook_url, s.enabled_networks, s.address_mode
+        SELECT i.*, s.webhook_url, s.enabled_networks, s.address_mode, s.invoice_minutes
         FROM merchant_invoices i
         JOIN merchant_shops s ON s.id = i.shop_id
         WHERE i.invoice_number = ${req.params.number}
@@ -1866,9 +1895,10 @@ export function registerBusinessRoutes(app: Express) {
         return res.status(400).json({ error: `Network ${network} not allowed for this invoice` });
       }
 
-      const wallet = await findOrReserveMerchantWallet(inv.shop_id, network, "standard", undefined, inv.invoice_number, "temporary");
+      const invMinsNet = parseInt(String(inv.invoice_minutes ?? 60));
+      const wallet = await findOrReserveMerchantWallet(inv.shop_id, network, "standard", undefined, inv.invoice_number, "temporary", invMinsNet);
       const address = wallet.gasfree_address || wallet.address;
-      const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+      const expiresAt = new Date(Date.now() + invMinsNet * 60 * 1000);
 
       await db.execute(sql`
         UPDATE merchant_invoices
