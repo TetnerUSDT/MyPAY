@@ -1497,7 +1497,7 @@ export function registerBusinessRoutes(app: Express) {
 
   // ── Merchant Wallets (cabinet) ────────────────────────────────────────────
 
-  // List wallets for shop
+  // List wallets for shop (with active invoice reservation info)
   app.get("/api/business/shops/:id/wallets", requireApiKey, async (req, res) => {
     const user = await getUserFromRequest(req);
     if (!user) return res.status(401).json({ error: "Unauthorized" });
@@ -1506,7 +1506,37 @@ export function registerBusinessRoutes(app: Express) {
       const [shop] = await db.select().from(merchantShops).where(and(eq(merchantShops.id, shopId), eq(merchantShops.userId, user.id))).limit(1);
       if (!shop) return res.status(404).json({ error: "Shop not found" });
       const wallets = await db.select().from(merchantWallets).where(eq(merchantWallets.shopId, shopId)).orderBy(desc(merchantWallets.createdAt)).limit(200);
-      res.json(wallets);
+
+      // Attach active invoice reservation info per wallet address
+      // Uses UNIX_TIMESTAMP for timezone-safe UTC conversion (MySQL server is UTC+3)
+      const invoiceRows = await db.execute(sql`
+        SELECT wallet_address, invoice_number,
+               UNIX_TIMESTAMP(expires_at) AS expires_at_unix,
+               amount, currency
+        FROM merchant_invoices
+        WHERE shop_id = ${shopId}
+          AND status IN ('pending', 'partially_paid')
+          AND wallet_address IS NOT NULL
+          AND expires_at > NOW()
+        ORDER BY expires_at ASC
+      `);
+      const invoiceMap: Record<string, { invoiceReservedUntil: string; invoiceNumber: string; invoiceAmount: string; invoiceCurrency: string }> = {};
+      for (const row of (invoiceRows[0] as any[])) {
+        if (row.wallet_address && row.expires_at_unix && !invoiceMap[row.wallet_address]) {
+          invoiceMap[row.wallet_address] = {
+            invoiceReservedUntil: new Date(Number(row.expires_at_unix) * 1000).toISOString(),
+            invoiceNumber: row.invoice_number,
+            invoiceAmount: row.amount,
+            invoiceCurrency: row.currency,
+          };
+        }
+      }
+
+      const result = wallets.map(w => ({
+        ...w,
+        ...(invoiceMap[w.address] ?? {}),
+      }));
+      res.json(result);
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
