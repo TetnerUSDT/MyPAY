@@ -785,26 +785,44 @@ async function pollInvoiceForPayment(
   const deadline = deadlineMs ?? Date.now() + 30 * 60 * 1000;
   let interval = 10000;
   const maxInterval = 60000;
+  // Tracks tx hashes processed in this polling session to prevent double-counting
+  const seenTxIds = new Set<string>();
+
+  // Pre-seed seenTxIds from DB so restarts don't reprocess already-credited txs
+  try {
+    const [seedRows] = await db.execute(sql`SELECT tx_hash, amount_received FROM merchant_invoices WHERE id = ${invoiceId} LIMIT 1`);
+    const seed = (seedRows as any[])[0];
+    if (seed?.tx_hash) {
+      for (const h of String(seed.tx_hash).split(",")) { const t = h.trim(); if (t) seenTxIds.add(t); }
+    }
+  } catch { /* non-fatal */ }
 
   const check = async () => {
     if (Date.now() > deadline) {
-      await db.execute(sql`UPDATE merchant_invoices SET status = 'expired' WHERE id = ${invoiceId} AND status = 'pending'`);
+      await db.execute(sql`UPDATE merchant_invoices SET status = 'expired' WHERE id = ${invoiceId} AND status IN ('pending', 'partially_paid')`);
       return;
     }
     try {
-      const rows = await db.execute(sql`SELECT status FROM merchant_invoices WHERE id = ${invoiceId} LIMIT 1`);
+      const rows = await db.execute(sql`SELECT status, amount_received, tx_hash FROM merchant_invoices WHERE id = ${invoiceId} LIMIT 1`);
       const inv = (rows[0] as any[])[0];
-      if (!inv || inv.status !== "pending") return;
+      if (!inv || (inv.status !== "pending" && inv.status !== "partially_paid")) return;
+
+      const required = parseFloat(expectedAmount);
+      const alreadyReceived = parseFloat(inv.amount_received ?? "0");
+      // DB-level seen tx set: comma-separated hashes stored in tx_hash column
+      const dbSeenTxIds = new Set<string>(
+        (inv.tx_hash ? String(inv.tx_hash).split(",") : []).map((h: string) => h.trim()).filter(Boolean)
+      );
 
       let found = false;
       let txHash: string | null = null;
-      let amountReceived: string | null = null;
+      let txAmount = 0;
 
       if (network === "TRON" || network === "TRC20") {
         const transfers = await scanTronIncoming(address);
         if (transfers.length > 0) {
           txHash = transfers[0].txHash;
-          amountReceived = parseRawAmount(transfers[0].amountRaw, 6);
+          txAmount = parseFloat(parseRawAmount(transfers[0].amountRaw, 6));
           found = true;
         }
       } else if (network === "BSC" || network === "BEP20") {
@@ -812,14 +830,14 @@ async function pollInvoiceForPayment(
         const inbound = txs.find(tx => tx.to?.toLowerCase() === address.toLowerCase());
         if (inbound) {
           txHash = inbound.hash;
-          amountReceived = hexAmountToDecimal(inbound.value ?? "0x0", 18);
+          txAmount = parseFloat(hexAmountToDecimal(inbound.value ?? "0x0", 18));
           found = true;
         }
       } else if (network === "TON") {
         const transfers = await scanTonIncoming(address);
         if (transfers.length > 0) {
           txHash = transfers[0].txHash;
-          amountReceived = parseRawAmount(transfers[0].amountRaw, 6);
+          txAmount = parseFloat(parseRawAmount(transfers[0].amountRaw, 6));
           found = true;
         }
       } else if (network === "ETH" || network === "ARBITRUM" || network === "POLYGON") {
@@ -828,7 +846,7 @@ async function pollInvoiceForPayment(
           const txs = await scanEvmIncoming(network, address);
           if (txs.length > 0) {
             txHash = txs[0].txHash;
-            amountReceived = hexAmountToDecimal(txs[0].amountRaw, cfg.decimals);
+            txAmount = parseFloat(hexAmountToDecimal(txs[0].amountRaw, cfg.decimals));
             found = true;
           }
         }
@@ -836,40 +854,81 @@ async function pollInvoiceForPayment(
         const transfers = await scanSolanaIncoming(address);
         if (transfers.length > 0) {
           txHash = transfers[0].txHash;
-          amountReceived = parseRawAmount(transfers[0].amountRaw, 6);
+          txAmount = parseFloat(parseRawAmount(transfers[0].amountRaw, 6));
           found = true;
         }
       }
 
-      if (found && txHash) {
-        const [invUpd] = await db.execute(sql`
-          UPDATE merchant_invoices
-          SET status = 'confirmed', tx_hash = ${txHash}, amount_received = ${amountReceived}, confirmed_at = NOW()
-          WHERE id = ${invoiceId} AND status = 'pending'
-            AND NOT EXISTS (
-              SELECT 1 FROM merchant_invoices mi2
-              WHERE mi2.tx_hash = ${txHash} AND mi2.status = 'confirmed'
-            )
-        `);
-        if ((invUpd as any).affectedRows === 1) {
-          await db.execute(sql`
-            UPDATE merchant_shops SET balance_usdt = balance_usdt + ${parseFloat(amountReceived ?? "0")},
-            total_received = total_received + ${parseFloat(amountReceived ?? "0")}
-            WHERE id = ${shopId}
+      // Skip already-processed transactions — checked against both closure set AND DB to handle parallel instances
+      if (found && txHash && (seenTxIds.has(txHash) || dbSeenTxIds.has(txHash))) {
+        found = false;
+      }
+
+      if (found && txHash && txAmount > 0) {
+        // Track in closure set (fast path for next poll cycle in this instance)
+        seenTxIds.add(txHash);
+        const newTotal = alreadyReceived + txAmount;
+        const newTotalStr = newTotal.toFixed(8);
+        // Store all seen tx hashes as comma-separated for cross-instance deduplication
+        const allTxHashes = [...dbSeenTxIds, txHash].join(",");
+
+        if (newTotal >= required) {
+          // Fully paid — mark confirmed; only proceed if this instance wins the race
+          const [invUpd] = await db.execute(sql`
+            UPDATE merchant_invoices
+            SET status = 'confirmed', tx_hash = ${allTxHashes}, amount_received = ${newTotalStr}, confirmed_at = NOW()
+            WHERE id = ${invoiceId} AND status IN ('pending', 'partially_paid')
+              AND (tx_hash IS NULL OR tx_hash NOT LIKE ${`%${txHash}%`})
           `);
+          if ((invUpd as any).affectedRows === 1) {
+            await db.execute(sql`
+              UPDATE merchant_shops SET balance_usdt = balance_usdt + ${newTotal},
+              total_received = total_received + ${newTotal}
+              WHERE id = ${shopId}
+            `);
+            if (webhookUrl) {
+              sendWebhook(webhookUrl, {
+                event: "invoice.confirmed",
+                invoice_number: (await db.execute(sql`SELECT invoice_number FROM merchant_invoices WHERE id = ${invoiceId} LIMIT 1`) as any)[0]?.[0]?.invoice_number,
+                order_ref: orderRef,
+                amount_received: newTotalStr,
+                currency,
+                network,
+                tx_hash: txHash,
+              });
+            }
+          }
+          // Don't reschedule — invoice is done
+        } else {
+          // Partial payment — only record if this tx hash not yet in DB
+          const [partUpd] = await db.execute(sql`
+            UPDATE merchant_invoices
+            SET status = 'partially_paid', tx_hash = ${allTxHashes}, amount_received = ${newTotalStr}
+            WHERE id = ${invoiceId} AND status IN ('pending', 'partially_paid')
+              AND (tx_hash IS NULL OR tx_hash NOT LIKE ${`%${txHash}%`})
+          `);
+          if ((partUpd as any).affectedRows === 1) {
+            console.log(`[merchant] invoice ${invoiceId} partial: ${txHash} +${txAmount} total=${newTotalStr}/${required} — waiting for ${(required - newTotal).toFixed(8)} more`);
+            if (webhookUrl) {
+              sendWebhook(webhookUrl, {
+                event: "invoice.partial",
+                invoice_number: (await db.execute(sql`SELECT invoice_number FROM merchant_invoices WHERE id = ${invoiceId} LIMIT 1`) as any)[0]?.[0]?.invoice_number,
+                order_ref: orderRef,
+                amount_received: newTotalStr,
+                amount_remaining: parseFloat((required - newTotal).toFixed(8)),
+                currency,
+                network,
+                tx_hash: txHash,
+              });
+            }
+          }
+          // Continue polling for the remaining amount
+          if (Date.now() < deadline) {
+            interval = Math.min(Math.round(interval * 1.5), maxInterval);
+            setTimeout(check, interval);
+          }
         }
-        if (webhookUrl) {
-          sendWebhook(webhookUrl, {
-            event: "invoice.confirmed",
-            invoice_number: (await db.execute(sql`SELECT invoice_number FROM merchant_invoices WHERE id = ${invoiceId} LIMIT 1`) as any)[0]?.[0]?.invoice_number,
-            order_ref: orderRef,
-            amount_received: amountReceived,
-            currency,
-            network,
-            tx_hash: txHash,
-          });
-        }
-      } else if (!found && Date.now() < deadline) {
+      } else if (Date.now() < deadline) {
         interval = Math.min(Math.round(interval * 1.5), maxInterval);
         setTimeout(check, interval);
       }
@@ -905,10 +964,10 @@ export async function recoverPendingPollers() {
       WHERE status = 'pending' AND wallet_address IS NULL AND expires_at IS NOT NULL
     `);
 
-    // Expire old pending invoices that have a wallet_address but expires_at already passed
+    // Expire old pending/partially_paid invoices that have a wallet_address but expires_at already passed
     await db.execute(sql`
       UPDATE merchant_invoices SET status = 'expired'
-      WHERE status = 'pending' AND wallet_address IS NOT NULL
+      WHERE status IN ('pending', 'partially_paid') AND wallet_address IS NOT NULL
         AND expires_at IS NOT NULL AND expires_at < NOW()
     `);
 
@@ -935,14 +994,14 @@ export async function recoverPendingPollers() {
       }
     }
 
-    // Recover pending invoices still within their 30-min window
+    // Recover pending/partially_paid invoices still within their time window
     // Only recover invoices where network has been chosen (wallet_address is set)
     const [invRows] = await db.execute(sql`
       SELECT i.id, i.wallet_address, i.network_chosen, i.currency, i.amount,
-             i.shop_id, i.order_ref, i.created_at, s.webhook_url
+             i.shop_id, i.order_ref, i.created_at, i.expires_at, s.webhook_url
       FROM merchant_invoices i
       JOIN merchant_shops s ON s.id = i.shop_id
-      WHERE i.status = 'pending' AND i.expires_at > NOW()
+      WHERE i.status IN ('pending', 'partially_paid') AND i.expires_at > NOW()
         AND i.wallet_address IS NOT NULL AND i.network_chosen IS NOT NULL
     `);
     let rInvoices = 0;
@@ -1867,10 +1926,10 @@ export function registerBusinessRoutes(app: Express) {
 
       // Auto-expire only after network is selected (wallet_address set = payment window started)
       // Use SQL NOW() to avoid JS timezone/parsing issues with MySQL DATETIME
-      if (inv.status === "pending" && inv.wallet_address) {
+      if ((inv.status === "pending" || inv.status === "partially_paid") && inv.wallet_address) {
         const [expRows] = await db.execute(sql`
           UPDATE merchant_invoices SET status = 'expired'
-          WHERE id = ${inv.id} AND status = 'pending'
+          WHERE id = ${inv.id} AND status IN ('pending', 'partially_paid')
             AND wallet_address IS NOT NULL AND expires_at IS NOT NULL AND expires_at < NOW()
         `);
         if ((expRows as any).affectedRows > 0) inv.status = "expired";
@@ -1892,6 +1951,7 @@ export function registerBusinessRoutes(app: Express) {
         expires_at: expiresAtIso,
         confirmed_at: inv.confirmed_at,
         tx_hash: inv.tx_hash,
+        amount_received: inv.amount_received ?? null,
       });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });

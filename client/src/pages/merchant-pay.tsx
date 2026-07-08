@@ -15,6 +15,7 @@ interface InvoiceData {
   expires_at: string | null;
   confirmed_at: string | null;
   tx_hash: string | null;
+  amount_received: string | null;
 }
 
 const NETWORK_LABELS: Record<string, { label: string; icon: string; color: string }> = {
@@ -163,7 +164,7 @@ export default function MerchantPayPage() {
     fetchInvoice().finally(() => setLoading(false));
   }, [fetchInvoice]);
 
-  // Auto-poll every 15s while waiting for payment confirmation
+  // Auto-poll every 15s while waiting for payment confirmation (including partial)
   useEffect(() => {
     if (!invoice || invoice.status === "confirmed" || invoice.status === "expired" || !invoice.wallet_address) return;
     const interval = setInterval(async () => {
@@ -351,17 +352,63 @@ export default function MerchantPayPage() {
                   </div>
                 </div>
 
+                {/* Partial payment progress */}
+                {invoice.status === "partially_paid" && invoice.amount_received && (() => {
+                  const received = parseFloat(invoice.amount_received);
+                  const total = parseFloat(invoice.amount);
+                  const remaining = Math.max(0, total - received);
+                  const pct = Math.min(100, (received / total) * 100);
+                  return (
+                    <div className="bg-yellow-500/10 border border-yellow-500/25 rounded-2xl p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></div>
+                        <span className="text-sm font-semibold text-yellow-400">Частичная оплата получена</span>
+                      </div>
+                      {/* Progress bar */}
+                      <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-full transition-all duration-500"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-white/50">Получено</span>
+                        <span className="text-yellow-400 font-mono font-bold">{received.toFixed(6)} USDT</span>
+                      </div>
+                      <div className="h-px bg-white/5"></div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-white/60">Осталось доплатить</span>
+                        <span className="text-white font-bold font-mono text-base">{remaining.toFixed(6)} USDT</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* Info */}
                 <div className="flex items-start gap-3 bg-[#2EEA7F]/10 border border-[#2EEA7F]/20 rounded-2xl p-4">
                   <Info className="w-5 h-5 text-[#2EEA7F] flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-white/80 leading-relaxed">
-                    Отправьте точно{" "}
-                    <span className="font-bold text-[#2EEA7F] bg-[#2EEA7F]/10 px-1.5 py-0.5 rounded">
-                      {parseFloat(invoice.amount).toFixed(6)} USDT
-                    </span>{" "}
-                    в сети{" "}
-                    <span className="font-medium text-white">{NETWORK_LABELS[invoice.network_chosen]?.label ?? invoice.network_chosen}</span>.{" "}
-                    Платеж подтвердится автоматически.
+                    {invoice.status === "partially_paid" && invoice.amount_received ? (
+                      <>
+                        Отправьте ещё{" "}
+                        <span className="font-bold text-[#2EEA7F] bg-[#2EEA7F]/10 px-1.5 py-0.5 rounded">
+                          {Math.max(0, parseFloat(invoice.amount) - parseFloat(invoice.amount_received)).toFixed(6)} USDT
+                        </span>
+                        {" "}на тот же адрес в сети{" "}
+                        <span className="font-medium text-white">{NETWORK_LABELS[invoice.network_chosen!]?.label ?? invoice.network_chosen}</span>.{" "}
+                        Платеж подтвердится автоматически.
+                      </>
+                    ) : (
+                      <>
+                        Отправьте точно{" "}
+                        <span className="font-bold text-[#2EEA7F] bg-[#2EEA7F]/10 px-1.5 py-0.5 rounded">
+                          {parseFloat(invoice.amount).toFixed(6)} USDT
+                        </span>{" "}
+                        в сети{" "}
+                        <span className="font-medium text-white">{NETWORK_LABELS[invoice.network_chosen!]?.label ?? invoice.network_chosen}</span>.{" "}
+                        Платеж подтвердится автоматически.
+                      </>
+                    )}
                   </p>
                 </div>
 
