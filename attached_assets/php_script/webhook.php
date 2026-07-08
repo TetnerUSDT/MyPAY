@@ -1,4 +1,103 @@
-> $paymentId,
+<?php
+/**
+ * myPay Webhook Handler — webhook.php
+ *
+ * Установка:
+ *   1. Залей этот файл на сервер рядом с index.php
+ *   2. В настройках магазина myPay укажи Webhook URL:
+ *      https://yourdomain.com/webhook.php
+ *   3. DB_* константы должны совпадать с index.php
+ */
+
+// ═══════════════════════════════════════════════════════════════
+// НАСТРОЙКИ ПОДКЛЮЧЕНИЯ К БД (должны совпадать с index.php)
+// ═══════════════════════════════════════════════════════════════
+define('DB_HOST', 'localhost');
+define('DB_NAME', 'mypay_test');
+define('DB_USER', 'root');
+define('DB_PASS', '');
+define('LOG_FILE', __DIR__ . '/log.txt');
+// ═══════════════════════════════════════════════════════════════
+
+// ── Логирование ───────────────────────────────────────────────
+function app_log(string $level, string $message, array $context = []): void {
+    $ts   = date('Y-m-d H:i:s');
+    $ctx  = $context ? ' ' . json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : '';
+    $line = "[{$ts}] [{$level}] {$message}{$ctx}" . PHP_EOL;
+    @file_put_contents(LOG_FILE, $line, FILE_APPEND | LOCK_EX);
+}
+
+// ── DB подключение ────────────────────────────────────────────
+try {
+    $pdo = new PDO(
+        "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4",
+        DB_USER, DB_PASS,
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
+    );
+} catch (PDOException $e) {
+    app_log('ERROR', 'Webhook: DB connection failed', ['error' => $e->getMessage()]);
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode(['error' => 'DB connection failed']);
+    exit;
+}
+
+// ── Чтение config ─────────────────────────────────────────────
+function cfg_wh(PDO $pdo, string $key, string $default = ''): string {
+    try {
+        $s = $pdo->prepare("SELECT value FROM config WHERE `key`=? LIMIT 1");
+        $s->execute([$key]);
+        $val = $s->fetchColumn();
+        return ($val !== false && $val !== '') ? $val : $default;
+    } catch (PDOException $e) {
+        return $default;
+    }
+}
+
+// ── Читаем тело запроса ───────────────────────────────────────
+header('Content-Type: application/json');
+
+$rawBody = (string)file_get_contents('php://input');
+$payload = json_decode($rawBody, true);
+
+if (!is_array($payload)) {
+    app_log('WARN', 'Webhook: invalid JSON body', ['raw' => substr($rawBody, 0, 200)]);
+    http_response_code(400);
+    echo json_encode(['error' => 'Invalid JSON']);
+    exit;
+}
+
+// ── Проверка HMAC-подписи (опционально, если настроен shop_key) ──
+$shopKey   = cfg_wh($pdo, 'shop_key', '');
+$signature = $_SERVER['HTTP_X_SIGNATURE'] ?? '';
+if ($shopKey && $signature) {
+    $expected = hash_hmac('sha256', $rawBody, $shopKey);
+    if (!hash_equals($expected, $signature)) {
+        app_log('WARN', 'Webhook: invalid signature', ['ip' => $_SERVER['REMOTE_ADDR'] ?? '']);
+        http_response_code(401);
+        echo json_encode(['error' => 'Invalid signature']);
+        exit;
+    }
+}
+
+// ── Общие поля ────────────────────────────────────────────────
+$eventType      = (string)($payload['event_type']     ?? '');
+$paymentId      = isset($payload['payment_id'])       ? (int)$payload['payment_id'] : null;
+$invoiceNumber  = $payload['invoice_number']          ?? null;
+$status         = $payload['status']                  ?? null;
+$amountReceived = $payload['amount_received']         ?? ($payload['amount'] ?? null);
+$txHash         = $payload['tx_hash']                 ?? null;
+
+if (!$eventType) {
+    app_log('WARN', 'Webhook: missing event_type', ['payload' => $payload]);
+    http_response_code(400);
+    echo json_encode(['error' => 'Missing event_type']);
+    exit;
+}
+
+app_log('INFO', 'Webhook received', [
+    'event'          => $eventType,
+    'payment_id'     => $paymentId,
     'invoice_number' => $invoiceNumber,
     'status'         => $status,
     'tx_hash'        => $txHash ? substr((string)$txHash, 0, 16) . '…' : null,
