@@ -1336,6 +1336,58 @@ async function checkWalletBalanceOnChain(network: string, address: string): Prom
   }
 }
 
+// Returns native gas token balance and minimum required for a transfer fee
+async function checkNativeGasBalance(
+  network: string, address: string
+): Promise<{ balance: number; minRequired: number; currency: string }> {
+  const GAS: Record<string, { min: number; currency: string }> = {
+    BSC:      { min: 0.001,   currency: "BNB"  },
+    TRON:     { min: 13,      currency: "TRX"  },
+    TON:      { min: 0.05,    currency: "TON"  },
+    ETH:      { min: 0.001,   currency: "ETH"  },
+    ARBITRUM: { min: 0.0005,  currency: "ETH"  },
+    POLYGON:  { min: 0.01,    currency: "MATIC"},
+    SOLANA:   { min: 0.01,    currency: "SOL"  },
+  };
+  const req = GAS[network] ?? { min: 0.001, currency: "native" };
+  let balance = 0;
+  try {
+    if (network === "BSC") {
+      const BSC_RPCS = ["https://bsc-dataseed1.binance.org/", "https://bsc-dataseed2.binance.org/", "https://bsc-dataseed1.defibit.io/"];
+      for (const rpc of BSC_RPCS) {
+        try {
+          const r = await fetch(rpc, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ jsonrpc: "2.0", method: "eth_getBalance", params: [address, "latest"], id: 1 }),
+            signal: AbortSignal.timeout(8000),
+          });
+          const d = await r.json() as any;
+          if (d.result !== undefined) { balance = Number(BigInt(d.result || "0x0")) / 1e18; break; }
+        } catch { /* try next */ }
+      }
+    } else if (network === "TRON") {
+      const r = await fetch(`https://api.trongrid.io/v1/accounts/${address}`, {
+        headers: { "Accept": "application/json" }, signal: AbortSignal.timeout(8000),
+      });
+      const d = await r.json() as any;
+      balance = Number(d.data?.[0]?.balance ?? 0) / 1_000_000;
+    } else if (network === "TON") {
+      const r = await fetch(`https://tonapi.io/v2/accounts/${encodeURIComponent(address)}`, {
+        headers: { "Accept": "application/json" }, signal: AbortSignal.timeout(8000),
+      });
+      const d = await r.json() as any;
+      balance = Number(d.balance ?? 0) / 1e9;
+    } else if (["ETH", "ARBITRUM", "POLYGON"].includes(network)) {
+      const rpcs = EVM_NETWORKS[network]?.rpcs ?? [];
+      const result = await evmRpc(rpcs, "eth_getBalance", [address, "latest"]);
+      if (result) balance = Number(BigInt(result)) / 1e18;
+    }
+  } catch (e) {
+    console.warn(`[GasCheck] ${network}:${address}`, e);
+  }
+  return { balance, minRequired: req.min, currency: req.currency };
+}
+
 async function checkWalletBalanceViaApi(network: string, address: string): Promise<number | null> {
   try {
     const node = SUPPORTED_WALLET_NODES[network];
@@ -1636,6 +1688,97 @@ export function registerBusinessRoutes(app: Express) {
       }
 
       res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // Check native gas balance before semi-auto payout execution
+  app.post("/api/business/shops/:id/payouts/:payoutId/check-gas", requireApiKey, async (req, res) => {
+    const user = await getUserFromRequest(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const shopId = parseInt(req.params.id);
+    const payoutId = parseInt(req.params.payoutId);
+    const { fromWalletId } = req.body;
+    if (!fromWalletId) return res.status(400).json({ error: "fromWalletId required" });
+    try {
+      const [shop] = await db.select().from(merchantShops).where(and(eq(merchantShops.id, shopId), eq(merchantShops.userId, user.id))).limit(1);
+      if (!shop) return res.status(404).json({ error: "Shop not found" });
+      const [payout] = await db.select().from(merchantPayoutRequests).where(and(eq(merchantPayoutRequests.id, payoutId), eq(merchantPayoutRequests.shopId, shopId))).limit(1);
+      if (!payout) return res.status(404).json({ error: "Payout not found" });
+      const [wallet] = await db.select().from(merchantWallets).where(and(eq(merchantWallets.id, parseInt(fromWalletId)), eq(merchantWallets.shopId, shopId))).limit(1);
+      if (!wallet) return res.status(404).json({ error: "Wallet not found" });
+
+      const { balance, minRequired, currency } = await checkNativeGasBalance(wallet.network, wallet.address);
+      res.json({
+        hasEnoughGas: balance >= minRequired,
+        currentGas: balance,
+        gasNeeded: minRequired,
+        gasCurrency: currency,
+        walletAddress: wallet.address,
+        shortfall: balance >= minRequired ? 0 : parseFloat((minRequired - balance).toFixed(8)),
+      });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // Semi-auto execute: call wallet transfer API on an existing pending payout
+  app.post("/api/business/shops/:id/payouts/:payoutId/execute", requireApiKey, async (req, res) => {
+    const user = await getUserFromRequest(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const shopId = parseInt(req.params.id);
+    const payoutId = parseInt(req.params.payoutId);
+    const { fromWalletId } = req.body;
+    if (!fromWalletId) return res.status(400).json({ error: "fromWalletId required" });
+    try {
+      const [shop] = await db.select().from(merchantShops).where(and(eq(merchantShops.id, shopId), eq(merchantShops.userId, user.id))).limit(1);
+      if (!shop) return res.status(404).json({ error: "Shop not found" });
+      const [payout] = await db.select().from(merchantPayoutRequests).where(and(eq(merchantPayoutRequests.id, payoutId), eq(merchantPayoutRequests.shopId, shopId))).limit(1);
+      if (!payout) return res.status(404).json({ error: "Payout not found" });
+      if (["completed", "cancelled"].includes((payout as any).status)) {
+        return res.status(409).json({ error: `Payout already ${(payout as any).status}` });
+      }
+      const [wallet] = await db.select().from(merchantWallets).where(and(eq(merchantWallets.id, parseInt(fromWalletId)), eq(merchantWallets.shopId, shopId))).limit(1);
+      if (!wallet) return res.status(404).json({ error: "Wallet not found" });
+
+      const TRANSFER_URL = WALLET_API_URL.replace("/wallet/create", "/wallet/transfer");
+      const node = SUPPORTED_WALLET_NODES[wallet.network] ?? wallet.network;
+      const r = await fetch(TRANSFER_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${WALLET_API_TOKEN}` },
+        body: JSON.stringify({
+          node,
+          address_from: wallet.address,
+          address_to: payout.toAddress,
+          amount: parseFloat(payout.amount),
+          symbol: payout.currency ?? "USDT",
+        }),
+        signal: AbortSignal.timeout(30000),
+      });
+      const d = await r.json() as any;
+      if (!d.success || !d.data?.txid) {
+        return res.status(422).json({ error: d.error ?? d.message ?? "Transfer failed", details: d });
+      }
+
+      await db.update(merchantPayoutRequests).set({
+        status: "completed" as any,
+        txHash: d.data.txid,
+        processedAt: new Date(),
+      }).where(eq(merchantPayoutRequests.id, payoutId));
+      await db.update(merchantShops).set({ totalPaidOut: sql`total_paid_out + ${parseFloat(payout.amount)}` }).where(eq(merchantShops.id, shopId));
+
+      if (shop.webhookUrl) {
+        sendWebhook(shop.webhookUrl, {
+          event_type: "payout.completed",
+          payout_id: payoutId,
+          reference: (payout as any).reference,
+          external_order_id: (payout as any).externalOrderId,
+          to_address: payout.toAddress,
+          network: payout.network,
+          amount: payout.amount,
+          currency: payout.currency,
+          tx_hash: d.data.txid,
+        });
+      }
+
+      res.json({ ok: true, txHash: d.data.txid });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 

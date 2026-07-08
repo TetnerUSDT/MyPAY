@@ -5,7 +5,7 @@ import {
   ChevronLeft, Plus, Store, Copy, Check, RefreshCw, Settings,
   ArrowDownLeft, ArrowUpRight, Clock, CheckCircle2, XCircle,
   Eye, EyeOff, Loader2, AlertCircle, ExternalLink, Zap, Wallet, Timer,
-  FileText, Activity
+  FileText, Activity, AlertTriangle
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -1550,16 +1550,75 @@ function PayoutsTab({ shop, payouts, wallets }: { shop: Shop; payouts: Payout[];
           <p className="text-sm">Заявок на выплату нет</p>
         </div>
       ) : payouts.map(p => (
-        <PayoutCard key={p.id} payout={p} shopId={shop.id} onUpdate={(status, txHash) => updatePayout.mutate({ payoutId: p.id, status, txHash })} />
+        <PayoutCard key={p.id} payout={p} shopId={shop.id} wallets={wallets} onUpdate={(status, txHash) => updatePayout.mutate({ payoutId: p.id, status, txHash })} />
       ))}
     </div>
   );
 }
 
-function PayoutCard({ payout, shopId, onUpdate }: { payout: Payout; shopId: number; onUpdate: (status: string, txHash?: string) => void }) {
+type GasInfo = {
+  hasEnoughGas: boolean;
+  currentGas: number;
+  gasNeeded: number;
+  gasCurrency: string;
+  walletAddress: string;
+  shortfall: number;
+};
+
+function PayoutCard({ payout, shopId, wallets, onUpdate }: {
+  payout: Payout;
+  shopId: number;
+  wallets: MerchantWallet[];
+  onUpdate: (status: string, txHash?: string) => void;
+}) {
   const [txHash, setTxHash] = useState(payout.txHash ?? "");
-  const [expanded, setExpanded] = useState(false);
+  const [mode, setMode] = useState<null | "choose" | "manual" | "semiauto">(null);
+  const [selectedWalletId, setSelectedWalletId] = useState("");
+  const [gasInfo, setGasInfo] = useState<GasInfo | null>(null);
+  const [gasChecking, setGasChecking] = useState(false);
+  const { toast } = useToast();
+  const qc = useQueryClient();
   const isPending = payout.status === "pending" || payout.status === "processing";
+  const compatibleWallets = wallets.filter(w => w.network === payout.network);
+
+  const checkGas = async (walletId: string) => {
+    if (!walletId) { setGasInfo(null); return; }
+    setGasChecking(true);
+    setGasInfo(null);
+    try {
+      const r = await apiRequest("POST", `/api/business/shops/${shopId}/payouts/${payout.id}/check-gas`, { fromWalletId: parseInt(walletId) });
+      const d = await r.json();
+      if (d.error) toast({ title: "Ошибка проверки газа", description: d.error, variant: "destructive" });
+      else setGasInfo(d as GasInfo);
+    } catch (e: any) {
+      toast({ title: "Ошибка", description: e.message, variant: "destructive" });
+    } finally {
+      setGasChecking(false);
+    }
+  };
+
+  const executePayout = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/business/shops/${shopId}/payouts/${payout.id}/execute`, { fromWalletId: parseInt(selectedWalletId) }).then(r => r.json()),
+    onSuccess: (d: any) => {
+      if (d.error) { toast({ title: "Ошибка выплаты", description: d.error, variant: "destructive" }); return; }
+      qc.invalidateQueries({ queryKey: ["/api/business/payouts", shopId] });
+      qc.invalidateQueries({ queryKey: ["/api/business/shops", shopId] });
+      toast({ title: "Выплата отправлена", description: `TX: ${d.txHash?.slice(0, 20)}…` });
+      setMode(null);
+    },
+    onError: (e: any) => toast({ title: "Ошибка", description: e.message, variant: "destructive" }),
+  });
+
+  const handleWalletChange = (v: string) => {
+    setSelectedWalletId(v);
+    checkGas(v);
+  };
+
+  const resetSemiAuto = () => {
+    setMode("choose");
+    setSelectedWalletId("");
+    setGasInfo(null);
+  };
 
   return (
     <div className="bg-[#13151A] border border-white/5 rounded-2xl p-4">
@@ -1587,13 +1646,37 @@ function PayoutCard({ payout, shopId, onUpdate }: { payout: Payout; shopId: numb
         <CopyButton text={payout.toAddress} />
       </div>
       {payout.note && <div className="text-xs text-white/40 mb-2">{payout.note}</div>}
+
       {isPending && (
         <div className="mt-2 space-y-2">
-          <button onClick={() => setExpanded(v => !v)} className="text-xs text-[#3ab368] underline-offset-2 underline">
-            {expanded ? "Скрыть" : "Обработать"}
-          </button>
-          {expanded && (
+          {mode === null && (
+            <button onClick={() => setMode("choose")} className="text-xs text-[#3ab368] underline-offset-2 underline">
+              Обработать
+            </button>
+          )}
+
+          {mode === "choose" && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setMode("manual")}
+                className="flex-1 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/70 text-xs font-medium hover:bg-white/10 transition-colors"
+              >
+                В ручную
+              </button>
+              <button
+                onClick={() => setMode("semiauto")}
+                disabled={compatibleWallets.length === 0}
+                title={compatibleWallets.length === 0 ? `Нет кошельков ${payout.network}` : ""}
+                className="flex-1 py-2.5 rounded-xl bg-[#3ab368]/15 border border-[#3ab368]/30 text-[#3ab368] text-xs font-medium hover:bg-[#3ab368]/25 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Полуавтомат
+              </button>
+            </div>
+          )}
+
+          {mode === "manual" && (
             <div className="space-y-2">
+              <button onClick={() => setMode("choose")} className="text-[10px] text-white/40 hover:text-white/70 transition-colors">← Назад</button>
               <input
                 value={txHash} onChange={e => setTxHash(e.target.value)}
                 placeholder="TX Hash (необязательно)"
@@ -1606,8 +1689,72 @@ function PayoutCard({ payout, shopId, onUpdate }: { payout: Payout; shopId: numb
               </div>
             </div>
           )}
+
+          {mode === "semiauto" && (
+            <div className="space-y-2.5">
+              <button onClick={resetSemiAuto} className="text-[10px] text-white/40 hover:text-white/70 transition-colors">← Назад</button>
+              <div>
+                <label className="text-[10px] text-white/40 mb-1 block">Кошелёк-источник ({payout.network})</label>
+                <select
+                  value={selectedWalletId}
+                  onChange={e => handleWalletChange(e.target.value)}
+                  className="w-full bg-[#0E1014] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none"
+                >
+                  <option value="">— Выбрать кошелёк —</option>
+                  {compatibleWallets.map(w => {
+                    const bal = parseFloat(w.balanceUsdt ?? "0").toFixed(4);
+                    return (
+                      <option key={w.id} value={w.id}>
+                        {truncate(w.address, 16)} · {bal} USDT
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {gasChecking && (
+                <div className="flex items-center gap-2 text-xs text-white/40 py-1">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Проверяю баланс комиссии…
+                </div>
+              )}
+
+              {gasInfo && !gasChecking && (
+                <div className={`rounded-xl px-3 py-2.5 text-xs ${gasInfo.hasEnoughGas ? "bg-[#3ab368]/10 border border-[#3ab368]/20" : "bg-orange-500/10 border border-orange-500/20"}`}>
+                  {gasInfo.hasEnoughGas ? (
+                    <div className="flex items-center gap-2 text-[#3ab368]">
+                      <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>Достаточно {gasInfo.gasCurrency} · баланс: {gasInfo.currentGas.toFixed(6)} {gasInfo.gasCurrency}</span>
+                    </div>
+                  ) : (
+                    <div className="text-orange-400 space-y-1">
+                      <div className="flex items-center gap-2 font-medium">
+                        <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                        Недостаточно {gasInfo.gasCurrency} для комиссии
+                      </div>
+                      <div className="pl-5 leading-relaxed text-orange-400/80">
+                        Текущий: {gasInfo.currentGas.toFixed(6)} {gasInfo.gasCurrency}<br />
+                        Нужно минимум: {gasInfo.gasNeeded.toFixed(6)} {gasInfo.gasCurrency}<br />
+                        Пополнить на: <span className="font-bold text-orange-300">{gasInfo.shortfall.toFixed(6)} {gasInfo.gasCurrency}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <button
+                onClick={() => executePayout.mutate()}
+                disabled={!selectedWalletId || gasChecking || !gasInfo || !gasInfo.hasEnoughGas || executePayout.isPending}
+                className="w-full py-2.5 rounded-xl bg-[#3ab368] text-white text-xs font-semibold disabled:opacity-40 flex items-center justify-center gap-2 transition-opacity"
+              >
+                {executePayout.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                Выплатить {parseFloat(payout.amount).toFixed(4)} {payout.currency}
+              </button>
+            </div>
+          )}
         </div>
       )}
+
       {payout.txHash && payout.status === "completed" && (
         <div className="text-[10px] text-[#3ab368]/70 font-mono mt-1 truncate">TX: {truncate(payout.txHash, 24)}</div>
       )}
