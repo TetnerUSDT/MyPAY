@@ -1696,7 +1696,7 @@ function SettingsTab({ shop }: { shop: Shop }) {
               onChange={e => setInvoiceMinutes(parseInt(e.target.value) || 60)}
               className="w-full bg-[#13151A] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#3ab368]/50"
             />
-            <div className="text-[9px] text-white/25 mt-1">Время жизни ссылки</div>
+            <div className="text-[9px] text-white/25 mt-1">Резерв адреса</div>
           </div>
         </div>
       </div>
