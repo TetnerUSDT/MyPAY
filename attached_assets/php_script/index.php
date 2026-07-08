@@ -1598,6 +1598,41 @@ async function createTopupAddress() {
   toast('✅ Адрес создан', 'ok');
 }
 
+async function refreshBalances() {
+  const data = await fetch('?action=get_balances').then(r => r.json()).catch(() => []);
+
+  // Create the card dynamically if it was missing from the HTML
+  let el = document.getElementById('balances-list');
+  if (!el) {
+    const card = document.createElement('div');
+    card.className = 'card card-pad';
+    card.style.cssText = 'margin-bottom:16px';
+    card.innerHTML = '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)">Балансы пользователей</div><div id="balances-list"></div>';
+    const firstCard = document.querySelector('.card');
+    if (firstCard) firstCard.parentNode.insertBefore(card, firstCard);
+    else document.body.prepend(card);
+    el = document.getElementById('balances-list');
+  }
+
+  if (!el) return;
+  if (!Array.isArray(data) || !data.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Нет пользователей</div>';
+    return;
+  }
+  el.innerHTML = data.map(u => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:16px">${esc(u.avatar||'👤')}</span>
+        <div>
+          <div style="font-weight:600;font-size:13px">${esc(u.name||'')}</div>
+          ${u.last_updated ? `<div style="font-size:10px;color:var(--muted)">обновлён ${esc(u.last_updated)}</div>` : ''}
+        </div>
+      </div>
+      <div style="font-weight:700;font-size:15px;color:var(--green)">${parseFloat(u.balance_usdt||0).toFixed(4)} USDT</div>
+    </div>
+  `).join('');
+}
+
 async function refreshBalanceHistory() {
   const userId = parseInt(document.getElementById('history-user-filter')?.value || '0');
   const data = await fetch('?action=get_balance_history', {
@@ -1618,28 +1653,6 @@ async function refreshBalanceHistory() {
       <td class="mono">${t.order_id ? '#'+t.order_id : '—'}</td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${esc(t.created_at||'')}</td>
     </tr>`).join('');
-}
-
-async function refreshBalances() {
-  const data = await fetch('?action=get_balances').then(r => r.json()).catch(() => []);
-  const el = document.getElementById('balances-list');
-  if (!el) return;
-  if (!Array.isArray(data) || !data.length) {
-    el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Нет пользователей</div>';
-    return;
-  }
-  el.innerHTML = data.map(u => `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border)">
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:16px">${esc(u.avatar||'👤')}</span>
-        <div>
-          <div style="font-weight:600;font-size:13px">${esc(u.name||'')}</div>
-          ${u.last_updated ? `<div style="font-size:10px;color:var(--muted)">обновлён ${esc(u.last_updated)}</div>` : ''}
-        </div>
-      </div>
-      <div style="font-weight:700;font-size:15px;color:var(--green)">${parseFloat(u.balance_usdt||0).toFixed(4)} USDT</div>
-    </div>
-  `).join('');
 }
 
 refreshBalances();
