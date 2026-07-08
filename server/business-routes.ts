@@ -94,6 +94,17 @@ async function releaseExpiredMerchantWallets(shopId: number) {
   `);
 }
 
+async function releaseMerchantWalletForInvoice(invoiceId: number) {
+  try {
+    await db.execute(sql`
+      UPDATE merchant_wallets mw
+      JOIN merchant_invoices mi ON mi.wallet_id = mw.id
+      SET mw.status = 'active', mw.order_id = NULL, mw.reserved_until = NULL, mw.external_user_id = NULL
+      WHERE mi.id = ${invoiceId} AND mw.status = 'reserved'
+    `);
+  } catch { /* non-fatal */ }
+}
+
 async function findOrReserveMerchantWallet(
   shopId: number,
   network: string,
@@ -818,12 +829,17 @@ async function pollInvoiceForPayment(
   const check = async () => {
     if (Date.now() > deadline) {
       await db.execute(sql`UPDATE merchant_invoices SET status = 'expired' WHERE id = ${invoiceId} AND status IN ('pending', 'partially_paid')`);
+      await releaseMerchantWalletForInvoice(invoiceId);
       return;
     }
     try {
       const [invRows] = await db.execute(sql`SELECT status, amount_received FROM merchant_invoices WHERE id = ${invoiceId} LIMIT 1`);
       const inv = (invRows as any[])[0];
-      if (!inv || (inv.status !== "pending" && inv.status !== "partially_paid")) return;
+      if (!inv || (inv.status !== "pending" && inv.status !== "partially_paid")) {
+        // Invoice already finalised (confirmed/expired by another process) — ensure wallet is free
+        await releaseMerchantWalletForInvoice(invoiceId);
+        return;
+      }
 
       const required = parseFloat(expectedAmount);
 
@@ -912,6 +928,7 @@ async function pollInvoiceForPayment(
               total_received = total_received + ${currentTotal}
               WHERE id = ${shopId}
             `);
+            await releaseMerchantWalletForInvoice(invoiceId);
             if (webhookUrl) {
               const [invNumRows] = await db.execute(sql`SELECT invoice_number FROM merchant_invoices WHERE id = ${invoiceId} LIMIT 1`);
               sendWebhook(webhookUrl, {
@@ -992,6 +1009,14 @@ export async function recoverPendingPollers() {
       UPDATE merchant_invoices SET status = 'expired'
       WHERE status IN ('pending', 'partially_paid') AND wallet_address IS NOT NULL
         AND expires_at IS NOT NULL AND expires_at < NOW()
+    `);
+
+    // Release wallets still reserved for confirmed/expired invoices (survives server restarts)
+    await db.execute(sql`
+      UPDATE merchant_wallets mw
+      JOIN merchant_invoices mi ON mi.wallet_id = mw.id
+      SET mw.status = 'active', mw.order_id = NULL, mw.reserved_until = NULL, mw.external_user_id = NULL
+      WHERE mi.status IN ('confirmed', 'expired') AND mw.status = 'reserved'
     `);
 
     // Recover pending payments still within their TTL window
