@@ -432,31 +432,30 @@ function ApiDocs({ apiKey, showKey }: { apiKey: string; showKey: boolean }) {
             </p>
 
             <div>
-              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Заголовки</div>
-              <CodeBlock>{`x-shop-key: ${key}`}</CodeBlock>
-            </div>
-
-            <div>
               <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Пример запроса</div>
-              <CodeBlock>{`GET /api/merchant/payment/42`}</CodeBlock>
+              <CodeBlock>{`GET /api/merchant/payment/42\nx-shop-key: ${key}`}</CodeBlock>
             </div>
 
             <div>
               <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Ответ</div>
               <CodeBlock>{`{
-  "status":          "confirmed",        // "pending" | "confirmed" | "expired"
-  "tx_hash":         "abc123...",        // хэш транзакции (если подтверждён)
-  "amount_received": "10.000000",        // полученная сумма
-  "confirmed_at":    "2025-01-15T..."    // время подтверждения
+  "status":          "confirmed",
+  "payment_mode":    "temporary",        // "permanent" | "temporary" | "invoice"
+  "tx_hash":         "abc123...",        // хэш последней транзакции
+  "amount_received": "10.050000",        // фактически получено
+  "amount":          "10.000000",        // требуемая сумма
+  "confirmed_at":    "2025-01-15T10:00:00.000Z"
 }`}</CodeBlock>
             </div>
 
             <div className="bg-white/3 rounded-xl p-3">
-              <div className="text-[10px] text-white/40 leading-relaxed">
-                <strong className="text-white/60">Статусы:</strong><br />
-                <span className="text-[#e9c46a]">pending</span> — ожидаем оплату<br />
-                <span className="text-[#3ab368]">confirmed</span> — транзакция найдена и подтверждена<br />
-                <span className="text-red-400">expired</span> — время истекло (только временный режим)
+              <div className="text-[10px] text-white/40 leading-relaxed space-y-0.5">
+                <div className="font-semibold text-white/60 mb-1.5">Все возможные статусы:</div>
+                <div><span className="text-[#e9c46a] font-mono">pending</span> — ожидаем оплату</div>
+                <div><span className="text-blue-400 font-mono">partially_paid</span> — часть суммы получена (temporary/invoice)</div>
+                <div><span className="text-[#3ab368] font-mono">confirmed</span> — полностью оплачен</div>
+                <div><span className="text-white/40 font-mono">closed</span> — окно мониторинга закрыто (permanent)</div>
+                <div><span className="text-red-400 font-mono">expired</span> — время истекло (temporary/invoice)</div>
               </div>
             </div>
           </div>
@@ -473,7 +472,7 @@ function ApiDocs({ apiKey, showKey }: { apiKey: string; showKey: boolean }) {
         {open === "check" && (
           <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
             <p className="text-[11px] text-white/50 leading-relaxed">
-              Принудительно запускает проверку блокчейна для указанного платежа. Используйте, если клиент утверждает, что оплатил, но статус не обновился.
+              Принудительно сканирует блокчейн для платежа прямо сейчас и возвращает актуальный статус. Используйте, если клиент утверждает, что оплатил, но статус не обновился. Для permanent-режима также возвращает количество новых транзакций.
             </p>
 
             <div>
@@ -484,15 +483,87 @@ function ApiDocs({ apiKey, showKey }: { apiKey: string; showKey: boolean }) {
             </div>
 
             <div>
-              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Ответ</div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Ответ (temporary)</div>
               <CodeBlock>{`{
-  "status":  "pending",
-  "message": "Checking started"   // проверка запущена фоново
+  "status":          "confirmed",   // актуальный статус после проверки
+  "amount_received": "10.000000",
+  "tx_hash":         "abc123..."
 }`}</CodeBlock>
             </div>
-            <p className="text-[10px] text-white/30 leading-relaxed">
-              После вызова повторно запросите статус через <code className="text-white/50">GET /api/merchant/payment/:id</code> через 10–20 секунд.
+
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Ответ (permanent)</div>
+              <CodeBlock>{`{
+  "status":      "pending",
+  "new_tx_count": 1   // кол-во новых транзакций, найденных при проверке
+}`}</CodeBlock>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Endpoint 3b: invoice status */}
+      <div className="bg-[#0D1117] border border-white/8 rounded-2xl overflow-hidden">
+        <button onClick={() => toggle("invoice")} className="w-full flex items-center gap-3 p-4 text-left hover:bg-white/3 transition-colors">
+          <EndpointTag method="GET" />
+          <code className="text-xs text-white/80 flex-1">/api/merchant/invoice/:number</code>
+          <ChevronLeft className={`w-4 h-4 text-white/30 transition-transform ${open === "invoice" ? "-rotate-90" : "rotate-90"}`} />
+        </button>
+        {open === "invoice" && (
+          <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
+            <p className="text-[11px] text-white/50 leading-relaxed">
+              Публичный эндпоинт (без shop-key) для проверки статуса инвойса по его номеру. Инвойс создаётся через <code className="text-white/70">/api/merchant/address</code> с <code className="text-white/70">payment_mode: "invoice"</code> — покупатель сам выбирает сеть.
             </p>
+
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Создание инвойса</div>
+              <CodeBlock>{`POST /api/merchant/address
+x-shop-key: ${key}
+
+{
+  "payment_mode": "invoice",
+  "amount":       10.00,
+  "currency":     "USDT",
+  "order_id":     "order_789",
+  "user_id":      "user_123"
+}`}</CodeBlock>
+            </div>
+
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Ответ создания</div>
+              <CodeBlock>{`{
+  "payment_mode":   "invoice",
+  "invoice_number": "INV-2025-00042",
+  "invoice_url":    "https://mypay.casa/pay/INV-2025-00042",
+  "payment_id":     42,
+  "amount":         10.00,
+  "currency":       "USDT",
+  "expires_at":     "2025-01-15T11:00:00.000Z"
+}`}</CodeBlock>
+            </div>
+
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Проверка статуса инвойса (публичный)</div>
+              <CodeBlock>{`GET /api/merchant/invoice/INV-2025-00042`}</CodeBlock>
+            </div>
+
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Ответ статуса</div>
+              <CodeBlock>{`{
+  "status":          "confirmed",
+  "invoice_number":  "INV-2025-00042",
+  "amount":          10.00,
+  "amount_received": 10.05,
+  "network":         "TRON",
+  "tx_hash":         "abc123..."
+}`}</CodeBlock>
+            </div>
+
+            <div className="bg-[#3ab368]/5 border border-[#3ab368]/15 rounded-xl p-3">
+              <p className="text-[10px] text-white/40 leading-relaxed">
+                <strong className="text-[#3ab368]">UX-сценарий:</strong> выдайте покупателю ссылку <code className="text-white/60">invoice_url</code> — он откроет страницу оплаты, выберет нужную сеть и отправит. Вебхук <code className="text-white/60">payment.confirmed</code> придёт автоматически.
+              </p>
+            </div>
           </div>
         )}
       </div>
@@ -574,9 +645,10 @@ function ApiDocs({ apiKey, showKey }: { apiKey: string; showKey: boolean }) {
               <div className="text-[10px] text-white/30 uppercase tracking-wider mb-2">Пример: TRON GasFree</div>
               <CodeBlock>{`POST /api/merchant/address
 {
-  "network":  "TRON",
-  "mode":     "gasfree",
-  "user_id":  "user_123"
+  "payment_mode": "permanent",  // обязательно указывать в каждом запросе
+  "network":      "TRON",
+  "mode":         "gasfree",    // transport mode: gasfree | standard
+  "user_id":      "user_123"
 }`}</CodeBlock>
             </div>
           </div>
@@ -1475,6 +1547,22 @@ function SettingsTab({ shop }: { shop: Shop }) {
         <div>
           <label className="text-xs text-white/40 mb-1.5 block">Webhook URL</label>
           <input value={webhookUrl} onChange={e => setWebhookUrl(e.target.value)} placeholder="https://yoursite.com/webhook" className="w-full bg-[#13151A] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-[#3ab368]/50" />
+        </div>
+      </div>
+
+      {/* Per-request mode hint */}
+      <div className="bg-[#3ab368]/5 border border-[#3ab368]/15 rounded-xl p-3">
+        <div className="flex items-start gap-2">
+          <div className="w-1.5 h-1.5 rounded-full bg-[#3ab368] mt-1.5 flex-shrink-0" />
+          <div>
+            <div className="text-[11px] font-semibold text-[#3ab368] mb-0.5">Режим — per-request</div>
+            <p className="text-[10px] text-white/40 leading-relaxed">
+              Режим приёма (<code className="text-white/60">payment_mode</code>) указывается в каждом API-запросе отдельно —
+              <strong className="text-white/60"> permanent</strong>, <strong className="text-white/60">temporary</strong> или <strong className="text-white/60">invoice</strong>.
+              Единый переключатель для всего магазина больше не используется.
+              Подробнее см. раздел <strong className="text-white/60">API-документация</strong> на вкладке Обзор.
+            </p>
+          </div>
         </div>
       </div>
 
