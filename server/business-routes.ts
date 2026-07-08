@@ -485,8 +485,8 @@ function parseRawAmount(raw: string, decimals: number): string {
 
 /** Resolve the formatted amount for each scanner result based on network. */
 function resolveAmount(network: string, amountRaw: string): string {
-  // BSC USDT is BEP-20 with 6 decimals; amountRaw is hex from eth_getLogs data field
-  if (network === "BSC" || network === "BEP20") return hexAmountToDecimal(amountRaw, 6);
+  // BSC USDT BEP-20 has 18 decimals (Binance-Peg); amountRaw is hex from eth_getLogs data field
+  if (network === "BSC" || network === "BEP20") return hexAmountToDecimal(amountRaw, 18);
   if (network === "ETH" || network === "ARBITRUM" || network === "POLYGON") {
     return hexAmountToDecimal(amountRaw, EVM_NETWORKS[network]?.decimals ?? 6);
   }
@@ -535,7 +535,7 @@ async function pollAddressForPayment(
           found = true;
           // Update shop balance and fetch webhook_url in one query
           const [shopRows] = await db.execute(sql`
-            SELECT s.id, s.webhook_url, s.order_id, p.order_id as pay_order_id, p.external_user_id
+            SELECT s.id, s.webhook_url, p.order_id as pay_order_id, p.external_user_id
             FROM merchant_payments p
             JOIN merchant_shops s ON s.id = p.shop_id
             WHERE p.id = ${paymentId}
@@ -573,7 +573,7 @@ async function pollAddressForPayment(
         const txs = await bscScanIncoming(address);
         const inbound = txs.find(tx => tx.to?.toLowerCase() === address.toLowerCase());
         if (inbound)
-          await confirmPayment(inbound.hash, hexAmountToDecimal(inbound.value ?? "0x0", 6));
+          await confirmPayment(inbound.hash, hexAmountToDecimal(inbound.value ?? "0x0", 18));
       } else if (network === "TON") {
         const transfers = await scanTonIncoming(address);
         if (transfers.length > 0)
@@ -645,7 +645,7 @@ async function pollInvoiceForPayment(
         const inbound = txs.find(tx => tx.to?.toLowerCase() === address.toLowerCase());
         if (inbound) {
           txHash = inbound.hash;
-          amountReceived = hexAmountToDecimal(inbound.value ?? "0x0", 6);
+          amountReceived = hexAmountToDecimal(inbound.value ?? "0x0", 18);
           found = true;
         }
       } else if (network === "TON") {
@@ -1369,7 +1369,7 @@ export function registerBusinessRoutes(app: Express) {
           const inbound = txs.find((tx: any) => tx.to?.toLowerCase() === payment.wallet_address.toLowerCase());
           if (inbound) {
             txHash = inbound.hash;
-            amountReceived = hexAmountToDecimal(inbound.value ?? "0x0", 6);
+            amountReceived = hexAmountToDecimal(inbound.value ?? "0x0", 18);
             found = true;
           }
         } else if (net === "TON") {
@@ -1401,14 +1401,19 @@ export function registerBusinessRoutes(app: Express) {
 
       if (found && txHash) {
         console.log(`[merchant] check-payment ${payment.id} found tx ${txHash} on-chain`);
+        // MySQL doesn't allow NOT EXISTS on the same table in UPDATE — pre-check then plain UPDATE
+        const [dup2] = await db.execute(sql`
+          SELECT 1 FROM merchant_payments WHERE tx_hash = ${txHash} AND status = 'confirmed' LIMIT 1
+        `);
+        if ((dup2 as any[]).length > 0) {
+          console.log(`[merchant] check-payment ${payment.id} tx ${txHash} already used in another payment — waiting for new tx`);
+          pollAddressForPayment(payment.id, payment.wallet_address, payment.network, payment.currency, payment.amount);
+          return res.json({ status: "pending", tx_hash: null, amount_received: null });
+        }
         const [upd] = await db.execute(sql`
           UPDATE merchant_payments
           SET status = 'confirmed', tx_hash = ${txHash}, amount_received = ${amountReceived}, confirmed_at = NOW()
           WHERE id = ${payment.id} AND status = 'pending'
-            AND NOT EXISTS (
-              SELECT 1 FROM merchant_payments mp2
-              WHERE mp2.tx_hash = ${txHash} AND mp2.status = 'confirmed'
-            )
         `);
         if ((upd as any).affectedRows === 1) {
           console.log(`[merchant] check-payment ${payment.id} confirmed: ${txHash} +${amountReceived} USDT (${net})`);
