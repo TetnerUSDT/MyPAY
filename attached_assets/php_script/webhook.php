@@ -126,13 +126,14 @@ if (!$eventType) {
 }
 
 app_log('INFO', 'Webhook received', [
-    'event'          => $eventType,
-    'payment_id'     => $paymentId,
-    'invoice_number' => $invoiceNumber,
-    'status'         => $status,
-    'tx_hash'        => $txHash ? substr((string)$txHash, 0, 16) . '…' : null,
-    'amount'         => $amountReceived,
-    'ip'             => $_SERVER['REMOTE_ADDR'] ?? '',
+    'event'           => $eventType,
+    'payment_id'      => $paymentId,
+    'invoice_number'  => $invoiceNumber,
+    'status'          => $status,
+    'tx_hash'         => $txHash ? substr((string)$txHash, 0, 16) . '…' : null,
+    'amount'          => $amountReceived,
+    'ip'              => $_SERVER['REMOTE_ADDR'] ?? '',
+    'handler_version' => 'v3',
 ]);
 
 // ── Handle payout.completed ───────────────────────────────────────────────────
@@ -350,7 +351,7 @@ if ($eventType === 'payment.received') {
                 app_log('INFO', "Webhook: duplicate tx {$txHash} for user #{$extUserId} — skipped");
             }
         } else {
-            app_log('WARN', 'Webhook: payment.received — no matching order and no external_user_id', ['payment_id' => $paymentId, 'tx_hash' => $txHash]);
+            app_log('WARN', 'Webhook v3: payment.received — no order and no external_user_id in payload', ['payment_id' => $paymentId, 'tx_hash' => $txHash]);
         }
     }
 
