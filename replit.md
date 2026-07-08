@@ -69,10 +69,27 @@ Preferred communication style: Simple, everyday language.
 | Режим | Поведение |
 |-------|-----------|
 | `permanent` | Стабильный адрес, привязанный к `external_user_id`; мониторится `permanentMonitorMinutes` мин |
-| `temporary` | Временно зарезервированный адрес (`temporaryMinutes` мин); опционально отслеживает конкретную сумму |
+| `temporary` | Временно зарезервированный адрес (`temporaryMinutes` мин); **два варианта** — см. ниже |
 | `invoice` | Создаёт инвойс + страницу `/pay/:invoiceNumber`; клиент выбирает сеть, адрес резервируется под инвойс TTL |
 
 Режим указывается **в каждом запросе отдельно** (legacy `shop.address_mode` используется только как fallback).
+
+### Temporary — два варианта работы
+
+**Вариант A — с конкретной суммой (`amount` + `order_id` переданы)**
+- Создаётся запись `merchant_payments` со статусом `pending` и `expires_at = now + temporaryMinutes`.
+- Сканер (`pollAddressForPayment`) ждёт поступления точной суммы на адрес в течение TTL.
+- При подтверждении: статус → `confirmed`, баланс магазина пополняется, отправляется вебхук `payment.received`.
+- При истечении TTL: статус → `expired`.
+- Ответ содержит `payment_id` и `expires_at`.
+
+**Вариант B — мониторинг без суммы (`amount` / `order_id` не переданы)**
+- Запись платежа не создаётся заранее.
+- Кошелёк мониторится `temporaryMinutes` мин через `pollPermanentAddress` — тот же механизм, что у `permanent`, но ограничен по времени.
+- При обнаружении любой входящей транзакции: автоматически создаётся `merchant_payments` (статус `confirmed`), баланс пополняется, вебхук отправляется.
+- Ответ содержит `wallet_id` и `monitor_until`.
+
+> **Итого**: режим `temporary` с `amount`+`order_id` — это «платёж на точную сумму с таймаутом»; без них — «временное окно мониторинга без привязки к сумме».
 
 ## Wallet pool
 - Кошельки pre-generated через Wallet API (`POST /api/business/shops/:id/wallets/generate`)
