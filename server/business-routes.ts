@@ -568,7 +568,7 @@ async function pollAddressForPayment(
               `);
               if (shopRow.webhook_url) {
                 sendWebhook(shopRow.webhook_url, {
-                  event: "payment.confirmed",
+                  event_type: "payment.confirmed",
                   payment_id: paymentId,
                   order_id: shopRow.pay_order_id ?? null,
                   external_user_id: shopRow.external_user_id ?? null,
@@ -603,7 +603,7 @@ async function pollAddressForPayment(
             `);
             if (shopRow.webhook_url) {
               sendWebhook(shopRow.webhook_url, {
-                event: "payment.partial",
+                event_type: "payment.partial",
                 payment_id: paymentId,
                 order_id: shopRow.pay_order_id ?? null,
                 external_user_id: shopRow.external_user_id ?? null,
@@ -726,7 +726,7 @@ async function pollPermanentAddress(
           await db.execute(sql`UPDATE merchant_shops SET balance_usdt = balance_usdt + ${txNum}, total_received = total_received + ${txNum} WHERE id = ${shopRow.id}`);
           if (shopRow.webhook_url) {
             sendWebhook(shopRow.webhook_url, {
-              event: "payment.received",
+              event_type: "payment.received",
               payment_id: paymentId,
               order_id: shopRow.pay_order_id ?? null,
               external_user_id: shopRow.external_user_id ?? null,
@@ -915,7 +915,7 @@ async function pollInvoiceForPayment(
             if (webhookUrl) {
               const [invNumRows] = await db.execute(sql`SELECT invoice_number FROM merchant_invoices WHERE id = ${invoiceId} LIMIT 1`);
               sendWebhook(webhookUrl, {
-                event: "invoice.confirmed",
+                event_type: "invoice.confirmed",
                 invoice_number: (invNumRows as any[])[0]?.invoice_number,
                 order_ref: orderRef,
                 amount_received: currentTotalStr,
@@ -937,7 +937,7 @@ async function pollInvoiceForPayment(
           if (webhookUrl) {
             const [invNumRows] = await db.execute(sql`SELECT invoice_number FROM merchant_invoices WHERE id = ${invoiceId} LIMIT 1`);
             sendWebhook(webhookUrl, {
-              event: "invoice.partial",
+              event_type: "invoice.partial",
               invoice_number: (invNumRows as any[])[0]?.invoice_number,
               order_ref: orderRef,
               amount_received: currentTotalStr,
@@ -1498,7 +1498,7 @@ export function registerBusinessRoutes(app: Express) {
         // Send webhook for API-sourced payouts only
         if ((payout as any).source === "api" && shop.webhookUrl) {
           sendWebhook(shop.webhookUrl, {
-            event: "payout.completed",
+            event_type: "payout.completed",
             payout_id: payoutId,
             external_order_id: (payout as any).externalOrderId,
             reference: (payout as any).reference,
@@ -1784,7 +1784,7 @@ export function registerBusinessRoutes(app: Express) {
           await db.execute(sql`UPDATE merchant_shops SET balance_usdt = balance_usdt + ${txNum}, total_received = total_received + ${txNum} WHERE id = ${shop.id}`);
           if (shop.webhookUrl) {
             sendWebhook(shop.webhookUrl, {
-              event: "payment.received",
+              event_type: "payment.received",
               payment_id: payment.id,
               order_id: payment.order_id ?? null,
               external_user_id: payment.external_user_id ?? null,
@@ -1879,7 +1879,7 @@ export function registerBusinessRoutes(app: Express) {
               await db.execute(sql`UPDATE merchant_shops SET balance_usdt = balance_usdt + ${txNum}, total_received = total_received + ${txNum} WHERE id = ${shop.id}`);
               if (shop.webhookUrl) {
                 sendWebhook(shop.webhookUrl, {
-                  event: "payment.confirmed",
+                  event_type: "payment.confirmed",
                   payment_id: payment.id,
                   order_id: payment.order_id ?? null,
                   external_user_id: payment.external_user_id ?? null,
@@ -1902,7 +1902,7 @@ export function registerBusinessRoutes(app: Express) {
             await db.execute(sql`UPDATE merchant_shops SET balance_usdt = balance_usdt + ${txNum}, total_received = total_received + ${txNum} WHERE id = ${shop.id}`);
             if (shop.webhookUrl) {
               sendWebhook(shop.webhookUrl, {
-                event: "payment.partial",
+                event_type: "payment.partial",
                 payment_id: payment.id,
                 order_id: payment.order_id ?? null,
                 external_user_id: payment.external_user_id ?? null,

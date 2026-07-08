@@ -81,7 +81,7 @@ if ($shopKey && $signature) {
 }
 
 // ── Общие поля ────────────────────────────────────────────────
-$eventType      = (string)($payload['event_type']     ?? '');
+$eventType      = (string)($payload['event_type'] ?? $payload['event'] ?? '');
 $paymentId      = isset($payload['payment_id'])       ? (int)$payload['payment_id'] : null;
 $invoiceNumber  = $payload['invoice_number']          ?? null;
 $status         = $payload['status']                  ?? null;
@@ -251,7 +251,7 @@ if ($eventType === 'payment.received') {
 }
 
 // ── payment.partial — temporary/invoice: partial accumulation ─────────────────
-if ($eventType === 'payment.partial') {
+if (in_array($eventType, ['payment.partial', 'invoice.partial'])) {
     $amountReq  = $payload['amount_required']  ?? null;
     $amountRem  = $payload['amount_remaining'] ?? null;
 
