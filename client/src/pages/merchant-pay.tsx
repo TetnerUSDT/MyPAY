@@ -116,7 +116,7 @@ export default function MerchantPayPage() {
   const [invoice, setInvoice] = useState<InvoiceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectingNetwork, setSelectingNetwork] = useState(false);
+  const [selectingNetwork, setSelectingNetwork] = useState<string | null>(null);
   const [polling, setPolling] = useState(false);
 
   const fetchInvoice = useCallback(async () => {
@@ -151,7 +151,7 @@ export default function MerchantPayPage() {
   }, [invoice?.wallet_address, invoice?.status, fetchInvoice]);
 
   const selectNetwork = async (network: string) => {
-    setSelectingNetwork(true);
+    setSelectingNetwork(network);
     try {
       const r = await fetch(`/api/merchant/invoice/${invoiceNumber}/select-network`, {
         method: "POST",
@@ -164,7 +164,7 @@ export default function MerchantPayPage() {
     } catch (e: any) {
       alert(e.message);
     } finally {
-      setSelectingNetwork(false);
+      setSelectingNetwork(null);
     }
   };
 
@@ -388,7 +388,7 @@ export default function MerchantPayPage() {
                       <button
                         key={net}
                         onClick={() => selectNetwork(net)}
-                        disabled={selectingNetwork}
+                        disabled={selectingNetwork !== null}
                         className="group w-full flex items-center gap-4 p-4 rounded-2xl bg-[#0A0D12] border border-white/5 hover:border-[#2EEA7F]/50 hover:shadow-[0_0_20px_rgba(46,234,127,0.1)] transition-all disabled:opacity-50 text-left relative overflow-hidden"
                       >
                         <div className="absolute inset-0 bg-gradient-to-r from-[#2EEA7F]/0 to-[#2EEA7F]/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -406,7 +406,7 @@ export default function MerchantPayPage() {
                           <div className="text-sm text-white/40 font-medium">USDT</div>
                         </div>
                         
-                        {selectingNetwork ? (
+                        {selectingNetwork === net ? (
                           <Loader2 className="w-5 h-5 text-[#2EEA7F] animate-spin flex-shrink-0" />
                         ) : (
                           <div className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center group-hover:bg-[#2EEA7F] group-hover:border-[#2EEA7F] transition-colors flex-shrink-0">

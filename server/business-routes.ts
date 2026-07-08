@@ -899,6 +899,13 @@ export async function recoverPendingPollers() {
       WHERE status = 'pending' AND wallet_address IS NULL AND expires_at IS NOT NULL
     `);
 
+    // Expire old pending invoices that have a wallet_address but expires_at already passed
+    await db.execute(sql`
+      UPDATE merchant_invoices SET status = 'expired'
+      WHERE status = 'pending' AND wallet_address IS NOT NULL
+        AND expires_at IS NOT NULL AND expires_at < NOW()
+    `);
+
     // Recover pending payments still within their TTL window
     const [payRows] = await db.execute(sql`
       SELECT id, wallet_address, network, currency, amount, created_at
@@ -1850,9 +1857,14 @@ export function registerBusinessRoutes(app: Express) {
       if (!inv) return res.status(404).json({ error: "Invoice not found" });
 
       // Auto-expire only after network is selected (wallet_address set = payment window started)
-      if (inv.status === "pending" && inv.wallet_address && inv.expires_at && new Date(inv.expires_at) < new Date()) {
-        await db.execute(sql`UPDATE merchant_invoices SET status = 'expired' WHERE id = ${inv.id}`);
-        inv.status = "expired";
+      // Use SQL NOW() to avoid JS timezone/parsing issues with MySQL DATETIME
+      if (inv.status === "pending" && inv.wallet_address) {
+        const [expRows] = await db.execute(sql`
+          UPDATE merchant_invoices SET status = 'expired'
+          WHERE id = ${inv.id} AND status = 'pending'
+            AND wallet_address IS NOT NULL AND expires_at IS NOT NULL AND expires_at < NOW()
+        `);
+        if ((expRows as any).affectedRows > 0) inv.status = "expired";
       }
 
       return res.json({
@@ -1887,9 +1899,16 @@ export function registerBusinessRoutes(app: Express) {
       const inv = (rows[0] as any[])[0];
       if (!inv) return res.status(404).json({ error: "Invoice not found" });
       if (inv.status !== "pending") return res.status(400).json({ error: `Invoice is ${inv.status}` });
-      if (inv.wallet_address && inv.expires_at && new Date(inv.expires_at) < new Date()) {
-        await db.execute(sql`UPDATE merchant_invoices SET status = 'expired' WHERE id = ${inv.id}`);
-        return res.status(400).json({ error: "Invoice expired" });
+      // Check expiry via SQL NOW() to avoid JS timezone issues
+      if (inv.wallet_address) {
+        const [expChk] = await db.execute(sql`
+          UPDATE merchant_invoices SET status = 'expired'
+          WHERE id = ${inv.id} AND status = 'pending'
+            AND wallet_address IS NOT NULL AND expires_at IS NOT NULL AND expires_at < NOW()
+        `);
+        if ((expChk as any).affectedRows > 0) {
+          return res.status(400).json({ error: "Invoice expired" });
+        }
       }
       if (inv.wallet_address) {
         return res.json({ address: inv.wallet_address, network: inv.network_chosen, expires_at: inv.expires_at });
