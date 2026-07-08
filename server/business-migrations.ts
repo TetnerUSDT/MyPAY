@@ -210,6 +210,21 @@ export async function runBusinessMigrations() {
       `);
     }
 
+    // Table tracking individual transactions per payment (for partial payment accumulation)
+    if (!await tableExists("merchant_payment_txs")) {
+      await db.execute(sql`
+        CREATE TABLE merchant_payment_txs (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          payment_id INT NOT NULL,
+          tx_hash VARCHAR(255) NOT NULL UNIQUE,
+          amount DECIMAL(18,8) NOT NULL,
+          created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_mpt_payment (payment_id),
+          INDEX idx_mpt_tx (tx_hash)
+        )
+      `);
+    }
+
     await runScannerProviderMigrations();
 
     console.log("[Business] Migrations completed");

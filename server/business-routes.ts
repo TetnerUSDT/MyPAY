@@ -501,97 +501,164 @@ async function pollAddressForPayment(
   expectedAmount?: string, deadlineMs?: number,
 ) {
   const deadline = deadlineMs ?? Date.now() + 3 * 60 * 60 * 1000;
-  let interval = 10000;        // start fast
-  const maxInterval = 60000;   // cap at 1 min
+  let interval = 10000;
+  const maxInterval = 60000;
 
   const check = async () => {
     if (Date.now() > deadline) return;
     try {
-      const rows = await db.execute(sql`SELECT status FROM merchant_payments WHERE id = ${paymentId} LIMIT 1`);
+      // Fetch full payment row — continue polling if pending OR partially_paid
+      const rows = await db.execute(sql`
+        SELECT id, status, amount, amount_received FROM merchant_payments WHERE id = ${paymentId} LIMIT 1
+      `);
       const payment = (rows[0] as any[])[0];
-      if (!payment || payment.status !== "pending") return;
+      if (!payment || (payment.status !== "pending" && payment.status !== "partially_paid")) return;
 
-      let found = false;
+      const required = parseFloat(expectedAmount ?? payment.amount ?? "0");
+      const alreadyReceived = parseFloat(payment.amount_received ?? "0");
 
-      // Confirm payment row — atomic UPDATE guards against race conditions (status='pending' check).
-      // txHash uniqueness across confirmed rows prevents double-crediting the same tx.
-      const confirmPayment = async (txHash: string, txAmount: string) => {
-        // MySQL does not allow referencing the updated table in a NOT EXISTS subquery.
-        // Pre-check for duplicate tx_hash in a separate query, then UPDATE.
+      let processed = false;
+
+      // Process one incoming transaction for this payment.
+      // Uses merchant_payment_txs for dedup so each tx is attributed to exactly one payment.
+      // Partial payments accumulate until required amount is met.
+      const processIncomingTx = async (txHash: string, txAmountStr: string) => {
+        const txNum = parseFloat(txAmountStr);
+        if (txNum <= 0) return;
+
+        // Dedup: if this tx is already recorded in any payment, skip it
         const [dup] = await db.execute(sql`
-          SELECT 1 FROM merchant_payments WHERE tx_hash = ${txHash} AND status = 'confirmed' LIMIT 1
+          SELECT 1 FROM merchant_payment_txs WHERE tx_hash = ${txHash} LIMIT 1
         `);
-        if ((dup as any[]).length > 0) {
-          console.log(`[merchant] payment ${paymentId} tx ${txHash} already confirmed in another payment — skipping`);
+        if ((dup as any[]).length > 0) return;
+
+        const newTotal = alreadyReceived + txNum;
+        const isFullyPaid = required <= 0 || newTotal >= required * 0.99;
+
+        // Record this tx atomically — UNIQUE constraint on tx_hash prevents race conditions
+        try {
+          await db.execute(sql`
+            INSERT INTO merchant_payment_txs (payment_id, tx_hash, amount) VALUES (${paymentId}, ${txHash}, ${txNum})
+          `);
+        } catch {
+          // Another poller already inserted this tx — skip
           return;
         }
-        const [upd] = await db.execute(sql`
-          UPDATE merchant_payments
-          SET status = 'confirmed', tx_hash = ${txHash}, amount_received = ${txAmount}, confirmed_at = NOW()
-          WHERE id = ${paymentId} AND status = 'pending'
-        `);
-        if ((upd as any).affectedRows === 1) {
-          console.log(`[merchant] payment ${paymentId} confirmed: ${txHash} +${txAmount} USDT (${network})`);
-          found = true;
-          // Update shop balance and fetch webhook_url in one query
+
+        if (isFullyPaid) {
+          const [upd] = await db.execute(sql`
+            UPDATE merchant_payments
+            SET status = 'confirmed', tx_hash = ${txHash}, amount_received = ${newTotal}, confirmed_at = NOW()
+            WHERE id = ${paymentId} AND status IN ('pending', 'partially_paid')
+          `);
+          if ((upd as any).affectedRows === 1) {
+            processed = true;
+            console.log(`[merchant] payment ${paymentId} confirmed: ${txHash} +${txNum} total=${newTotal}/${required} USDT (${network})`);
+            const [shopRows] = await db.execute(sql`
+              SELECT s.id, s.webhook_url, p.order_id as pay_order_id, p.external_user_id
+              FROM merchant_payments p JOIN merchant_shops s ON s.id = p.shop_id
+              WHERE p.id = ${paymentId}
+            `);
+            const shopRow = (shopRows as any[])[0];
+            if (shopRow) {
+              await db.execute(sql`
+                UPDATE merchant_shops SET balance_usdt = balance_usdt + ${txNum}, total_received = total_received + ${txNum}
+                WHERE id = ${shopRow.id}
+              `);
+              if (shopRow.webhook_url) {
+                sendWebhook(shopRow.webhook_url, {
+                  event: "payment.confirmed",
+                  payment_id: paymentId,
+                  order_id: shopRow.pay_order_id ?? null,
+                  external_user_id: shopRow.external_user_id ?? null,
+                  amount_required: required,
+                  amount_received: newTotal,
+                  currency,
+                  network,
+                  tx_hash: txHash,
+                });
+              }
+            }
+          }
+        } else {
+          // Partial payment — record amount, keep polling
+          await db.execute(sql`
+            UPDATE merchant_payments
+            SET status = 'partially_paid', tx_hash = ${txHash}, amount_received = ${newTotal}
+            WHERE id = ${paymentId} AND status IN ('pending', 'partially_paid')
+          `);
+          processed = true;
+          console.log(`[merchant] payment ${paymentId} partial: ${txHash} +${txNum} total=${newTotal}/${required} USDT — still waiting for ${(required - newTotal).toFixed(8)}`);
           const [shopRows] = await db.execute(sql`
             SELECT s.id, s.webhook_url, p.order_id as pay_order_id, p.external_user_id
-            FROM merchant_payments p
-            JOIN merchant_shops s ON s.id = p.shop_id
+            FROM merchant_payments p JOIN merchant_shops s ON s.id = p.shop_id
             WHERE p.id = ${paymentId}
           `);
           const shopRow = (shopRows as any[])[0];
           if (shopRow) {
             await db.execute(sql`
-              UPDATE merchant_shops SET balance_usdt = balance_usdt + ${parseFloat(txAmount)},
-              total_received = total_received + ${parseFloat(txAmount)}
+              UPDATE merchant_shops SET balance_usdt = balance_usdt + ${txNum}, total_received = total_received + ${txNum}
               WHERE id = ${shopRow.id}
             `);
             if (shopRow.webhook_url) {
               sendWebhook(shopRow.webhook_url, {
-                event: "payment.confirmed",
+                event: "payment.partial",
                 payment_id: paymentId,
                 order_id: shopRow.pay_order_id ?? null,
                 external_user_id: shopRow.external_user_id ?? null,
-                amount_received: txAmount,
+                amount_required: required,
+                amount_received: newTotal,
+                amount_remaining: parseFloat((required - newTotal).toFixed(8)),
                 currency,
                 network,
                 tx_hash: txHash,
               });
             }
           }
-        } else {
-          console.log(`[merchant] payment ${paymentId} tx ${txHash} already confirmed in another payment — skipping`);
         }
       };
 
       if (network === "TRON" || network === "TRC20") {
         const transfers = await scanTronIncoming(address);
-        if (transfers.length > 0)
-          await confirmPayment(transfers[0].txHash, parseRawAmount(transfers[0].amountRaw, 6));
+        for (const t of transfers) {
+          await processIncomingTx(t.txHash, parseRawAmount(t.amountRaw, 6));
+          if (processed) break;
+        }
       } else if (network === "BSC" || network === "BEP20") {
         const txs = await bscScanIncoming(address);
-        const inbound = txs.find(tx => tx.to?.toLowerCase() === address.toLowerCase());
-        if (inbound)
-          await confirmPayment(inbound.hash, hexAmountToDecimal(inbound.value ?? "0x0", 18));
+        for (const tx of txs) {
+          if (tx.to?.toLowerCase() === address.toLowerCase()) {
+            await processIncomingTx(tx.hash, hexAmountToDecimal(tx.value ?? "0x0", 18));
+            if (processed) break;
+          }
+        }
       } else if (network === "TON") {
         const transfers = await scanTonIncoming(address);
-        if (transfers.length > 0)
-          await confirmPayment(transfers[0].txHash, parseRawAmount(transfers[0].amountRaw, 6));
+        for (const t of transfers) {
+          await processIncomingTx(t.txHash, parseRawAmount(t.amountRaw, 6));
+          if (processed) break;
+        }
       } else if (network === "ETH" || network === "ARBITRUM" || network === "POLYGON") {
         const cfg = EVM_NETWORKS[network];
         if (cfg) {
           const txs = await scanEvmIncoming(network, address);
-          if (txs.length > 0)
-            await confirmPayment(txs[0].txHash, hexAmountToDecimal(txs[0].amountRaw, cfg.decimals));
+          for (const t of txs) {
+            await processIncomingTx(t.txHash, hexAmountToDecimal(t.amountRaw, cfg.decimals));
+            if (processed) break;
+          }
         }
       } else if (network === "SOLANA") {
         const transfers = await scanSolanaIncoming(address);
-        if (transfers.length > 0)
-          await confirmPayment(transfers[0].txHash, parseRawAmount(transfers[0].amountRaw, 6));
+        for (const t of transfers) {
+          await processIncomingTx(t.txHash, parseRawAmount(t.amountRaw, 6));
+          if (processed) break;
+        }
       }
 
-      if (!found && Date.now() < deadline) {
+      // Continue polling: for partial payments keep going; for fully confirmed stop
+      const [statusRow] = await db.execute(sql`SELECT status FROM merchant_payments WHERE id = ${paymentId} LIMIT 1`);
+      const currentStatus = ((statusRow as any[])[0])?.status;
+      if (currentStatus !== "confirmed" && Date.now() < deadline) {
         interval = Math.min(Math.round(interval * 1.5), maxInterval);
         setTimeout(check, interval);
       }
@@ -1357,6 +1424,9 @@ export function registerBusinessRoutes(app: Express) {
       if (payment.status === "confirmed") {
         return res.json({ status: "confirmed", tx_hash: payment.tx_hash, amount_received: payment.amount_received, confirmed_at: payment.confirmed_at });
       }
+      if (payment.status === "expired") {
+        return res.json({ status: "expired", tx_hash: null, amount_received: payment.amount_received ?? null });
+      }
 
       // ── Synchronous blockchain scan ─────────────────────────────────────────
       let found = false;
@@ -1407,51 +1477,79 @@ export function registerBusinessRoutes(app: Express) {
         }
       } catch { /* network error — return pending */ }
 
-      if (found && txHash) {
+      if (found && txHash && amountReceived) {
         console.log(`[merchant] check-payment ${payment.id} found tx ${txHash} on-chain`);
-        // MySQL doesn't allow NOT EXISTS on the same table in UPDATE — pre-check then plain UPDATE
-        const [dup2] = await db.execute(sql`
-          SELECT 1 FROM merchant_payments WHERE tx_hash = ${txHash} AND status = 'confirmed' LIMIT 1
-        `);
+        // Dedup via merchant_payment_txs (same as poller)
+        const [dup2] = await db.execute(sql`SELECT 1 FROM merchant_payment_txs WHERE tx_hash = ${txHash} LIMIT 1`);
         if ((dup2 as any[]).length > 0) {
-          console.log(`[merchant] check-payment ${payment.id} tx ${txHash} already used in another payment — waiting for new tx`);
-          pollAddressForPayment(payment.id, payment.wallet_address, payment.network, payment.currency, payment.amount);
-          return res.json({ status: "pending", tx_hash: null, amount_received: null });
-        }
-        const [upd] = await db.execute(sql`
-          UPDATE merchant_payments
-          SET status = 'confirmed', tx_hash = ${txHash}, amount_received = ${amountReceived}, confirmed_at = NOW()
-          WHERE id = ${payment.id} AND status = 'pending'
-        `);
-        if ((upd as any).affectedRows === 1) {
-          console.log(`[merchant] check-payment ${payment.id} confirmed: ${txHash} +${amountReceived} USDT (${net})`);
-          await db.execute(sql`
-            UPDATE merchant_shops SET balance_usdt = balance_usdt + ${parseFloat(amountReceived ?? "0")},
-            total_received = total_received + ${parseFloat(amountReceived ?? "0")}
-            WHERE id = ${shop.id}
-          `);
-          if (shop.webhookUrl) {
-            sendWebhook(shop.webhookUrl, {
-              event: "payment.confirmed",
-              payment_id: payment.id,
-              order_id: payment.order_id ?? null,
-              external_user_id: payment.external_user_id ?? null,
-              amount_received: amountReceived,
-              currency: payment.currency,
-              network: net,
-              tx_hash: txHash,
-            });
-          }
-          return res.json({ status: "confirmed", tx_hash: txHash, amount_received: amountReceived, confirmed_at: new Date().toISOString() });
+          console.log(`[merchant] check-payment ${payment.id} tx ${txHash} already used — polling for new tx`);
         } else {
-          // tx_hash already confirmed in another payment — keep scanning via poller
-          console.log(`[merchant] check-payment ${payment.id} tx ${txHash} already used in another payment — waiting for new tx`);
+          const required = parseFloat(payment.amount ?? "0");
+          const alreadyReceived = parseFloat(payment.amount_received ?? "0");
+          const txNum = parseFloat(amountReceived);
+          const newTotal = alreadyReceived + txNum;
+          const isFullyPaid = required <= 0 || newTotal >= required * 0.99;
+
+          // Atomically record tx — UNIQUE constraint prevents race
+          try {
+            await db.execute(sql`INSERT INTO merchant_payment_txs (payment_id, tx_hash, amount) VALUES (${payment.id}, ${txHash}, ${txNum})`);
+          } catch { /* already inserted by poller */ }
+
+          if (isFullyPaid) {
+            const [upd] = await db.execute(sql`
+              UPDATE merchant_payments
+              SET status = 'confirmed', tx_hash = ${txHash}, amount_received = ${newTotal}, confirmed_at = NOW()
+              WHERE id = ${payment.id} AND status IN ('pending', 'partially_paid')
+            `);
+            if ((upd as any).affectedRows === 1) {
+              console.log(`[merchant] check-payment ${payment.id} confirmed: ${txHash} +${txNum} total=${newTotal}/${required}`);
+              await db.execute(sql`UPDATE merchant_shops SET balance_usdt = balance_usdt + ${txNum}, total_received = total_received + ${txNum} WHERE id = ${shop.id}`);
+              if (shop.webhookUrl) {
+                sendWebhook(shop.webhookUrl, {
+                  event: "payment.confirmed",
+                  payment_id: payment.id,
+                  order_id: payment.order_id ?? null,
+                  external_user_id: payment.external_user_id ?? null,
+                  amount_required: required,
+                  amount_received: newTotal,
+                  currency: payment.currency,
+                  network: net,
+                  tx_hash: txHash,
+                });
+              }
+              return res.json({ status: "confirmed", tx_hash: txHash, amount_received: newTotal, confirmed_at: new Date().toISOString() });
+            }
+          } else {
+            await db.execute(sql`
+              UPDATE merchant_payments
+              SET status = 'partially_paid', tx_hash = ${txHash}, amount_received = ${newTotal}
+              WHERE id = ${payment.id} AND status IN ('pending', 'partially_paid')
+            `);
+            console.log(`[merchant] check-payment ${payment.id} partial: ${txHash} +${txNum} total=${newTotal}/${required}`);
+            await db.execute(sql`UPDATE merchant_shops SET balance_usdt = balance_usdt + ${txNum}, total_received = total_received + ${txNum} WHERE id = ${shop.id}`);
+            if (shop.webhookUrl) {
+              sendWebhook(shop.webhookUrl, {
+                event: "payment.partial",
+                payment_id: payment.id,
+                order_id: payment.order_id ?? null,
+                external_user_id: payment.external_user_id ?? null,
+                amount_required: required,
+                amount_received: newTotal,
+                amount_remaining: parseFloat((required - newTotal).toFixed(8)),
+                currency: payment.currency,
+                network: net,
+                tx_hash: txHash,
+              });
+            }
+            pollAddressForPayment(payment.id, payment.wallet_address, payment.network, payment.currency, payment.amount);
+            return res.json({ status: "partially_paid", tx_hash: txHash, amount_received: newTotal, amount_required: required, amount_remaining: parseFloat((required - newTotal).toFixed(8)) });
+          }
         }
       }
 
-      // Nothing found on-chain yet (or tx already used) — kick off background polling for auto-confirm
+      // Nothing confirmed yet — kick off background polling
       pollAddressForPayment(payment.id, payment.wallet_address, payment.network, payment.currency, payment.amount);
-      res.json({ status: "pending", tx_hash: null, amount_received: null });
+      res.json({ status: payment.status, tx_hash: payment.tx_hash ?? null, amount_received: payment.amount_received ?? null });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
