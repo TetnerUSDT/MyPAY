@@ -1845,6 +1845,34 @@ export function registerBusinessRoutes(app: Express) {
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
+  // Exclude a wallet from the pool (active → excluded; permanent → detach user + excluded)
+  app.post("/api/business/shops/:id/wallets/:walletId/exclude", requireApiKey, async (req, res) => {
+    const user = await getUserFromRequest(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const shopId = parseInt(req.params.id);
+    const walletId = parseInt(req.params.walletId);
+    try {
+      const [shop] = await db.select().from(merchantShops).where(and(eq(merchantShops.id, shopId), eq(merchantShops.userId, user.id))).limit(1);
+      if (!shop) return res.status(404).json({ error: "Shop not found" });
+      const [wallet] = await db.select().from(merchantWallets).where(and(eq(merchantWallets.id, walletId), eq(merchantWallets.shopId, shopId))).limit(1);
+      if (!wallet) return res.status(404).json({ error: "Wallet not found" });
+      if (wallet.status === "reserved") {
+        return res.status(400).json({ error: "Нельзя исключить зарезервированный кошелёк. Дождитесь истечения резервирования." });
+      }
+      if (wallet.status === "excluded") {
+        return res.status(400).json({ error: "Кошелёк уже исключён" });
+      }
+      // For permanent: detach external user; for active: just mark excluded
+      await db.execute(sql`
+        UPDATE merchant_wallets
+        SET status = 'excluded', external_user_id = NULL, order_id = NULL,
+            reserved_until = NULL, monitoring_until = NULL
+        WHERE id = ${walletId}
+      `);
+      res.json({ ok: true, message: "Кошелёк исключён из пула" });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
   // Pre-generate a wallet for the pool
   app.post("/api/business/shops/:id/wallets/generate", requireApiKey, async (req, res) => {
     const user = await getUserFromRequest(req);

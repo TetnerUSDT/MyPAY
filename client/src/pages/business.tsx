@@ -7,7 +7,7 @@ import {
   ArrowDownLeft, ArrowUpRight, Clock, CheckCircle2, XCircle, X,
   Eye, EyeOff, Loader2, AlertCircle, ExternalLink, Zap, Wallet, Timer,
   FileText, Activity, AlertTriangle, TrendingUp, CreditCard, Building2,
-  Globe, Webhook, Network, BarChart3, Shield, Sparkles
+  Globe, Webhook, Network, BarChart3, Shield, Sparkles, Ban
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -158,6 +158,7 @@ function StatusBadge({ status }: { status: string }) {
     cancelled:  { label: "Отменён",          color: "#ef4444" },
     reserved:   { label: "Зарезервирован",   color: "#6366f1" },
     permanent:  { label: "Постоянный",       color: "#3ab368" },
+    excluded:   { label: "Исключён",         color: "#94a3b8" },
   };
   const s = map[status] ?? { label: status, color: "#ffffff55" };
   return (
@@ -170,6 +171,7 @@ function StatusBadge({ status }: { status: string }) {
 function walletStatus(w: MerchantWallet) {
   if (w.status === "permanent") return "permanent";
   if (w.status === "reserved") return "reserved";
+  if (w.status === "excluded") return "excluded";
   return "active";
 }
 
@@ -922,12 +924,12 @@ function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => v
     onError: (e: any) => toast({ title: "Ошибка", description: e.message, variant: "destructive" }),
   });
 
-  const TABS: { id: ShopTab; label: string }[] = [
-    { id: "overview",  label: "Обзор" },
-    { id: "payments",  label: "Платежи" },
-    { id: "payouts",   label: "Выплаты" },
-    { id: "wallets",   label: "Кошельки" },
-    { id: "settings",  label: "Настройки" },
+  const TABS: { id: ShopTab; label: string; color: string }[] = [
+    { id: "overview",  label: "Обзор",     color: "#3b82f6" },
+    { id: "payments",  label: "Платежи",   color: "#f59e0b" },
+    { id: "payouts",   label: "Выплаты",   color: "#8b5cf6" },
+    { id: "wallets",   label: "Кошельки",  color: "#3ab368" },
+    { id: "settings",  label: "Настройки", color: "#64748b" },
   ];
 
   const enabledNets = parseNetworks(shop.enabledNetworks);
@@ -967,7 +969,8 @@ function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => v
           {TABS.map(t => (
             <button
               key={t.id} onClick={() => setTab(t.id)}
-              className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-medium transition-colors ${tab === t.id ? "bg-[#3ab368] text-white" : "text-white/40 hover:text-white/70"}`}
+              className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-medium transition-all ${tab === t.id ? "text-white" : "text-white/40 hover:text-white/70"}`}
+              style={tab === t.id ? { background: t.color, boxShadow: `0 0 10px ${t.color}40` } : undefined}
             >
               {t.label}
             </button>
@@ -1413,6 +1416,7 @@ function WalletCard({ wallet: w, shopId, onRefresh }: { wallet: MerchantWallet; 
   const qc = useQueryClient();
   const [checking, setChecking] = useState(false);
   const [monitoring, setMonitoring] = useState(false);
+  const [excluding, setExcluding] = useState(false);
   const def = NETWORKS.find(n => n.apiNode === w.network && n.apiMode === w.mode) ?? NETWORKS.find(n => n.apiNode === w.network);
 
   const startMonitoring = async () => {
@@ -1455,6 +1459,29 @@ function WalletCard({ wallet: w, shopId, onRefresh }: { wallet: MerchantWallet; 
       toast({ title: "Ошибка проверки баланса", variant: "destructive" });
     } finally {
       setChecking(false);
+    }
+  };
+
+  const excludeWallet = async () => {
+    if (!confirm(`Исключить кошелёк #${w.id} из пула?${w.status === "permanent" ? "\n\nКошелёк будет отвязан от пользователя." : ""}`)) return;
+    setExcluding(true);
+    try {
+      const r = await fetch(`/api/business/shops/${shopId}/wallets/${w.id}/exclude`, {
+        method: "POST",
+        headers: { "x-api-key": userApiKey() },
+      });
+      const data = await r.json();
+      if (r.ok) {
+        toast({ title: "Кошелёк исключён из пула" });
+        qc.invalidateQueries({ queryKey: ["/api/business/wallets", shopId] });
+        onRefresh();
+      } else {
+        toast({ title: "Ошибка", description: data.error, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Ошибка исключения", variant: "destructive" });
+    } finally {
+      setExcluding(false);
     }
   };
 
@@ -1504,36 +1531,50 @@ function WalletCard({ wallet: w, shopId, onRefresh }: { wallet: MerchantWallet; 
             </div>
           )}
           {/* Balance row */}
-          <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
-            <div className="flex items-center gap-1">
-              <Activity className="w-3 h-3 text-white/20" />
-              {w.balanceUsdt !== null && w.balanceUsdt !== undefined ? (
-                <span className="text-[10px] text-[#3ab368] font-mono">{parseFloat(w.balanceUsdt).toFixed(4)} USDT</span>
-              ) : (
-                <span className="text-[10px] text-white/20">Баланс не проверен</span>
-              )}
-              {w.balanceUpdatedAt && (
-                <span className="text-[9px] text-white/20 ml-1">{formatDate(w.balanceUpdatedAt)}</span>
+          <div className="mt-2 pt-2 border-t border-white/5 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1">
+                <Activity className="w-3 h-3 text-white/20" />
+                {w.balanceUsdt !== null && w.balanceUsdt !== undefined ? (
+                  <span className="text-[10px] text-[#3ab368] font-mono">{parseFloat(w.balanceUsdt).toFixed(4)} USDT</span>
+                ) : (
+                  <span className="text-[10px] text-white/20">Баланс не проверен</span>
+                )}
+                {w.balanceUpdatedAt && (
+                  <span className="text-[9px] text-white/20 ml-1">{formatDate(w.balanceUpdatedAt)}</span>
+                )}
+              </div>
+              {w.status !== "excluded" && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={startMonitoring}
+                    disabled={monitoring}
+                    className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md bg-[#3ab368]/10 text-[#3ab368] hover:bg-[#3ab368]/20 transition-colors disabled:opacity-50"
+                  >
+                    {monitoring ? <Loader2 className="w-3 h-3 animate-spin" /> : <Activity className="w-3 h-3" />}
+                    Мониторинг
+                  </button>
+                  <button
+                    onClick={checkBalance}
+                    disabled={checking}
+                    className="flex items-center gap-1 text-[10px] text-white/30 hover:text-[#3ab368] transition-colors"
+                  >
+                    {checking ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                    Проверить
+                  </button>
+                </div>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            {(w.status === "active" || w.status === "permanent") && (
               <button
-                onClick={startMonitoring}
-                disabled={monitoring}
-                className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md bg-[#3ab368]/10 text-[#3ab368] hover:bg-[#3ab368]/20 transition-colors disabled:opacity-50"
+                onClick={excludeWallet}
+                disabled={excluding}
+                className="w-full flex items-center justify-center gap-1.5 text-[10px] py-1.5 rounded-lg bg-white/4 border border-white/6 text-white/30 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400 transition-all disabled:opacity-50"
               >
-                {monitoring ? <Loader2 className="w-3 h-3 animate-spin" /> : <Activity className="w-3 h-3" />}
-                Мониторинг
+                {excluding ? <Loader2 className="w-3 h-3 animate-spin" /> : <Ban className="w-3 h-3" />}
+                Исключить кошелёк
               </button>
-              <button
-                onClick={checkBalance}
-                disabled={checking}
-                className="flex items-center gap-1 text-[10px] text-white/30 hover:text-[#3ab368] transition-colors"
-              >
-                {checking ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                Проверить
-              </button>
-            </div>
+            )}
           </div>
         </div>
         <div className="text-[10px] text-white/20 flex-shrink-0">#{w.id}</div>
@@ -1550,7 +1591,7 @@ function WalletsTab({ shop, wallets, onRefresh }: { shop: Shop; wallets: Merchan
   const [genNetwork, setGenNetwork] = useState("");
   const [genMode, setGenMode] = useState("standard");
   const [showModal, setShowModal] = useState(false);
-  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "reserved" | "permanent">("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "reserved" | "permanent" | "excluded">("all");
   const [filterNet, setFilterNet] = useState<string>("all");
   const enabledNets = parseNetworks(shop.enabledNetworks);
 
@@ -1581,6 +1622,7 @@ function WalletsTab({ shop, wallets, onRefresh }: { shop: Shop; wallets: Merchan
     active: wallets.filter(w => walletStatus(w) === "active").length,
     reserved: wallets.filter(w => walletStatus(w) === "reserved").length,
     permanent: wallets.filter(w => walletStatus(w) === "permanent").length,
+    excluded: wallets.filter(w => walletStatus(w) === "excluded").length,
   };
 
   return (
@@ -1591,7 +1633,8 @@ function WalletsTab({ shop, wallets, onRefresh }: { shop: Shop; wallets: Merchan
           {shop.status === "active" && (
             <button
               onClick={() => setShowModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#3ab368] text-white text-xs font-semibold hover:bg-[#2ea058] transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white text-xs font-semibold transition-all hover:opacity-90"
+              style={{ background: "linear-gradient(135deg, #8b5cf6, #7c3aed)", boxShadow: "0 0 12px rgba(139,92,246,0.3)" }}
             >
               <Plus className="w-3.5 h-3.5" />
               Добавить кошелёк
@@ -1611,6 +1654,7 @@ function WalletsTab({ shop, wallets, onRefresh }: { shop: Shop; wallets: Merchan
           { id: "active" as const, label: "Свободные", count: statusCounts.active },
           { id: "reserved" as const, label: "Зарезервированные", count: statusCounts.reserved },
           { id: "permanent" as const, label: "Постоянные", count: statusCounts.permanent },
+          { id: "excluded" as const, label: "Исключённые", count: statusCounts.excluded },
         ]}
         value={filterStatus}
         onChange={setFilterStatus}
