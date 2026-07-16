@@ -46,6 +46,21 @@ const SUPPORTED_WALLET_NODES: Record<string, string> = {
   "SOLANA":   "SOLANA",
 };
 
+// Wallet API uses network-specific coin symbols (e.g. BSC USDT = "BSC-USD", not "USDT")
+const WALLET_API_SYMBOL: Record<string, Record<string, string>> = {
+  "BSC":      { "USDT": "BSC-USD", "BNB": "BNB" },
+  "TRON":     { "USDT": "USDT", "TRX": "TRX", "USDC": "USDC" },
+  "TON":      { "USDT": "USDT", "TON": "TON" },
+  "POLYGON":  { "USDT": "USDT", "MATIC": "MATIC", "POL": "MATIC", "DAI": "DAI", "USDC": "USDC" },
+  "ETH":      { "USDT": "USDT", "ETH": "ETH", "USDC": "USDC" },
+  "ARBITRUM": { "USDT": "USDT", "ARB": "ARB", "USDC": "USDC" },
+};
+
+function resolveWalletSymbol(network: string, currency: string): string {
+  const upper = currency.toUpperCase();
+  return WALLET_API_SYMBOL[network]?.[upper] ?? upper;
+}
+
 async function generateMerchantWallet(shopId: number, network: string, mode: string = "standard"): Promise<any> {
   const node = SUPPORTED_WALLET_NODES[network];
   if (!node) throw new Error(`Network ${network} is not supported by the wallet API. Supported: ${Object.keys(SUPPORTED_WALLET_NODES).join(", ")}`);
@@ -1606,7 +1621,7 @@ export function registerBusinessRoutes(app: Express) {
           fetch(TRANSFER_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${WALLET_API_TOKEN}` },
-            body: JSON.stringify({ node, address_from: fromWallet.address, address_to: toAddress, amount: amountNum, symbol: "USDT" }),
+            body: JSON.stringify({ node, address_from: fromWallet.address, address_to: toAddress, amount: amountNum, symbol: resolveWalletSymbol(fromWallet.network, currency || "USDT") }),
             signal: AbortSignal.timeout(30000),
           }).then(async (r) => {
             const d = await r.json() as any;
@@ -1740,26 +1755,36 @@ export function registerBusinessRoutes(app: Express) {
 
       const TRANSFER_URL = WALLET_API_URL.replace("/wallet/create", "/wallet/transfer");
       const node = SUPPORTED_WALLET_NODES[wallet.network] ?? wallet.network;
+      const symbol = resolveWalletSymbol(wallet.network, payout.currency ?? "USDT");
+      const transferBody: any = {
+        node,
+        address_from: wallet.address,
+        address_to: payout.toAddress,
+        amount: parseFloat(payout.amount),
+        symbol,
+      };
+      if (wallet.mode && wallet.mode !== "standard") transferBody.mode = wallet.mode;
+
+      console.log(`[Execute] Transfer payload: ${JSON.stringify(transferBody)}`);
+
       const r = await fetch(TRANSFER_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${WALLET_API_TOKEN}` },
-        body: JSON.stringify({
-          node,
-          address_from: wallet.address,
-          address_to: payout.toAddress,
-          amount: parseFloat(payout.amount),
-          symbol: payout.currency ?? "USDT",
-        }),
+        body: JSON.stringify(transferBody),
         signal: AbortSignal.timeout(30000),
       });
       const d = await r.json() as any;
-      if (!d.success || !d.data?.txid) {
+      console.log(`[Execute] Transfer response (${r.status}): ${JSON.stringify(d)}`);
+
+      // GasFree transfers return traceId instead of txid
+      const txid = d.data?.txid ?? d.data?.traceId ?? null;
+      if (!d.success || !txid) {
         return res.status(422).json({ error: d.error ?? d.message ?? "Transfer failed", details: d });
       }
 
       await db.update(merchantPayoutRequests).set({
         status: "completed" as any,
-        txHash: d.data.txid,
+        txHash: txid,
         processedAt: new Date(),
       }).where(eq(merchantPayoutRequests.id, payoutId));
       await db.update(merchantShops).set({ totalPaidOut: sql`total_paid_out + ${parseFloat(payout.amount)}` }).where(eq(merchantShops.id, shopId));
@@ -1774,11 +1799,11 @@ export function registerBusinessRoutes(app: Express) {
           network: payout.network,
           amount: payout.amount,
           currency: payout.currency,
-          tx_hash: d.data.txid,
+          tx_hash: txid,
         });
       }
 
-      res.json({ ok: true, txHash: d.data.txid });
+      res.json({ ok: true, txHash: txid });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
