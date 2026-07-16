@@ -53,7 +53,7 @@ success "Node $(node --version) / npm $(npm --version) / PM2 $(pm2 --version)"
 
 # ── Install dependencies ───────────────────────────────────────────────────────
 log "Installing dependencies..."
-npm install --prefer-offline 2>&1 | tail -3
+npm install --registry https://registry.npmjs.org 2>&1 | tail -3
 success "Dependencies installed"
 
 # ── Build ─────────────────────────────────────────────────────────────────────
