@@ -52,6 +52,13 @@ command -v pm2  &>/dev/null || error "PM2 is not installed. Run: npm i -g pm2"
 success "Node $(node --version) / npm $(npm --version) / PM2 $(pm2 --version)"
 
 # ── Install dependencies ───────────────────────────────────────────────────────
+# Fix Replit-internal registry URLs in lockfile (not resolvable outside Replit)
+if [ -f "package-lock.json" ] && grep -q "package-firewall.replit.local" package-lock.json 2>/dev/null; then
+  log "Patching package-lock.json: replacing Replit registry URLs..."
+  sed -i 's|http://package-firewall.replit.local/npm/|https://registry.npmjs.org/|g' package-lock.json
+  success "package-lock.json patched"
+fi
+
 log "Installing dependencies..."
 npm install --registry https://registry.npmjs.org 2>&1 | tail -3
 success "Dependencies installed"
