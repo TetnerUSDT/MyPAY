@@ -8,3 +8,4 @@
 - [Merchant payment_mode design](merchant-payment-mode.md) — payment_mode per-request (not shop-level): permanent=pollPermanentAddress fires payment.received per tx; temporary=pollAddressForPayment accumulates; invoice=link. New cols: merchant_shops.permanent_monitor_minutes, merchant_payments.payment_mode
 - [Invoice tx dedup design](invoice-tx-dedup.md) — invoices use global merchant_payment_txs (UNIQUE tx_hash) for dedup; pollInvoiceForPayment iterates ALL scanner results + timestamp cutoff (invoice created_at − 2min buffer); invoice_id col added to merchant_payment_txs
 - [Payout local signing](payout-local-signing.md) — payouts NEVER call pay.swiftx /wallet/transfer; private key in merchant_wallets.private_key is used to sign+broadcast locally via server/blockchain-transfer.ts
+- [GasFree API wiring](gasfree-api.md) — relay=open.gasfree.io; paths are /tron/api/v1/…; HMAC msg=method+fullPath+ts; serviceProvider is per-developer bound wallet, NOT a global constant
