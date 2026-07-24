@@ -1773,7 +1773,14 @@ export function registerBusinessRoutes(app: Express) {
         body: JSON.stringify(transferBody),
         signal: AbortSignal.timeout(30000),
       });
-      const d = await r.json() as any;
+      const rawText = await r.text();
+      console.log(`[Execute] Transfer raw response (${r.status}): ${rawText.slice(0, 500)}`);
+      let d: any;
+      try {
+        d = JSON.parse(rawText);
+      } catch (parseErr) {
+        return res.status(502).json({ error: "Wallet API вернул некорректный ответ", details: rawText.slice(0, 300) });
+      }
       console.log(`[Execute] Transfer response (${r.status}): ${JSON.stringify(d)}`);
 
       // GasFree transfers return traceId instead of txid
