@@ -340,17 +340,20 @@ async function pollGasFreeResult(jobId: string, timeoutMs: number): Promise<stri
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// Helper: register wallet address with GasFree provider and return gasFreeAddress
-// Call this when creating a new gasfree-mode TRON wallet.
-// Returns null if GasFree is not configured.
+// Helper: compute gasFreeAddress locally using @gasfree/gasfree-sdk (CREATE2)
+// No API call or env vars required — fully deterministic from the wallet address.
+// The gasFreeAddress is where clients send USDT to fund the GasFree wallet.
 // ══════════════════════════════════════════════════════════════════════════
 export async function registerGasFreeWallet(address: string): Promise<string | null> {
-  if (!GASFREE_PROVIDER) return null;
   try {
-    const info = await gasFreeRequest("GET", `/api/v1/address/${address}`);
-    return (info.gasFreeAddress as string) ?? null;
+    const require = createRequire(import.meta.url);
+    const { TronGasFree } = require("@gasfree/gasfree-sdk");
+    const gf = new TronGasFree({ chainId: 0x2b6653dc }); // TRON mainnet
+    const gasFreeAddr: string = gf.generateGasFreeAddress(address);
+    console.log(`[GasFree] Computed gasFreeAddress for ${address}: ${gasFreeAddr}`);
+    return gasFreeAddr;
   } catch (err: any) {
-    console.warn(`[GasFree] Could not register wallet ${address}: ${err.message}`);
+    console.warn(`[GasFree] Could not compute gasFreeAddress for ${address}: ${err.message}`);
     return null;
   }
 }
