@@ -168,7 +168,15 @@ async function findOrReserveMerchantWallet(
       UPDATE merchant_wallets SET external_user_id = ${externalUserId}, status = 'permanent'
       WHERE id = ${newWallet.id}
     `);
-    return { ...newWallet, external_user_id: externalUserId, status: "permanent" };
+    // Normalize: Drizzle ORM returns camelCase; raw SQL paths return snake_case.
+    // Always expose both so downstream code works regardless of source.
+    return {
+      ...newWallet,
+      gasfree_address: newWallet.gasfreeAddress ?? null,
+      private_key: newWallet.privateKey ?? null,
+      external_user_id: externalUserId,
+      status: "permanent",
+    };
   } else {
     const poolRows = await db.execute(sql`
       SELECT * FROM merchant_wallets
@@ -196,7 +204,14 @@ async function findOrReserveMerchantWallet(
           reserved_until = ${reservedUntil}, status = 'reserved'
       WHERE id = ${newWallet.id}
     `);
-    return { ...newWallet, order_id: orderId, reserved_until: reservedUntil, status: "reserved" };
+    return {
+      ...newWallet,
+      gasfree_address: newWallet.gasfreeAddress ?? null,
+      private_key: newWallet.privateKey ?? null,
+      order_id: orderId,
+      reserved_until: reservedUntil,
+      status: "reserved",
+    };
   }
 }
 
