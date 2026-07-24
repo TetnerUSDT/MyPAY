@@ -5,6 +5,7 @@ import { getEvmTransfers, evmJsonRpc as evmJsonRpcAdapter, hexAmountToDecimal as
 import { getTronTransfers } from "./scanner/adapters/tron";
 import { getTonTransfers } from "./scanner/adapters/ton";
 import { getSolanaTransfers } from "./scanner/adapters/solana";
+import { localTransfer } from "./blockchain-transfer";
 import { db } from "./db";
 import { sql, eq, desc, and } from "drizzle-orm";
 import { merchantShops, merchantPayments, merchantPayoutRequests, merchantWallets, merchantInvoices } from "@shared/schema";
@@ -1611,25 +1612,25 @@ export function registerBusinessRoutes(app: Express) {
         });
       });
 
-      // If fromWalletId specified, attempt blockchain transfer via wallet API
+      // If fromWalletId specified, attempt local blockchain transfer using stored private key
       if (resolvedFromWalletId) {
-        const wRows = await db.execute(sql`SELECT address, network, mode FROM merchant_wallets WHERE id = ${resolvedFromWalletId} LIMIT 1`);
+        const wRows = await db.execute(sql`SELECT address, network, private_key FROM merchant_wallets WHERE id = ${resolvedFromWalletId} LIMIT 1`);
         const fromWallet = (wRows[0] as any[])[0];
-        if (fromWallet) {
-          const TRANSFER_URL = WALLET_API_URL.replace("/wallet/create", "/wallet/transfer");
-          const node = SUPPORTED_WALLET_NODES[fromWallet.network] ?? fromWallet.network;
-          fetch(TRANSFER_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${WALLET_API_TOKEN}` },
-            body: JSON.stringify({ node, address_from: fromWallet.address, address_to: toAddress, amount: amountNum, symbol: resolveWalletSymbol(fromWallet.network, currency || "USDT") }),
-            signal: AbortSignal.timeout(30000),
-          }).then(async (r) => {
-            const d = await r.json() as any;
-            if (d.success && d.data?.txid) {
-              await db.execute(sql`UPDATE merchant_payout_requests SET status = 'completed', tx_hash = ${d.data.txid}, processed_at = NOW() WHERE reference = ${reference}`);
-              await db.execute(sql`UPDATE merchant_shops SET total_paid_out = total_paid_out + ${amountNum} WHERE id = ${shopId}`);
-            }
-          }).catch(() => {});
+        if (fromWallet && fromWallet.private_key) {
+          localTransfer({
+            network: fromWallet.network,
+            currency: currency || "USDT",
+            privateKey: fromWallet.private_key,
+            fromAddress: fromWallet.address,
+            toAddress,
+            amount: amountNum,
+          }).then(async ({ txHash: txid }) => {
+            await db.execute(sql`UPDATE merchant_payout_requests SET status = 'completed', tx_hash = ${txid}, processed_at = NOW() WHERE reference = ${reference}`);
+            await db.execute(sql`UPDATE merchant_shops SET total_paid_out = total_paid_out + ${amountNum} WHERE id = ${shopId}`);
+            console.log(`[Payout] Auto-completed reference=${reference} txHash=${txid}`);
+          }).catch((err: any) => {
+            console.error(`[Payout] Auto-transfer failed for reference=${reference}: ${err.message}`);
+          });
         }
       }
 
@@ -1753,41 +1754,21 @@ export function registerBusinessRoutes(app: Express) {
       const [wallet] = await db.select().from(merchantWallets).where(and(eq(merchantWallets.id, parseInt(fromWalletId)), eq(merchantWallets.shopId, shopId))).limit(1);
       if (!wallet) return res.status(404).json({ error: "Wallet not found" });
 
-      const TRANSFER_URL = WALLET_API_URL.replace("/wallet/create", "/wallet/transfer");
-      const node = SUPPORTED_WALLET_NODES[wallet.network] ?? wallet.network;
-      const symbol = resolveWalletSymbol(wallet.network, payout.currency ?? "USDT");
-      const transferBody: any = {
-        node,
-        address_from: wallet.address,
-        address_to: payout.toAddress,
+      if (!wallet.privateKey) {
+        return res.status(422).json({ error: "У кошелька отсутствует приватный ключ" });
+      }
+
+      const currency = payout.currency ?? "USDT";
+      console.log(`[Execute] Local transfer ${payout.amount} ${currency} on ${wallet.network} from ${wallet.address} → ${payout.toAddress}`);
+
+      const { txHash: txid } = await localTransfer({
+        network: wallet.network,
+        currency,
+        privateKey: wallet.privateKey,
+        fromAddress: wallet.address,
+        toAddress: payout.toAddress,
         amount: parseFloat(payout.amount),
-        symbol,
-      };
-      if (wallet.mode && wallet.mode !== "standard") transferBody.mode = wallet.mode;
-
-      console.log(`[Execute] Transfer payload: ${JSON.stringify(transferBody)}`);
-
-      const r = await fetch(TRANSFER_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${WALLET_API_TOKEN}` },
-        body: JSON.stringify(transferBody),
-        signal: AbortSignal.timeout(30000),
       });
-      const rawText = await r.text();
-      console.log(`[Execute] Transfer raw response (${r.status}): ${rawText.slice(0, 500)}`);
-      let d: any;
-      try {
-        d = JSON.parse(rawText);
-      } catch (parseErr) {
-        return res.status(502).json({ error: "Wallet API вернул некорректный ответ", details: rawText.slice(0, 300) });
-      }
-      console.log(`[Execute] Transfer response (${r.status}): ${JSON.stringify(d)}`);
-
-      // GasFree transfers return traceId instead of txid
-      const txid = d.data?.txid ?? d.data?.traceId ?? null;
-      if (!d.success || !txid) {
-        return res.status(422).json({ error: d.error ?? d.message ?? "Transfer failed", details: d });
-      }
 
       await db.update(merchantPayoutRequests).set({
         status: "completed" as any,
