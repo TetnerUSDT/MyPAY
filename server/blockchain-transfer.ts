@@ -291,14 +291,18 @@ async function tronGasFreeTransfer(p: {
 }
 
 // ── GasFree HTTP helper ────────────────────────────────────────────────────
+// open.gasfree.io uses /tron/<path> in the URL AND in the HMAC message.
+// E.g. path="/api/v1/config/token/all" → URL="/tron/api/v1/config/token/all"
+//                                       → HMAC msg = "GET/tron/api/v1/config/token/all<ts>"
 async function gasFreeRequest(method: string, path: string, body?: any): Promise<any> {
-  const url = GASFREE_PROVIDER + path;
+  const chainPrefix = "/tron";
+  const fullPath    = chainPrefix + path;           // used in both URL and HMAC
+  const url         = GASFREE_PROVIDER + fullPath;
   const headers: Record<string, string> = { "Content-Type": "application/json" };
 
   if (GASFREE_API_KEY && GASFREE_API_SECRET) {
     const timestamp = Math.floor(Date.now() / 1_000);
-    const prefix    = "/tron";
-    const msg       = method + prefix + path + timestamp;
+    const msg       = method + fullPath + timestamp; // e.g. "GET/tron/api/v1/..."
     const hmacSig   = createHmac("sha256", GASFREE_API_SECRET)
       .update(msg)
       .digest("base64");
