@@ -5,7 +5,7 @@ import { getEvmTransfers, evmJsonRpc as evmJsonRpcAdapter, hexAmountToDecimal as
 import { getTronTransfers } from "./scanner/adapters/tron";
 import { getTonTransfers } from "./scanner/adapters/ton";
 import { getSolanaTransfers } from "./scanner/adapters/solana";
-import { localTransfer, registerGasFreeWallet } from "./blockchain-transfer";
+import { localTransfer, registerGasFreeWallet, getTronTransferQuote } from "./blockchain-transfer";
 import { db } from "./db";
 import { sql, eq, desc, and } from "drizzle-orm";
 import { merchantShops, merchantPayments, merchantPayoutRequests, merchantWallets, merchantInvoices } from "@shared/schema";
@@ -1651,8 +1651,17 @@ export function registerBusinessRoutes(app: Express) {
             await db.execute(sql`UPDATE merchant_payout_requests SET status = 'completed', tx_hash = ${txid}, processed_at = NOW() WHERE reference = ${reference}`);
             await db.execute(sql`UPDATE merchant_shops SET total_paid_out = total_paid_out + ${amountNum} WHERE id = ${shopId}`);
             console.log(`[Payout] Auto-completed reference=${reference} txHash=${txid}`);
-          }).catch((err: any) => {
+          }).catch(async (err: any) => {
             console.error(`[Payout] Auto-transfer failed for reference=${reference}: ${err.message}`);
+            // Помечаем как failed и возвращаем баланс (перевод не состоялся)
+            try {
+              const errNote = String(err.message ?? err).slice(0, 500);
+              await db.execute(sql`UPDATE merchant_payout_requests SET status = 'failed', note = ${errNote}, processed_at = NOW() WHERE reference = ${reference}`);
+              await db.execute(sql`UPDATE merchant_shops SET balance_usdt = balance_usdt + ${amountNum} WHERE id = ${shopId}`);
+              console.log(`[Payout] Баланс возвращён, reference=${reference}`);
+            } catch (dbErr: any) {
+              console.error(`[Payout] Не удалось откатить баланс для reference=${reference}: ${dbErr.message}`);
+            }
           });
         }
       }
@@ -1746,6 +1755,33 @@ export function registerBusinessRoutes(app: Express) {
       const [wallet] = await db.select().from(merchantWallets).where(and(eq(merchantWallets.id, parseInt(fromWalletId)), eq(merchantWallets.shopId, shopId))).limit(1);
       if (!wallet) return res.status(404).json({ error: "Wallet not found" });
 
+      // TRON: используем реальную оценку (energy + bandwidth + estimateEnergy API)
+      if (wallet.network === "TRON") {
+        const amountNum = parseFloat(payout.amount);
+        const amountSun = BigInt(Math.round(amountNum * 1_000_000));
+        const quote = await getTronTransferQuote(
+          wallet.address,
+          payout.toAddress,
+          amountSun,
+          payout.currency ?? "USDT",
+        );
+        return res.json({
+          hasEnoughGas:      quote.sufficient,
+          currentGas:        quote.trxBalanceSun / 1e6,
+          gasNeeded:         quote.totalFeeSun   / 1e6,
+          gasCurrency:       "TRX",
+          walletAddress:     wallet.address,
+          shortfall:         quote.shortfallSun  / 1e6,
+          // детализация
+          energyRequired:    quote.energyRequired,
+          energyAvailable:   quote.energyAvailable,
+          energyShortfall:   quote.energyShortfall,
+          energyFeeTrx:      quote.energyFeeSun  / 1e6,
+          bandwidthFeeTrx:   quote.bandwidthFeeSun / 1e6,
+          feeLimitTrx:       quote.feeLimitSun   / 1e6,
+        });
+      }
+
       const { balance, minRequired, currency } = await checkNativeGasBalance(wallet.network, wallet.address);
       res.json({
         hasEnoughGas: balance >= minRequired,
@@ -1785,16 +1821,43 @@ export function registerBusinessRoutes(app: Express) {
 
       console.log(`[Execute] Transfer ${payout.amount} ${currency} on ${wallet.network} (mode=${wallet.mode ?? "standard"}) from ${wallet.address} → ${payout.toAddress}`);
 
-      const { txHash: txid } = await localTransfer({
-        network: wallet.network,
-        currency,
-        privateKey: wallet.privateKey,
-        fromAddress: wallet.address,
-        toAddress: payout.toAddress,
-        amount: parseFloat(payout.amount),
-        mode: wallet.mode ?? "standard",
-        gasfreeAddress: wallet.gasfreeAddress ?? undefined,
-      });
+      let txid: string;
+      try {
+        const result = await localTransfer({
+          network: wallet.network,
+          currency,
+          privateKey: wallet.privateKey,
+          fromAddress: wallet.address,
+          toAddress: payout.toAddress,
+          amount: parseFloat(payout.amount),
+          mode: wallet.mode ?? "standard",
+          gasfreeAddress: wallet.gasfreeAddress ?? undefined,
+        });
+        txid = result.txHash;
+      } catch (transferErr: any) {
+        const msg = String(transferErr.message ?? transferErr);
+        const isPreFlight = msg.startsWith("INSUFFICIENT_TRX:");
+
+        if (isPreFlight) {
+          // Pre-flight: TRX не сжигался, payout остаётся pending — пользователь может пополнить и повторить
+          return res.status(422).json({
+            error: msg,
+            code: "INSUFFICIENT_TRX",
+            hint: "Пополните TRX на кошельке и повторите попытку. Выплата остаётся в статусе pending.",
+          });
+        }
+
+        // On-chain revert или broadcast failure: помечаем failed, возвращаем баланс
+        try {
+          const errNote = msg.slice(0, 500);
+          await db.execute(sql`UPDATE merchant_payout_requests SET status = 'failed', note = ${errNote}, processed_at = NOW() WHERE id = ${payoutId}`);
+          await db.execute(sql`UPDATE merchant_shops SET balance_usdt = balance_usdt + ${parseFloat(payout.amount)} WHERE id = ${shopId}`);
+          console.log(`[Execute] Payout ${payoutId} failed, баланс возвращён: ${msg}`);
+        } catch (dbErr: any) {
+          console.error(`[Execute] Не удалось откатить баланс payout=${payoutId}: ${dbErr.message}`);
+        }
+        return res.status(500).json({ error: msg, code: "TRANSFER_FAILED" });
+      }
 
       await db.update(merchantPayoutRequests).set({
         status: "completed" as any,

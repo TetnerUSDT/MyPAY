@@ -9,3 +9,4 @@
 - [Invoice tx dedup design](invoice-tx-dedup.md) — invoices use global merchant_payment_txs (UNIQUE tx_hash) for dedup; pollInvoiceForPayment iterates ALL scanner results + timestamp cutoff (invoice created_at − 2min buffer); invoice_id col added to merchant_payment_txs
 - [Payout local signing](payout-local-signing.md) — payouts NEVER call pay.swiftx /wallet/transfer; private key in merchant_wallets.private_key is used to sign+broadcast locally via server/blockchain-transfer.ts
 - [GasFree API wiring](gasfree-api.md) — relay=open.gasfree.io; paths are /tron/api/v1/…; HMAC msg=method+fullPath+ts; serviceProvider is per-developer bound wallet, NOT a global constant
+- [TRON standard transfer safety](tron-standard-transfer.md) — pre-flight quote (energy+bandwidth+TRX check) before every transfer; dynamic feeLimit; energy fee=100 sun/unit NOT 420; estimateenergy unavailable on public node

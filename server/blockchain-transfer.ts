@@ -70,6 +70,197 @@ export interface TransferResult {
   txHash: string;
 }
 
+// ── TRON address → 32-byte ABI-encoded hex (без TronWeb) ──────────────────
+// TRON base58check → BigInt → strip 0x41 prefix + 4-byte checksum → 20-byte EVM addr padded to 32
+function tronBase58ToAbiHex(address: string): string {
+  const ALPHA = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  let n = 0n;
+  for (const c of address) {
+    const idx = ALPHA.indexOf(c);
+    if (idx < 0) throw new Error(`Invalid TRON address char: ${c}`);
+    n = n * 58n + BigInt(idx);
+  }
+  // 25 bytes = 1 prefix (41) + 20 EVM addr + 4 checksum = 50 hex chars
+  const full = n.toString(16).padStart(50, "0");
+  // chars 0-1 = 0x41 prefix, chars 2-41 = 20-byte EVM addr, chars 42-49 = checksum
+  return full.slice(2, 42).padStart(64, "0");
+}
+
+// ── TRON transfer fee quote ────────────────────────────────────────────────
+export interface TronTransferQuote {
+  energyRequired: number;      // энергия нужна для этого tx
+  energyAvailable: number;     // бесплатная энергия от замороженного TRX
+  energyShortfall: number;     // энергия которую нужно сжечь из TRX
+  energyFeeSun: number;        // стоимость энергии в sun
+  bandwidthRequired: number;   // estimated bytes
+  bandwidthAvailable: number;  // бесплатный bandwidth
+  bandwidthFeeSun: number;     // стоимость bandwidth в sun
+  totalFeeSun: number;         // итого TRX нужно (sun)
+  trxBalanceSun: number;       // текущий TRX баланс (sun)
+  feeLimitSun: number;         // рекомендованный feeLimit для triggerSmartContract
+  sufficient: boolean;
+  shortfallSun: number;        // 0 если хватает
+}
+
+// ── TRON pre-flight: вычислить стоимость перевода в TRX ───────────────────
+// Вызывает 3 TronGrid API параллельно + estimateenergy для USDT
+// Бросает если API недоступен — не блокирует перевод если quote не критична
+export async function getTronTransferQuote(
+  fromAddress: string,
+  toAddress: string,
+  amountSun: bigint,
+  currency: string,
+): Promise<TronTransferQuote> {
+  const BASE = "https://api.trongrid.io";
+
+  // Параллельный запрос: баланс + ресурсы + параметры сети
+  const [accountData, resourceData, chainData] = await Promise.all([
+    fetch(`${BASE}/v1/accounts/${fromAddress}`, {
+      headers: { "Accept": "application/json" },
+      signal: AbortSignal.timeout(10_000),
+    }).then(r => r.json() as Promise<any>),
+    fetch(`${BASE}/wallet/getaccountresource`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address: fromAddress, visible: true }),
+      signal: AbortSignal.timeout(10_000),
+    }).then(r => r.json() as Promise<any>),
+    fetch(`${BASE}/wallet/getchainparameters`, {
+      signal: AbortSignal.timeout(10_000),
+    }).then(r => r.json() as Promise<any>),
+  ]);
+
+  // TRX баланс
+  const trxBalanceSun = Number(accountData.data?.[0]?.balance ?? 0);
+
+  // Доступная энергия (от стейкинга)
+  const energyLimit = Number(resourceData.EnergyLimit ?? 0);
+  const energyUsed  = Number(resourceData.EnergyUsed ?? 0);
+  const energyAvailable = Math.max(0, energyLimit - energyUsed);
+
+  // Доступный bandwidth
+  const freeNetLimit = Number(resourceData.freeNetLimit ?? 1500);
+  const freeNetUsed  = Number(resourceData.freeNetUsed ?? 0);
+  const netLimit     = Number(resourceData.NetLimit ?? 0);
+  const netUsed      = Number(resourceData.NetUsed ?? 0);
+  const bandwidthAvailable = Math.max(0, (freeNetLimit - freeNetUsed) + (netLimit - netUsed));
+
+  // Цены из параметров сети
+  const chainParams = (chainData.chainParameter ?? []) as Array<{ key: string; value: number }>;
+  const energyFeeSunPerUnit     = chainParams.find(p => p.key === "getEnergyFee")?.value ?? 420;
+  const bandwidthFeeSunPerByte  = chainParams.find(p => p.key === "getTransactionFee")?.value ?? 1000;
+
+  // Оценка энергии через API (точнее fallback константы)
+  let energyRequired = currency === "USDT" ? 65_000 : 0; // conservative USDT default
+  if (currency === "USDT") {
+    try {
+      // ABI-encode transfer(address,uint256) без зависимости от TronWeb instance
+      // TRON base58check → 25 bytes big-int → strip 0x41 prefix + checksum → 20-byte EVM addr
+      const addrHex  = tronBase58ToAbiHex(toAddress);
+      const amtHex   = amountSun.toString(16).padStart(64, "0");
+      const parameter = addrHex + amtHex;
+
+      const est = await fetch(`${BASE}/wallet/estimateenergy`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          owner_address: fromAddress,
+          contract_address: USDT_CONTRACTS["TRON"].address,
+          function_selector: "transfer(address,uint256)",
+          parameter,
+          visible: true,
+        }),
+        signal: AbortSignal.timeout(10_000),
+      }).then(r => r.json() as Promise<any>);
+
+      if (est.energy_required) {
+        energyRequired = Math.ceil(Number(est.energy_required) * 1.15); // +15% margin
+        console.log(`[TRON quote] estimateEnergy=${est.energy_required}, с запасом=${energyRequired}`);
+      }
+    } catch (err: any) {
+      console.warn(`[TRON quote] estimateEnergy недоступен, используем ${energyRequired}: ${err.message}`);
+    }
+  }
+
+  // Размер транзакции в байтах
+  const bandwidthRequired = currency === "USDT" ? 350 : 270;
+
+  // Рассчитываем дефицит
+  const energyShortfall   = Math.max(0, energyRequired - energyAvailable);
+  const energyFeeSun      = energyShortfall * energyFeeSunPerUnit;
+  const bandwidthShortfall = Math.max(0, bandwidthRequired - bandwidthAvailable);
+  const bandwidthFeeSun   = bandwidthShortfall * bandwidthFeeSunPerByte;
+  const totalFeeSun       = energyFeeSun + bandwidthFeeSun;
+
+  // feeLimit: покрываем всю энергию + 20% запас. Min 15 TRX, max 100 TRX
+  const feeLimitSun = Math.min(
+    Math.max(Math.ceil(energyRequired * energyFeeSunPerUnit * 1.20), 15_000_000),
+    100_000_000,
+  );
+
+  const sufficient  = trxBalanceSun >= totalFeeSun;
+  const shortfallSun = sufficient ? 0 : totalFeeSun - trxBalanceSun;
+
+  console.log(
+    `[TRON quote] ${currency} ${fromAddress.slice(0, 8)}…: ` +
+    `energy=${energyRequired}(avail=${energyAvailable}), ` +
+    `bw=${bandwidthRequired}(avail=${bandwidthAvailable}), ` +
+    `fee=${(totalFeeSun / 1e6).toFixed(3)} TRX, ` +
+    `balance=${(trxBalanceSun / 1e6).toFixed(3)} TRX, ` +
+    `feeLimit=${(feeLimitSun / 1e6).toFixed(2)} TRX, ` +
+    `sufficient=${sufficient}`,
+  );
+
+  return {
+    energyRequired,
+    energyAvailable,
+    energyShortfall,
+    energyFeeSun,
+    bandwidthRequired,
+    bandwidthAvailable,
+    bandwidthFeeSun,
+    totalFeeSun,
+    trxBalanceSun,
+    feeLimitSun,
+    sufficient,
+    shortfallSun,
+  };
+}
+
+// ── Ждём подтверждения TRON tx на блокчейне ───────────────────────────────
+// Бросает если tx reverted on-chain (energy сожжена, USDT НЕ переведён).
+// При timeout — только warn, tx вероятно всё равно подтвердится.
+async function waitForTronTxSuccess(txHash: string, timeoutMs = 60_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, 3_500));
+    try {
+      const info = await fetch("https://api.trongrid.io/wallet/gettransactioninfobyid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value: txHash }),
+        signal: AbortSignal.timeout(8_000),
+      }).then(r => r.json() as Promise<any>);
+
+      if (info && info.id) {
+        // Транзакция попала в блок
+        const contractResult = info.receipt?.result;
+        if (contractResult && contractResult !== "SUCCESS") {
+          throw new Error(
+            `TRON_REVERT: tx откатился на блокчейне: ${contractResult} ` +
+            `(txHash=${txHash}). TRX на газ потрачен, USDT НЕ переведён.`,
+          );
+        }
+        return; // SUCCESS
+      }
+    } catch (err: any) {
+      if (err.message?.startsWith("TRON_REVERT:")) throw err;
+      // сетевая ошибка при polling — продолжаем
+    }
+  }
+  console.warn(`[TRON] Таймаут ожидания подтверждения ${txHash} — tx вероятно подтвердится позже`);
+}
+
 // ── Main entry point ───────────────────────────────────────────────────────
 export async function localTransfer(params: {
   network: string;          // BSC | ETH | ARBITRUM | POLYGON | TRON | TON | SOLANA
@@ -93,7 +284,7 @@ export async function localTransfer(params: {
     if (mode === "gasfree") {
       return tronGasFreeTransfer({ currency: cur, privateKey, fromAddress, toAddress, amount });
     }
-    return tronTransfer({ currency: cur, privateKey, toAddress, amount });
+    return tronTransfer({ currency: cur, privateKey, fromAddress, toAddress, amount });
   }
   if (network === "TON") {
     return tonTransfer({ currency: cur, privateKey, fromAddress, toAddress, amount });
@@ -154,6 +345,7 @@ async function evmTransfer(p: {
 async function tronTransfer(p: {
   currency: string;
   privateKey: string;
+  fromAddress: string;   // адрес отправителя (нужен для pre-flight)
   toAddress: string;
   amount: number;
 }): Promise<TransferResult> {
@@ -165,38 +357,79 @@ async function tronTransfer(p: {
     privateKey: p.privateKey,
   });
 
-  let txHash: string;
+  // Derive fromAddress from key if caller didn't provide it
+  const fromAddress = p.fromAddress || tronWeb.defaultAddress.base58 as string;
 
   if (p.currency === "USDT") {
     const cfg = USDT_CONTRACTS["TRON"];
-    const amountSun = Math.round(p.amount * Math.pow(10, cfg.decimals));
+    const amountSun = BigInt(Math.round(p.amount * Math.pow(10, cfg.decimals)));
+
+    // ── 1. Pre-flight: проверяем TRX баланс и энергию ─────────────────
+    const quote = await getTronTransferQuote(fromAddress, p.toAddress, amountSun, "USDT");
+    if (!quote.sufficient) {
+      const needed    = (quote.totalFeeSun    / 1e6).toFixed(3);
+      const available = (quote.trxBalanceSun  / 1e6).toFixed(3);
+      const shortfall = (quote.shortfallSun   / 1e6).toFixed(3);
+      throw new Error(
+        `INSUFFICIENT_TRX: для отправки USDT нужно ~${needed} TRX на газ ` +
+        `(energy×${quote.energyShortfall} + bandwidth×${quote.bandwidthRequired}), ` +
+        `доступно ${available} TRX, нехватает ${shortfall} TRX`,
+      );
+    }
+    // ──────────────────────────────────────────────────────────────────
+
     const parameter = [
       { type: "address", value: p.toAddress },
-      { type: "uint256", value: amountSun },
+      { type: "uint256", value: amountSun.toString() },
     ];
     const { transaction } = await tronWeb.transactionBuilder.triggerSmartContract(
       cfg.address,
       "transfer(address,uint256)",
-      { feeLimit: 30_000_000 },
+      { feeLimit: quote.feeLimitSun },   // динамический, не хардкод
       parameter,
     );
     const signed = await tronWeb.trx.sign(transaction, p.privateKey);
     const result = await tronWeb.trx.sendRawTransaction(signed);
-    if (!result.result) throw new Error(`TRON broadcast failed: ${JSON.stringify(result)}`);
-    txHash = result.txid;
+    if (!result.result) {
+      throw new Error(`TRON broadcast failed: ${JSON.stringify(result)}`);
+    }
+    const txHash: string = result.txid;
+
+    // ── 2. Ждём on-chain подтверждения (детектируем откат) ─────────────
+    await waitForTronTxSuccess(txHash, 60_000);
+    // ──────────────────────────────────────────────────────────────────
+
+    console.log(`[TRON] USDT tx confirmed: ${txHash}`);
+    return { txHash };
+
   } else if (p.currency === "TRX") {
     const amountSun = Math.round(p.amount * 1_000_000);
+
+    // ── Pre-flight для TRX перевода (проверяем bandwidth) ─────────────
+    const quote = await getTronTransferQuote(fromAddress, p.toAddress, BigInt(amountSun), "TRX");
+    if (!quote.sufficient) {
+      const needed    = (quote.totalFeeSun   / 1e6).toFixed(3);
+      const available = (quote.trxBalanceSun / 1e6).toFixed(3);
+      const shortfall = (quote.shortfallSun  / 1e6).toFixed(3);
+      throw new Error(
+        `INSUFFICIENT_TRX: для отправки TRX нужно ~${needed} TRX на bandwidth, ` +
+        `доступно ${available} TRX, нехватает ${shortfall} TRX`,
+      );
+    }
+    // ──────────────────────────────────────────────────────────────────
+
     const unsignedTx = await tronWeb.transactionBuilder.sendTrx(p.toAddress, amountSun);
     const signed = await tronWeb.trx.sign(unsignedTx, p.privateKey);
     const result = await tronWeb.trx.sendRawTransaction(signed);
     if (!result.result) throw new Error(`TRON TRX broadcast failed: ${JSON.stringify(result)}`);
-    txHash = result.txid;
+    const txHash: string = result.txid;
+
+    console.log(`[TRON] TRX tx submitted: ${txHash}`);
+    return { txHash };
+
   } else {
     throw new Error(`Unsupported TRON currency: ${p.currency}`);
   }
-
-  console.log(`[TRON] tx submitted: ${txHash}`);
-  return { txHash };
 }
 
 // ══════════════════════════════════════════════════════════════════════════
