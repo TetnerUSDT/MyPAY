@@ -1759,19 +1759,25 @@ export function registerBusinessRoutes(app: Express) {
       if (wallet.network === "TRON" && wallet.mode === "gasfree") {
         const amountUsdt = parseFloat(payout.amount);
         const quote = await getGasFreeQuote(wallet.address);
-        const willReceive = Math.max(0, amountUsdt - quote.totalFeeUsdt);
+        const willReceive = amountUsdt - quote.totalFeeUsdt; // может быть отрицательным
+        const walletBalanceUsdt = parseFloat(wallet.balanceUsdt ?? "0");
+        const hasEnoughUsdt = walletBalanceUsdt >= amountUsdt;
+        // Блокируем выплату если: аккаунт заблокирован, комиссия > суммы, или нет USDT
+        const hasEnoughGas = quote.allowSubmit && willReceive > 0 && hasEnoughUsdt;
         return res.json({
           mode:             "gasfree",
-          hasEnoughGas:     true,           // TRX не нужен
+          hasEnoughGas,
           gasCurrency:      "USDT",
           transferFee:      quote.transferFeeUsdt,
           activationFee:    quote.activationFeeUsdt,
           totalFee:         quote.totalFeeUsdt,
-          willReceive,
+          willReceive:      Math.max(0, willReceive),
           payoutAmount:     amountUsdt,
           gasfreeActive:    quote.active,
           allowSubmit:      quote.allowSubmit,
           walletAddress:    wallet.address,
+          walletBalanceUsdt,
+          hasEnoughUsdt,
         });
       }
 

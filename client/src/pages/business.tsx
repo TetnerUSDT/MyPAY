@@ -1986,6 +1986,8 @@ type GasInfo = {
   payoutAmount?: number;
   gasfreeActive?: boolean;
   allowSubmit?: boolean;
+  walletBalanceUsdt?: number;
+  hasEnoughUsdt?: boolean;
 };
 
 function PayoutCard({ payout, shopId, wallets, onUpdate }: {
@@ -2231,37 +2233,57 @@ function PayoutCard({ payout, shopId, wallets, onUpdate }: {
 
               {gasInfo && !gasChecking && gasInfo.mode === "gasfree" ? (
                 /* ── GasFree: комиссия в USDT, TRX не нужен ── */
-                <div className="rounded-xl px-3 py-2.5 text-xs space-y-2 bg-blue-500/10 border border-blue-500/20">
-                  <div className="flex items-center gap-2 text-blue-400 font-medium">
-                    <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span>GasFree · TRX не нужен</span>
-                  </div>
-                  <div className="space-y-1 text-[10px] leading-relaxed text-white/50">
-                    <div className="flex justify-between">
-                      <span>Сумма выплаты</span>
-                      <span className="text-white/70">{(gasInfo.payoutAmount as number).toFixed(4)} USDT</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Комиссия за перевод</span>
-                      <span className="text-white/70">−{(gasInfo.transferFee as number).toFixed(2)} USDT</span>
-                    </div>
-                    {(gasInfo.activationFee as number) > 0 && (
-                      <div className="flex justify-between">
-                        <span>Активация кошелька (разово)</span>
-                        <span className="text-orange-400/90">−{(gasInfo.activationFee as number).toFixed(2)} USDT</span>
+                (() => {
+                  const blocked       = gasInfo.allowSubmit === false;
+                  const feeExceedsAmt = (gasInfo.willReceive as number) <= 0;
+                  const noUsdt        = gasInfo.hasEnoughUsdt === false;
+                  const ok            = !blocked && !feeExceedsAmt && !noUsdt;
+                  const errorMsg = blocked
+                    ? "Аккаунт заблокирован GasFree провайдером — обратитесь в поддержку"
+                    : feeExceedsAmt
+                    ? `Минимальная сумма: ${((gasInfo.totalFee as number) + 0.01).toFixed(2)} USDT`
+                    : `На кошельке ${(gasInfo.walletBalanceUsdt ?? 0).toFixed(4)} USDT, нужно ${(gasInfo.payoutAmount as number).toFixed(4)} USDT`;
+                  return (
+                    <div className={`rounded-xl px-3 py-2.5 text-xs space-y-2 ${ok ? "bg-blue-500/10 border border-blue-500/20" : "bg-orange-500/10 border border-orange-500/20"}`}>
+                      <div className={`flex items-center gap-2 font-medium ${ok ? "text-blue-400" : "text-orange-400"}`}>
+                        {ok
+                          ? <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                          : <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />}
+                        <span>{ok
+                          ? "GasFree · TRX не нужен"
+                          : blocked
+                          ? "Аккаунт заблокирован провайдером"
+                          : feeExceedsAmt
+                          ? "Комиссия превышает сумму выплаты"
+                          : "Недостаточно USDT на кошельке"
+                        }</span>
                       </div>
-                    )}
-                    <div className="flex justify-between border-t border-white/10 pt-1 mt-1">
-                      <span className="text-white/70 font-medium">Получатель получит</span>
-                      <span className="text-[#3ab368] font-semibold">{(gasInfo.willReceive as number).toFixed(4)} USDT</span>
+                      <div className="space-y-1 text-[10px] leading-relaxed text-white/50">
+                        <div className="flex justify-between">
+                          <span>Комиссия GasFree (оплачивается из баланса)</span>
+                          <span className="text-white/70">−{(gasInfo.totalFee as number).toFixed(2)} USDT</span>
+                        </div>
+                        {(gasInfo.activationFee as number) > 0 && (
+                          <div className="flex justify-between">
+                            <span>в т.ч. активация кошелька (разово)</span>
+                            <span className="text-orange-400/90">−{(gasInfo.activationFee as number).toFixed(2)} USDT</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between border-t border-white/10 pt-1 mt-1">
+                          <span className={`font-medium ${ok ? "text-white/70" : "text-orange-300/80"}`}>Получатель получит</span>
+                          <span className={`font-semibold ${ok ? "text-[#3ab368]" : "text-orange-400"}`}>
+                            {Math.max(0, gasInfo.willReceive as number).toFixed(4)} USDT
+                          </span>
+                        </div>
+                      </div>
+                      {!ok && (
+                        <div className="pt-1 border-t border-orange-500/20 text-orange-300/80 text-[10px]">
+                          {errorMsg}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  {(gasInfo.activationFee as number) > 0 && (
-                    <div className="pt-1 border-t border-blue-500/20 text-blue-300/80 text-[10px]">
-                      Первый перевод через GasFree: −{(gasInfo.totalFee as number).toFixed(2)} USDT суммарно
-                    </div>
-                  )}
-                </div>
+                  );
+                })()
               ) : gasInfo && !gasChecking ? (
                 /* ── Стандартный газ (TRX / ETH / BNB / …) ── */
                 <div className={`rounded-xl px-3 py-2.5 text-xs space-y-2 ${gasInfo.hasEnoughGas ? "bg-[#3ab368]/10 border border-[#3ab368]/20" : "bg-orange-500/10 border border-orange-500/20"}`}>
