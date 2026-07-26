@@ -1947,6 +1947,13 @@ type GasInfo = {
   gasCurrency: string;
   walletAddress: string;
   shortfall: number;
+  // TRON-specific detail
+  energyRequired?: number;
+  energyAvailable?: number;
+  energyShortfall?: number;
+  energyFeeTrx?: number;
+  bandwidthFeeTrx?: number;
+  feeLimitTrx?: number;
 };
 
 function PayoutCard({ payout, shopId, wallets, onUpdate }: {
@@ -2191,23 +2198,61 @@ function PayoutCard({ payout, shopId, wallets, onUpdate }: {
               )}
 
               {gasInfo && !gasChecking && (
-                <div className={`rounded-xl px-3 py-2.5 text-xs ${gasInfo.hasEnoughGas ? "bg-[#3ab368]/10 border border-[#3ab368]/20" : "bg-orange-500/10 border border-orange-500/20"}`}>
+                <div className={`rounded-xl px-3 py-2.5 text-xs space-y-2 ${gasInfo.hasEnoughGas ? "bg-[#3ab368]/10 border border-[#3ab368]/20" : "bg-orange-500/10 border border-orange-500/20"}`}>
+                  {/* Status header */}
                   {gasInfo.hasEnoughGas ? (
-                    <div className="flex items-center gap-2 text-[#3ab368]">
+                    <div className="flex items-center gap-2 text-[#3ab368] font-medium">
                       <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
-                      <span>Достаточно {gasInfo.gasCurrency} · баланс: {gasInfo.currentGas.toFixed(6)} {gasInfo.gasCurrency}</span>
+                      <span>Достаточно {gasInfo.gasCurrency} для комиссии</span>
                     </div>
                   ) : (
-                    <div className="text-orange-400 space-y-1">
-                      <div className="flex items-center gap-2 font-medium">
-                        <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
-                        Недостаточно {gasInfo.gasCurrency} для комиссии
+                    <div className="flex items-center gap-2 text-orange-400 font-medium">
+                      <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>Недостаточно {gasInfo.gasCurrency} для комиссии</span>
+                    </div>
+                  )}
+
+                  {/* Gas detail rows */}
+                  <div className="space-y-1 text-[10px] leading-relaxed text-white/50">
+                    <div className="flex justify-between">
+                      <span>Доступно {gasInfo.gasCurrency}</span>
+                      <span className={gasInfo.hasEnoughGas ? "text-[#3ab368]/90" : "text-orange-400/90"}>
+                        {gasInfo.currentGas.toFixed(6)} {gasInfo.gasCurrency}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Нужно на газ</span>
+                      <span className="text-white/70">{gasInfo.gasNeeded.toFixed(6)} {gasInfo.gasCurrency}</span>
+                    </div>
+                    {gasInfo.feeLimitTrx !== undefined && (
+                      <div className="flex justify-between">
+                        <span>feeLimit</span>
+                        <span className="text-white/70">{gasInfo.feeLimitTrx.toFixed(6)} TRX</span>
                       </div>
-                      <div className="pl-5 leading-relaxed text-orange-400/80">
-                        Текущий: {gasInfo.currentGas.toFixed(6)} {gasInfo.gasCurrency}<br />
-                        Нужно минимум: {gasInfo.gasNeeded.toFixed(6)} {gasInfo.gasCurrency}<br />
-                        Пополнить на: <span className="font-bold text-orange-300">{gasInfo.shortfall.toFixed(6)} {gasInfo.gasCurrency}</span>
+                    )}
+                    {gasInfo.energyRequired !== undefined && (
+                      <div className="flex justify-between">
+                        <span>Energy ({gasInfo.energyAvailable ?? 0} доступно)</span>
+                        <span className={
+                          (gasInfo.energyShortfall ?? 0) > 0 ? "text-orange-400/90" : "text-[#3ab368]/90"
+                        }>
+                          {gasInfo.energyRequired.toLocaleString()} ед.
+                          {(gasInfo.energyFeeTrx ?? 0) > 0 && ` · ${gasInfo.energyFeeTrx!.toFixed(4)} TRX`}
+                        </span>
                       </div>
+                    )}
+                    {gasInfo.bandwidthFeeTrx !== undefined && gasInfo.bandwidthFeeTrx > 0 && (
+                      <div className="flex justify-between">
+                        <span>Bandwidth</span>
+                        <span className="text-white/70">{gasInfo.bandwidthFeeTrx.toFixed(4)} TRX</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Shortfall warning */}
+                  {!gasInfo.hasEnoughGas && (
+                    <div className="pt-1 border-t border-orange-500/20 text-orange-300 font-semibold text-[10px]">
+                      Пополните кошелёк на <span className="text-orange-200">{gasInfo.shortfall.toFixed(6)} TRX</span>
                     </div>
                   )}
                 </div>
