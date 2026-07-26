@@ -672,6 +672,50 @@ export async function registerGasFreeWallet(address: string): Promise<string | n
 }
 
 // ══════════════════════════════════════════════════════════════════════════
+// Helper: предварительная оценка GasFree комиссии (без подписи/отправки).
+// Используется в check-gas для показа USDT-стоимости перед выплатой.
+// ══════════════════════════════════════════════════════════════════════════
+export interface GasFreeQuote {
+  active: boolean;          // кошелёк уже активирован (activation fee = 0)
+  allowSubmit: boolean;     // можно отправлять транзакции
+  transferFeeUsdt: number;  // комиссия за перевод (всегда)
+  activationFeeUsdt: number;// комиссия за активацию (только при active=false)
+  totalFeeUsdt: number;     // итого спишется из суммы перевода
+}
+
+export async function getGasFreeQuote(fromAddress: string): Promise<GasFreeQuote> {
+  const [accountInfo, tokenConfig] = await Promise.all([
+    gasFreeRequest("GET", `/api/v1/address/${fromAddress}`),
+    gasFreeRequest("GET", `/api/v1/config/token/all`),
+  ]);
+
+  const isActive    = accountInfo.active     ?? false;
+  const allowSubmit = accountInfo.allowSubmit ?? true;
+  const usdtContract = USDT_CONTRACTS["TRON"].address;
+
+  const tokenInfo = (tokenConfig.tokens ?? []).find(
+    (t: any) => t.tokenAddress === usdtContract,
+  );
+
+  const transferFeeUsdt   = Number(tokenInfo?.transferFee ?? 1_500_000) / 1e6;
+  const activationFeeUsdt = isActive ? 0 : Number(tokenInfo?.activateFee ?? 1_500_000) / 1e6;
+
+  console.log(
+    `[GasFree quote] ${fromAddress.slice(0, 8)}…: ` +
+    `active=${isActive}, transferFee=${transferFeeUsdt} USDT, ` +
+    `activationFee=${activationFeeUsdt} USDT`,
+  );
+
+  return {
+    active: isActive,
+    allowSubmit,
+    transferFeeUsdt,
+    activationFeeUsdt,
+    totalFeeUsdt: transferFeeUsdt + activationFeeUsdt,
+  };
+}
+
+// ══════════════════════════════════════════════════════════════════════════
 // TON
 // ══════════════════════════════════════════════════════════════════════════
 async function tonTransfer(p: {

@@ -52,6 +52,17 @@ Each user TRON wallet has a unique `gasFreeAddress` (CREATE2 derived). This is w
 - activateFee: 1,500,000 (1.5 USDT, first time only if active=false)
 - maxFee = transferFee + (active ? 0 : activateFee)
 
+## check-gas endpoint GasFree branch
+`/check-gas` now has a dedicated branch for `wallet.mode === 'gasfree'` (before the standard TRON branch).
+Calls `getGasFreeQuote(fromAddress)` (exported from blockchain-transfer.ts) which fetches:
+- `/api/v1/address/{addr}` → `active`, `allowSubmit`
+- `/api/v1/config/token/all` → `transferFee`, `activateFee`
+Returns: `{ mode:"gasfree", hasEnoughGas:true, gasCurrency:"USDT", transferFee, activationFee, totalFee, willReceive, payoutAmount, gasfreeActive }`
+
+## Frontend GasFree display (business.tsx)
+`GasInfo` type extended with optional GasFree fields (`mode`, `transferFee`, `activationFee`, `totalFee`, `willReceive`, `payoutAmount`, `gasfreeActive`, `allowSubmit`).
+Gas display block checks `gasInfo.mode === "gasfree"` first → shows blue card with USDT fee breakdown and "Получатель получит X USDT". Falls through to standard TRX block otherwise.
+
 ## Validation guards added (2026-07-26)
 1. All 3 env vars checked upfront (PROVIDER, SERVICE_PROVIDER, VERIFYING_CONTRACT)
 2. Private key → derived address verified == fromAddress before signing

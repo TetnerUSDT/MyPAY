@@ -5,7 +5,7 @@ import { getEvmTransfers, evmJsonRpc as evmJsonRpcAdapter, hexAmountToDecimal as
 import { getTronTransfers } from "./scanner/adapters/tron";
 import { getTonTransfers } from "./scanner/adapters/ton";
 import { getSolanaTransfers } from "./scanner/adapters/solana";
-import { localTransfer, registerGasFreeWallet, getTronTransferQuote } from "./blockchain-transfer";
+import { localTransfer, registerGasFreeWallet, getTronTransferQuote, getGasFreeQuote } from "./blockchain-transfer";
 import { db } from "./db";
 import { sql, eq, desc, and } from "drizzle-orm";
 import { merchantShops, merchantPayments, merchantPayoutRequests, merchantWallets, merchantInvoices } from "@shared/schema";
@@ -1755,7 +1755,27 @@ export function registerBusinessRoutes(app: Express) {
       const [wallet] = await db.select().from(merchantWallets).where(and(eq(merchantWallets.id, parseInt(fromWalletId)), eq(merchantWallets.shopId, shopId))).limit(1);
       if (!wallet) return res.status(404).json({ error: "Wallet not found" });
 
-      // TRON: используем реальную оценку (energy + bandwidth + estimateEnergy API)
+      // TRON GasFree: комиссия в USDT, TRX не нужен
+      if (wallet.network === "TRON" && wallet.mode === "gasfree") {
+        const amountUsdt = parseFloat(payout.amount);
+        const quote = await getGasFreeQuote(wallet.address);
+        const willReceive = Math.max(0, amountUsdt - quote.totalFeeUsdt);
+        return res.json({
+          mode:             "gasfree",
+          hasEnoughGas:     true,           // TRX не нужен
+          gasCurrency:      "USDT",
+          transferFee:      quote.transferFeeUsdt,
+          activationFee:    quote.activationFeeUsdt,
+          totalFee:         quote.totalFeeUsdt,
+          willReceive,
+          payoutAmount:     amountUsdt,
+          gasfreeActive:    quote.active,
+          allowSubmit:      quote.allowSubmit,
+          walletAddress:    wallet.address,
+        });
+      }
+
+      // TRON standard: используем реальную оценку (energy + bandwidth + estimateEnergy API)
       if (wallet.network === "TRON") {
         const amountNum = parseFloat(payout.amount);
         const amountSun = BigInt(Math.round(amountNum * 1_000_000));

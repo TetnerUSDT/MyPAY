@@ -194,6 +194,18 @@ function formatDate(s: string) {
   return new Date(s).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
+function getTxExplorerUrl(network: string, txHash: string): string | null {
+  const n = network?.toUpperCase();
+  if (n === "BSC")                         return `https://bscscan.com/tx/${txHash}`;
+  if (n === "ETH" || n === "ETHEREUM")     return `https://etherscan.io/tx/${txHash}`;
+  if (n === "TRON")                        return `https://tronscan.org/#/transaction/${txHash}`;
+  if (n === "TON")                         return `https://tonscan.org/tx/${txHash}`;
+  if (n === "POLYGON" || n === "POL")      return `https://polygonscan.com/tx/${txHash}`;
+  if (n === "ARB" || n === "ARBITRUM")     return `https://arbiscan.io/tx/${txHash}`;
+  if (n === "SOLANA" || n === "SOL")       return `https://solscan.io/tx/${txHash}`;
+  return null;
+}
+
 function truncate(s: string, n = 16) {
   if (!s) return "—";
   if (s.length <= n) return s;
@@ -1386,12 +1398,22 @@ function PaymentsTab({ shop, payments }: { shop: Shop; payments: Payment[] }) {
                   <CopyButton text={p.walletAddress} />
                 </div>
               )}
-              {p.txHash && (
-                <div className="text-[10px] text-[#3ab368]/60 font-mono mt-1.5 truncate flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3 flex-shrink-0" />
-                  {truncate(p.txHash, 24)}
-                </div>
-              )}
+              {p.txHash && (() => {
+                const explorerUrl = getTxExplorerUrl(p.network, p.txHash);
+                return (
+                  <div className="text-[10px] text-[#3ab368]/60 font-mono mt-1.5 truncate flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 flex-shrink-0" />
+                    {explorerUrl ? (
+                      <a href={explorerUrl} target="_blank" rel="noopener noreferrer"
+                        className="hover:text-[#3ab368] underline underline-offset-2 decoration-dotted transition-colors">
+                        {truncate(p.txHash, 24)}
+                      </a>
+                    ) : (
+                      truncate(p.txHash, 24)
+                    )}
+                  </div>
+                );
+              })()}
               {p.confirmedAt && (
                 <div className="text-[10px] text-white/30 mt-1">✓ {formatDate(p.confirmedAt)}</div>
               )}
@@ -1942,18 +1964,28 @@ function PayoutsTab({ shop, payouts, wallets }: { shop: Shop; payouts: Payout[];
 
 type GasInfo = {
   hasEnoughGas: boolean;
-  currentGas: number;
-  gasNeeded: number;
   gasCurrency: string;
   walletAddress: string;
-  shortfall: number;
-  // TRON-specific detail
+  // Standard gas fields
+  currentGas?: number;
+  gasNeeded?: number;
+  shortfall?: number;
+  // TRON standard detail
   energyRequired?: number;
   energyAvailable?: number;
   energyShortfall?: number;
   energyFeeTrx?: number;
   bandwidthFeeTrx?: number;
   feeLimitTrx?: number;
+  // GasFree fields
+  mode?: string;
+  transferFee?: number;
+  activationFee?: number;
+  totalFee?: number;
+  willReceive?: number;
+  payoutAmount?: number;
+  gasfreeActive?: boolean;
+  allowSubmit?: boolean;
 };
 
 function PayoutCard({ payout, shopId, wallets, onUpdate }: {
@@ -2197,7 +2229,41 @@ function PayoutCard({ payout, shopId, wallets, onUpdate }: {
                 </div>
               )}
 
-              {gasInfo && !gasChecking && (
+              {gasInfo && !gasChecking && gasInfo.mode === "gasfree" ? (
+                /* ── GasFree: комиссия в USDT, TRX не нужен ── */
+                <div className="rounded-xl px-3 py-2.5 text-xs space-y-2 bg-blue-500/10 border border-blue-500/20">
+                  <div className="flex items-center gap-2 text-blue-400 font-medium">
+                    <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span>GasFree · TRX не нужен</span>
+                  </div>
+                  <div className="space-y-1 text-[10px] leading-relaxed text-white/50">
+                    <div className="flex justify-between">
+                      <span>Сумма выплаты</span>
+                      <span className="text-white/70">{(gasInfo.payoutAmount as number).toFixed(4)} USDT</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Комиссия за перевод</span>
+                      <span className="text-white/70">−{(gasInfo.transferFee as number).toFixed(2)} USDT</span>
+                    </div>
+                    {(gasInfo.activationFee as number) > 0 && (
+                      <div className="flex justify-between">
+                        <span>Активация кошелька (разово)</span>
+                        <span className="text-orange-400/90">−{(gasInfo.activationFee as number).toFixed(2)} USDT</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between border-t border-white/10 pt-1 mt-1">
+                      <span className="text-white/70 font-medium">Получатель получит</span>
+                      <span className="text-[#3ab368] font-semibold">{(gasInfo.willReceive as number).toFixed(4)} USDT</span>
+                    </div>
+                  </div>
+                  {(gasInfo.activationFee as number) > 0 && (
+                    <div className="pt-1 border-t border-blue-500/20 text-blue-300/80 text-[10px]">
+                      Первый перевод через GasFree: −{(gasInfo.totalFee as number).toFixed(2)} USDT суммарно
+                    </div>
+                  )}
+                </div>
+              ) : gasInfo && !gasChecking ? (
+                /* ── Стандартный газ (TRX / ETH / BNB / …) ── */
                 <div className={`rounded-xl px-3 py-2.5 text-xs space-y-2 ${gasInfo.hasEnoughGas ? "bg-[#3ab368]/10 border border-[#3ab368]/20" : "bg-orange-500/10 border border-orange-500/20"}`}>
                   {/* Status header */}
                   {gasInfo.hasEnoughGas ? (
@@ -2217,17 +2283,17 @@ function PayoutCard({ payout, shopId, wallets, onUpdate }: {
                     <div className="flex justify-between">
                       <span>Доступно {gasInfo.gasCurrency}</span>
                       <span className={gasInfo.hasEnoughGas ? "text-[#3ab368]/90" : "text-orange-400/90"}>
-                        {gasInfo.currentGas.toFixed(6)} {gasInfo.gasCurrency}
+                        {(gasInfo.currentGas as number).toFixed(6)} {gasInfo.gasCurrency}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span>Нужно на газ</span>
-                      <span className="text-white/70">{gasInfo.gasNeeded.toFixed(6)} {gasInfo.gasCurrency}</span>
+                      <span className="text-white/70">{(gasInfo.gasNeeded as number).toFixed(6)} {gasInfo.gasCurrency}</span>
                     </div>
                     {gasInfo.feeLimitTrx !== undefined && (
                       <div className="flex justify-between">
                         <span>feeLimit</span>
-                        <span className="text-white/70">{gasInfo.feeLimitTrx.toFixed(6)} TRX</span>
+                        <span className="text-white/70">{(gasInfo.feeLimitTrx as number).toFixed(6)} TRX</span>
                       </div>
                     )}
                     {gasInfo.energyRequired !== undefined && (
@@ -2236,15 +2302,15 @@ function PayoutCard({ payout, shopId, wallets, onUpdate }: {
                         <span className={
                           (gasInfo.energyShortfall ?? 0) > 0 ? "text-orange-400/90" : "text-[#3ab368]/90"
                         }>
-                          {gasInfo.energyRequired.toLocaleString()} ед.
-                          {(gasInfo.energyFeeTrx ?? 0) > 0 && ` · ${gasInfo.energyFeeTrx!.toFixed(4)} TRX`}
+                          {(gasInfo.energyRequired as number).toLocaleString()} ед.
+                          {(gasInfo.energyFeeTrx ?? 0) > 0 && ` · ${(gasInfo.energyFeeTrx as number).toFixed(4)} TRX`}
                         </span>
                       </div>
                     )}
-                    {gasInfo.bandwidthFeeTrx !== undefined && gasInfo.bandwidthFeeTrx > 0 && (
+                    {gasInfo.bandwidthFeeTrx !== undefined && (gasInfo.bandwidthFeeTrx as number) > 0 && (
                       <div className="flex justify-between">
                         <span>Bandwidth</span>
-                        <span className="text-white/70">{gasInfo.bandwidthFeeTrx.toFixed(4)} TRX</span>
+                        <span className="text-white/70">{(gasInfo.bandwidthFeeTrx as number).toFixed(4)} TRX</span>
                       </div>
                     )}
                   </div>
@@ -2252,11 +2318,11 @@ function PayoutCard({ payout, shopId, wallets, onUpdate }: {
                   {/* Shortfall warning */}
                   {!gasInfo.hasEnoughGas && (
                     <div className="pt-1 border-t border-orange-500/20 text-orange-300 font-semibold text-[10px]">
-                      Пополните кошелёк на <span className="text-orange-200">{gasInfo.shortfall.toFixed(6)} TRX</span>
+                      Пополните кошелёк на <span className="text-orange-200">{(gasInfo.shortfall as number).toFixed(6)} TRX</span>
                     </div>
                   )}
                 </div>
-              )}
+              ) : null}
 
               <button
                 onClick={() => executePayout.mutate()}
@@ -2275,9 +2341,22 @@ function PayoutCard({ payout, shopId, wallets, onUpdate }: {
         </div>
       )}
 
-      {payout.txHash && payout.status === "completed" && (
-        <div className="text-[10px] text-[#3ab368]/70 font-mono mt-1 truncate">TX: {truncate(payout.txHash, 24)}</div>
-      )}
+      {payout.txHash && payout.status === "completed" && (() => {
+        const explorerUrl = getTxExplorerUrl(payout.network, payout.txHash);
+        return (
+          <div className="text-[10px] text-[#3ab368]/70 font-mono mt-1">
+            TX:{" "}
+            {explorerUrl ? (
+              <a href={explorerUrl} target="_blank" rel="noopener noreferrer"
+                className="hover:text-[#3ab368] underline underline-offset-2 decoration-dotted transition-colors">
+                {truncate(payout.txHash, 24)}
+              </a>
+            ) : (
+              <span className="truncate">{truncate(payout.txHash, 24)}</span>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }

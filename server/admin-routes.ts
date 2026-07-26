@@ -2070,16 +2070,18 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
   });
 
   app.post(`/${adminPath}/api/business/scanner-keys`, requireAdmin, async (req: AdminRequest, res) => {
-    const { provider, networks, api_key, label, monthly_limit } = req.body;
+    const { provider, provider_code, networks, api_key, label, monthly_limit } = req.body;
     if (!provider || !api_key) return res.status(400).json({ message: "provider and api_key are required" });
+    // provider_code используется фронтом для фильтрации ключей по провайдеру
+    const resolvedProviderCode = provider_code ?? provider;
     const networksJson = JSON.stringify(Array.isArray(networks) ? networks : []);
     const currentMonth = new Date().toISOString().slice(0, 7);
     try {
       const [result] = await db.execute(sql`
         INSERT INTO merchant_scanner_keys
-          (provider, networks, api_key, label, monthly_limit, usage_this_month, reset_month, is_active, error_count)
+          (provider, provider_code, networks, api_key, label, monthly_limit, usage_this_month, reset_month, is_active, error_count)
         VALUES
-          (${provider}, ${networksJson}, ${api_key}, ${label ?? null}, ${parseInt(monthly_limit ?? "0")}, 0, ${currentMonth}, 1, 0)
+          (${provider}, ${resolvedProviderCode}, ${networksJson}, ${api_key}, ${label ?? null}, ${parseInt(monthly_limit ?? "0")}, 0, ${currentMonth}, 1, 0)
       `);
       res.json({ id: (result as any).insertId, ok: true });
     } catch (err: any) { res.status(500).json({ message: err.message }); }
