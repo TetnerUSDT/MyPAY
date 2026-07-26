@@ -45,3 +45,7 @@ integrations = ["javascript_database:1.0.0"]
 
 [userenv.shared]
 WALLET_API_URL = "https://pay.swiftx.online/api/wallet/create"
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 60000

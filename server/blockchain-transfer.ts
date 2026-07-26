@@ -112,20 +112,30 @@ export async function getTronTransferQuote(
   currency: string,
 ): Promise<TronTransferQuote> {
   const BASE = "https://api.trongrid.io";
+  const TRONGRID_KEY = process.env.TRONWEB_PRO_API_KEY ?? "";
+
+  // Базовые заголовки — с API ключом estimateenergy работает точнее
+  const tronHeaders = (extra: Record<string, string> = {}): Record<string, string> => ({
+    "Accept": "application/json",
+    "Content-Type": "application/json",
+    ...(TRONGRID_KEY ? { "TRON-PRO-API-KEY": TRONGRID_KEY } : {}),
+    ...extra,
+  });
 
   // Параллельный запрос: баланс + ресурсы + параметры сети
   const [accountData, resourceData, chainData] = await Promise.all([
     fetch(`${BASE}/v1/accounts/${fromAddress}`, {
-      headers: { "Accept": "application/json" },
+      headers: tronHeaders(),
       signal: AbortSignal.timeout(10_000),
     }).then(r => r.json() as Promise<any>),
     fetch(`${BASE}/wallet/getaccountresource`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: tronHeaders(),
       body: JSON.stringify({ address: fromAddress, visible: true }),
       signal: AbortSignal.timeout(10_000),
     }).then(r => r.json() as Promise<any>),
     fetch(`${BASE}/wallet/getchainparameters`, {
+      headers: tronHeaders(),
       signal: AbortSignal.timeout(10_000),
     }).then(r => r.json() as Promise<any>),
   ]);
@@ -162,7 +172,7 @@ export async function getTronTransferQuote(
 
       const est = await fetch(`${BASE}/wallet/estimateenergy`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: tronHeaders(),
         body: JSON.stringify({
           owner_address: fromAddress,
           contract_address: USDT_CONTRACTS["TRON"].address,
