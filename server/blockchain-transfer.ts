@@ -186,6 +186,18 @@ export async function getTronTransferQuote(
       if (est.energy_required) {
         energyRequired = Math.ceil(Number(est.energy_required) * 1.15); // +15% margin
         console.log(`[TRON quote] estimateEnergy=${est.energy_required}, с запасом=${energyRequired}`);
+      } else if (est.Error || est.code) {
+        // TronGrid returned a structured error (e.g. contract not activated, bad params, rate-limit)
+        console.warn(
+          `[TRON quote] estimateEnergy вернул ошибку — используем fallback ${energyRequired}: ` +
+          `code=${est.code ?? "n/a"}, message=${est.Error ?? "n/a"}`,
+        );
+      } else {
+        // Unexpected shape — log raw response for debugging
+        console.warn(
+          `[TRON quote] estimateEnergy: неожиданный ответ (нет energy_required и нет Error) — ` +
+          `используем fallback ${energyRequired}. Ответ: ${JSON.stringify(est)}`,
+        );
       }
     } catch (err: any) {
       console.warn(`[TRON quote] estimateEnergy недоступен, используем ${energyRequired}: ${err.message}`);
