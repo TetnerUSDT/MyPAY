@@ -442,28 +442,58 @@ async function tronGasFreeTransfer(p: {
   toAddress: string;
   amount: number;
 }): Promise<TransferResult> {
-  if (!GASFREE_PROVIDER) {
-    throw new Error(
-      "GasFree не настроен. Задайте env-переменные: " +
-      "TRON_GASFREE_PROVIDER, TRON_GASFREE_SERVICE_PROVIDER, TRON_GASFREE_VERIFYING_CONTRACT"
-    );
+  // ── 0. Валидация конфига ────────────────────────────────────────────────
+  if (!GASFREE_PROVIDER || !GASFREE_SERVICE_PROVIDER || !GASFREE_VERIFYING_CONTRACT) {
+    const missing = [
+      !GASFREE_PROVIDER           && "TRON_GASFREE_PROVIDER",
+      !GASFREE_SERVICE_PROVIDER   && "TRON_GASFREE_SERVICE_PROVIDER",
+      !GASFREE_VERIFYING_CONTRACT && "TRON_GASFREE_VERIFYING_CONTRACT",
+    ].filter(Boolean).join(", ");
+    throw new Error(`GasFree не настроен. Отсутствуют env-переменные: ${missing}`);
   }
   if (p.currency !== "USDT") {
     throw new Error(`GasFree поддерживает только USDT, получен: ${p.currency}`);
   }
 
+  // ── 1. Верифицируем что private key соответствует fromAddress ───────────
+  // Несоответствие гарантирует невалидную подпись (relayer вернёт ошибку после broadcast)
+  const require = createRequire(import.meta.url);
+  const TronWeb = require("tronweb");
+  {
+    const tronWeb = new TronWeb({ fullHost: "https://api.trongrid.io", privateKey: p.privateKey });
+    const derivedAddress: string = tronWeb.defaultAddress.base58;
+    if (derivedAddress !== p.fromAddress) {
+      throw new Error(
+        `GasFree: несоответствие ключа и адреса. ` +
+        `Ключ принадлежит ${derivedAddress}, передан fromAddress=${p.fromAddress}. ` +
+        `Подпись будет невалидной — перевод отменён.`,
+      );
+    }
+  }
+
   const usdtContract = USDT_CONTRACTS["TRON"].address;
-  const decimals = USDT_CONTRACTS["TRON"].decimals;
+  const decimals     = USDT_CONTRACTS["TRON"].decimals;
 
-  // 1. Get account info (nonce) from provider
-  const accountInfo = await gasFreeRequest("GET", `/api/v1/address/${p.fromAddress}`);
-  const nonce: number = accountInfo.nonce;
+  // ── 2. Параллельно: nonce/active и конфиг комиссий ─────────────────────
+  const [accountInfo, tokenConfig] = await Promise.all([
+    gasFreeRequest("GET", `/api/v1/address/${p.fromAddress}`),
+    gasFreeRequest("GET", `/api/v1/config/token/all`),
+  ]);
+
+  const nonce: number    = accountInfo.nonce;
   const isActive: boolean = accountInfo.active ?? false;
+  const allowSubmit: boolean = accountInfo.allowSubmit ?? true;
 
-  // 2. Get fee from provider
-  const tokenConfig = await gasFreeRequest("GET", `/api/v1/config/token/all`);
+  if (!allowSubmit) {
+    throw new Error(
+      `GasFree: аккаунт ${p.fromAddress} не допущен к переводам (allowSubmit=false). ` +
+      `Возможно аккаунт заблокирован провайдером.`,
+    );
+  }
+
+  // Точное сравнение base58 (toLowerCase некорректен для case-sensitive base58)
   const tokenInfo = (tokenConfig.tokens ?? []).find(
-    (t: any) => t.tokenAddress?.toLowerCase() === usdtContract.toLowerCase()
+    (t: any) => t.tokenAddress === usdtContract,
   );
   if (!tokenInfo) throw new Error("USDT не найден в конфиге GasFree провайдера");
 
@@ -471,9 +501,15 @@ async function tronGasFreeTransfer(p: {
   const transferFee   = BigInt(tokenInfo.transferFee ?? 0);
   const maxFee        = transferFee + activationFee;
 
-  // 3. Build and sign PermitTransfer EIP-712 message
+  console.log(
+    `[GasFree] nonce=${nonce}, active=${isActive}, ` +
+    `transferFee=${transferFee} (${Number(transferFee)/1e6} USDT), ` +
+    `activationFee=${activationFee} (${Number(activationFee)/1e6} USDT), ` +
+    `maxFee=${maxFee} (${Number(maxFee)/1e6} USDT)`,
+  );
+
+  // ── 3. Build and sign PermitTransfer EIP-712 ───────────────────────────
   const { secp256k1 }           = await import("@noble/curves/secp256k1");
-  const require                 = createRequire(import.meta.url);
   const { utils: TronWebUtils } = require("tronweb");
 
   const deadline  = Math.floor(Date.now() / 1_000) + 300; // 5 min
@@ -500,26 +536,28 @@ async function tronGasFreeTransfer(p: {
 
   const digest = TronWebUtils._TypedDataEncoder
     .hash(domain, PERMIT_712_TYPES, message)
-    .slice(2); // remove 0x
+    .slice(2); // remove 0x prefix
 
-  const pkBytes  = Buffer.from(p.privateKey.replace(/^0x/, ""), "hex");
-  const sig      = secp256k1.sign(digest, pkBytes, { lowS: true });
-  const r        = sig.r.toString(16).padStart(64, "0");
-  const s        = sig.s.toString(16).padStart(64, "0");
-  const v        = (sig.recovery + 27).toString(16).padStart(2, "0");
-  const signature = r + s + v; // without 0x prefix (as SDK does)
+  const pkBytes   = Buffer.from(p.privateKey.replace(/^0x/, ""), "hex");
+  const sig       = secp256k1.sign(digest, pkBytes, { lowS: true });
+  const r         = sig.r.toString(16).padStart(64, "0");
+  const s         = sig.s.toString(16).padStart(64, "0");
+  const v         = (sig.recovery + 27).toString(16).padStart(2, "0");
+  const signature = r + s + v; // hex без 0x (как в SDK)
 
-  // 4. Submit to relayer
+  console.log(`[GasFree] Signing: user=${p.fromAddress}, receiver=${p.toAddress}, value=${amountRaw}, deadline=${deadline}`);
+
+  // ── 4. Submit to relayer ───────────────────────────────────────────────
   const submitBody = { ...message, sig: signature };
   const submitResp = await gasFreeRequest("POST", "/api/v1/gasfree/submit", submitBody);
 
-  // submitResp.id is the relayer's internal job id; the actual txHash arrives later
   const jobId: string = submitResp.id;
+  console.log(`[GasFree] Submit OK, jobId=${jobId}`);
 
-  // 5. Poll for on-chain txHash (up to 60 s)
-  const txHash = await pollGasFreeResult(jobId, 60_000);
+  // ── 5. Poll for on-chain txHash (up to 90 s) ──────────────────────────
+  const txHash = await pollGasFreeResult(jobId, 90_000);
 
-  console.log(`[TRON GasFree] tx submitted: ${txHash}`);
+  console.log(`[TRON GasFree] tx confirmed: ${txHash}`);
   return { txHash };
 }
 
@@ -562,35 +600,63 @@ async function gasFreeRequest(method: string, path: string, body?: any): Promise
 }
 
 // ── Poll relayer until txHash appears ─────────────────────────────────────
+// API возвращает txnHash (основное поле) или txHash (fallback если API изменится)
 async function pollGasFreeResult(jobId: string, timeoutMs: number): Promise<string> {
   const deadline = Date.now() + timeoutMs;
+  let lastStatus: string | undefined;
   while (Date.now() < deadline) {
-    await new Promise(r => setTimeout(r, 3_000));
+    await new Promise(r => setTimeout(r, 3_500));
     try {
       const result = await gasFreeRequest("GET", `/api/v1/gasfree/${jobId}`);
-      if (result?.txnHash) return result.txnHash as string;
-    } catch {
-      // keep polling
+      const hash = result?.txnHash ?? result?.txHash;
+      if (hash) return hash as string;
+      // Log status transitions для диагностики
+      const status = result?.status ?? result?.state;
+      if (status && status !== lastStatus) {
+        console.log(`[GasFree] jobId=${jobId} status → ${status}`);
+        lastStatus = status;
+      }
+      // Ранний выход при terminal failure-статусах (чтобы не ждать полный timeout)
+      if (typeof status === "string" && /fail|reject|cancel/i.test(status)) {
+        throw new Error(`GasFree: задание отклонено релеером (jobId=${jobId}, status=${status})`);
+      }
+    } catch (err: any) {
+      if (err.message?.includes("jobId=")) throw err; // propagate terminal errors
+      // сетевая ошибка — продолжаем polling
     }
   }
   throw new Error(`GasFree: таймаут ожидания txHash для jobId=${jobId}`);
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// Helper: compute gasFreeAddress locally using @gasfree/gasfree-sdk (CREATE2)
-// No API call or env vars required — fully deterministic from the wallet address.
-// The gasFreeAddress is where clients send USDT to fund the GasFree wallet.
+// Helper: получить gasFreeAddress для кошелька через GasFree API.
+// gasFreeAddress — адрес куда клиенты отправляют USDT (не сам кошелёк!).
+// Сначала пробуем API (надёжно), fallback — локальный SDK (если API не настроен).
 // ══════════════════════════════════════════════════════════════════════════
 export async function registerGasFreeWallet(address: string): Promise<string | null> {
+  // ── Приоритет 1: GasFree API → GET /tron/api/v1/address/{address} ──────
+  if (GASFREE_PROVIDER && GASFREE_API_KEY) {
+    try {
+      const info = await gasFreeRequest("GET", `/api/v1/address/${address}`);
+      if (info?.gasFreeAddress) {
+        console.log(`[GasFree] API: gasFreeAddress for ${address} → ${info.gasFreeAddress}`);
+        return info.gasFreeAddress as string;
+      }
+    } catch (err: any) {
+      console.warn(`[GasFree] API lookup failed for ${address}: ${err.message} — trying SDK fallback`);
+    }
+  }
+
+  // ── Приоритет 2: локальный SDK (не требует API) ────────────────────────
   try {
     const require = createRequire(import.meta.url);
     const { TronGasFree } = require("@gasfree/gasfree-sdk");
     const gf = new TronGasFree({ chainId: 0x2b6653dc }); // TRON mainnet
     const gasFreeAddr: string = gf.generateGasFreeAddress(address);
-    console.log(`[GasFree] Computed gasFreeAddress for ${address}: ${gasFreeAddr}`);
+    console.log(`[GasFree] SDK: gasFreeAddress for ${address} → ${gasFreeAddr}`);
     return gasFreeAddr;
   } catch (err: any) {
-    console.warn(`[GasFree] Could not compute gasFreeAddress for ${address}: ${err.message}`);
+    console.warn(`[GasFree] SDK fallback failed for ${address}: ${err.message}`);
     return null;
   }
 }
