@@ -231,14 +231,14 @@ export default function AdminScannerProviders() {
   const patchNetworkProvider = useMutation({
     mutationFn: ({ id, ...data }: { id: number; enabled?: boolean; priority?: number; endpoint_override?: string }) =>
       adminRequest(`/business/scanner-providers/network/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["/admin-business/scanner-providers"] }),
+    onSuccess: () => refetch(),
     onError: (e: any) => toast({ title: "Ошибка", description: e.message, variant: "destructive" }),
   });
 
   const bulkReorder = useMutation({
     mutationFn: (items: Array<{ id: number; priority: number }>) =>
       adminRequest("/business/scanner-providers/network-bulk", { method: "PATCH", body: JSON.stringify({ items }) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["/admin-business/scanner-providers"] }),
+    onSuccess: () => refetch(),
     onError: (e: any) => toast({ title: "Ошибка при сохранении порядка", description: e.message, variant: "destructive" }),
   });
 
@@ -246,17 +246,17 @@ export default function AdminScannerProviders() {
     mutationFn: (data: { provider: string; provider_code: string; networks: string[]; api_key: string; label: string; monthly_limit: number }) =>
       adminRequest("/business/scanner-keys", { method: "POST", body: JSON.stringify(data) }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/admin-business/scanner-providers"] });
+      refetch();
       setNewKeyForm({ label: "", api_key: "", monthly_limit: "0" });
-      toast({ title: "Ключ добавлен" });
+      toast({ title: "Ключ добавлен", description: "Список ключей обновлён" });
     },
-    onError: (e: any) => toast({ title: "Ошибка", description: e.message, variant: "destructive" }),
+    onError: (e: any) => toast({ title: "Ошибка добавления ключа", description: e.message, variant: "destructive" }),
   });
 
   const deleteKey = useMutation({
     mutationFn: (id: number) => adminRequest(`/business/scanner-keys/${id}`, { method: "DELETE" }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/admin-business/scanner-providers"] });
+      refetch();
       toast({ title: "Ключ удалён" });
     },
     onError: (e: any) => toast({ title: "Ошибка", description: e.message, variant: "destructive" }),
@@ -265,7 +265,7 @@ export default function AdminScannerProviders() {
   const patchKey = useMutation({
     mutationFn: ({ id, ...data }: { id: number; is_active?: boolean; monthly_limit?: number; reset_usage?: boolean }) =>
       adminRequest(`/business/scanner-keys/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["/admin-business/scanner-providers"] }),
+    onSuccess: () => refetch(),
     onError: (e: any) => toast({ title: "Ошибка", description: e.message, variant: "destructive" }),
   });
 
