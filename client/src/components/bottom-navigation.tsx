@@ -4,63 +4,66 @@ import { useTranslation } from "react-i18next";
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 
-const BLOB_WIDTH = 60;
+const BLOB_W = 64;
+const BLOB_H = 46;
 
 export default function BottomNavigation() {
   const [location] = useLocation();
   const { t } = useTranslation();
-  const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const blobRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const hasMounted = useRef(false);
-  const tlRef = useRef<gsap.core.Timeline | null>(null);
+
+  // Refs on the flex-1 column wrappers — gives true item width for centering
+  const colRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const blobRef  = useRef<HTMLDivElement>(null);
+  const railRef  = useRef<HTMLDivElement>(null);
+  const mounted  = useRef(false);
+  const tl       = useRef<gsap.core.Timeline | null>(null);
 
   const navItems = [
-    { path: "/home",     icon: Home,          label: t("nav.home")     },
-    { path: "/exchange", icon: ArrowRightLeft, label: t("nav.exchange") },
-    { path: "/wallet",   icon: Wallet,         label: t("nav.wallet")   },
-    { path: "/p2p",      icon: Users2,         label: t("nav.p2p")      },
+    { path: "/home",     icon: Home,           label: t("nav.home")     },
+    { path: "/exchange", icon: ArrowRightLeft,  label: t("nav.exchange") },
+    { path: "/wallet",   icon: Wallet,          label: t("nav.wallet")   },
+    { path: "/p2p",      icon: Users2,          label: t("nav.p2p")      },
   ];
 
-  /** Returns the x offset (from container left) of the center of the active item. */
-  const getActiveCenterX = (): number | null => {
-    const activeIndex = navItems.findIndex((item) => location === item.path);
-    const itemEl = itemRefs.current[activeIndex];
-    const containerEl = containerRef.current;
-    if (!itemEl || !containerEl) return null;
+  /** x-offset so the blob center sits on the active column center */
+  const blobX = (): number | null => {
+    const idx = navItems.findIndex(n => n.path === location);
+    const col = colRefs.current[idx];
+    const rail = railRef.current;
+    if (!col || !rail) return null;
 
-    const itemRect = itemEl.getBoundingClientRect();
-    const containerRect = containerEl.getBoundingClientRect();
-    // center of item relative to container, then shift so blob center aligns
-    return itemRect.left - containerRect.left + itemRect.width / 2 - BLOB_WIDTH / 2;
+    const colR  = col.getBoundingClientRect();
+    const railR = rail.getBoundingClientRect();
+    const colCenter = colR.left - railR.left + colR.width / 2;
+    return Math.round(colCenter - BLOB_W / 2);
   };
 
-  // Mount: snap blob to initial active position with no animation
+  // Mount — snap with no animation
   useEffect(() => {
     const id = requestAnimationFrame(() => {
-      const x = getActiveCenterX();
+      const x = blobX();
       if (x !== null && blobRef.current) {
-        gsap.set(blobRef.current, { x, scaleX: 1, scaleY: 1 });
-        hasMounted.current = true;
+        gsap.set(blobRef.current, { x, scaleX: 1, scaleY: 1, opacity: 1 });
+        mounted.current = true;
       }
     });
     return () => cancelAnimationFrame(id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Route change: liquid mercury slide
+  // Route change — liquid mercury slide
   useEffect(() => {
-    if (!hasMounted.current || !blobRef.current) return;
-    const x = getActiveCenterX();
+    if (!mounted.current || !blobRef.current) return;
+    const x = blobX();
     if (x === null) return;
 
-    tlRef.current?.kill();
-    tlRef.current = gsap.timeline()
+    tl.current?.kill();
+    tl.current = gsap.timeline()
       .to(blobRef.current, {
         x,
-        scaleX: 1.5,
-        scaleY: 0.75,
-        duration: 0.42,
+        scaleX: 1.45,
+        scaleY: 0.72,
+        duration: 0.4,
         ease: "power3.out",
       })
       .to(blobRef.current, {
@@ -70,47 +73,63 @@ export default function BottomNavigation() {
         ease: "elastic.out(1, 0.55)",
       });
 
-    return () => { tlRef.current?.kill(); };
+    return () => { tl.current?.kill(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location]);
 
+  const isNavActive = navItems.some(n => n.path === location);
+
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/[0.08] bg-[rgba(13,15,22,0.96)] px-2 py-2 backdrop-blur-xl">
-      <div ref={containerRef} className="relative flex justify-around">
-        {/* Liquid blob — absolutely positioned, behind everything */}
+    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/[0.08] bg-[rgba(13,15,22,0.97)] px-2 py-2 backdrop-blur-xl">
+      <div ref={railRef} className="relative flex">
+
+        {/* Liquid blob */}
         <div
           ref={blobRef}
           aria-hidden="true"
-          className="pointer-events-none absolute top-1/2 z-0 -translate-y-1/2 rounded-[22px] bg-[rgba(58,179,104,0.18)] shadow-[0_0_18px_rgba(58,179,104,0.28)]"
-          style={{ width: BLOB_WIDTH, height: 44, left: 0 }}
+          className="pointer-events-none absolute top-1/2 z-0 -translate-y-1/2"
+          style={{
+            width:  BLOB_W,
+            height: BLOB_H,
+            left: 0,
+            borderRadius: BLOB_H / 2,
+            background: "rgba(58,179,104,0.16)",
+            border: "1.5px solid rgba(58,179,104,0.55)",
+            boxShadow: "0 0 14px rgba(58,179,104,0.35), inset 0 0 8px rgba(58,179,104,0.08)",
+            opacity: isNavActive ? 1 : 0,
+          }}
         />
 
-        {navItems.map((item, index) => {
-          const Icon = item.icon;
+        {navItems.map((item, idx) => {
+          const Icon     = item.icon;
           const isActive = location === item.path;
 
           return (
-            <Link
+            /* flex-1 column — this is what we measure for centering */
+            <div
               key={item.path}
-              href={item.path}
-              data-testid={`nav-${item.label.toLowerCase()}`}
-              className="relative z-10 flex min-w-0 flex-1 justify-center"
+              ref={el => { colRefs.current[idx] = el; }}
+              className="relative z-10 flex flex-1 justify-center"
             >
-              <div
-                ref={(el) => { itemRefs.current[index] = el; }}
-                className={`flex flex-col items-center gap-0.5 px-3 py-1 transition-colors duration-200 ${
-                  isActive ? "text-white" : "text-white/40"
-                }`}
+              <Link
+                href={item.path}
+                data-testid={`nav-${item.label.toLowerCase()}`}
               >
-                <Icon
-                  className={isActive ? "h-6 w-6 text-[#3ab368]" : "h-5 w-5"}
-                  strokeWidth={isActive ? 2.5 : 2}
-                />
-                <span className={`text-xs ${isActive ? "font-bold" : "font-medium"}`}>
-                  {item.label}
-                </span>
-              </div>
-            </Link>
+                <div
+                  className={`flex flex-col items-center gap-0.5 px-3 py-1 transition-colors duration-200 ${
+                    isActive ? "text-white" : "text-white/40"
+                  }`}
+                >
+                  <Icon
+                    className={isActive ? "h-6 w-6 text-[#3ab368]" : "h-5 w-5"}
+                    strokeWidth={isActive ? 2.5 : 2}
+                  />
+                  <span className={`text-xs ${isActive ? "font-bold" : "font-medium"}`}>
+                    {item.label}
+                  </span>
+                </div>
+              </Link>
+            </div>
           );
         })}
       </div>
