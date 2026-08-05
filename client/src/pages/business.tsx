@@ -2027,6 +2027,20 @@ function PayoutsTab({ shop, payouts, wallets }: { shop: Shop; payouts: Payout[];
                               <span>Аккаунт заблокирован GasFree провайдером</span>
                             </div>
                           )}
+                          {/* Balance warning */}
+                          {(() => {
+                            const bal = parseFloat(sel.balanceUsdt ?? "0");
+                            const needed = parseFloat(amount) || 0;
+                            if (needed > 0 && bal < needed) {
+                              return (
+                                <div className="flex items-center gap-1.5 text-xs text-orange-400 mt-1">
+                                  <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                                  <span>Недостаточно USDT на кошельке (есть {bal.toFixed(4)}, нужно {needed.toFixed(4)})</span>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
                       ) : !gasfreeQuoteLoading ? (
                         <p className="px-3 pb-2.5 text-[11px] text-white/30">
@@ -2039,11 +2053,22 @@ function PayoutsTab({ shop, payouts, wallets }: { shop: Shop; payouts: Payout[];
                   );
                 }
 
-                // Standard wallet: show balance
+                // Standard wallet: show balance + optional insufficient warning
+                const bal = parseFloat(sel.balanceUsdt ?? "0");
+                const needed = parseFloat(amount) || 0;
+                const insufficient = needed > 0 && bal < needed;
                 return (
-                  <div className="mt-2 flex items-center justify-between bg-[#3ab368]/8 border border-[#3ab368]/20 rounded-xl px-3 py-2">
-                    <span className="text-xs text-white/50">Баланс выбранного кошелька</span>
-                    <span className="text-sm font-bold text-[#3ab368]">{parseFloat(sel.balanceUsdt ?? "0").toFixed(4)} USDT</span>
+                  <div className="mt-2 space-y-1.5">
+                    <div className="flex items-center justify-between bg-[#3ab368]/8 border border-[#3ab368]/20 rounded-xl px-3 py-2">
+                      <span className="text-xs text-white/50">Баланс выбранного кошелька</span>
+                      <span className={`text-sm font-bold ${insufficient ? "text-orange-400" : "text-[#3ab368]"}`}>{bal.toFixed(4)} USDT</span>
+                    </div>
+                    {insufficient && (
+                      <div className="flex items-center gap-1.5 px-3 py-2 bg-orange-500/8 border border-orange-500/20 rounded-xl">
+                        <AlertTriangle className="w-3.5 h-3.5 text-orange-400 flex-shrink-0" />
+                        <span className="text-xs text-orange-400">Недостаточно USDT на кошельке (есть {bal.toFixed(4)}, нужно {needed.toFixed(4)})</span>
+                      </div>
+                    )}
                   </div>
                 );
               })()}
