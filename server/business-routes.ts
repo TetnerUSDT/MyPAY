@@ -554,7 +554,14 @@ async function pollAddressForPayment(
   const maxInterval = 60000;
 
   const check = async () => {
-    if (Date.now() > deadline) return;
+    if (Date.now() > deadline) {
+      // Deadline passed — expire payment if it never received enough to confirm
+      await db.execute(sql`
+        UPDATE merchant_payments SET status = 'expired'
+        WHERE id = ${paymentId} AND status IN ('pending', 'partially_paid')
+      `).catch(() => {});
+      return;
+    }
     try {
       // Fetch full payment row — continue polling if pending OR partially_paid
       const rows = await db.execute(sql`
@@ -1135,11 +1142,20 @@ export async function recoverPendingPollers() {
       console.log(`[merchant] Startup recovery: resumed monitoring for ${rWallets} wallet(s)`);
     }
 
+    // Expire ALL stale pending/partially_paid payments past their TTL (any payment_mode).
+    // This covers server-restart orphans where the poller was lost and never fired expiry.
+    await db.execute(sql`
+      UPDATE merchant_payments SET status = 'expired'
+      WHERE status IN ('pending', 'partially_paid')
+        AND created_at < NOW() - INTERVAL ${PAYMENT_TTL / 1000} SECOND
+    `);
+
     // Recover pending payments still within their TTL window (temporary accumulative mode only)
     const [payRows] = await db.execute(sql`
       SELECT id, wallet_address, network, currency, amount, created_at
       FROM merchant_payments
       WHERE status = 'pending' AND (payment_mode IS NULL OR payment_mode = 'temporary')
+        AND created_at >= NOW() - INTERVAL ${PAYMENT_TTL / 1000} SECOND
     `);
     let rPayments = 0;
     for (const row of (payRows as any[])) {
@@ -1150,12 +1166,6 @@ export async function recoverPendingPollers() {
           row.amount ?? undefined, deadline,
         );
         rPayments++;
-      } else {
-        // Already expired (older than 3h) — mark it so it won't sit as phantom-pending
-        await db.execute(sql`
-          UPDATE merchant_payments SET status = 'expired'
-          WHERE id = ${row.id} AND status = 'pending'
-        `);
       }
     }
 
