@@ -5,7 +5,7 @@ import { getEvmTransfers, evmJsonRpc as evmJsonRpcAdapter, hexAmountToDecimal as
 import { getTronTransfers } from "./scanner/adapters/tron";
 import { getTonTransfers } from "./scanner/adapters/ton";
 import { getSolanaTransfers } from "./scanner/adapters/solana";
-import { localTransfer, registerGasFreeWallet, getTronTransferQuote, getGasFreeQuote } from "./blockchain-transfer";
+import { localTransfer, registerGasFreeWallet, getTronTransferQuote, getGasFreeQuote, getTronUsdtBalance } from "./blockchain-transfer";
 import { db } from "./db";
 import { sql, eq, desc, and } from "drizzle-orm";
 import { merchantShops, merchantPayments, merchantPayoutRequests, merchantWallets, merchantInvoices } from "@shared/schema";
@@ -1759,8 +1759,33 @@ export function registerBusinessRoutes(app: Express) {
       if (wallet.network === "TRON" && wallet.mode === "gasfree") {
         const amountUsdt = parseFloat(payout.amount);
         const quote = await getGasFreeQuote(wallet.address);
+
+        // Determine whether the cached balance is stale (null or updated >5 min ago)
+        const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+        const updatedAt = wallet.balanceUpdatedAt ? new Date(wallet.balanceUpdatedAt).getTime() : 0;
+        const isStale = !updatedAt || (Date.now() - updatedAt) > STALE_THRESHOLD_MS;
+
+        let walletBalanceUsdt = parseFloat(wallet.balanceUsdt ?? "0");
+        let balanceLive = false;
+
+        if (isStale) {
+          try {
+            const liveBalance = await getTronUsdtBalance(wallet.address);
+            console.log(`[check-gas] Live TronGrid USDT balance for ${wallet.address}: ${liveBalance} (cached was ${walletBalanceUsdt})`);
+            walletBalanceUsdt = liveBalance;
+            balanceLive = true;
+            // Write back to DB so future checks and scanner both see the fresh value
+            await db.execute(sql`
+              UPDATE merchant_wallets
+              SET balance_usdt = ${liveBalance}, balance_updated_at = NOW()
+              WHERE id = ${wallet.id}
+            `);
+          } catch (err: any) {
+            console.warn(`[check-gas] Live balance fetch failed for ${wallet.address}: ${err.message} — using cached`);
+          }
+        }
+
         const willReceive = amountUsdt - quote.totalFeeUsdt; // может быть отрицательным
-        const walletBalanceUsdt = parseFloat(wallet.balanceUsdt ?? "0");
         const hasEnoughUsdt = walletBalanceUsdt >= amountUsdt;
         // Блокируем выплату если: аккаунт заблокирован, комиссия > суммы, или нет USDT
         const hasEnoughGas = quote.allowSubmit && willReceive > 0 && hasEnoughUsdt;
@@ -1778,6 +1803,7 @@ export function registerBusinessRoutes(app: Express) {
           walletAddress:    wallet.address,
           walletBalanceUsdt,
           hasEnoughUsdt,
+          balanceLive,
         });
       }
 

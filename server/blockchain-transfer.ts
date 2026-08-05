@@ -728,6 +728,40 @@ export async function getGasFreeQuote(fromAddress: string): Promise<GasFreeQuote
 }
 
 // ══════════════════════════════════════════════════════════════════════════
+// Helper: fetch live USDT balance for a TRON address via TronGrid.
+// Returns balance in human-readable USDT (e.g. 12.5).
+// Returns 0 if the account has no USDT or does not exist yet.
+// ══════════════════════════════════════════════════════════════════════════
+export async function getTronUsdtBalance(address: string): Promise<number> {
+  const BASE = "https://api.trongrid.io";
+  const TRONGRID_KEY = process.env.TRONWEB_PRO_API_KEY ?? "";
+  const headers: Record<string, string> = { "Accept": "application/json" };
+  if (TRONGRID_KEY) headers["TRON-PRO-API-KEY"] = TRONGRID_KEY;
+
+  const resp = await fetch(`${BASE}/v1/accounts/${address}`, {
+    headers,
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!resp.ok) {
+    throw new Error(`TronGrid accounts API error ${resp.status} for ${address}`);
+  }
+  const data = await resp.json() as any;
+  const accountData = data.data?.[0];
+  if (!accountData) return 0; // account not activated / no txs yet
+
+  // trc20 is an array of { [contractAddress]: balanceString } objects
+  const trc20List: Array<Record<string, string>> = accountData.trc20 ?? [];
+  const usdtContract = USDT_CONTRACTS["TRON"].address;
+  const decimals = USDT_CONTRACTS["TRON"].decimals;
+  for (const item of trc20List) {
+    if (item[usdtContract] !== undefined) {
+      return Number(item[usdtContract]) / Math.pow(10, decimals);
+    }
+  }
+  return 0;
+}
+
+// ══════════════════════════════════════════════════════════════════════════
 // TON
 // ══════════════════════════════════════════════════════════════════════════
 async function tonTransfer(p: {

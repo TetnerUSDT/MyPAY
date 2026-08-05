@@ -2276,6 +2276,17 @@ function PayoutCard({ payout, shopId, wallets, onUpdate }: {
                           </span>
                         </div>
                       </div>
+                      <div className="flex justify-between border-t border-white/10 pt-1 mt-1">
+                        <span className="text-white/40">
+                          Баланс кошелька
+                          {gasInfo.balanceLive
+                            ? <span className="ml-1 text-[#3ab368]/70">(live)</span>
+                            : <span className="ml-1 text-white/30">(кэш)</span>}
+                        </span>
+                        <span className={`${(gasInfo.hasEnoughUsdt as boolean) ? "text-white/70" : "text-orange-400/90"}`}>
+                          {(gasInfo.walletBalanceUsdt as number).toFixed(4)} USDT
+                        </span>
+                      </div>
                       {!ok && (
                         <div className="pt-1 border-t border-orange-500/20 text-orange-300/80 text-[10px]">
                           {errorMsg}
