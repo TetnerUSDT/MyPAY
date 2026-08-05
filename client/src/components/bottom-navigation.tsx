@@ -94,7 +94,6 @@ export default function BottomNavigation() {
           left: 0,
           borderRadius: 10,
           background: "rgba(58,179,104,0.15)",
-          boxShadow: "0 0 18px rgba(58,179,104,0.22)",
           opacity: isNavActive ? 1 : 0,
         }}
       />
