@@ -897,6 +897,58 @@ function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => v
   const { toast } = useToast();
   const qc = useQueryClient();
 
+  // ── Tab pill animation ────────────────────────────────────────────────────
+  const tabRefs  = useRef<(HTMLButtonElement | null)[]>([]);
+  const pillRef  = useRef<HTMLDivElement>(null);
+  const railRef  = useRef<HTMLDivElement>(null);
+  const tabMounted = useRef(false);
+  const tabTl    = useRef<gsap.core.Timeline | null>(null);
+
+  const getPillProps = (tabId: ShopTab) => {
+    const idx  = TABS.findIndex(t => t.id === tabId);
+    const btn  = tabRefs.current[idx];
+    const rail = railRef.current;
+    if (!btn || !rail) return null;
+    const btnR  = btn.getBoundingClientRect();
+    const railR = rail.getBoundingClientRect();
+    return {
+      x:     Math.round(btnR.left - railR.left),
+      width: Math.round(btnR.width),
+      color: TABS[idx].color,
+    };
+  };
+
+  // Mount — snap pill instantly
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      const p = getPillProps(tab);
+      if (p && pillRef.current) {
+        gsap.set(pillRef.current, { x: p.x, width: p.width, backgroundColor: p.color, opacity: 1 });
+        tabMounted.current = true;
+      }
+    });
+    return () => cancelAnimationFrame(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Tab change — animated slide
+  useEffect(() => {
+    if (!tabMounted.current || !pillRef.current) return;
+    const p = getPillProps(tab);
+    if (!p) return;
+    tabTl.current?.kill();
+    tabTl.current = gsap.timeline()
+      .to(pillRef.current, {
+        x: p.x,
+        width: p.width,
+        backgroundColor: p.color,
+        duration: 0.38,
+        ease: "power3.out",
+      });
+    return () => { tabTl.current?.kill(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
   const { data: shopData } = useQuery<Shop>({
     queryKey: ["/api/business/shops", initialShop.id],
     queryFn: () => fetchBusiness(`/api/business/shops/${initialShop.id}`),
@@ -977,12 +1029,22 @@ function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => v
 
       {/* Tabs */}
       <div className="px-4 pb-3">
-        <div className="bg-[#0E1014] rounded-2xl p-1 flex gap-0.5 overflow-x-auto">
-          {TABS.map(t => (
+        <div ref={railRef} className="relative bg-[#0E1014] rounded-2xl p-1 flex gap-0.5 overflow-x-auto">
+          {/* Animated pill */}
+          <div
+            ref={pillRef}
+            aria-hidden="true"
+            className="pointer-events-none absolute top-1 bottom-1 rounded-xl opacity-0"
+            style={{ left: 0, width: 0 }}
+          />
+          {TABS.map((t, idx) => (
             <button
-              key={t.id} onClick={() => setTab(t.id)}
-              className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-medium transition-all ${tab === t.id ? "text-white" : "text-white/40 hover:text-white/70"}`}
-              style={tab === t.id ? { background: t.color, boxShadow: `0 0 10px ${t.color}40` } : undefined}
+              key={t.id}
+              ref={el => { tabRefs.current[idx] = el; }}
+              onClick={() => setTab(t.id)}
+              className={`relative z-10 flex-shrink-0 px-3 py-2 rounded-xl text-xs font-medium transition-colors duration-200 ${
+                tab === t.id ? "text-white" : "text-white/40 hover:text-white/70"
+              }`}
             >
               {t.label}
             </button>
