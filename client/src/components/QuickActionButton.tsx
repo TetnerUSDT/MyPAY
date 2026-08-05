@@ -20,15 +20,13 @@ export default function QuickActionButton({
   const cardRef = useRef<HTMLDivElement>(null);
   const iconRef = useRef<HTMLDivElement>(null);
   const haloRef = useRef<HTMLDivElement>(null);
-  const shimmerRef = useRef<HTMLDivElement>(null);
   const hoverTimeline = useRef<gsap.core.Timeline | null>(null);
 
   useEffect(() => {
     const card = cardRef.current;
     const iconCircle = iconRef.current;
     const halo = haloRef.current;
-    const shimmer = shimmerRef.current;
-    if (!card || !iconCircle || !halo || !shimmer) return;
+    if (!card || !iconCircle || !halo) return;
 
     const ctx = gsap.context(() => {
       gsap.from(card, {
@@ -57,7 +55,6 @@ export default function QuickActionButton({
         .to(iconCircle, { scale: 1.18, duration: 0.16, ease: "power2.out" }, 0)
         .to(iconCircle, { scale: 1, duration: 0.28, ease: "power2.out" }, 0.16)
         .fromTo(halo, { scale: 1, opacity: 0.24 }, { scale: 1.4, opacity: 0, duration: 0.58, ease: "power2.out" }, 0)
-        .fromTo(shimmer, { xPercent: -110 }, { xPercent: 145, duration: 0.7, ease: "power2.out" }, 0.02);
     };
 
     const leave = () => {
@@ -107,12 +104,6 @@ export default function QuickActionButton({
         aria-hidden="true"
       />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px opacity-70" style={{ background: `linear-gradient(90deg, transparent, ${iconColor}, transparent)` }} aria-hidden="true" />
-      <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]" aria-hidden="true">
-        <div
-          ref={shimmerRef}
-          className="absolute -inset-y-10 left-0 w-1/3 -skew-x-[24deg] bg-gradient-to-r from-transparent via-white/[0.13] to-transparent"
-        />
-      </div>
       <div
         ref={haloRef}
         className="pointer-events-none absolute left-1/2 top-[13px] h-11 w-11 -translate-x-1/2 rounded-full opacity-[0.16] blur-md"
