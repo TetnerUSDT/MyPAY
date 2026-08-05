@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { User } from "@shared/schema";
 import { formatBalance } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import QuickActionButton from "@/components/QuickActionButton";
 import useEmblaCarousel from 'embla-carousel-react';
 
 const catImage = "/uploads/icons/cat-logo.png?v=2";
@@ -248,7 +249,7 @@ export default function HomeScreen() {
       href: "/exchange",
       testId: "quick-action-exchange",
       label: t('home.exchange'),
-      iconColor: "text-green-500",
+       iconColor: "#22c55e",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M7 16V4m0 0L3 8m4-4l4 4m6 4v12m0 0l4-4m-4 4l-4-4"/>
@@ -259,7 +260,7 @@ export default function HomeScreen() {
       href: "/wallet",
       testId: "quick-action-wallet",
       label: t('home.wallet'),
-      iconColor: "text-blue-400",
+       iconColor: "#60a5fa",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
           <path d="M21 18v1c0 1.1-.9 2-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14c1.1 0 2 .9 2 2v1h-9a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2zm-9-2h10V8H12zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5"/>
@@ -270,7 +271,7 @@ export default function HomeScreen() {
       href: "/p2p",
       testId: "quick-action-p2p",
       label: "P2P",
-      iconColor: "text-cyan-400",
+       iconColor: "#22d3ee",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="7" cy="8" r="3"/>
@@ -286,7 +287,7 @@ export default function HomeScreen() {
       href: "/business",
       testId: "quick-action-business",
       label: t('home.business'),
-      iconColor: "text-orange-400",
+       iconColor: "#fb923c",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <rect x="2" y="7" width="20" height="14" rx="2"/>
@@ -300,7 +301,7 @@ export default function HomeScreen() {
       href: "/loyalty",
       testId: "quick-action-loyalty",
       label: t('home.bonuses'),
-      iconColor: "text-purple-400",
+       iconColor: "#c084fc",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
@@ -311,7 +312,7 @@ export default function HomeScreen() {
       href: "/vouchers",
       testId: "quick-action-vouchers",
       label: t('home.vouchers'),
-      iconColor: "text-yellow-400",
+       iconColor: "#facc15",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M2 9V7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v2"/>
@@ -430,27 +431,26 @@ export default function HomeScreen() {
         </div>
       </div>
 
-      {/* Quick Actions — single horizontally scrollable row */}
+       {/* Quick Actions — wind-swept glass action rail */}
       <div className="shrink-0">
         <h3 className="text-sm font-semibold text-white/70 mb-3 px-6">{t('home.quickActions')}</h3>
-        <div
-          className="flex gap-2 overflow-x-auto px-6 pb-1 scrollbar-hide"
-          style={{ scrollbarWidth: "none" }}
-          data-testid="quick-actions-scroll"
-        >
-          {quickActions.map((action) => (
-            <Link href={action.href} key={action.href}>
-              <div
-                className="crypto-card !bg-white/20 !border-white/25 p-3 flex flex-col items-center text-center cursor-pointer hover:!bg-white/30 transition-colors w-[88px] flex-shrink-0"
-                data-testid={action.testId}
-              >
-                <div className={`w-10 h-10 rounded-full bg-white/10 flex items-center justify-center mb-2 ${action.iconColor}`}>
-                  {action.icon}
-                </div>
-                <p className="text-xs font-medium text-white leading-tight whitespace-nowrap">{action.label}</p>
-              </div>
-            </Link>
-          ))}
+         <div className="mb-[-16px] overflow-x-auto pb-4 scrollbar-hide" style={{ scrollbarWidth: "none" }}>
+           <div
+             className="flex gap-2 overflow-visible px-6 py-2"
+             data-testid="quick-actions-scroll"
+           >
+             {quickActions.map((action) => (
+               <Link href={action.href} key={action.href}>
+                 <QuickActionButton
+                   label={action.label}
+                   iconColor={action.iconColor}
+                   testId={action.testId}
+                   icon={action.icon}
+                   entryDelay={quickActions.indexOf(action) * 0.07}
+                 />
+               </Link>
+             ))}
+           </div>
         </div>
       </div>
 
