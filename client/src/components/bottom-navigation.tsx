@@ -4,17 +4,16 @@ import { useTranslation } from "react-i18next";
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 
-const BLOB_W = 64;
-const BLOB_H = 46;
+const BLOB_W = 94; // 64 + 15px each side
 
 export default function BottomNavigation() {
   const [location] = useLocation();
   const { t } = useTranslation();
 
-  // Refs on the flex-1 column wrappers — gives true item width for centering
   const colRefs = useRef<(HTMLDivElement | null)[]>([]);
   const blobRef  = useRef<HTMLDivElement>(null);
-  const railRef  = useRef<HTMLDivElement>(null);
+  const navRef   = useRef<HTMLDivElement>(null);   // outer nav — blob reference
+  const railRef  = useRef<HTMLDivElement>(null);   // inner flex row — item reference
   const mounted  = useRef(false);
   const tl       = useRef<gsap.core.Timeline | null>(null);
 
@@ -25,25 +24,25 @@ export default function BottomNavigation() {
     { path: "/p2p",      icon: Users2,          label: t("nav.p2p")      },
   ];
 
-  /** x-offset so the blob center sits on the active column center */
+  /** x so blob center aligns with active column center, relative to navRef */
   const blobX = (): number | null => {
-    const idx = navItems.findIndex(n => n.path === location);
-    const col = colRefs.current[idx];
-    const rail = railRef.current;
-    if (!col || !rail) return null;
+    const idx  = navItems.findIndex(n => n.path === location);
+    const col  = colRefs.current[idx];
+    const nav  = navRef.current;
+    if (!col || !nav) return null;
 
     const colR  = col.getBoundingClientRect();
-    const railR = rail.getBoundingClientRect();
-    const colCenter = colR.left - railR.left + colR.width / 2;
-    return Math.round(colCenter - BLOB_W / 2);
+    const navR  = nav.getBoundingClientRect();
+    const center = colR.left - navR.left + colR.width / 2;
+    return Math.round(center - BLOB_W / 2);
   };
 
-  // Mount — snap with no animation
+  // Mount — snap without animation
   useEffect(() => {
     const id = requestAnimationFrame(() => {
       const x = blobX();
       if (x !== null && blobRef.current) {
-        gsap.set(blobRef.current, { x, scaleX: 1, scaleY: 1, opacity: 1 });
+        gsap.set(blobRef.current, { x, scaleX: 1, scaleY: 1 });
         mounted.current = true;
       }
     });
@@ -51,7 +50,7 @@ export default function BottomNavigation() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Route change — liquid mercury slide
+  // Route change — liquid slide
   useEffect(() => {
     if (!mounted.current || !blobRef.current) return;
     const x = blobX();
@@ -61,8 +60,8 @@ export default function BottomNavigation() {
     tl.current = gsap.timeline()
       .to(blobRef.current, {
         x,
-        scaleX: 1.45,
-        scaleY: 0.72,
+        scaleX: 1.4,
+        scaleY: 0.78,
         duration: 0.4,
         ease: "power3.out",
       })
@@ -80,32 +79,33 @@ export default function BottomNavigation() {
   const isNavActive = navItems.some(n => n.path === location);
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/[0.08] bg-[rgba(13,15,22,0.97)] px-2 py-2 backdrop-blur-xl">
+    <div
+      ref={navRef}
+      className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/[0.08] bg-[rgba(13,15,22,0.97)] px-2 py-2 backdrop-blur-xl"
+      style={{ position: "fixed" }}
+    >
+      {/* Blob — full height of the nav block */}
+      <div
+        ref={blobRef}
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-0 z-0"
+        style={{
+          width: BLOB_W,
+          left: 0,
+          borderRadius: 10,
+          background: "rgba(58,179,104,0.15)",
+          boxShadow: "0 0 18px rgba(58,179,104,0.22)",
+          opacity: isNavActive ? 1 : 0,
+        }}
+      />
+
+      {/* Nav items */}
       <div ref={railRef} className="relative flex">
-
-        {/* Liquid blob */}
-        <div
-          ref={blobRef}
-          aria-hidden="true"
-          className="pointer-events-none absolute top-1/2 z-0 -translate-y-1/2"
-          style={{
-            width:  BLOB_W,
-            height: BLOB_H,
-            left: 0,
-            borderRadius: BLOB_H / 2,
-            background: "rgba(58,179,104,0.16)",
-            border: "1.5px solid rgba(58,179,104,0.55)",
-            boxShadow: "0 0 14px rgba(58,179,104,0.35), inset 0 0 8px rgba(58,179,104,0.08)",
-            opacity: isNavActive ? 1 : 0,
-          }}
-        />
-
         {navItems.map((item, idx) => {
           const Icon     = item.icon;
           const isActive = location === item.path;
 
           return (
-            /* flex-1 column — this is what we measure for centering */
             <div
               key={item.path}
               ref={el => { colRefs.current[idx] = el; }}
