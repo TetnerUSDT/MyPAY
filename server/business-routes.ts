@@ -1739,6 +1739,42 @@ export function registerBusinessRoutes(app: Express) {
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
+  // GasFree fee preview — called from the payout creation form before a payout is created
+  app.post("/api/business/shops/:id/gasfree-quote", requireApiKey, async (req, res) => {
+    const user = await getUserFromRequest(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const shopId = parseInt(req.params.id);
+    const { walletId, amount } = req.body;
+    if (!walletId || !amount) return res.status(400).json({ error: "walletId and amount required" });
+    try {
+      const [shop] = await db.select().from(merchantShops).where(and(eq(merchantShops.id, shopId), eq(merchantShops.userId, user.id))).limit(1);
+      if (!shop) return res.status(404).json({ error: "Shop not found" });
+      const [wallet] = await db.select().from(merchantWallets).where(and(eq(merchantWallets.id, parseInt(walletId)), eq(merchantWallets.shopId, shopId))).limit(1);
+      if (!wallet) return res.status(404).json({ error: "Wallet not found" });
+      if (wallet.network !== "TRON" || wallet.mode !== "gasfree") {
+        return res.status(400).json({ error: "Wallet is not a TRON GasFree wallet" });
+      }
+
+      const amountUsdt = parseFloat(amount);
+      const quote = await getGasFreeQuote(wallet.address);
+      const willReceive = amountUsdt - quote.totalFeeUsdt;
+
+      return res.json({
+        mode:          "gasfree",
+        transferFee:   quote.transferFeeUsdt,
+        activationFee: quote.activationFeeUsdt,
+        totalFee:      quote.totalFeeUsdt,
+        willReceive:   Math.max(0, willReceive),
+        feeExceedsAmount: willReceive <= 0,
+        gasfreeActive: quote.active,
+        allowSubmit:   quote.allowSubmit,
+      });
+    } catch (err: any) {
+      console.error("[gasfree-quote]", err);
+      return res.status(500).json({ error: err.message ?? "Quote failed" });
+    }
+  });
+
   // Check native gas balance before semi-auto payout execution
   app.post("/api/business/shops/:id/payouts/:payoutId/check-gas", requireApiKey, async (req, res) => {
     const user = await getUserFromRequest(req);

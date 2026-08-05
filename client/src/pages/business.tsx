@@ -1773,6 +1773,17 @@ function WalletsTab({ shop, wallets, onRefresh }: { shop: Shop; wallets: Merchan
 
 // ── Payouts tab ───────────────────────────────────────────────────────────────
 
+type GasfreeFormQuote = {
+  mode: "gasfree";
+  transferFee: number;
+  activationFee: number;
+  totalFee: number;
+  willReceive: number;
+  feeExceedsAmount: boolean;
+  gasfreeActive: boolean;
+  allowSubmit: boolean;
+};
+
 function PayoutsTab({ shop, payouts, wallets }: { shop: Shop; payouts: Payout[]; wallets: MerchantWallet[] }) {
   const [showModal, setShowModal] = useState(false);
   const [toAddress, setToAddress] = useState("");
@@ -1781,8 +1792,39 @@ function PayoutsTab({ shop, payouts, wallets }: { shop: Shop; payouts: Payout[];
   const [note, setNote] = useState("");
   const [fromWalletId, setFromWalletId] = useState<number | null>(null);
   const [filter, setFilter] = useState<"all" | "pending" | "processing" | "completed" | "cancelled">("all");
+  const [gasfreeQuote, setGasfreeQuote] = useState<GasfreeFormQuote | null>(null);
+  const [gasfreeQuoteLoading, setGasfreeQuoteLoading] = useState(false);
+  const gasfreeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { toast } = useToast();
   const qc = useQueryClient();
+
+  // Detect if selected wallet is GasFree
+  const selectedWallet = fromWalletId ? wallets.find(w => w.id === fromWalletId) : null;
+  const isGasfreeWallet = selectedWallet?.mode === "gasfree" && selectedWallet?.network === "TRON";
+
+  // Fetch GasFree quote whenever a GasFree wallet + valid amount is set
+  useEffect(() => {
+    if (gasfreeDebounceRef.current) clearTimeout(gasfreeDebounceRef.current);
+    if (!isGasfreeWallet || !fromWalletId || !amount || parseFloat(amount) <= 0) {
+      setGasfreeQuote(null);
+      return;
+    }
+    gasfreeDebounceRef.current = setTimeout(async () => {
+      setGasfreeQuoteLoading(true);
+      try {
+        const r = await fetch(`/api/business/shops/${shop.id}/gasfree-quote`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-api-key": userApiKey() },
+          body: JSON.stringify({ walletId: fromWalletId, amount: parseFloat(amount) }),
+        });
+        const d = await r.json();
+        if (d.error) { setGasfreeQuote(null); }
+        else { setGasfreeQuote(d as GasfreeFormQuote); }
+      } catch { setGasfreeQuote(null); }
+      finally { setGasfreeQuoteLoading(false); }
+    }, 600);
+    return () => { if (gasfreeDebounceRef.current) clearTimeout(gasfreeDebounceRef.current); };
+  }, [isGasfreeWallet, fromWalletId, amount, shop.id]);
 
   const createPayout = useMutation({
     mutationFn: () => apiRequest("POST", `/api/business/shops/${shop.id}/payouts`, {
@@ -1794,10 +1836,15 @@ function PayoutsTab({ shop, payouts, wallets }: { shop: Shop; payouts: Payout[];
       qc.invalidateQueries({ queryKey: ["/api/business/shops", shop.id] });
       toast({ title: "Заявка на выплату создана" });
       setShowModal(false);
-      setToAddress(""); setAmount(""); setNote(""); setFromWalletId(null);
+      setToAddress(""); setAmount(""); setNote(""); setFromWalletId(null); setGasfreeQuote(null);
     },
     onError: (e: any) => toast({ title: "Ошибка", description: e.message, variant: "destructive" }),
   });
+
+  const closeModal = () => {
+    setShowModal(false);
+    setToAddress(""); setAmount(""); setNote(""); setFromWalletId(null); setGasfreeQuote(null);
+  };
 
   const updatePayout = useMutation({
     mutationFn: ({ payoutId, status, txHash }: { payoutId: number; status: string; txHash?: string }) =>
@@ -1865,7 +1912,7 @@ function PayoutsTab({ shop, payouts, wallets }: { shop: Shop; payouts: Payout[];
       {/* Create payout modal */}
       <PremiumModal
         show={showModal}
-        onClose={() => setShowModal(false)}
+        onClose={closeModal}
         title="Новая заявка"
         subtitle={`Баланс: ${parseFloat(shop.balanceUsdt).toFixed(4)} USDT`}
         Icon={ArrowUpRight}
@@ -1875,7 +1922,7 @@ function PayoutsTab({ shop, payouts, wallets }: { shop: Shop; payouts: Payout[];
             <label className="text-xs text-white/40 mb-1.5 block">Сеть</label>
             <select
               value={network}
-              onChange={e => { setNetwork(e.target.value); setFromWalletId(null); }}
+              onChange={e => { setNetwork(e.target.value); setFromWalletId(null); setGasfreeQuote(null); }}
               className={inputCls}
               style={{ appearance: "none", backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23ffffff40' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 14px center" }}
             >
@@ -1912,25 +1959,93 @@ function PayoutsTab({ shop, payouts, wallets }: { shop: Shop; payouts: Payout[];
               <label className="text-xs text-white/40 mb-1.5 block">Кошелёк-источник <span className="text-white/25">(необязательно)</span></label>
               <select
                 value={fromWalletId ?? ""}
-                onChange={e => setFromWalletId(e.target.value ? parseInt(e.target.value) : null)}
+                onChange={e => { setFromWalletId(e.target.value ? parseInt(e.target.value) : null); setGasfreeQuote(null); }}
                 className={inputCls}
                 style={{ appearance: "none", backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23ffffff40' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 14px center" }}
               >
                 <option value="">— Автоматически —</option>
                 {wallets.filter(w => w.network === network).map(w => (
                   <option key={w.id} value={w.id}>
-                    {truncate(w.address, 14)} · {parseFloat(w.balanceUsdt ?? "0").toFixed(4)} USDT
+                    {truncate(w.address, 14)} {w.mode === "gasfree" ? "· GasFree" : ""} · {parseFloat(w.balanceUsdt ?? "0").toFixed(4)} USDT
                   </option>
                 ))}
               </select>
+
+              {/* Wallet balance or GasFree fee preview */}
               {fromWalletId && (() => {
                 const sel = wallets.find(w => w.id === fromWalletId);
-                return sel ? (
+                if (!sel) return null;
+
+                // GasFree: show fee estimate
+                if (sel.mode === "gasfree" && sel.network === "TRON") {
+                  return (
+                    <div className="mt-2 rounded-xl border border-[#3ab368]/20 bg-[#3ab368]/5 overflow-hidden">
+                      {/* Header */}
+                      <div className="flex items-center gap-1.5 px-3 pt-2.5 pb-1">
+                        <Zap className="w-3 h-3 text-[#3ab368]" />
+                        <span className="text-[10px] font-semibold text-[#3ab368] uppercase tracking-wide">GasFree · оценка комиссии</span>
+                        {gasfreeQuoteLoading && <Loader2 className="w-3 h-3 text-white/30 animate-spin ml-auto" />}
+                      </div>
+
+                      {gasfreeQuote && !gasfreeQuoteLoading ? (
+                        <div className="px-3 pb-3 space-y-1.5">
+                          {/* Amount row */}
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-white/50">Сумма выплаты</span>
+                            <span className="text-white/80 font-mono">{parseFloat(amount).toFixed(2)} USDT</span>
+                          </div>
+                          {/* Transfer fee */}
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-white/50">Комиссия за перевод</span>
+                            <span className="text-red-400/80 font-mono">−{gasfreeQuote.transferFee.toFixed(6)} USDT</span>
+                          </div>
+                          {/* Activation fee (only if > 0) */}
+                          {gasfreeQuote.activationFee > 0 && (
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-white/50">Активация аккаунта</span>
+                              <span className="text-orange-400/80 font-mono">−{gasfreeQuote.activationFee.toFixed(6)} USDT</span>
+                            </div>
+                          )}
+                          {/* Divider */}
+                          <div className="border-t border-white/8 my-1" />
+                          {/* Recipient gets */}
+                          {gasfreeQuote.feeExceedsAmount ? (
+                            <div className="flex items-center gap-1.5 text-xs text-red-400">
+                              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                              <span>Комиссия превышает сумму выплаты</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-white/60 font-medium">Получатель получит</span>
+                              <span className="text-[#3ab368] font-bold font-mono">{gasfreeQuote.willReceive.toFixed(6)} USDT</span>
+                            </div>
+                          )}
+                          {/* Provider blocked */}
+                          {!gasfreeQuote.allowSubmit && (
+                            <div className="flex items-center gap-1.5 text-xs text-red-400 mt-1">
+                              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                              <span>Аккаунт заблокирован GasFree провайдером</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : !gasfreeQuoteLoading ? (
+                        <p className="px-3 pb-2.5 text-[11px] text-white/30">
+                          {amount && parseFloat(amount) > 0 ? "Загрузка..." : "Введите сумму для расчёта комиссии"}
+                        </p>
+                      ) : (
+                        <p className="px-3 pb-2.5 text-[11px] text-white/30">Рассчитываем комиссию...</p>
+                      )}
+                    </div>
+                  );
+                }
+
+                // Standard wallet: show balance
+                return (
                   <div className="mt-2 flex items-center justify-between bg-[#3ab368]/8 border border-[#3ab368]/20 rounded-xl px-3 py-2">
                     <span className="text-xs text-white/50">Баланс выбранного кошелька</span>
                     <span className="text-sm font-bold text-[#3ab368]">{parseFloat(sel.balanceUsdt ?? "0").toFixed(4)} USDT</span>
                   </div>
-                ) : null;
+                );
               })()}
             </div>
           )}
@@ -1945,9 +2060,24 @@ function PayoutsTab({ shop, payouts, wallets }: { shop: Shop; payouts: Payout[];
             />
           </div>
 
+          {/* GasFree blocking warning */}
+          {isGasfreeWallet && gasfreeQuote && (gasfreeQuote.feeExceedsAmount || !gasfreeQuote.allowSubmit) && (
+            <div className="flex items-center gap-2 px-3 py-2.5 bg-red-500/8 border border-red-500/20 rounded-xl">
+              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+              <p className="text-xs text-red-400">
+                {!gasfreeQuote.allowSubmit
+                  ? "Выплата невозможна: аккаунт заблокирован GasFree провайдером"
+                  : "Выплата невозможна: комиссия GasFree превышает сумму выплаты"}
+              </p>
+            </div>
+          )}
+
           <button
             onClick={() => createPayout.mutate()}
-            disabled={!toAddress || !amount || createPayout.isPending}
+            disabled={
+              !toAddress || !amount || createPayout.isPending ||
+              (isGasfreeWallet && gasfreeQuote != null && (gasfreeQuote.feeExceedsAmount || !gasfreeQuote.allowSubmit))
+            }
             className="relative w-full py-3.5 rounded-2xl font-semibold text-sm overflow-hidden disabled:opacity-40 transition-opacity"
             style={{ background: "linear-gradient(135deg, #3ab368, #2ea058)" }}
           >
