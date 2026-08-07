@@ -134,7 +134,7 @@ export default function TransferTab({ network, currency, onSuccess }: TransferTa
               <div className="text-sm font-bold text-white/70">{t('common.loading')}</div>
             ) : (
               <div className="font-bold text-white text-base" data-testid="text-balance">
-                {currentBalance} {currentCurrency}
+                {parseFloat(currentBalance).toFixed(2)} {currentCurrency}
               </div>
             )}
           </div>
