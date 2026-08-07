@@ -1,12 +1,18 @@
 /**
- * SendButton — animated GSAP send button for TransferTab.
+ * SendButton — GSAP animated send button.
  *
- * Visual flow:
- *   idle     → green rect, send-plane icon (left) + label text (center-right)
- *   click    → label fades → rect morphs to circle → icon flies arc (MotionPath)
- *              → awaits onSend() + flight completion simultaneously
- *   success  → circle expands back → white tick + "Sent!" appear, then reset
- *   error    → rect flashes red briefly → returns to idle
+ * Faithful port of CodePen abRKeXX using free GSAP plugins only:
+ *   • MotionPathPlugin  (plane flight)
+ *   • strokeDashoffset  (simulates DrawSVGPlugin trail "полоска")
+ *   • attr tween        (simulates MorphSVGPlugin rect→circle→rect)
+ *
+ * Flow:
+ *   idle    → green rect, send-icon (left) + label (centre)
+ *   click   → label scales out → rect morphs to circle
+ *             → route trail draws itself while plane flies the same arc
+ *             → await onSend()
+ *   success → trail fades → circle morphs back to rect → tick + "Sent!" slide in
+ *   error   → rect flashes red → idle
  */
 
 import { useRef, useState, useCallback, useEffect } from "react";
@@ -20,17 +26,28 @@ const VW     = 400;
 const VH     = 64;
 const BTN_RX = 16;
 
-// Circle phase
-const C_R  = VH / 2;
-const C_X  = VW / 2 - C_R;
-const C_W  = VH;
+// Circle (loading) phase — centred in viewBox
+const C_R = VH / 2;          // 32
+const C_X = VW / 2 - C_R;    // 168
+const C_W = VH;               // 64
 
-// Icon idle anchor (center of the send icon)
+// Send-icon idle centre
 const PX = 50;
 const PY = 32;
 
-/* ─────────────────────────────────────────────────────────────────── */
+/*
+ * Flight route — S-curve matching the CodePen spirit:
+ * starts at icon centre (50,32), arcs UP and RIGHT above the button,
+ * loops back DOWN, ends exactly at circle centre (200,32).
+ * overflow="visible" on the outer SVG lets it escape the button bounds.
+ */
+const ROUTE_D =
+  `M ${PX},${PY}` +
+  ` C 115,-62 315,-78 358,20` +
+  ` C 390,82 296,112 226,84` +
+  ` C 156,56 160,40 ${VW / 2},${VH / 2}`;
 
+/* ─────────────────────────────────────────────────────────────────── */
 type BtnState = "idle" | "loading" | "success" | "error";
 
 interface SendButtonProps {
@@ -49,104 +66,146 @@ export default function SendButton({
   const [uiState, setUiState] = useState<BtnState>("idle");
   const stateRef = useRef<BtnState>("idle");
 
-  /* SVG element refs */
-  const btnBaseRef = useRef<SVGRectElement>(null);
-  const txtSendRef = useRef<SVGGElement>(null);
-  const planeGRef  = useRef<SVGGElement>(null);
-  const routeRef   = useRef<SVGPathElement>(null);
-  const tickGRef   = useRef<SVGGElement>(null);
-  const txtSentRef = useRef<SVGTextElement>(null);
+  const btnBaseRef  = useRef<SVGRectElement>(null);
+  const txtSendRef  = useRef<SVGTextElement>(null);
+  const planeGRef   = useRef<SVGGElement>(null);
+  const routeRef    = useRef<SVGPathElement>(null);
+  const tickGRef    = useRef<SVGGElement>(null);
+  const sentGRef    = useRef<SVGGElement>(null);
+  const tlRef       = useRef<gsap.core.Timeline | null>(null);
+  const tl2Ref      = useRef<gsap.core.Timeline | null>(null);
 
-  const tlRef      = useRef<gsap.core.Timeline | null>(null);
-  const tl2Ref     = useRef<gsap.core.Timeline | null>(null);
-
-  /* ── reset ─────────────────────────────────────────────────────── */
+  /* ── reset to idle ────────────────────────────────────────────── */
   const reset = useCallback(() => {
     tlRef.current?.kill();
     tl2Ref.current?.kill();
-    tlRef.current = null;
-    tl2Ref.current = null;
 
-    const r   = btnBaseRef.current;
-    const ts  = txtSendRef.current;
-    const pg  = planeGRef.current;
-    const rt  = routeRef.current;
-    const tk  = tickGRef.current;
-    const tst = txtSentRef.current;
+    const r  = btnBaseRef.current;
+    const ts = txtSendRef.current;
+    const pg = planeGRef.current;
+    const rt = routeRef.current;
+    const tk = tickGRef.current;
+    const sg = sentGRef.current;
 
-    if (r)   gsap.set(r,   { attr: { x: 0, y: 0, width: VW, height: VH, rx: BTN_RX }, fill: "#3ab368" });
-    if (ts)  gsap.set(ts,  { opacity: 1, scale: 1, x: 0, y: 0 });
-    if (pg)  gsap.set(pg,  { x: 0, y: 0, rotation: 0, opacity: 1, clearProps: "transform,motionPath" });
-    if (tk)  gsap.set(tk,  { opacity: 0, scale: 0.8, transformOrigin: "50% 50%" });
-    if (tst) gsap.set(tst, { opacity: 0 });
-    if (rt)  gsap.set(rt,  { opacity: 0 });
+    if (r)  gsap.set(r,  { attr: { x: 0, y: 0, width: VW, height: VH, rx: BTN_RX }, fill: "#3ab368" });
+    if (ts) gsap.set(ts, { opacity: 1, scale: 1, transformOrigin: "50% 50%" });
+    if (pg) gsap.set(pg, { opacity: 1, x: 0, y: 0, rotation: 0, clearProps: "transform,motionPath" });
+    if (rt) gsap.set(rt, { opacity: 0, strokeDashoffset: 1, strokeDasharray: "0 99999" });
+    if (tk) gsap.set(tk, { opacity: 0, scale: 0.6, transformOrigin: "50% 50%" });
+    if (sg) gsap.set(sg, { opacity: 0, x: 20 });
 
     stateRef.current = "idle";
     setUiState("idle");
   }, []);
 
-  useEffect(() => () => {
-    tlRef.current?.kill();
-    tl2Ref.current?.kill();
-  }, []);
+  useEffect(() => () => { tlRef.current?.kill(); tl2Ref.current?.kill(); }, []);
 
-  /* ── click ─────────────────────────────────────────────────────── */
+  /* ── click handler ────────────────────────────────────────────── */
   const handleClick = useCallback(async () => {
     if (disabled || stateRef.current !== "idle") return;
     stateRef.current = "loading";
     setUiState("loading");
 
-    const r   = btnBaseRef.current;
-    const ts  = txtSendRef.current;
-    const pg  = planeGRef.current;
-    const rt  = routeRef.current;
-    const tk  = tickGRef.current;
-    const tst = txtSentRef.current;
+    const r  = btnBaseRef.current;
+    const ts = txtSendRef.current;
+    const pg = planeGRef.current;
+    const rt = routeRef.current;
+    const tk = tickGRef.current;
+    const sg = sentGRef.current;
 
-    /* Phase 1 — morph + flight */
+    /* measure trail length */
+    const pathLen = rt?.getTotalLength?.() ?? 320;
+
+    /* set up trail for drawing */
+    if (rt) {
+      gsap.set(rt, {
+        opacity: 1,
+        strokeDasharray: `${pathLen} ${pathLen}`,
+        strokeDashoffset: pathLen,   // nothing visible yet
+      });
+    }
+
+    /* ── Phase 1: morph + fly + draw trail ─────────────────────── */
     const tl = gsap.timeline({ paused: true });
     tlRef.current = tl;
 
-    // Fade label
-    if (ts) tl.to(ts, { opacity: 0, scale: 0.94, transformOrigin: "50% 50%", duration: 0.18, ease: "power2.in" }, 0);
+    // Scale-out label
+    if (ts) tl.to(ts, { opacity: 0, scale: 0, transformOrigin: "50% 50%", duration: 0.35, ease: "power2.in" }, 0);
 
-    // Rect → circle
-    if (r) tl.to(r, { attr: { x: C_X, y: 0, width: C_W, height: VH, rx: C_R }, duration: 0.42, ease: "power2.inOut" }, 0.06);
+    // Rect → circle  (two-step for squish feel like original)
+    if (r) {
+      tl.to(r, {
+        attr: { x: C_X, y: 0, width: C_W, height: VH, rx: C_R },
+        duration: 0.55, ease: "power2.inOut",
+      }, 0.05);
+    }
 
-    // Fly icon along arc
+    // ── "Полоска" — trail draws itself along the route ──
+    // Mirrors the CodePen: drawSVG "0%→80%" then "80%→100%" (erase)
+    // We do: dashoffset pathLen→0 (draw) over flight duration,
+    //        then erase quickly before success reveal.
+    if (rt) {
+      tl.to(rt, {
+        strokeDashoffset: 0,
+        duration: 1.05,
+        ease: "power1.inOut",
+      }, 0.25);
+    }
+
+    // Plane flies along the same route
     if (pg && rt) {
-      gsap.set(rt, { opacity: 0 });
       tl.to(pg, {
-        duration: 0.72,
-        ease: "power2.inOut",
+        duration: 1.05,
+        ease: "power1.inOut",
+        immediateRender: true,
         motionPath: {
           path: rt,
           align: rt,
           alignOrigin: [0.5, 0.5],
-          autoRotate: true,
+          autoRotate: 90,
         },
-      }, 0.22);
+      }, 0.25);
     }
 
-    // Fade icon out as it "enters" the circle
-    if (pg) tl.to(pg, { opacity: 0, duration: 0.15 }, 0.22 + 0.57);
+    // Plane flashes white while in flight (CodePen: fill→#fff then back)
+    if (pg) {
+      tl.to(pg.querySelectorAll("path, line"), { fill: "#ffffff", stroke: "#ffffff", duration: 0.15 }, 0.25);
+      tl.to(pg.querySelectorAll("path, line"), { fill: "#ffffff", stroke: "#ffffff", duration: 0.15 }, 0.25 + 0.77);
+    }
+
+    // Fade plane out as it reaches circle
+    if (pg) tl.to(pg, { opacity: 0, duration: 0.18 }, 0.25 + 0.87);
 
     const flightDone = new Promise<void>((res) => tl.eventCallback("onComplete", res));
     tl.play();
 
-    /* Await both send + flight */
+    /* ── await send + flight ────────────────────────────────────── */
     try {
       await Promise.all([onSend(), flightDone]);
 
       stateRef.current = "success";
       setUiState("success");
 
-      const tl2 = gsap.timeline({ onComplete: () => setTimeout(reset, 2000) });
+      const tl2 = gsap.timeline({ onComplete: () => setTimeout(reset, 2200) });
       tl2Ref.current = tl2;
 
-      if (r)   tl2.to(r,   { attr: { x: 0, y: 0, width: VW, height: VH, rx: BTN_RX }, duration: 0.32, ease: "power2.out" }, 0);
-      if (tk)  tl2.to(tk,  { opacity: 1, scale: 1, transformOrigin: "50% 50%", duration: 0.22, ease: "power2.out" }, 0.22);
-      if (tst) tl2.to(tst, { opacity: 1, duration: 0.18 }, 0.28);
+      // Erase trail
+      if (rt) tl2.to(rt, { opacity: 0, duration: 0.2 }, 0);
+
+      // Circle → rect  (CodePen: morphSVG "#cEnd" slides left then reveals "Sent!")
+      if (r)  tl2.to(r, {
+        attr: { x: 0, y: 0, width: VW, height: VH, rx: BTN_RX },
+        duration: 0.42, ease: "power2.out",
+      }, 0.1);
+
+      // Tick appears
+      if (tk) tl2.to(tk, {
+        opacity: 1, scale: 1, transformOrigin: "50% 50%",
+        duration: 0.3, ease: "back.out(1.8)",
+      }, 0.36);
+
+      // "Sent!" slides in from right (clip-path slide like original)
+      if (sg) tl2.to(sg, { opacity: 1, x: 0, duration: 0.3, ease: "power2.out" }, 0.42);
 
       tl2.play();
     } catch {
@@ -155,12 +214,15 @@ export default function SendButton({
 
       tlRef.current?.kill();
       const errTl = gsap.timeline({ onComplete: reset });
-      if (r) {
-        errTl.to(r, { attr: { x: 0, y: 0, width: VW, height: VH, rx: BTN_RX }, fill: "#ef4444", duration: 0.28, ease: "power2.out" }, 0);
-        errTl.to(r, { fill: "#3ab368", duration: 0.4 }, 1.0);
-      }
-      if (ts) errTl.to(ts, { opacity: 1, scale: 1, transformOrigin: "50% 50%", duration: 0.22 }, 0.12);
-      if (pg) errTl.to(pg, { opacity: 0, duration: 0.12 }, 0);
+
+      if (rt) errTl.to(rt, { opacity: 0, duration: 0.15 }, 0);
+      if (pg) errTl.to(pg, { opacity: 0, duration: 0.15 }, 0);
+      if (r)  errTl.to(r, {
+        attr: { x: 0, y: 0, width: VW, height: VH, rx: BTN_RX },
+        fill: "#ef4444", duration: 0.28, ease: "power2.out",
+      }, 0);
+      if (r)  errTl.to(r, { fill: "#3ab368", duration: 0.45 }, 1.0);
+      if (ts) errTl.to(ts, { opacity: 1, scale: 1, transformOrigin: "50% 50%", duration: 0.25 }, 0.15);
     }
   }, [disabled, onSend, reset]);
 
@@ -182,17 +244,24 @@ export default function SendButton({
         className="w-full h-full block"
         overflow="visible"
       >
-        {/* Hidden flight arc */}
+        {/*
+          ── Flight route + trail ("полоска") ─────────────────────
+          Starts hidden (opacity:0, dasharray:0).
+          On click: dashoffset animates pathLen→0 in sync with the
+          plane, drawing the trail stroke as the plane flies.
+        */}
         <path
           ref={routeRef}
-          d={`M ${PX},${PY}
-              C ${PX + 40},-50  ${VW * 0.58},-58  ${VW / 2},${VH / 2}
-              C ${VW * 0.55},${VH + 38}  ${VW * 0.72},-28  ${VW / 2},${VH / 2}`}
+          d={ROUTE_D}
+          stroke="rgba(255,255,255,0.55)"
+          strokeWidth="1.8"
+          strokeLinecap="round"
           fill="none"
           opacity="0"
+          strokeDasharray="0 99999"
         />
 
-        {/* Button base */}
+        {/* ── Button base ── morphs rect → circle → rect */}
         <rect
           ref={btnBaseRef}
           x="0" y="0"
@@ -202,26 +271,24 @@ export default function SendButton({
           opacity={disabled && uiState === "idle" ? 0.45 : 1}
         />
 
-        {/* Send label */}
-        <g ref={txtSendRef}>
-          <text
-            x={VW / 2 + 22}
-            y={VH / 2 + 6}
-            textAnchor="middle"
-            fill="#ffffff"
-            fontFamily="system-ui, -apple-system, sans-serif"
-            fontSize="16"
-            fontWeight="700"
-            letterSpacing="0.04em"
-          >
-            {uiState === "idle" || uiState === "error" ? label : ""}
-          </text>
-        </g>
+        {/* ── Send label ── */}
+        <text
+          ref={txtSendRef}
+          x={VW / 2 + 22}
+          y={VH / 2 + 6}
+          textAnchor="middle"
+          fill="#ffffff"
+          fontFamily="system-ui, -apple-system, sans-serif"
+          fontSize="16"
+          fontWeight="700"
+          letterSpacing="0.04em"
+        >
+          {uiState === "idle" || uiState === "error" ? label : ""}
+        </text>
 
         {/*
-          Send icon — centered at (PX, PY) = (50, 32).
-          Nested SVG scales the 682.667×682.667 original to 28×28,
-          positioned so its center lands on (PX, PY).
+          ── Send icon (user-provided SVG), centred at (PX, PY) ──
+          The group is animated by MotionPathPlugin during flight.
         */}
         <g
           ref={planeGRef}
@@ -244,12 +311,10 @@ export default function SendButton({
               strokeLinejoin="round"
               strokeMiterlimit="10"
             >
-              {/* Main send body */}
               <path
                 transform="translate(489.325 437.607)"
                 d="m 0 0 -141.421 -367.695 a 39.9 39.9 0 0 0 -9.051 -13.902 c -15.621 -15.621 -40.947 -15.621 -56.569 0 A 39.8 39.8 0 0 0 -217.39 -363.7 l -35.869 133.912 a 39.8 39.8 0 0 1 -10.35 17.897 a 39.8 39.8 0 0 1 -17.896 10.349 l -133.913 35.87 a 39.8 39.8 0 0 0 -17.896 10.349 c -15.622 15.621 -15.622 40.948 0 56.569 a 39.8 39.8 0 0 0 13.901 9.05 L -51.718 51.718 c 14.303 5.502 31.132 2.485 42.668 -9.051 S 5.502 14.303 0 0"
               />
-              {/* Corner spark lines */}
               <path transform="translate(104.853 104.853)" d="m 0 0 -84.853 -84.853" />
               <path transform="translate(189.706 76.568)"  d="m 0 0 -56.568 -56.568" />
               <path transform="translate(76.568 189.706)"  d="m 0 0 -56.568 -56.568" />
@@ -258,33 +323,36 @@ export default function SendButton({
           </svg>
         </g>
 
-        {/* Checkmark (success) */}
+        {/* ── Checkmark (success) ── */}
         <g ref={tickGRef} opacity="0">
           <path
-            d="M 162 32 L 170 40 L 186 24"
+            d="M 156 33 L 166 43 L 184 23"
             stroke="#ffffff"
-            strokeWidth="3.5"
+            strokeWidth="4"
             strokeLinecap="round"
             strokeLinejoin="round"
             fill="none"
           />
         </g>
 
-        {/* "Sent!" text (success) */}
-        <text
-          ref={txtSentRef}
-          x="218"
-          y="38"
-          textAnchor="middle"
-          fill="#ffffff"
-          fontFamily="system-ui, -apple-system, sans-serif"
-          fontSize="16"
-          fontWeight="700"
-          letterSpacing="0.04em"
-          opacity="0"
-        >
-          Sent!
-        </text>
+        {/*
+          ── "Sent!" group — slides in from right on success ──
+          Mirrors the CodePen clip-path reveal of #rectSentItems.
+        */}
+        <g ref={sentGRef} opacity="0">
+          <text
+            x="222"
+            y="38"
+            textAnchor="middle"
+            fill="#ffffff"
+            fontFamily="system-ui, -apple-system, sans-serif"
+            fontSize="16"
+            fontWeight="700"
+            letterSpacing="0.04em"
+          >
+            Sent!
+          </text>
+        </g>
       </svg>
     </button>
   );
