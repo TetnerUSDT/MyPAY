@@ -1591,6 +1591,45 @@ export function registerBusinessRoutes(app: Express) {
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
+  // Get shop invoices
+  app.get("/api/business/shops/:id/invoices", requireApiKey, async (req, res) => {
+    const user = await getUserFromRequest(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const shopId = parseInt(req.params.id);
+    try {
+      const [shop] = await db.select().from(merchantShops).where(and(eq(merchantShops.id, shopId), eq(merchantShops.userId, user.id))).limit(1);
+      if (!shop) return res.status(404).json({ error: "Shop not found" });
+      const rows = await db.execute(sql`
+        SELECT id, invoice_number, order_ref, amount, currency, networks, status,
+               wallet_address, network_chosen, amount_received, tx_hash,
+               UNIX_TIMESTAMP(expires_at) AS expires_at_unix,
+               UNIX_TIMESTAMP(confirmed_at) AS confirmed_at_unix,
+               UNIX_TIMESTAMP(created_at) AS created_at_unix
+        FROM merchant_invoices
+        WHERE shop_id = ${shopId}
+        ORDER BY id DESC
+        LIMIT 200
+      `);
+      const invoices = (rows[0] as any[]).map((r: any) => ({
+        id: r.id,
+        invoiceNumber: r.invoice_number,
+        orderRef: r.order_ref ?? null,
+        amount: r.amount,
+        currency: r.currency,
+        networks: r.networks ? JSON.parse(r.networks) : [],
+        status: r.status,
+        walletAddress: r.wallet_address ?? null,
+        networkChosen: r.network_chosen ?? null,
+        amountReceived: r.amount_received ?? null,
+        txHash: r.tx_hash ?? null,
+        expiresAt: r.expires_at_unix ? new Date(Number(r.expires_at_unix) * 1000).toISOString() : null,
+        confirmedAt: r.confirmed_at_unix ? new Date(Number(r.confirmed_at_unix) * 1000).toISOString() : null,
+        createdAt: r.created_at_unix ? new Date(Number(r.created_at_unix) * 1000).toISOString() : null,
+      }));
+      res.json(invoices);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
   // Get shop payout requests
   app.get("/api/business/shops/:id/payouts", requireApiKey, async (req, res) => {
     const user = await getUserFromRequest(req);

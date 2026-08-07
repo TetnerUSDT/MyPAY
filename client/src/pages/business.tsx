@@ -106,6 +106,23 @@ interface Payout {
   createdAt: string;
 }
 
+interface Invoice {
+  id: number;
+  invoiceNumber: string;
+  orderRef: string | null;
+  amount: string;
+  currency: string;
+  networks: string[];
+  status: string;
+  walletAddress: string | null;
+  networkChosen: string | null;
+  amountReceived: string | null;
+  txHash: string | null;
+  expiresAt: string | null;
+  confirmedAt: string | null;
+  createdAt: string | null;
+}
+
 interface MerchantWallet {
   id: number;
   shopId: number;
@@ -148,17 +165,21 @@ function parseNetworks(raw: string | null): string[] {
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; color: string }> = {
-    pending:    { label: "Ожидает проверки", color: "#e9c46a" },
-    active:     { label: "Активен",          color: "#3ab368" },
-    rejected:   { label: "Отклонён",         color: "#ef4444" },
-    suspended:  { label: "Приостановлен",    color: "#f97316" },
-    confirmed:  { label: "Подтверждён",      color: "#3ab368" },
-    processing: { label: "В обработке",      color: "#e9c46a" },
-    completed:  { label: "Выполнен",         color: "#3ab368" },
-    cancelled:  { label: "Отменён",          color: "#ef4444" },
-    reserved:   { label: "Зарезервирован",   color: "#6366f1" },
-    permanent:  { label: "Постоянный",       color: "#3ab368" },
-    excluded:   { label: "Исключён",         color: "#94a3b8" },
+    pending:         { label: "Ожидание",        color: "#e9c46a" },
+    active:          { label: "Активен",          color: "#3ab368" },
+    rejected:        { label: "Отклонён",         color: "#ef4444" },
+    suspended:       { label: "Приостановлен",    color: "#f97316" },
+    confirmed:       { label: "Подтверждён",      color: "#3ab368" },
+    processing:      { label: "В обработке",      color: "#e9c46a" },
+    completed:       { label: "Выполнен",         color: "#3ab368" },
+    cancelled:       { label: "Отменён",          color: "#ef4444" },
+    reserved:        { label: "Зарезервирован",   color: "#6366f1" },
+    permanent:       { label: "Постоянный",       color: "#3ab368" },
+    excluded:        { label: "Исключён",         color: "#94a3b8" },
+    expired:         { label: "Истёк",            color: "#94a3b8" },
+    failed:          { label: "Ошибка",           color: "#ef4444" },
+    partially_paid:  { label: "Частично",         color: "#06b6d4" },
+    closed:          { label: "Закрыт",           color: "#64748b" },
   };
   const s = map[status] ?? { label: status, color: "#ffffff55" };
   return (
@@ -1023,7 +1044,7 @@ function ShopCard({ shop, onSelect }: { shop: Shop; onSelect: () => void }) {
 
 // ── Shop detail view ──────────────────────────────────────────────────────────
 
-type ShopTab = "overview" | "payments" | "payouts" | "wallets" | "settings";
+type ShopTab = "overview" | "payments" | "invoices" | "payouts" | "wallets" | "settings";
 
 function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => void }) {
   const [tab, setTab] = useState<ShopTab>("overview");
@@ -1100,6 +1121,13 @@ function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => v
     refetchInterval: tab === "payments" ? 30000 : false,
   });
 
+  const { data: invoices = [] } = useQuery<Invoice[]>({
+    queryKey: ["/api/business/invoices", shop.id],
+    queryFn: () => fetchBusiness(`/api/business/shops/${shop.id}/invoices`),
+    enabled: tab === "invoices",
+    refetchInterval: tab === "invoices" ? 30000 : false,
+  });
+
   const { data: payouts = [] } = useQuery<Payout[]>({
     queryKey: ["/api/business/payouts", shop.id],
     queryFn: () => fetchBusiness(`/api/business/shops/${shop.id}/payouts`),
@@ -1125,6 +1153,7 @@ function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => v
   const TABS: { id: ShopTab; label: string; color: string }[] = [
     { id: "overview",  label: "Обзор",     color: "#3b82f6" },
     { id: "payments",  label: "Платежи",   color: "#f59e0b" },
+    { id: "invoices",  label: "Инвойсы",   color: "#06b6d4" },
     { id: "payouts",   label: "Выплаты",   color: "#8b5cf6" },
     { id: "wallets",   label: "Кошельки",  color: "#3ab368" },
     { id: "settings",  label: "Настройки", color: "#64748b" },
@@ -1343,6 +1372,11 @@ function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => v
         {/* ── Payments ── */}
         {tab === "payments" && (
           <PaymentsTab shop={shop} payments={payments} />
+        )}
+
+        {/* ── Invoices ── */}
+        {tab === "invoices" && (
+          <InvoicesTab shop={shop} invoices={invoices} />
         )}
 
         {/* ── Payouts ── */}
@@ -1621,6 +1655,150 @@ function PaymentsTab({ shop, payments }: { shop: Shop; payments: Payment[] }) {
               )}
             </PremiumCard>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Invoices tab ──────────────────────────────────────────────────────────────
+
+function InvoicesTab({ shop, invoices }: { shop: Shop; invoices: Invoice[] }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [filter, setFilter] = useState<"all" | "pending" | "partially_paid" | "confirmed" | "expired">("all");
+
+  const copyLink = (inv: Invoice) => {
+    const base = window.location.origin;
+    const url = `${base}/pay/${inv.invoiceNumber}`;
+    navigator.clipboard.writeText(url).then(() =>
+      toast({ title: "Ссылка скопирована" })
+    );
+  };
+
+  const filtered = filter === "all" ? invoices : invoices.filter(i => i.status === filter);
+  const counts = {
+    pending:       invoices.filter(i => i.status === "pending").length,
+    partially_paid: invoices.filter(i => i.status === "partially_paid").length,
+    confirmed:     invoices.filter(i => i.status === "confirmed").length,
+    expired:       invoices.filter(i => i.status === "expired").length,
+  };
+
+  return (
+    <div className="space-y-3">
+      <FilterPills
+        options={[
+          { id: "all" as const,           label: "Все",        count: invoices.length },
+          { id: "pending" as const,        label: "Ожидание",   count: counts.pending },
+          { id: "partially_paid" as const, label: "Частично",   count: counts.partially_paid },
+          { id: "confirmed" as const,      label: "Оплачен",    count: counts.confirmed },
+          { id: "expired" as const,        label: "Истёк",      count: counts.expired },
+        ]}
+        value={filter}
+        onChange={setFilter}
+      />
+
+      {filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-white/30">
+          <FileText className="w-10 h-10 mb-3 opacity-30" />
+          <p className="text-sm">{filter === "all" ? "Инвойсов пока нет" : "Нет инвойсов в этой категории"}</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          {filtered.map(inv => {
+            const explorerUrl = inv.txHash && inv.networkChosen ? getTxExplorerUrl(inv.networkChosen, inv.txHash) : null;
+            return (
+              <PremiumCard key={inv.id}>
+                {/* Header row */}
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-bold text-white/50 font-mono">{inv.invoiceNumber}</span>
+                      <StatusBadge status={inv.status} />
+                    </div>
+                    {/* Networks */}
+                    <div className="flex flex-wrap gap-1">
+                      {inv.networks.map(net => (
+                        <span key={net} className={`text-[9px] font-mono px-1.5 py-0.5 rounded-md ${
+                          inv.networkChosen === net
+                            ? "bg-[#06b6d4]/20 text-[#06b6d4]"
+                            : "bg-white/5 text-white/30"
+                        }`}>{net}</span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Amount */}
+                  <div className="text-right flex-shrink-0 ml-2">
+                    <div className="text-base font-bold text-[#3ab368]">
+                      {inv.amountReceived
+                        ? parseFloat(inv.amountReceived).toFixed(4)
+                        : parseFloat(inv.amount).toFixed(4)}
+                    </div>
+                    {inv.amountReceived && parseFloat(inv.amountReceived) < parseFloat(inv.amount) && (
+                      <div className="text-[9px] text-white/25">из {parseFloat(inv.amount).toFixed(4)}</div>
+                    )}
+                    <div className="text-[10px] text-white/30 mt-0.5">{inv.currency}</div>
+                  </div>
+                </div>
+
+                {/* Pending timer + copy link */}
+                {(inv.status === "pending" || inv.status === "partially_paid") && (
+                  <div className="flex items-center justify-between mb-2 bg-white/3 rounded-xl px-2.5 py-1.5">
+                    <PaymentTimer expiresAt={inv.expiresAt ?? null} />
+                    <button
+                      onClick={() => copyLink(inv)}
+                      className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg bg-[#06b6d4]/15 text-[#06b6d4] hover:bg-[#06b6d4]/25 transition-colors"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      Ссылка
+                    </button>
+                  </div>
+                )}
+
+                {/* No network chosen yet */}
+                {inv.status === "pending" && !inv.networkChosen && !inv.walletAddress && (
+                  <div className="text-[10px] text-white/25 bg-white/3 rounded-xl px-2.5 py-1.5 mb-2">
+                    Ждёт выбора сети клиентом
+                  </div>
+                )}
+
+                {/* Wallet address */}
+                {inv.walletAddress && (
+                  <div className="text-[10px] text-white/30 font-mono bg-black/30 border border-white/5 rounded-lg px-2.5 py-1.5 flex justify-between items-center">
+                    <span className="truncate">{truncate(inv.walletAddress, 20)}</span>
+                    <CopyButton text={inv.walletAddress} />
+                  </div>
+                )}
+
+                {/* tx hash */}
+                {inv.txHash && (
+                  <div className="text-[10px] text-[#3ab368]/60 font-mono mt-1.5 truncate flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 flex-shrink-0" />
+                    {explorerUrl ? (
+                      <a href={explorerUrl} target="_blank" rel="noopener noreferrer"
+                        className="hover:text-[#3ab368] underline underline-offset-2 decoration-dotted transition-colors">
+                        {truncate(inv.txHash, 24)}
+                      </a>
+                    ) : (
+                      truncate(inv.txHash, 24)
+                    )}
+                  </div>
+                )}
+
+                {/* Confirmed at */}
+                {inv.confirmedAt && (
+                  <div className="text-[10px] text-white/30 mt-1">✓ {formatDate(inv.confirmedAt)}</div>
+                )}
+
+                {/* order_ref + created_at */}
+                <div className="text-[9px] text-white/20 mt-1.5 flex gap-2 flex-wrap">
+                  {inv.orderRef && <span>order: {inv.orderRef}</span>}
+                  {inv.createdAt && <span>{formatDate(inv.createdAt)}</span>}
+                </div>
+              </PremiumCard>
+            );
+          })}
         </div>
       )}
     </div>
