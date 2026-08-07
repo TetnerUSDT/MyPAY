@@ -681,6 +681,91 @@ x-shop-key: ${key}
         )}
       </div>
 
+      {/* Endpoint 5: payout */}
+      <div className="bg-[#0D1117] border border-white/8 rounded-2xl overflow-hidden">
+        <button onClick={() => toggle("payout")} className="w-full flex items-center gap-3 p-4 text-left hover:bg-white/3 transition-colors">
+          <EndpointTag method="POST" />
+          <code className="text-xs text-white/80 flex-1">/api/merchant/payout</code>
+          <ChevronLeft className={`w-4 h-4 text-white/30 transition-transform ${open === "payout" ? "-rotate-90" : "rotate-90"}`} />
+        </button>
+        {open === "payout" && (
+          <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
+            <p className="text-[11px] text-white/50 leading-relaxed">
+              Создаёт запрос на выплату со счёта магазина на внешний адрес. Запрос ставится в очередь и обрабатывается администратором или автоматически. При завершении отправляется вебхук <code className="text-white/70 bg-white/8 px-1 py-0.5 rounded">payout.completed</code>.
+            </p>
+
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Тело запроса</div>
+              <CodeBlock>{`{
+  "to_address": "TRX7xKp...",    // адрес получателя
+  "network":    "TRON",          // сеть (TRON, BSC, TON, ETH, ...)
+  "amount":     50.00,           // сумма к выплате
+  "currency":   "USDT",          // по умолчанию USDT
+  "order_id":   "withdraw_789"   // ваш идентификатор (опционально)
+}`}</CodeBlock>
+            </div>
+
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Ответ (успех)</div>
+              <CodeBlock>{`{
+  "ok":        true,
+  "payout_id": 18,                // ID запроса в системе
+  "reference": "API-withdraw_789" // ссылочный номер для отслеживания
+}`}</CodeBlock>
+            </div>
+
+            <div className="bg-[#e9c46a]/5 border border-[#e9c46a]/15 rounded-xl p-3">
+              <p className="text-[10px] text-white/40 leading-relaxed">
+                <strong className="text-[#e9c46a]">Важно:</strong> выплата выполняется только если на балансе магазина достаточно средств и магазин имеет статус <code className="text-white/60">active</code>. Статус выполнения отслеживайте через вебхук <code className="text-white/60">payout.completed</code>.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Endpoint 6: invoice select-network */}
+      <div className="bg-[#0D1117] border border-white/8 rounded-2xl overflow-hidden">
+        <button onClick={() => toggle("invoice-network")} className="w-full flex items-center gap-3 p-4 text-left hover:bg-white/3 transition-colors">
+          <EndpointTag method="POST" />
+          <code className="text-xs text-white/80 flex-1">/api/merchant/invoice/:number/select-network</code>
+          <ChevronLeft className={`w-4 h-4 text-white/30 transition-transform ${open === "invoice-network" ? "-rotate-90" : "rotate-90"}`} />
+        </button>
+        {open === "invoice-network" && (
+          <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
+            <p className="text-[11px] text-white/50 leading-relaxed">
+              Второй шаг при работе с инвойсом в режиме <code className="text-white/70 bg-white/8 px-1 py-0.5 rounded">invoice</code>. Клиент выбирает, в какой сети он хочет оплатить. Возвращает конкретный адрес кошелька и таймер истечения. Не требует заголовка <code className="text-white/70 bg-white/8 px-1 py-0.5 rounded">x-shop-key</code> — работает только по публичному номеру инвойса.
+            </p>
+
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">URL-параметр</div>
+              <CodeBlock>{`number  — номер инвойса, полученный при создании (invoice_number)`}</CodeBlock>
+            </div>
+
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Тело запроса</div>
+              <CodeBlock>{`{
+  "network": "TRON"   // выбранная клиентом сеть; TRON_GF для GasFree
+}`}</CodeBlock>
+            </div>
+
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Ответ</div>
+              <CodeBlock>{`{
+  "address":    "TXkP9...",              // адрес для оплаты
+  "network":    "TRON",
+  "expires_at": "2025-01-15T12:30:00Z"  // ISO-8601, время истечения
+}`}</CodeBlock>
+            </div>
+
+            <div className="bg-white/3 border border-white/8 rounded-xl p-3">
+              <p className="text-[10px] text-white/40 leading-relaxed">
+                После выбора сети система запускает сканер и начинает ожидать входящую транзакцию на адрес. Повторный вызов с тем же инвойсом вернёт уже зарезервированный адрес без создания нового.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Networks reference */}
       <div className="bg-[#0D1117] border border-white/8 rounded-2xl overflow-hidden">
         <button onClick={() => toggle("networks")} className="w-full flex items-center gap-3 p-4 text-left hover:bg-white/3 transition-colors">
@@ -781,6 +866,21 @@ x-shop-key: ${key}
   "tx_hash":         "abc123..."
 }`}</CodeBlock>
             </div>
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">payout.completed (выплата выполнена)</div>
+              <CodeBlock>{`{
+  "event":      "payout.completed",
+  "payout_id":  18,
+  "order_id":   "withdraw_789",
+  "to_address": "TRX7xKp...",
+  "amount":     50.00,
+  "currency":   "USDT",
+  "network":    "TRON",
+  "tx_hash":    "abc123...",
+  "reference":  "API-withdraw_789"
+}`}</CodeBlock>
+            </div>
+
             <div className="bg-[#e9c46a]/5 border border-[#e9c46a]/15 rounded-xl p-3">
               <p className="text-[10px] text-white/40 leading-relaxed">
                 <strong className="text-[#e9c46a]">Важно:</strong> Ваш сервер должен ответить кодом <code className="text-white/60">200 OK</code>. Настройте Webhook URL в разделе <strong className="text-white/60">Настройки</strong> магазина.
