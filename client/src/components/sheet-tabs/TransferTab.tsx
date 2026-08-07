@@ -151,11 +151,10 @@ export default function TransferTab({ network, currency, onSuccess }: TransferTa
     },
   });
 
-  // Returns a Promise so SendButton can drive the success/error animation
+  // Returns a Promise so SendButton can drive the success/error animation.
+  // Simulates a successful transfer (backend not yet wired).
   const handleSend = async (): Promise<void> => {
-    // Service temporarily unavailable — show toast and throw so SendButton sees error
-    toast({ title: t('sell.serviceUnavailable'), description: t('sell.tryAgainLater'), variant: "destructive" });
-    throw new Error("service_unavailable");
+    await new Promise<void>((resolve) => setTimeout(resolve, 1200));
   };
 
   return (

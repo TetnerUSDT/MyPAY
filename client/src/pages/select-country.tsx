@@ -46,7 +46,7 @@ export default function SelectCountryScreen() {
               </div>
             ) : (
               cryptoRates.map((rate) => (
-                <Link key={rate.id} href={`/exchange?mode=crypto&from=${rate.fromBalanceId}&to=${rate.toBalanceId}`}>
+                <Link key={rate.id} href={`/wallet?sheet=exchange`}>
                   <div 
                     className="crypto-card cursor-pointer hover:opacity-90 transition-all mb-[15px]"
                     data-testid={`crypto-rate-${rate.id}`}

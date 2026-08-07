@@ -391,8 +391,8 @@ export default function ExchangeTab({ onSuccess }: ExchangeTabProps) {
           </div>
         )}
 
-        {/* Speed mode */}
-        <div className="pt-1">
+        {/* Speed mode — temporarily hidden */}
+        {/* <div className="pt-1">
           <div className="text-[11px] text-white/40 font-bold uppercase tracking-wider mb-2 px-1">Processing Speed</div>
           <div className="flex gap-1.5">
             {SPEED_MODES.map((mode) => (
@@ -416,7 +416,7 @@ export default function ExchangeTab({ onSuccess }: ExchangeTabProps) {
               </button>
             ))}
           </div>
-        </div>
+        </div> */}
 
         {/* Card selection — bank mode only */}
         {!isCryptoMode && (

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import TopUpTab from "@/components/sheet-tabs/TopUpTab";
 import TransferTab from "@/components/sheet-tabs/TransferTab";
 import ExchangeTab from "@/components/sheet-tabs/ExchangeTab";
@@ -15,11 +16,7 @@ interface WalletBottomSheetProps {
   currency?: string;
 }
 
-const TAB_LABELS: [Tab, string][] = [
-  ["topup", "Пополнить"],
-  ["transfer", "Перевести"],
-  ["exchange", "Обмен"],
-];
+const TAB_KEYS: Tab[] = ["topup", "transfer", "exchange"];
 
 export default function WalletBottomSheet({
   isOpen,
@@ -28,6 +25,7 @@ export default function WalletBottomSheet({
   network,
   currency,
 }: WalletBottomSheetProps) {
+  const { t } = useTranslation();
   const backdropRef = useRef<HTMLDivElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -123,7 +121,7 @@ export default function WalletBottomSheet({
                 }}
               />
 
-              {TAB_LABELS.map(([id, label]) => (
+              {TAB_KEYS.map((id) => (
                 <button
                   key={id}
                   data-tab={id}
@@ -132,7 +130,7 @@ export default function WalletBottomSheet({
                     tab === id ? "font-semibold text-white" : "text-white/[.38] hover:text-white/60"
                   }`}
                 >
-                  {label}
+                  {t(`wallet.sheet.${id}`)}
                 </button>
               ))}
             </div>

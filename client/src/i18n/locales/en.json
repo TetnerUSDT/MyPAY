@@ -77,7 +77,12 @@
     "noOperations": "No operations",
     "exchangeShort": "Exchange",
     "today": "Today",
-    "yesterday": "Yesterday"
+    "yesterday": "Yesterday",
+    "sheet": {
+      "topup": "Top up",
+      "transfer": "Transfer",
+      "exchange": "Exchange"
+    }
   },
   "settings": {
     "title": "Settings",
