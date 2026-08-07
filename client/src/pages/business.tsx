@@ -1124,8 +1124,10 @@ function ShopDetail({ shop: initialShop, onBack }: { shop: Shop; onBack: () => v
   const { data: invoices = [] } = useQuery<Invoice[]>({
     queryKey: ["/api/business/invoices", shop.id],
     queryFn: () => fetchBusiness(`/api/business/shops/${shop.id}/invoices`),
-    enabled: tab === "payments",
-    refetchInterval: tab === "payments" ? 30000 : false,
+    enabled: true,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchInterval: 20000,
   });
 
   const { data: payouts = [] } = useQuery<Payout[]>({

@@ -178,53 +178,84 @@ async function findOrReserveMerchantWallet(
       status: "permanent",
     };
   } else {
-    // Exclude wallets already tied to an active invoice (pending/partially_paid).
-    // JS Date() must NOT be used for reserved_until — MySQL is UTC+3 and would
-    // consider a JS-UTC timestamp as already expired. Use NOW() + INTERVAL in SQL.
-    const poolRows = await db.execute(sql`
-      SELECT mw.* FROM merchant_wallets mw
-      WHERE mw.shop_id = ${shopId} AND mw.network = ${network} AND mw.mode = ${mode}
-        AND mw.status = 'active' AND mw.external_user_id IS NULL AND mw.order_id IS NULL
+    // ATOMIC wallet claim: one UPDATE statement that both finds and locks the wallet.
+    // This prevents the race condition where two concurrent requests each SELECT the same
+    // "available" wallet before either of them commits the reserving UPDATE.
+    //
+    // Safety guarantees:
+    // 1. NOT EXISTS check in the WHERE: excludes any wallet already linked to an active
+    //    invoice (pending/partially_paid) in merchant_invoices — even if the wallet row
+    //    was already freed by releaseExpiredMerchantWallets (invoice row still has wallet_id).
+    // 2. AND status = 'active': InnoDB row lock means only one concurrent UPDATE succeeds;
+    //    the second request finds no matching row (already 'reserved') → affectedRows = 0.
+    // 3. reserved_until via NOW() + INTERVAL: never use JS Date() — MySQL is UTC+3 and
+    //    would treat a JS-UTC timestamp as already expired.
+    const [claimResult] = await db.execute(sql`
+      UPDATE merchant_wallets mw
+      SET mw.order_id              = ${orderId ?? null},
+          mw.external_user_id      = ${externalUserId ?? null},
+          mw.reserved_until        = NOW() + INTERVAL ${reserveMinutes} MINUTE,
+          mw.status                = 'reserved'
+      WHERE mw.shop_id = ${shopId}
+        AND mw.network  = ${network}
+        AND mw.mode     = ${mode}
+        AND mw.status   = 'active'
+        AND mw.external_user_id IS NULL
+        AND mw.order_id IS NULL
         AND NOT EXISTS (
           SELECT 1 FROM merchant_invoices mi
           WHERE mi.shop_id = mw.shop_id
             AND mi.status IN ('pending', 'partially_paid')
-            AND (mi.wallet_id = mw.id OR (mi.wallet_address IS NOT NULL AND mi.wallet_address = mw.address))
+            AND (
+              mi.wallet_id = mw.id
+              OR (mi.wallet_address IS NOT NULL AND mi.wallet_address = mw.address)
+            )
         )
       LIMIT 1
     `);
-    const poolWallet = (poolRows[0] as any[])[0];
 
-    if (poolWallet) {
-      await db.execute(sql`
-        UPDATE merchant_wallets
-        SET order_id = ${orderId ?? null}, external_user_id = ${externalUserId ?? null},
-            reserved_until = NOW() + INTERVAL ${reserveMinutes} MINUTE, status = 'reserved'
-        WHERE id = ${poolWallet.id}
+    if ((claimResult as any).affectedRows > 0) {
+      // Fetch the row we just claimed (identified by order_id we just wrote)
+      const [claimedRows] = await db.execute(sql`
+        SELECT mw.*, UNIX_TIMESTAMP(mw.reserved_until) AS ru_unix
+        FROM merchant_wallets mw
+        WHERE mw.shop_id = ${shopId} AND mw.network = ${network} AND mw.mode = ${mode}
+          AND mw.status = 'reserved' AND mw.order_id = ${orderId ?? null}
+        ORDER BY mw.id LIMIT 1
       `);
-      const [updWallet] = await db.execute(sql`SELECT UNIX_TIMESTAMP(reserved_until) AS ru_unix FROM merchant_wallets WHERE id = ${poolWallet.id}`);
-      const ruUnix = (updWallet as any[])[0]?.ru_unix;
-      const reservedUntil = ruUnix ? new Date(Number(ruUnix) * 1000) : new Date(Date.now() + reserveMinutes * 60 * 1000);
-      return { ...poolWallet, order_id: orderId, reserved_until: reservedUntil, status: "reserved" };
+      const claimedWallet = (claimedRows as any[])[0];
+      if (claimedWallet) {
+        const reservedUntil = claimedWallet.ru_unix
+          ? new Date(Number(claimedWallet.ru_unix) * 1000)
+          : new Date(Date.now() + reserveMinutes * 60 * 1000);
+        return { ...claimedWallet, reserved_until: reservedUntil };
+      }
     }
 
+    // No available wallet in pool (or concurrent request took the last one) — generate new.
     const newWallet = await generateMerchantWallet(shopId, network, mode);
     await db.execute(sql`
       UPDATE merchant_wallets
-      SET order_id = ${orderId ?? null}, external_user_id = ${externalUserId ?? null},
-          reserved_until = NOW() + INTERVAL ${reserveMinutes} MINUTE, status = 'reserved'
+      SET order_id         = ${orderId ?? null},
+          external_user_id = ${externalUserId ?? null},
+          reserved_until   = NOW() + INTERVAL ${reserveMinutes} MINUTE,
+          status           = 'reserved'
       WHERE id = ${newWallet.id}
     `);
-    const [updNew] = await db.execute(sql`SELECT UNIX_TIMESTAMP(reserved_until) AS ru_unix FROM merchant_wallets WHERE id = ${newWallet.id}`);
+    const [updNew] = await db.execute(sql`
+      SELECT UNIX_TIMESTAMP(reserved_until) AS ru_unix FROM merchant_wallets WHERE id = ${newWallet.id}
+    `);
     const ruUnixNew = (updNew as any[])[0]?.ru_unix;
-    const reservedUntilNew = ruUnixNew ? new Date(Number(ruUnixNew) * 1000) : new Date(Date.now() + reserveMinutes * 60 * 1000);
+    const reservedUntilNew = ruUnixNew
+      ? new Date(Number(ruUnixNew) * 1000)
+      : new Date(Date.now() + reserveMinutes * 60 * 1000);
     return {
       ...newWallet,
       gasfree_address: newWallet.gasfreeAddress ?? null,
-      private_key: newWallet.privateKey ?? null,
-      order_id: orderId,
-      reserved_until: reservedUntilNew,
-      status: "reserved",
+      private_key:     newWallet.privateKey ?? null,
+      order_id:        orderId,
+      reserved_until:  reservedUntilNew,
+      status:          "reserved",
     };
   }
 }
