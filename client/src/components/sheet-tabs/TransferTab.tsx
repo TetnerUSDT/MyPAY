@@ -35,7 +35,7 @@ function AssetBadge({ balance, hasMultiple, networkBalances, onChangeCurrency }:
   if (hasMultiple) {
     return (
       <Select value={balance.currency} onValueChange={onChangeCurrency}>
-        <SelectTrigger className="w-auto border-0 bg-transparent p-0 h-auto focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0">
+        <SelectTrigger className="w-auto border-0 bg-transparent p-0 h-auto focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 [&>svg:last-child]:hidden [&>[data-radix-select-icon]]:hidden">
           <div className="flex items-center gap-2.5 bg-white/5 hover:bg-white/10 transition-colors py-1.5 pl-1.5 pr-3 rounded-full border border-white/10">
             <div className="w-7 h-7 rounded-full overflow-hidden bg-black/40 flex-shrink-0 flex items-center justify-center border border-white/5">
               <img src={getBalanceIcon(balance.id)} alt={balance.currency} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
@@ -207,9 +207,9 @@ export default function TransferTab({ network, currency, onSuccess }: TransferTa
         )}
       </div>
 
-      {/* Arrow divider */}
-      <div className="flex items-center justify-center -my-0.5 relative z-10">
-        <div className="w-10 h-10 rounded-full bg-[#0D0F13] border-4 border-[#13151A] flex items-center justify-center shadow-lg">
+      {/* Arrow divider — overlaps both cards like Exchange */}
+      <div className="flex items-center justify-center -my-4 relative z-10">
+        <div className="w-10 h-10 rounded-full bg-[#0D0F13] border-4 border-[#0D0F13] flex items-center justify-center shadow-xl ring-1 ring-white/5">
           <ArrowDownUp className="w-4 h-4 text-[#3ab368]" />
         </div>
       </div>
