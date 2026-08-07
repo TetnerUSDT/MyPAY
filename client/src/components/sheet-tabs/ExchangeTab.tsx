@@ -392,15 +392,27 @@ export default function ExchangeTab({ onSuccess }: ExchangeTabProps) {
         )}
 
         {/* Speed mode */}
-        <div className="pt-2">
-          <div className="text-[11px] text-white/40 font-bold uppercase tracking-wider mb-3 px-1">Processing Speed</div>
-          <div className="flex gap-2">
+        <div className="pt-1">
+          <div className="text-[11px] text-white/40 font-bold uppercase tracking-wider mb-2 px-1">Processing Speed</div>
+          <div className="flex gap-1.5">
             {SPEED_MODES.map((mode) => (
-              <button key={mode.id} onClick={() => setSpeedMode(mode.id)} className={`flex-1 flex flex-col items-center py-3.5 px-2 rounded-2xl border transition-all duration-300 relative overflow-hidden ${speedMode === mode.id ? 'bg-[#1A2E22] border-[#3ab368]/30 shadow-[0_0_15px_rgba(58,179,104,0.1)]' : 'bg-[#13151A] border-white/5 text-white/40 hover:bg-white/5 hover:text-white/70'}`} data-testid={`speed-mode-${mode.id}`}>
-                {speedMode === mode.id && <div className="absolute inset-0 bg-gradient-to-b from-[#3ab368]/10 to-transparent opacity-50"></div>}
-                <div className={`mb-1.5 transition-colors duration-300 relative z-10 ${speedMode === mode.id ? 'text-[#3ab368]' : ''}`}>{mode.icon}</div>
-                <span className={`text-[12px] font-semibold mb-0.5 relative z-10 ${speedMode === mode.id ? 'text-white' : ''}`}>{t(mode.labelKey)}</span>
-                <span className={`text-[10px] font-medium relative z-10 ${speedMode === mode.id ? 'text-[#3ab368]/80' : 'text-white/30'}`}>{mode.eta}</span>
+              <button
+                key={mode.id}
+                onClick={() => setSpeedMode(mode.id)}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl border transition-all duration-200 relative overflow-hidden ${
+                  speedMode === mode.id
+                    ? 'bg-[#1A2E22] border-[#3ab368]/30'
+                    : 'bg-[#13151A] border-white/5 text-white/40 hover:bg-white/5 hover:text-white/60'
+                }`}
+                data-testid={`speed-mode-${mode.id}`}
+              >
+                {speedMode === mode.id && <div className="absolute inset-0 bg-gradient-to-b from-[#3ab368]/10 to-transparent opacity-50 pointer-events-none" />}
+                <span className={`relative z-10 transition-colors ${speedMode === mode.id ? 'text-[#3ab368]' : ''}`}
+                  style={{ display: 'contents' }}>
+                  {mode.icon}
+                </span>
+                <span className={`text-[11px] font-semibold relative z-10 ${speedMode === mode.id ? 'text-white' : ''}`}>{t(mode.labelKey)}</span>
+                <span className={`text-[10px] relative z-10 ${speedMode === mode.id ? 'text-[#3ab368]/80' : 'text-white/25'}`}>{mode.eta}</span>
               </button>
             ))}
           </div>

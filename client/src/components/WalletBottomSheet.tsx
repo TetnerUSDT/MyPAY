@@ -104,10 +104,11 @@ export default function WalletBottomSheet({
       >
         <div className="mx-auto flex h-full w-full max-w-lg flex-col px-5 pt-5">
           {/* Tab rail + X button */}
-          <div className="relative mb-5 flex items-center justify-center">
+          <div className="mb-5 flex items-center gap-3">
+            {/* Tab rail — grows to fill available space */}
             <div
               ref={railRef}
-              className="relative flex rounded-[13px] border border-white/[.08] p-1"
+              className="relative flex flex-1 rounded-[13px] border border-white/[.08] p-1"
               style={{ background: "rgba(255,255,255,0.045)" }}
             >
               {/* Sliding pill */}
@@ -127,8 +128,8 @@ export default function WalletBottomSheet({
                   key={id}
                   data-tab={id}
                   onClick={() => setTab(id)}
-                  className={`relative z-10 min-w-[92px] rounded-[11px] px-3 py-2 text-xs transition-colors ${
-                    tab === id ? "font-bold text-white" : "text-white/[.38] hover:text-white/60"
+                  className={`relative z-10 flex-1 rounded-[11px] py-[10px] text-[13px] transition-colors ${
+                    tab === id ? "font-semibold text-white" : "text-white/[.38] hover:text-white/60"
                   }`}
                 >
                   {label}
@@ -136,18 +137,18 @@ export default function WalletBottomSheet({
               ))}
             </div>
 
-            {/* Close button */}
+            {/* Close button — same height as the tab rail */}
             <button
               ref={closeRef}
               onClick={close}
               aria-label="Закрыть"
-              className="absolute right-0 top-0 grid h-10 w-10 -translate-y-[2px] place-items-center rounded-full transition-colors hover:bg-white/[.13] active:bg-white/[.18]"
+              className="grid h-[44px] w-[44px] flex-shrink-0 place-items-center rounded-full transition-colors hover:bg-white/[.13] active:bg-white/[.18]"
               style={{
                 background: "rgba(255,255,255,0.08)",
                 border: "1px solid rgba(255,255,255,0.14)",
               }}
             >
-              <X size={19} strokeWidth={1.7} className="text-white/70" />
+              <X size={18} strokeWidth={1.8} className="text-white/70" />
             </button>
           </div>
 

@@ -169,16 +169,12 @@ export default function TopUpTab({ network, currency, onSuccess }: TopUpTabProps
   const isLoading = reserveWalletMutation.isPending;
   const canContinue = wallet?.address && activeBalance;
 
-  // ── Original top-up.tsx JSX (outer wrapper + pb-20 removed) ──
+  // ── Original top-up.tsx JSX (outer wrapper + header removed) ──
   return (
-    <div className="text-white overflow-y-auto pb-6">
-      <div className="mobile-content">
-        <h1 className="text-2xl font-bold text-center mb-8" data-testid="text-title">
-          {t('topUp.topUpCurrency', { currency: activeBalance?.currency || "" })}
-        </h1>
-
+    <div className="text-white pb-6">
+      <div className="space-y-4">
         {/* Crypto Currency Selector */}
-        <div className="mb-6">
+        <div>
           <Select
             value={activeBalance?.id?.toString() || ""}
             onValueChange={(value) => {
@@ -219,7 +215,7 @@ export default function TopUpTab({ network, currency, onSuccess }: TopUpTabProps
           </Select>
         </div>
 
-        <div className="crypto-card text-center mb-8">
+        <div className="crypto-card text-center">
           {isLoading ? (
             <div className="flex justify-center items-center h-48 mb-6">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent"></div>
