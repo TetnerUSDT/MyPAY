@@ -9,6 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 type NetworkType = "TRC20" | "BEP20" | "TON" | "Polygon";
 
+const NETWORK_META: Record<NetworkType, { label: string; iconId: number }> = {
+  TRC20:   { label: "Tron",    iconId: 3  },
+  BEP20:   { label: "BSC",     iconId: 4  },
+  TON:     { label: "TON",     iconId: 6  },
+  Polygon: { label: "Polygon", iconId: 10 },
+};
+
 interface CryptoBalance {
   id: number;
   title: string;
@@ -153,20 +160,32 @@ export default function TransferTab({ network, currency, onSuccess }: TransferTa
       {/* Network Tabs */}
       <div className="mb-4 flex justify-center">
         <div className="bg-[#13151A] border border-white/5 rounded-2xl p-1 flex gap-1 w-full">
-          {(["TRC20", "BEP20", "TON", "Polygon"] as NetworkType[]).map((net) => (
-            <button
-              key={net}
-              onClick={() => handleNetworkChange(net)}
-              className={`flex-1 px-3 py-2 text-xs font-semibold transition-all ${
-                activeNetwork === net
-                  ? "bg-[#1A1D24] border border-white/10 text-white rounded-xl shadow-sm"
-                  : "text-white/40 hover:text-white/70 rounded-xl"
-              }`}
-              data-testid={`button-network-${net.toLowerCase()}`}
-            >
-              {net}
-            </button>
-          ))}
+          {(["TRC20", "BEP20", "TON", "Polygon"] as NetworkType[]).map((net) => {
+            const meta = NETWORK_META[net];
+            const isActive = activeNetwork === net;
+            return (
+              <button
+                key={net}
+                onClick={() => handleNetworkChange(net)}
+                className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-xl transition-all ${
+                  isActive
+                    ? "bg-[#1A1D24] border border-white/10 text-white shadow-sm"
+                    : "text-white/40 hover:text-white/60"
+                }`}
+                data-testid={`button-network-${net.toLowerCase()}`}
+              >
+                <div className="w-5 h-5 rounded-full overflow-hidden bg-black/40 flex-shrink-0">
+                  <img
+                    src={`/uploads/balances/${meta.iconId}.png`}
+                    alt={meta.label}
+                    className="w-full h-full object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                </div>
+                <span className="text-[10px] font-semibold leading-none">{meta.label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
