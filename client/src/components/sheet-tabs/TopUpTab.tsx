@@ -182,7 +182,7 @@ export default function TopUpTab({ network, currency, onSuccess }: TopUpTabProps
               if (selected) setActiveBalance(selected);
             }}
           >
-            <SelectTrigger className="w-full bg-secondary border-0 h-14" data-testid="select-crypto-currency">
+            <SelectTrigger className="w-full bg-secondary border-0 h-14 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0" data-testid="select-crypto-currency">
               <SelectValue placeholder={t('topUp.selectCrypto')}>
                 {activeBalance && (
                   <div className="flex items-center">
