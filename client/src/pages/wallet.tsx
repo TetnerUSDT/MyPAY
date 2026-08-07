@@ -9,6 +9,7 @@ import { User } from "@shared/schema";
 import { formatBalance } from "@/lib/utils";
 import { getBalanceIcon } from "@/lib/balanceIcons";
 import { Skeleton } from "@/components/ui/skeleton";
+import WalletBottomSheet from "@/components/WalletBottomSheet";
 
 const catImage = "/uploads/icons/cat-logo.png?v=2";
 
@@ -23,6 +24,13 @@ export default function WalletScreen() {
   const { t } = useTranslation();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [blockedBalanceId, setBlockedBalanceId] = useState<number | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetTab, setSheetTab] = useState<'topup'|'transfer'|'exchange'>('topup');
+  const [sheetNetwork, setSheetNetwork] = useState<string>();
+  const [sheetCurrency, setSheetCurrency] = useState<string>();
+  const openSheet = (tab: 'topup'|'transfer'|'exchange', network?: string, currency?: string) => {
+    setSheetTab(tab); setSheetNetwork(network); setSheetCurrency(currency); setSheetOpen(true);
+  };
   const { toast } = useToast();
 
   const { data: user } = useQuery<User>({
@@ -135,22 +143,21 @@ export default function WalletScreen() {
         {/* Action Buttons */}
         <div className="px-5 mb-5">
           <div className="grid grid-cols-3 bg-[#13151A] border border-white/5 rounded-2xl overflow-hidden">
-            {[
-              { icon: ArrowDownLeft, label: t('wallet.deposit'), testId: "action-deposit", href: "/top-up" },
-              { icon: ArrowUpRight, label: t('wallet.send'), testId: "action-send", href: "/transfer" },
-              { icon: ArrowRightLeft, label: t('wallet.exchange'), testId: "action-exchange", href: "/exchange" },
+              {[
+               { icon: ArrowDownLeft, label: t('wallet.deposit'), testId: "action-deposit", tab: 'topup' as const },
+               { icon: ArrowUpRight, label: t('wallet.send'), testId: "action-send", tab: 'transfer' as const },
+               { icon: ArrowRightLeft, label: t('wallet.exchange'), testId: "action-exchange", tab: 'exchange' as const },
             ].map((action, idx, arr) => {
               const Icon = action.icon;
               return (
-                <Link key={action.testId} href={action.href}>
                   <button
+                    onClick={() => openSheet(action.tab)}
                     className={`w-full flex flex-col items-center justify-center gap-1.5 py-4 hover:bg-white/5 transition-colors ${idx < arr.length - 1 ? 'border-r border-white/5' : ''}`}
                     data-testid={action.testId}
                   >
                     <Icon className="w-5 h-5 text-[#3ab368]" />
                     <span className="text-xs text-white/70 font-medium">{action.label}</span>
                   </button>
-                </Link>
               );
             })}
           </div>
@@ -210,26 +217,22 @@ export default function WalletScreen() {
                 </div>
                 
                 <div className="flex space-x-2">
-                  <Link href={(wallet.isBlocked || wallet.isFrozen) ? '#' : `/top-up?network=${wallet.network || 'TRC20'}&currency=${wallet.currency || 'USDT'}`}>
                     <button 
                       className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                       disabled={wallet.isBlocked || wallet.isFrozen}
                       data-testid={`button-deposit-${wallet.id}`}
-                      onClick={(e) => (wallet.isBlocked || wallet.isFrozen) && e.preventDefault()}
+                       onClick={() => !(wallet.isBlocked || wallet.isFrozen) && openSheet('topup', wallet.network || 'TRC20', wallet.currency || 'USDT')}
                     >
                       <ArrowDownLeft className="w-4 h-4 text-accent-foreground" />
                     </button>
-                  </Link>
-                  <Link href={(wallet.isBlocked || wallet.isFrozen) ? '#' : `/transfer?network=${wallet.network || 'TRC20'}&currency=${wallet.currency || 'USDT'}`}>
                     <button 
                       className="w-8 h-8 bg-yellow-400 rounded-lg flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                       disabled={wallet.isBlocked || wallet.isFrozen}
                       data-testid={`button-send-${wallet.id}`}
-                      onClick={(e) => (wallet.isBlocked || wallet.isFrozen) && e.preventDefault()}
+                       onClick={() => !(wallet.isBlocked || wallet.isFrozen) && openSheet('transfer', wallet.network || 'TRC20', wallet.currency || 'USDT')}
                     >
                       <ArrowUpRight className="w-4 h-4 text-black" />
                     </button>
-                  </Link>
                 </div>
 
                 {(wallet.isBlocked || wallet.isFrozen) && blockedBalanceId === wallet.id && (
@@ -263,6 +266,8 @@ export default function WalletScreen() {
           </button>
         </div>
       </div>
+
+      <WalletBottomSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)} defaultTab={sheetTab} network={sheetNetwork} currency={sheetCurrency} />
 
       {/* Add Network Modal */}
       {isModalOpen && (
