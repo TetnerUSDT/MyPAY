@@ -1,5 +1,5 @@
 import { Link, useLocation, useSearch } from "wouter";
-import { Home, ArrowRightLeft, Wallet, Users2 } from "lucide-react";
+import { Home, Briefcase, Wallet, Users2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
@@ -18,8 +18,6 @@ export default function BottomNavigation() {
   const tl       = useRef<gsap.core.Timeline | null>(null);
 
   const [, setLocation] = useLocation();
-  const search = useSearch();
-  const isExchangeActive = location === "/wallet" && new URLSearchParams(search).get("sheet") === "exchange";
 
   const navItems = [
     { path: "/home",   icon: Home,    label: t("nav.home")   },
@@ -124,17 +122,14 @@ export default function BottomNavigation() {
           );
         })}
 
-        {/* Exchange — opens bottom sheet on /wallet */}
+        {/* Business */}
         <div className="relative z-10 flex flex-1 justify-center">
-          <button
-            data-testid="nav-exchange"
-            onClick={() => setLocation("/wallet?sheet=exchange")}
-          >
-            <div className={`flex flex-col items-center gap-0.5 px-3 py-1 transition-colors duration-200 ${isExchangeActive ? "text-white" : "text-white/40"}`}>
-              <ArrowRightLeft className={isExchangeActive ? "h-6 w-6 text-[#3ab368]" : "h-5 w-5"} strokeWidth={isExchangeActive ? 2.5 : 2} />
-              <span className={`text-xs ${isExchangeActive ? "font-bold" : "font-medium"}`}>{t("nav.exchange")}</span>
+          <Link href="/business" data-testid="nav-business">
+            <div className={`flex flex-col items-center gap-0.5 px-3 py-1 transition-colors duration-200 ${location === "/business" ? "text-white" : "text-white/40"}`}>
+              <Briefcase className={location === "/business" ? "h-6 w-6 text-[#3ab368]" : "h-5 w-5"} strokeWidth={location === "/business" ? 2.5 : 2} />
+              <span className={`text-xs ${location === "/business" ? "font-bold" : "font-medium"}`}>{t("nav.business")}</span>
             </div>
-          </button>
+          </Link>
         </div>
       </div>
     </div>
