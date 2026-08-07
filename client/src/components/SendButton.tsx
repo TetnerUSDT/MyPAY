@@ -2,8 +2,8 @@
  * SendButton — animated GSAP send button for TransferTab.
  *
  * Visual flow:
- *   idle     → green rect, white paper-plane (pointing right) + "Send" label
- *   click    → label fades → rect morphs to circle → plane flies arc (MotionPath)
+ *   idle     → green rect, send-plane icon (left) + label text (center-right)
+ *   click    → label fades → rect morphs to circle → icon flies arc (MotionPath)
  *              → awaits onSend() + flight completion simultaneously
  *   success  → circle expands back → white tick + "Sent!" appear, then reset
  *   error    → rect flashes red briefly → returns to idle
@@ -21,12 +21,12 @@ const VH     = 64;
 const BTN_RX = 16;
 
 // Circle phase
-const C_R  = VH / 2;          // 32
-const C_X  = VW / 2 - C_R;   // 168
-const C_W  = VH;              // 64
+const C_R  = VH / 2;
+const C_X  = VW / 2 - C_R;
+const C_W  = VH;
 
-// Plane idle anchor
-const PX = 72;
+// Icon idle anchor (center of the send icon)
+const PX = 50;
 const PY = 32;
 
 /* ─────────────────────────────────────────────────────────────────── */
@@ -113,11 +113,11 @@ export default function SendButton({
     // Rect → circle
     if (r) tl.to(r, { attr: { x: C_X, y: 0, width: C_W, height: VH, rx: C_R }, duration: 0.42, ease: "power2.inOut" }, 0.06);
 
-    // Fly plane along arc (MotionPath)
+    // Fly icon along arc
     if (pg && rt) {
       gsap.set(rt, { opacity: 0 });
       tl.to(pg, {
-        duration: 0.68,
+        duration: 0.72,
         ease: "power2.inOut",
         motionPath: {
           path: rt,
@@ -125,11 +125,11 @@ export default function SendButton({
           alignOrigin: [0.5, 0.5],
           autoRotate: true,
         },
-      }, 0.24);
+      }, 0.22);
     }
 
-    // Fade plane out as it "enters" the circle
-    if (pg) tl.to(pg, { opacity: 0, duration: 0.14 }, 0.24 + 0.54);
+    // Fade icon out as it "enters" the circle
+    if (pg) tl.to(pg, { opacity: 0, duration: 0.15 }, 0.22 + 0.57);
 
     const flightDone = new Promise<void>((res) => tl.eventCallback("onComplete", res));
     tl.play();
@@ -144,11 +144,8 @@ export default function SendButton({
       const tl2 = gsap.timeline({ onComplete: () => setTimeout(reset, 2000) });
       tl2Ref.current = tl2;
 
-      // Expand circle back to rect
-      if (r) tl2.to(r, { attr: { x: 0, y: 0, width: VW, height: VH, rx: BTN_RX }, duration: 0.32, ease: "power2.out" }, 0);
-      // Tick appears
-      if (tk) tl2.to(tk, { opacity: 1, scale: 1, transformOrigin: "50% 50%", duration: 0.22, ease: "power2.out" }, 0.22);
-      // "Sent!" text
+      if (r)   tl2.to(r,   { attr: { x: 0, y: 0, width: VW, height: VH, rx: BTN_RX }, duration: 0.32, ease: "power2.out" }, 0);
+      if (tk)  tl2.to(tk,  { opacity: 1, scale: 1, transformOrigin: "50% 50%", duration: 0.22, ease: "power2.out" }, 0.22);
       if (tst) tl2.to(tst, { opacity: 1, duration: 0.18 }, 0.28);
 
       tl2.play();
@@ -185,15 +182,12 @@ export default function SendButton({
         className="w-full h-full block"
         overflow="visible"
       >
-        {/*
-          Hidden flight arc: starts at plane anchor (PX,PY),
-          arcs up and right, lands at circle centre (VW/2, VH/2).
-        */}
+        {/* Hidden flight arc */}
         <path
           ref={routeRef}
           d={`M ${PX},${PY}
-              C ${PX + 30},-50  ${VW * 0.55},-60  ${VW / 2},${VH / 2}
-              C ${VW * 0.55},${VH + 40}  ${VW * 0.75},-30  ${VW / 2},${VH / 2}`}
+              C ${PX + 40},-50  ${VW * 0.58},-58  ${VW / 2},${VH / 2}
+              C ${VW * 0.55},${VH + 38}  ${VW * 0.72},-28  ${VW / 2},${VH / 2}`}
           fill="none"
           opacity="0"
         />
@@ -208,10 +202,10 @@ export default function SendButton({
           opacity={disabled && uiState === "idle" ? 0.45 : 1}
         />
 
-        {/* Send label (idle) */}
+        {/* Send label */}
         <g ref={txtSendRef}>
           <text
-            x={VW / 2 + 16}
+            x={VW / 2 + 22}
             y={VH / 2 + 6}
             textAnchor="middle"
             fill="#ffffff"
@@ -225,23 +219,43 @@ export default function SendButton({
         </g>
 
         {/*
-          Paper plane — right-facing Telegram-style shape, centered at (PX, PY).
-          Tip points right (+x), wings spread up/down.
+          Send icon — centered at (PX, PY) = (50, 32).
+          Nested SVG scales the 682.667×682.667 original to 28×28,
+          positioned so its center lands on (PX, PY).
         */}
         <g
           ref={planeGRef}
           style={{ transformOrigin: `${PX}px ${PY}px` }}
         >
-          {/* Main body: tip right, body left */}
-          <path
-            d="M 58 21 L 88 31.5 L 77.2 36.2 L 72.4 45 L 68.7 36.8 L 58 32.8 Z"
-            fill="#ffffff"
-          />
-          {/* Fold line (lower wing crease) */}
-          <path
-            d="M 68.7 36.8 L 75.2 32.9 L 62.6 29.1 Z"
-            fill="rgba(0,0,0,0.18)"
-          />
+          <svg
+            x={PX - 14}
+            y={PY - 14}
+            width="28"
+            height="28"
+            viewBox="0 0 682.667 682.667"
+            overflow="visible"
+          >
+            <g
+              transform="matrix(1.33333 0 0 -1.33333 0 682.667)"
+              fill="none"
+              stroke="#ffffff"
+              strokeWidth="40"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeMiterlimit="10"
+            >
+              {/* Main send body */}
+              <path
+                transform="translate(489.325 437.607)"
+                d="m 0 0 -141.421 -367.695 a 39.9 39.9 0 0 0 -9.051 -13.902 c -15.621 -15.621 -40.947 -15.621 -56.569 0 A 39.8 39.8 0 0 0 -217.39 -363.7 l -35.869 133.912 a 39.8 39.8 0 0 1 -10.35 17.897 a 39.8 39.8 0 0 1 -17.896 10.349 l -133.913 35.87 a 39.8 39.8 0 0 0 -17.896 10.349 c -15.622 15.621 -15.622 40.948 0 56.569 a 39.8 39.8 0 0 0 13.901 9.05 L -51.718 51.718 c 14.303 5.502 31.132 2.485 42.668 -9.051 S 5.502 14.303 0 0"
+              />
+              {/* Corner spark lines */}
+              <path transform="translate(104.853 104.853)" d="m 0 0 -84.853 -84.853" />
+              <path transform="translate(189.706 76.568)"  d="m 0 0 -56.568 -56.568" />
+              <path transform="translate(76.568 189.706)"  d="m 0 0 -56.568 -56.568" />
+              <path transform="translate(367.137 367.137)" d="m 0 0 -84.853 -84.853" />
+            </g>
+          </svg>
         </g>
 
         {/* Checkmark (success) */}

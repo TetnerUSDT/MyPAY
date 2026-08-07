@@ -285,7 +285,7 @@ export default function TransferTab({ network, currency, onSuccess }: TransferTa
         <SendButton
           disabled={!isValidTransaction}
           onSend={handleSend}
-          label={t('sell.submit') + " →"}
+          label={t('sell.submit')}
           data-testid="button-send"
         />
       </div>
