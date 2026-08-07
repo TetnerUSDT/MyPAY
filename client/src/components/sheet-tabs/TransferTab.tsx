@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect } from "react";
-import { ArrowDownUp, ArrowRight, ChevronDown, Wallet } from "lucide-react";
+import { ArrowDownUp, ChevronDown, Wallet } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import { getBalanceIcon } from "@/lib/balanceIcons";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import SendButton from "@/components/SendButton";
 
 type NetworkType = "TRC20" | "BEP20" | "TON" | "Polygon";
 
@@ -150,8 +151,11 @@ export default function TransferTab({ network, currency, onSuccess }: TransferTa
     },
   });
 
-  const handleSend = async () => {
+  // Returns a Promise so SendButton can drive the success/error animation
+  const handleSend = async (): Promise<void> => {
+    // Service temporarily unavailable — show toast and throw so SendButton sees error
     toast({ title: t('sell.serviceUnavailable'), description: t('sell.tryAgainLater'), variant: "destructive" });
+    throw new Error("service_unavailable");
   };
 
   return (
@@ -277,16 +281,15 @@ export default function TransferTab({ network, currency, onSuccess }: TransferTa
         </div>
       </div>
 
-      {/* Send button */}
-      <button
-        className="w-full mt-4 bg-[#3ab368] hover:bg-[#3ab368]/90 disabled:opacity-40 disabled:cursor-not-allowed text-[#0B0C10] font-bold py-4 rounded-2xl transition-all shadow-lg shadow-[#3ab368]/20 active:scale-[0.98] flex items-center justify-center gap-2"
-        onClick={handleSend}
-        disabled={!isValidTransaction || sellMutation.isPending}
-        data-testid="button-send"
-      >
-        {sellMutation.isPending ? t('sell.processing') : t('sell.submit')}
-        <ArrowRight className="w-5 h-5" />
-      </button>
+      {/* Send button — GSAP animated */}
+      <div className="mt-4">
+        <SendButton
+          disabled={!isValidTransaction}
+          onSend={handleSend}
+          label={t('sell.submit') + " →"}
+          data-testid="button-send"
+        />
+      </div>
     </div>
   );
 }
