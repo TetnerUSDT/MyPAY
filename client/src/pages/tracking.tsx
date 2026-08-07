@@ -83,7 +83,7 @@ export default function TrackingScreen() {
   // Redirect if no order number
   useEffect(() => {
     if (!orderNumber) {
-      setLocation("/exchange");
+      setLocation("/wallet");
     }
   }, [orderNumber, setLocation]);
 

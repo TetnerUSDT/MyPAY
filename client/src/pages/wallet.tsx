@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Settings, ArrowDownLeft, ArrowUpRight, RotateCcw, CreditCard, Plus, ArrowRightLeft, X, ChevronDown } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useSearch, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -31,6 +31,19 @@ export default function WalletScreen() {
   const openSheet = (tab: 'topup'|'transfer'|'exchange', network?: string, currency?: string) => {
     setSheetTab(tab); setSheetNetwork(network); setSheetCurrency(currency); setSheetOpen(true);
   };
+
+  // Open sheet from URL param (e.g. /wallet?sheet=exchange from bottom nav)
+  const search = useSearch();
+  const [, setLocation] = useLocation();
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    const sheet = params.get('sheet');
+    if (sheet === 'exchange' || sheet === 'transfer' || sheet === 'topup') {
+      openSheet(sheet as 'topup'|'transfer'|'exchange');
+      setLocation('/wallet', { replace: true });
+    }
+  }, [search]);
+
   const { toast } = useToast();
 
   const { data: user } = useQuery<User>({

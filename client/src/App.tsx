@@ -15,17 +15,14 @@ const AgreementScreen = lazy(() => import("@/pages/agreement"));
 const HomeScreen = lazy(() => import("@/pages/home"));
 function SelectCountryRedirect() {
   const [, setLocation] = useLocation();
-  useEffect(() => { setLocation("/exchange"); }, []);
+  useEffect(() => { setLocation("/wallet?sheet=exchange"); }, []);
   return null;
 }
-const ExchangeScreen = lazy(() => import("@/pages/exchange"));
-const TopUpScreen = lazy(() => import("@/pages/top-up"));
 const TrackingScreen = lazy(() => import("@/pages/tracking"));
 const TopUpSuccessScreen = lazy(() => import("@/pages/top-up-success"));
 const TransferProcessingScreen = lazy(() => import("@/pages/transfer-processing"));
 const TransferSuccessScreen = lazy(() => import("@/pages/transfer-success"));
 const PaymentScreen = lazy(() => import("@/pages/payment"));
-const SellScreen = lazy(() => import("@/pages/sell"));
 const SupportScreen = lazy(() => import("@/pages/support"));
 const CardsScreen = lazy(() => import("@/pages/cards"));
 const HistoryScreen = lazy(() => import("@/pages/history"));
@@ -81,7 +78,7 @@ function Protected({ children }: { children: React.ReactNode }) {
 
 function Router() {
   const [location] = useLocation();
-  const showBottomNav = ["/home", "/wallet", "/exchange", "/transfer", "/top-up", "/vouchers", "/cards", "/loyalty", "/p2p"].includes(location);
+  const showBottomNav = ["/home", "/wallet", "/vouchers", "/cards", "/loyalty", "/p2p"].includes(location);
 
   return (
     <div className="min-h-screen gradient-bg relative z-10">
@@ -97,14 +94,11 @@ function Router() {
           <Route path="/home"><Protected><HomeScreen /></Protected></Route>
           <Route path="/wallet"><Protected><WalletScreen /></Protected></Route>
           <Route path="/select-country"><Protected><SelectCountryRedirect /></Protected></Route>
-          <Route path="/exchange"><Protected><ExchangeScreen /></Protected></Route>
-          <Route path="/top-up"><Protected><TopUpScreen /></Protected></Route>
           <Route path="/tracking"><Protected><TrackingScreen /></Protected></Route>
           <Route path="/top-up-success"><Protected><TopUpSuccessScreen /></Protected></Route>
           <Route path="/transfer-processing"><Protected><TransferProcessingScreen /></Protected></Route>
           <Route path="/transfer-success"><Protected><TransferSuccessScreen /></Protected></Route>
           <Route path="/payment"><Protected><PaymentScreen /></Protected></Route>
-          <Route path="/transfer"><Protected><SellScreen /></Protected></Route>
           <Route path="/support"><Protected><SupportScreen /></Protected></Route>
           <Route path="/cards"><Protected><CardsScreen /></Protected></Route>
           <Route path="/history"><Protected><HistoryScreen /></Protected></Route>

@@ -1,4 +1,4 @@
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { Home, ArrowRightLeft, Wallet, Users2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useEffect, useRef } from "react";
@@ -17,11 +17,14 @@ export default function BottomNavigation() {
   const mounted  = useRef(false);
   const tl       = useRef<gsap.core.Timeline | null>(null);
 
+  const [, setLocation] = useLocation();
+  const search = useSearch();
+  const isExchangeActive = location === "/wallet" && new URLSearchParams(search).get("sheet") === "exchange";
+
   const navItems = [
-    { path: "/home",     icon: Home,           label: t("nav.home")     },
-    { path: "/exchange", icon: ArrowRightLeft,  label: t("nav.exchange") },
-    { path: "/wallet",   icon: Wallet,          label: t("nav.wallet")   },
-    { path: "/p2p",      icon: Users2,          label: t("nav.p2p")      },
+    { path: "/home",   icon: Home,    label: t("nav.home")   },
+    { path: "/wallet", icon: Wallet,  label: t("nav.wallet") },
+    { path: "/p2p",    icon: Users2,  label: t("nav.p2p")    },
   ];
 
   /** x so blob center aligns with active column center, relative to navRef */
@@ -100,6 +103,7 @@ export default function BottomNavigation() {
 
       {/* Nav items */}
       <div ref={railRef} className="relative flex">
+        {/* Home */}
         {navItems.map((item, idx) => {
           const Icon     = item.icon;
           const isActive = location === item.path;
@@ -110,27 +114,28 @@ export default function BottomNavigation() {
               ref={el => { colRefs.current[idx] = el; }}
               className="relative z-10 flex flex-1 justify-center"
             >
-              <Link
-                href={item.path}
-                data-testid={`nav-${item.label.toLowerCase()}`}
-              >
-                <div
-                  className={`flex flex-col items-center gap-0.5 px-3 py-1 transition-colors duration-200 ${
-                    isActive ? "text-white" : "text-white/40"
-                  }`}
-                >
-                  <Icon
-                    className={isActive ? "h-6 w-6 text-[#3ab368]" : "h-5 w-5"}
-                    strokeWidth={isActive ? 2.5 : 2}
-                  />
-                  <span className={`text-xs ${isActive ? "font-bold" : "font-medium"}`}>
-                    {item.label}
-                  </span>
+              <Link href={item.path} data-testid={`nav-${item.label.toLowerCase()}`}>
+                <div className={`flex flex-col items-center gap-0.5 px-3 py-1 transition-colors duration-200 ${isActive ? "text-white" : "text-white/40"}`}>
+                  <Icon className={isActive ? "h-6 w-6 text-[#3ab368]" : "h-5 w-5"} strokeWidth={isActive ? 2.5 : 2} />
+                  <span className={`text-xs ${isActive ? "font-bold" : "font-medium"}`}>{item.label}</span>
                 </div>
               </Link>
             </div>
           );
         })}
+
+        {/* Exchange — opens bottom sheet on /wallet */}
+        <div className="relative z-10 flex flex-1 justify-center">
+          <button
+            data-testid="nav-exchange"
+            onClick={() => setLocation("/wallet?sheet=exchange")}
+          >
+            <div className={`flex flex-col items-center gap-0.5 px-3 py-1 transition-colors duration-200 ${isExchangeActive ? "text-white" : "text-white/40"}`}>
+              <ArrowRightLeft className={isExchangeActive ? "h-6 w-6 text-[#3ab368]" : "h-5 w-5"} strokeWidth={isExchangeActive ? 2.5 : 2} />
+              <span className={`text-xs ${isExchangeActive ? "font-bold" : "font-medium"}`}>{t("nav.exchange")}</span>
+            </div>
+          </button>
+        </div>
       </div>
     </div>
   );

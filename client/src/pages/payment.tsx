@@ -111,7 +111,7 @@ export default function PaymentScreen() {
   // Redirect if no order number
   useEffect(() => {
     if (!orderNumber) {
-      setLocation("/exchange");
+      setLocation("/wallet");
     }
   }, [orderNumber, setLocation]);
 
@@ -133,7 +133,7 @@ export default function PaymentScreen() {
         <div className="text-center">
           <div className="text-lg text-red-500">{t('payment.loadError')}</div>
           <button 
-            onClick={() => setLocation("/exchange")}
+            onClick={() => setLocation("/wallet")}
             className="action-button mt-4"
           >
             {t('payment.backToExchange')}
@@ -164,7 +164,7 @@ export default function PaymentScreen() {
         <h1 className="text-xl font-semibold" data-testid="text-title">
           Номер заявки
         </h1>
-        <Link href="/exchange">
+        <Link href="/wallet">
           <button 
             className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center"
             data-testid="button-close"

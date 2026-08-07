@@ -186,7 +186,7 @@ export default function HomeScreen() {
       id: 3,
       title: t('banners.fastExchange'),
       subtitle: t('banners.fastExchangeDesc'),
-      link: "/exchange",
+      link: "/wallet?sheet=exchange",
       bgGradient: "linear-gradient(135deg, #F2994A 0%, #F2C94C 100%)",
     },
   ];
@@ -246,7 +246,7 @@ export default function HomeScreen() {
 
   const quickActions = [
     {
-      href: "/exchange",
+      href: "/wallet?sheet=exchange",
       testId: "quick-action-exchange",
       label: t('home.exchange'),
        iconColor: "#22c55e",
