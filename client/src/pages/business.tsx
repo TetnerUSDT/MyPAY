@@ -825,26 +825,30 @@ x-shop-key: ${key}
         {open === "webhook" && (
           <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
             <p className="text-[11px] text-white/50 leading-relaxed">
-              Система отправляет POST-запрос на Webhook URL при каждом событии. Событие зависит от <strong className="text-white/70">payment_mode</strong>.
+              Система отправляет POST-запрос на Webhook URL при каждом событии. Все события передаются в поле <code className="text-white/70 bg-white/8 px-1 py-0.5 rounded">event_type</code>. Набор событий зависит от <strong className="text-white/70">payment_mode</strong>.
             </p>
+
             <div>
-              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">permanent — payment.received (любой входящий платёж)</div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">permanent — payment.received (каждый входящий платёж)</div>
               <CodeBlock>{`{
-  "event":           "payment.received",
-  "payment_id":      42,
-  "order_id":        "order_456",
+  "event_type":       "payment.received",
+  "payment_id":       42,
+  "order_id":         "order_456",     // ваш order_id из запроса
   "external_user_id": "user_123",
-  "amount":          10.00,
-  "currency":        "USDT",
-  "network":         "BSC",
-  "tx_hash":         "0xabc123..."
+  "amount":           10.00,           // сумма одной транзакции
+  "currency":         "USDT",
+  "network":          "BSC",
+  "tx_hash":          "0xabc123..."
 }`}</CodeBlock>
             </div>
+
             <div>
-              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">temporary/invoice — payment.partial (накопление)</div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">temporary — payment.partial (частичная оплата)</div>
               <CodeBlock>{`{
-  "event":            "payment.partial",
+  "event_type":       "payment.partial",
   "payment_id":       42,
+  "order_id":         "order_456",
+  "external_user_id": "user_123",
   "amount_required":  10.00,
   "amount_received":  6.00,
   "amount_remaining": 4.00,
@@ -853,23 +857,53 @@ x-shop-key: ${key}
   "tx_hash":          "abc123..."
 }`}</CodeBlock>
             </div>
+
             <div>
-              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">temporary/invoice — payment.confirmed (полная оплата)</div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">temporary — payment.confirmed (полная оплата)</div>
               <CodeBlock>{`{
-  "event":           "payment.confirmed",
-  "payment_id":      42,
-  "order_id":        "order_456",
-  "amount_required": 10.00,
-  "amount_received": 10.05,
+  "event_type":       "payment.confirmed",
+  "payment_id":       42,
+  "order_id":         "order_456",
+  "external_user_id": "user_123",
+  "amount_required":  10.00,
+  "amount_received":  10.05,
+  "currency":         "USDT",
+  "network":          "TRON",
+  "tx_hash":          "abc123..."
+}`}</CodeBlock>
+            </div>
+
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">invoice — invoice.partial (частичная оплата)</div>
+              <CodeBlock>{`{
+  "event_type":       "invoice.partial",
+  "invoice_number":   "INV-A3K9X2",   // номер инвойса
+  "order_ref":        "order_456",     // ваш order_id из запроса
+  "amount_received":  "6.000000",
+  "amount_remaining": 4.00,
+  "currency":         "USDT",
+  "network":          "TRON",
+  "tx_hash":          "abc123..."
+}`}</CodeBlock>
+            </div>
+
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">invoice — invoice.confirmed (инвойс полностью оплачен)</div>
+              <CodeBlock>{`{
+  "event_type":     "invoice.confirmed",
+  "invoice_number": "INV-A3K9X2",   // номер инвойса
+  "order_ref":      "order_456",     // ваш order_id из запроса
+  "amount_received": "10.050000",
   "currency":        "USDT",
   "network":         "TRON",
   "tx_hash":         "abc123..."
 }`}</CodeBlock>
             </div>
+
             <div>
               <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">payout.completed (выплата выполнена)</div>
               <CodeBlock>{`{
-  "event":      "payout.completed",
+  "event_type": "payout.completed",
   "payout_id":  18,
   "order_id":   "withdraw_789",
   "to_address": "TRX7xKp...",
