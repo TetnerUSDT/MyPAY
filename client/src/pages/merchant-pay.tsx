@@ -114,18 +114,18 @@ function MyPayLogo() {
 // React unmounts/remounts children → CountdownTimer resets expiredRef → infinite loop.
 function PageLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-[#0A0D12] text-white font-sans relative selection:bg-[#2EEA7F]/30 selection:text-white flex flex-col items-center justify-center p-4">
-      <div
-        className="fixed inset-0 z-0 opacity-[0.02] pointer-events-none"
-        style={{ backgroundImage: `url("${HONEYCOMB_SVG}")`, backgroundSize: '40px' }}
-      ></div>
-      <div className="fixed top-0 inset-x-0 h-[50vh] bg-gradient-to-b from-[#113B22]/10 to-transparent pointer-events-none z-0"></div>
+    <div
+      className="min-h-screen text-white font-sans relative selection:bg-[#2EEA7F]/30 selection:text-white flex flex-col items-center justify-center p-4"
+      style={{ background: "linear-gradient(180deg, hsl(224, 24%, 8%) 0%, hsl(224, 22%, 10%) 100%)" }}
+    >
+      {/* Same grid overlay as the login/splash page */}
+      <div className="splash-grid" />
 
-      <div className="relative z-10 w-full max-w-md">
+      <div className="relative z-[9999] w-full max-w-md">
         {children}
       </div>
 
-      <div className="mt-8 flex items-center justify-center gap-2 text-white/30 text-xs font-medium z-10 animate-fadeIn">
+      <div className="relative z-[9999] mt-8 flex items-center justify-center gap-2 text-white/30 text-xs font-medium animate-fadeIn">
         <ShieldCheck className="w-3.5 h-3.5" />
         Защищено MyPay
       </div>
