@@ -2076,7 +2076,40 @@ export function registerBusinessRoutes(app: Express) {
     try {
       const [shop] = await db.select().from(merchantShops).where(and(eq(merchantShops.id, shopId), eq(merchantShops.userId, user.id))).limit(1);
       if (!shop) return res.status(404).json({ error: "Shop not found" });
-      const wallets = await db.select().from(merchantWallets).where(eq(merchantWallets.shopId, shopId)).orderBy(desc(merchantWallets.createdAt)).limit(200);
+      // Raw SQL so we can use UNIX_TIMESTAMP for TIMESTAMP columns —
+      // Drizzle's db.select() returns DATETIME/TIMESTAMP as raw strings without a
+      // timezone suffix, so the browser parses them as local time and the countdown
+      // is off by the user's UTC offset.  UNIX_TIMESTAMP → new Date(unix*1000) is
+      // always UTC-correct regardless of MySQL server timezone.
+      const walletRows = await db.execute(sql`
+        SELECT id, shop_id, address, network, mode, gasfree_address,
+               external_user_id, order_id, status,
+               balance_usdt, balance_updated_at,
+               UNIX_TIMESTAMP(reserved_until)   AS reserved_until_unix,
+               UNIX_TIMESTAMP(monitoring_until) AS monitoring_until_unix,
+               UNIX_TIMESTAMP(created_at)       AS created_at_unix
+        FROM merchant_wallets
+        WHERE shop_id = ${shopId}
+        ORDER BY id DESC
+        LIMIT 200
+      `);
+      const wallets = (walletRows[0] as any[]).map((r: any) => ({
+        id:              r.id,
+        shopId:          r.shop_id,
+        address:         r.address,
+        network:         r.network,
+        mode:            r.mode,
+        gasfreeAddress:  r.gasfree_address ?? null,
+        externalUserId:  r.external_user_id ?? null,
+        orderId:         r.order_id ?? null,
+        status:          r.status,
+        balanceUsdt:     r.balance_usdt ?? null,
+        balanceUpdatedAt: r.balance_updated_at ?? null,
+        // ISO strings — safe for any browser/timezone
+        reservedUntil:   r.reserved_until_unix   ? new Date(Number(r.reserved_until_unix)   * 1000).toISOString() : null,
+        monitoringUntil: r.monitoring_until_unix  ? new Date(Number(r.monitoring_until_unix)  * 1000).toISOString() : null,
+        createdAt:       r.created_at_unix        ? new Date(Number(r.created_at_unix)        * 1000).toISOString() : null,
+      }));
 
       // Attach active invoice reservation info per wallet address
       // Uses UNIX_TIMESTAMP for timezone-safe UTC conversion (MySQL server is UTC+3)

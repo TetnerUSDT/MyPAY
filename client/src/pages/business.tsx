@@ -1889,16 +1889,11 @@ function WalletCard({ wallet: w, shopId, onRefresh }: { wallet: MerchantWallet; 
               <WalletCountdown reservedUntil={w.monitoringUntil} onExpired={onRefresh} mode="monitoring" />
             </div>
           )}
-          {/* Invoice reservation timer */}
+          {/* Invoice reservation badge — timer is shown by the universal WalletCountdown above */}
           {w.invoiceReservedUntil && new Date(w.invoiceReservedUntil) > new Date() && (
             <div className="mt-1.5 flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg px-2 py-1.5">
-              <div className="flex items-center gap-1 flex-1 min-w-0">
-                <span className="text-[9px] text-amber-400/60 uppercase tracking-wide font-semibold shrink-0">Инвойс</span>
-                <span className="text-[10px] text-white/50 font-mono truncate">{w.invoiceNumber}</span>
-              </div>
-              <div className="shrink-0">
-                <WalletCountdown reservedUntil={w.invoiceReservedUntil} onExpired={onRefresh} mode="invoice" />
-              </div>
+              <span className="text-[9px] text-amber-400/60 uppercase tracking-wide font-semibold shrink-0">Инвойс</span>
+              <span className="text-[10px] text-white/50 font-mono truncate">{w.invoiceNumber}</span>
             </div>
           )}
           {/* Balance row */}
