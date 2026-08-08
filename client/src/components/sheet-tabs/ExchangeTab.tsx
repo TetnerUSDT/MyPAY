@@ -125,7 +125,11 @@ export default function ExchangeTab({ onSuccess }: ExchangeTabProps) {
     queryKey: ['/api/user-balance', payBalanceId],
     queryFn: async () => {
       if (!payBalanceId) return null;
-      const response = await fetch(`/api/user-balance/${payBalanceId}`, { credentials: 'include' });
+      const apiKey = localStorage.getItem("userApiKey") || "";
+      const response = await fetch(`/api/user-balance/${payBalanceId}`, {
+        credentials: 'include',
+        headers: apiKey ? { "x-api-key": apiKey } : {},
+      });
       if (!response.ok) return { sum: '0' };
       return response.json();
     },
