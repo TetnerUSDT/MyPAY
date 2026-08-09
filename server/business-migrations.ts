@@ -1,6 +1,7 @@
 import { db } from "./db";
 import { sql } from "drizzle-orm";
 import { runScannerProviderMigrations } from "./scanner/migrations";
+import { registerGasFreeWallet } from "./blockchain-transfer";
 
 async function tableExists(table: string): Promise<boolean> {
   try {
@@ -277,8 +278,34 @@ export async function runBusinessMigrations() {
       }
     }
 
-    // Backfill: all existing standard TRON wallets — register GasFree address if missing
-    // (done lazily at generation time; no batch migration needed)
+    // Backfill: all existing TRON wallets (any mode) — register GasFree address if missing.
+    // Runs on every startup so transient failures are retried automatically on the next restart.
+    // The admin endpoint POST /api/fix/tron-gasfree provides an on-demand retry path.
+    {
+      const walletRows = ((await db.execute(sql`
+        SELECT id, address FROM merchant_wallets
+        WHERE network = 'TRON' AND gasfree_address IS NULL
+      `)) as unknown as any[][])[0] as any[];
+      let gfFilled = 0;
+      for (const row of walletRows) {
+        try {
+          const gasFreeAddr = await registerGasFreeWallet(row.address);
+          if (gasFreeAddr) {
+            await db.execute(sql`
+              UPDATE merchant_wallets SET gasfree_address = ${gasFreeAddr} WHERE id = ${row.id}
+            `);
+            gfFilled++;
+          } else {
+            console.warn(`[Business] GasFree backfill: null result for wallet ${row.id} (${row.address})`);
+          }
+        } catch (err: any) {
+          console.warn(`[Business] GasFree backfill: error for wallet ${row.id} (${row.address}): ${err.message}`);
+        }
+      }
+      if (walletRows.length > 0) {
+        console.log(`[Business] GasFree backfill: ${gfFilled}/${walletRows.length} TRON wallets updated`);
+      }
+    }
 
     await runScannerProviderMigrations();
 

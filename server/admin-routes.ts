@@ -10,6 +10,7 @@ import { notificationService } from "./notification-service";
 import { formatBalance } from "./utils";
 import { systemUpload } from "./upload-config";
 import { invalidateSettingsCache } from "./p2p-migrations";
+import { registerGasFreeWallet } from "./blockchain-transfer";
 
 // Helper functions for MySQL compatibility
 function generateUUID(): string {
@@ -2112,5 +2113,47 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
       await db.execute(sql`DELETE FROM merchant_scanner_keys WHERE id = ${parseInt(req.params.id)}`);
       res.json({ ok: true });
     } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ========== ONE-TIME FIXES ==========
+
+  // Backfill GasFree addresses for existing TRON wallets that have gasfree_address = NULL
+  app.post(`/${adminPath}/api/fix/tron-gasfree`, requireSuperAdmin, async (req: AdminRequest, res) => {
+    try {
+      const rows = await db.execute(sql`
+        SELECT id, address FROM merchant_wallets
+        WHERE network = 'TRON' AND gasfree_address IS NULL
+      `);
+      const wallets: Array<{ id: number; address: string }> = (rows as any)[0] ?? rows as any;
+
+      let filled = 0;
+      let failed = 0;
+      const errors: string[] = [];
+
+      for (const wallet of wallets) {
+        try {
+          const gasFreeAddr = await registerGasFreeWallet(wallet.address);
+          if (gasFreeAddr) {
+            await db.execute(sql`
+              UPDATE merchant_wallets SET gasfree_address = ${gasFreeAddr} WHERE id = ${wallet.id}
+            `);
+            filled++;
+            console.log(`[fix/tron-gasfree] wallet ${wallet.id} (${wallet.address}) → ${gasFreeAddr}`);
+          } else {
+            failed++;
+            errors.push(`wallet ${wallet.id} (${wallet.address}): registerGasFreeWallet returned null`);
+          }
+        } catch (err: any) {
+          failed++;
+          errors.push(`wallet ${wallet.id} (${wallet.address}): ${err.message}`);
+          console.error(`[fix/tron-gasfree] error for wallet ${wallet.id}:`, err.message);
+        }
+      }
+
+      res.json({ success: true, total: wallets.length, filled, failed, errors });
+    } catch (err: any) {
+      console.error('[fix/tron-gasfree] error:', err);
+      res.status(500).json({ message: err.message });
+    }
   });
 }
