@@ -3064,49 +3064,45 @@ function SettingsTab({ shop }: { shop: Shop }) {
               {selectableNets.map(n => {
                 const isOn = selectedNets.includes(n.id);
                 const isTron = n.id === "TRON";
+                const showToggle = isTron && isOn;
                 return (
-                  <div key={n.id} className="flex flex-col gap-1">
-                    <button
-                      onClick={() => toggleNet(n.id)}
-                      className={`relative flex items-center gap-3 p-3 rounded-xl border text-left transition-all w-full ${
-                        isOn
-                          ? "border-[#3ab368]/50 bg-[#3ab368]/8 shadow-[0_0_20px_rgba(58,179,104,0.06)]"
-                          : "border-white/6 bg-[#0A0C10] hover:border-white/15 hover:bg-white/3"
-                      }`}
-                    >
-                      <div className={`absolute top-2 right-2 w-4 h-4 rounded-full border flex items-center justify-center transition-all ${
-                        isOn ? "bg-[#3ab368] border-[#3ab368]" : "border-white/15"
-                      }`}>
-                        {isOn && <Check className="w-2.5 h-2.5 text-white" />}
-                      </div>
-                      <NetworkIcon iconFile={n.icon} size={28} />
-                      <div className="min-w-0 flex-1 pr-4">
-                        <div className="text-xs font-semibold text-white leading-tight">{n.label}</div>
-                        <div className="text-[9px] text-white/35 mt-0.5 leading-tight">{n.sub}</div>
-                      </div>
-                    </button>
-                    {/* GasFree toggle — only on TRON card when it's enabled */}
-                    {isTron && isOn && (
-                      <button
-                        onClick={() => setTronGasfreeMode(v => !v)}
-                        className={`flex items-center justify-between px-3 py-2 rounded-xl border text-left transition-all ${
-                          tronGasfreeMode
-                            ? "border-[#3ab368]/40 bg-[#3ab368]/8"
-                            : "border-white/6 bg-[#0A0C10] hover:border-white/12"
-                        }`}
+                  // Outer div — relative anchor for the absolutely-positioned toggle
+                  <div
+                    key={n.id}
+                    onClick={() => toggleNet(n.id)}
+                    className={`relative flex items-center gap-3 p-3 rounded-xl border text-left transition-all cursor-pointer select-none ${
+                      isOn
+                        ? "border-[#3ab368]/50 bg-[#3ab368]/8 shadow-[0_0_20px_rgba(58,179,104,0.06)]"
+                        : "border-white/6 bg-[#0A0C10] hover:border-white/15 hover:bg-white/3"
+                    }`}
+                  >
+                    <NetworkIcon iconFile={n.icon} size={28} />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-semibold text-white leading-tight">{n.label}</div>
+                      <div className="text-[9px] text-white/35 mt-0.5 leading-tight">{n.sub}</div>
+                    </div>
+
+                    {/* GasFree inline toggle — stopPropagation keeps card click separate */}
+                    {showToggle && (
+                      <div
+                        className="flex items-center gap-1.5 flex-shrink-0 mr-5"
+                        onClick={e => { e.stopPropagation(); setTronGasfreeMode(v => !v); }}
                       >
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] text-white/50 leading-none">Комиссия:</span>
-                          <span className={`text-[10px] font-semibold leading-none ${tronGasfreeMode ? "text-[#3ab368]" : "text-white/70"}`}>
-                            {tronGasfreeMode ? "GasFree" : "TRX (обычный)"}
-                          </span>
-                        </div>
-                        {/* Mini toggle pill */}
-                        <div className={`relative w-7 h-4 rounded-full transition-all flex-shrink-0 ${tronGasfreeMode ? "bg-[#3ab368]" : "bg-white/10"}`}>
+                        <div className={`relative w-7 h-4 rounded-full transition-colors ${tronGasfreeMode ? "bg-[#3ab368]" : "bg-white/15"}`}>
                           <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all ${tronGasfreeMode ? "left-3.5" : "left-0.5"}`} />
                         </div>
-                      </button>
+                        <span className={`text-[9px] font-semibold leading-none ${tronGasfreeMode ? "text-[#3ab368]" : "text-white/50"}`}>
+                          {tronGasfreeMode ? "GasFree" : "TRX"}
+                        </span>
+                      </div>
                     )}
+
+                    {/* Check indicator */}
+                    <div className={`absolute top-2 right-2 w-4 h-4 rounded-full border flex items-center justify-center transition-all ${
+                      isOn ? "bg-[#3ab368] border-[#3ab368]" : "border-white/15"
+                    }`}>
+                      {isOn && <Check className="w-2.5 h-2.5 text-white" />}
+                    </div>
                   </div>
                 );
               })}
