@@ -508,6 +508,7 @@ export const merchantShops = mysqlTable("merchant_shops", {
   temporaryMinutes: int("temporary_minutes").notNull().default(30),
   invoiceMinutes: int("invoice_minutes").notNull().default(60),
   enabledNetworks: text("enabled_networks"),
+  tronGasfreeMode: int("tron_gasfree_mode").notNull().default(0),
   webhookUrl: varchar("webhook_url", { length: 500 }),
   balanceUsdt: decimal("balance_usdt", { precision: 18, scale: 8 }).notNull().default("0"),
   totalReceived: decimal("total_received", { precision: 18, scale: 8 }).notNull().default("0"),

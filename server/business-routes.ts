@@ -66,8 +66,8 @@ async function generateMerchantWallet(shopId: number, network: string, mode: str
   const node = SUPPORTED_WALLET_NODES[network];
   if (!node) throw new Error(`Network ${network} is not supported by the wallet API. Supported: ${Object.keys(SUPPORTED_WALLET_NODES).join(", ")}`);
 
+  // Always generate standard wallets — GasFree is a payout mode, not a separate wallet type
   const body: any = { node };
-  if (mode === "gasfree") body.mode = "gasfree";
 
   const walletRes = await fetch(WALLET_API_URL, {
     method: "POST",
@@ -87,9 +87,10 @@ async function generateMerchantWallet(shopId: number, network: string, mode: str
   const walletData = await walletRes.json() as any;
   if (!walletData.address) throw new Error(`Wallet API did not return an address. Response: ${JSON.stringify(walletData)}`);
 
-  // For gasfree wallets: register with the GasFree provider to obtain the per-user contract address
+  // For every TRON wallet: always pre-register GasFree so the shop can switch modes
+  // without needing to regenerate wallets later.
   let gasfreeAddress: string | null = walletData.gasfree_address ?? null;
-  if (mode === "gasfree" && network === "TRON" && !gasfreeAddress) {
+  if (network === "TRON" && !gasfreeAddress) {
     gasfreeAddress = await registerGasFreeWallet(walletData.address);
   }
 
@@ -98,7 +99,7 @@ async function generateMerchantWallet(shopId: number, network: string, mode: str
     address: walletData.address,
     privateKey: walletData.private_key ?? null,
     network,
-    mode,
+    mode: "standard",   // all wallets are standard; GasFree is a shop-level toggle
     gasfreeAddress,
     status: "active",
   }) as any;
@@ -139,10 +140,15 @@ async function findOrReserveMerchantWallet(
   await releaseExpiredMerchantWallets(shopId);
 
   if (addressMode === "permanent" && externalUserId) {
+    // For TRON: also match legacy gasfree-mode wallets (they carry a valid gasfree_address)
+    const tronModeClause = network === "TRON"
+      ? sql`AND mw.mode IN ('standard', 'gasfree')`
+      : sql`AND mw.mode = ${mode}`;
     const existingRows = await db.execute(sql`
-      SELECT * FROM merchant_wallets
-      WHERE shop_id = ${shopId} AND network = ${network} AND mode = ${mode}
-        AND external_user_id = ${externalUserId} AND status = 'permanent'
+      SELECT * FROM merchant_wallets mw
+      WHERE mw.shop_id = ${shopId} AND mw.network = ${network}
+        ${tronModeClause}
+        AND mw.external_user_id = ${externalUserId} AND mw.status = 'permanent'
       LIMIT 1
     `);
     const existing = (existingRows[0] as any[])[0];
@@ -1574,7 +1580,7 @@ export function registerBusinessRoutes(app: Express) {
   app.patch("/api/business/shops/:id", requireApiKey, async (req, res) => {
     const user = await getUserFromRequest(req);
     if (!user) return res.status(401).json({ error: "Unauthorized" });
-    const { name, domain, webhookUrl, addressMode, enabledNetworks } = req.body;
+    const { name, domain, webhookUrl, addressMode, enabledNetworks, tronGasfreeMode } = req.body;
     const shopId = parseInt(req.params.id);
     try {
       const [shop] = await db.select().from(merchantShops).where(and(eq(merchantShops.id, shopId), eq(merchantShops.userId, user.id))).limit(1);
@@ -1601,7 +1607,12 @@ export function registerBusinessRoutes(app: Express) {
         if (!isNaN(mins) && mins >= 1 && mins <= 1440) updates.invoiceMinutes = mins;
       }
       if (enabledNetworks !== undefined) {
-        updates.enabledNetworks = Array.isArray(enabledNetworks) ? JSON.stringify(enabledNetworks) : enabledNetworks;
+        // Strip legacy TRON_GF from enabled_networks — it's now a shop-level toggle
+        const nets: string[] = Array.isArray(enabledNetworks) ? enabledNetworks : JSON.parse(enabledNetworks || "[]");
+        updates.enabledNetworks = JSON.stringify(nets.filter((n: string) => n !== "TRON_GF"));
+      }
+      if (tronGasfreeMode !== undefined) {
+        updates.tronGasfreeMode = tronGasfreeMode ? 1 : 0;
       }
       await db.update(merchantShops).set(updates).where(eq(merchantShops.id, shopId));
       const [updated] = await db.select().from(merchantShops).where(eq(merchantShops.id, shopId)).limit(1);
@@ -2274,27 +2285,33 @@ export function registerBusinessRoutes(app: Express) {
     // ── Wallet-based modes (permanent / temporary) ───────────────────────────
     if (!network) return res.status(400).json({ error: "network is required" });
 
-    // Validate against enabled networks
+    // Validate against enabled networks (TRON_GF is no longer a separate network key)
     const enabledNetworks: string[] = shop.enabled_networks ? JSON.parse(shop.enabled_networks) : [];
     if (enabledNetworks.length > 0) {
-      const netKey = (network === "TRON" && mode === "gasfree") ? "TRON_GF" : network;
-      if (!enabledNetworks.includes(netKey)) {
+      // Legacy: treat TRON_GF requests as TRON
+      const netKey = network === "TRON_GF" ? "TRON" : network;
+      const enabled = enabledNetworks.includes(netKey) || enabledNetworks.includes("TRON_GF" /* legacy */);
+      if (!enabled) {
         return res.status(400).json({ error: `Network ${netKey} is not enabled for this shop` });
       }
     }
 
     try {
-      const walletMode = mode === "gasfree" ? "gasfree" : "standard";
+      // Always use standard mode — GasFree is a shop-level toggle, not a separate wallet pool
+      const walletMode = "standard";
       const isTemp = paymentMode === "temporary";
       const tempMins = parseInt(String(shop.temporary_minutes ?? 30));
       const monitorMinutes = parseInt(String(shop.permanent_monitor_minutes ?? 20));
+      const walletNetwork = network === "TRON_GF" ? "TRON" : network;
 
       const wallet = await findOrReserveMerchantWallet(
-        shop.id, network, walletMode, user_id, order_id,
+        shop.id, walletNetwork, walletMode, user_id, order_id,
         isTemp ? "temporary" : "permanent",
         isTemp ? tempMins : monitorMinutes,
       );
-      const address = walletMode === "gasfree" ? (wallet.gasfree_address || wallet.address) : wallet.address;
+      // Pick address based on shop-level GasFree toggle (or legacy TRON_GF request)
+      const useGasfree = walletNetwork === "TRON" && (shop.tron_gasfree_mode || network === "TRON_GF");
+      const address = useGasfree ? (wallet.gasfree_address || wallet.address) : wallet.address;
 
       // ── Permanent mode: monitor wallet, create payment only when tx arrives ──
       if (paymentMode === "permanent") {
@@ -2660,7 +2677,7 @@ export function registerBusinessRoutes(app: Express) {
     if (!network) return res.status(400).json({ error: "network is required" });
     try {
       const rows = await db.execute(sql`
-        SELECT i.*, s.webhook_url, s.enabled_networks, s.address_mode, s.invoice_minutes
+        SELECT i.*, s.webhook_url, s.enabled_networks, s.address_mode, s.invoice_minutes, s.tron_gasfree_mode
         FROM merchant_invoices i
         JOIN merchant_shops s ON s.id = i.shop_id
         WHERE i.invoice_number = ${req.params.number}
@@ -2690,16 +2707,18 @@ export function registerBusinessRoutes(app: Express) {
         return res.status(400).json({ error: `Network ${network} not allowed for this invoice` });
       }
 
-      // Normalize TRON_GF → TRON + gasfree mode
+      // Normalize TRON_GF → TRON (legacy compat); always use standard wallet pool
       const walletNetwork = network === "TRON_GF" ? "TRON" : network;
-      const walletMode = network === "TRON_GF" ? "gasfree" : "standard";
+      const walletMode = "standard";
 
       // Clamp invoice_minutes: minimum 1, fallback 60, prevents instant expiry when value is 0/null
       const rawMins = parseInt(String(inv.invoice_minutes));
       const invMinsNet = (isNaN(rawMins) || rawMins < 1) ? 60 : rawMins;
 
       const wallet = await findOrReserveMerchantWallet(inv.shop_id, walletNetwork, walletMode, undefined, inv.invoice_number, "temporary", invMinsNet);
-      const address = (walletMode === "gasfree" ? wallet.gasfree_address : null) || wallet.address;
+      // Pick GasFree address if shop has the toggle on, or legacy TRON_GF was requested
+      const useGasfree = walletNetwork === "TRON" && (inv.tron_gasfree_mode || network === "TRON_GF");
+      const address = (useGasfree ? wallet.gasfree_address : null) || wallet.address;
 
       // Use MySQL NOW() + INTERVAL to avoid timezone mismatch between Node.js (UTC) and MySQL server timezone
       await db.execute(sql`

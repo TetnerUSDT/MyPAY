@@ -27,7 +27,6 @@ interface NetworkDef {
 
 const NETWORKS: NetworkDef[] = [
   { id: "TRON",     label: "TRON",         sub: "TRC20 · USDT",      icon: "tron.svg",      apiNode: "TRON",     apiMode: "standard", selectable: true },
-  { id: "TRON_GF",  label: "TRON GasFree", sub: "без комиссии TRX",  icon: "tron.svg",      apiNode: "TRON",     apiMode: "gasfree",  selectable: true, badge: "GasFree" },
   { id: "BSC",      label: "BNB Chain",    sub: "BEP20 · USDT",      icon: "bnb.svg",       apiNode: "BSC",      apiMode: "standard", selectable: true },
   { id: "TON",      label: "TON",          sub: "Jetton · USDT",     icon: "ton.svg",       apiNode: "TON",      apiMode: "standard", selectable: true },
   { id: "ETH",      label: "Ethereum",     sub: "ERC20 · USDT",      icon: "ethereum.svg",  apiNode: "ETH",      apiMode: "standard", selectable: true },
@@ -60,6 +59,7 @@ interface Shop {
   temporaryMinutes: number;
   invoiceMinutes: number;
   enabledNetworks: string | null;
+  tronGasfreeMode: number | null;
   webhookUrl: string | null;
   balanceUsdt: string;
   totalReceived: string;
@@ -160,7 +160,12 @@ function fetchBusiness(path: string) {
 
 function parseNetworks(raw: string | null): string[] {
   if (!raw) return [];
-  try { return JSON.parse(raw); } catch { return []; }
+  try {
+    const nets: string[] = JSON.parse(raw);
+    // Migrate legacy TRON_GF → TRON (deduplicate)
+    const migrated = nets.map(n => n === "TRON_GF" ? "TRON" : n);
+    return [...new Set(migrated)];
+  } catch { return []; }
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -2903,6 +2908,7 @@ function SettingsTab({ shop }: { shop: Shop }) {
   const [temporaryMinutes, setTemporaryMinutes] = useState<number>(shop.temporaryMinutes ?? 30);
   const [invoiceMinutes, setInvoiceMinutes] = useState<number>(shop.invoiceMinutes ?? 60);
   const [selectedNets, setSelectedNets] = useState<string[]>(parseNetworks(shop.enabledNetworks));
+  const [tronGasfreeMode, setTronGasfreeMode] = useState<boolean>(!!(shop.tronGasfreeMode));
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -2914,7 +2920,8 @@ function SettingsTab({ shop }: { shop: Shop }) {
 
   const save = useMutation({
     mutationFn: () => apiRequest("PATCH", `/api/business/shops/${shop.id}`, {
-      name, domain, webhookUrl, permanentMonitorMinutes, temporaryMinutes, invoiceMinutes, enabledNetworks: selectedNets
+      name, domain, webhookUrl, permanentMonitorMinutes, temporaryMinutes, invoiceMinutes,
+      enabledNetworks: selectedNets, tronGasfreeMode,
     }).then(r => r.json()),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/business/shops", shop.id] });
@@ -3056,32 +3063,51 @@ function SettingsTab({ shop }: { shop: Shop }) {
             <div className="grid grid-cols-2 gap-2 mb-3">
               {selectableNets.map(n => {
                 const isOn = selectedNets.includes(n.id);
+                const isTron = n.id === "TRON";
                 return (
-                  <button
-                    key={n.id}
-                    onClick={() => toggleNet(n.id)}
-                    className={`relative flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
-                      isOn
-                        ? "border-[#3ab368]/50 bg-[#3ab368]/8 shadow-[0_0_20px_rgba(58,179,104,0.06)]"
-                        : "border-white/6 bg-[#0A0C10] hover:border-white/15 hover:bg-white/3"
-                    }`}
-                  >
-                    <div className={`absolute top-2 right-2 w-4 h-4 rounded-full border flex items-center justify-center transition-all ${
-                      isOn ? "bg-[#3ab368] border-[#3ab368]" : "border-white/15"
-                    }`}>
-                      {isOn && <Check className="w-2.5 h-2.5 text-white" />}
-                    </div>
-                    <NetworkIcon iconFile={n.icon} size={28} />
-                    <div className="min-w-0 flex-1 pr-4">
-                      <div className="text-xs font-semibold text-white leading-tight">{n.label}</div>
-                      <div className="text-[9px] text-white/35 mt-0.5 leading-tight">{n.sub}</div>
-                      {n.badge && (
-                        <span className="inline-block mt-1 text-[8px] px-1.5 py-0.5 rounded-full bg-[#3ab368]/20 text-[#3ab368] font-medium">
-                          {n.badge}
-                        </span>
-                      )}
-                    </div>
-                  </button>
+                  <div key={n.id} className="flex flex-col gap-1">
+                    <button
+                      onClick={() => toggleNet(n.id)}
+                      className={`relative flex items-center gap-3 p-3 rounded-xl border text-left transition-all w-full ${
+                        isOn
+                          ? "border-[#3ab368]/50 bg-[#3ab368]/8 shadow-[0_0_20px_rgba(58,179,104,0.06)]"
+                          : "border-white/6 bg-[#0A0C10] hover:border-white/15 hover:bg-white/3"
+                      }`}
+                    >
+                      <div className={`absolute top-2 right-2 w-4 h-4 rounded-full border flex items-center justify-center transition-all ${
+                        isOn ? "bg-[#3ab368] border-[#3ab368]" : "border-white/15"
+                      }`}>
+                        {isOn && <Check className="w-2.5 h-2.5 text-white" />}
+                      </div>
+                      <NetworkIcon iconFile={n.icon} size={28} />
+                      <div className="min-w-0 flex-1 pr-4">
+                        <div className="text-xs font-semibold text-white leading-tight">{n.label}</div>
+                        <div className="text-[9px] text-white/35 mt-0.5 leading-tight">{n.sub}</div>
+                      </div>
+                    </button>
+                    {/* GasFree toggle — only on TRON card when it's enabled */}
+                    {isTron && isOn && (
+                      <button
+                        onClick={() => setTronGasfreeMode(v => !v)}
+                        className={`flex items-center justify-between px-3 py-2 rounded-xl border text-left transition-all ${
+                          tronGasfreeMode
+                            ? "border-[#3ab368]/40 bg-[#3ab368]/8"
+                            : "border-white/6 bg-[#0A0C10] hover:border-white/12"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-white/50 leading-none">Комиссия:</span>
+                          <span className={`text-[10px] font-semibold leading-none ${tronGasfreeMode ? "text-[#3ab368]" : "text-white/70"}`}>
+                            {tronGasfreeMode ? "GasFree" : "TRX (обычный)"}
+                          </span>
+                        </div>
+                        {/* Mini toggle pill */}
+                        <div className={`relative w-7 h-4 rounded-full transition-all flex-shrink-0 ${tronGasfreeMode ? "bg-[#3ab368]" : "bg-white/10"}`}>
+                          <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all ${tronGasfreeMode ? "left-3.5" : "left-0.5"}`} />
+                        </div>
+                      </button>
+                    )}
+                  </div>
                 );
               })}
             </div>

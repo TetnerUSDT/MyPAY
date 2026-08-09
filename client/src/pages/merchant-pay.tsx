@@ -20,7 +20,7 @@ interface InvoiceData {
 
 const NETWORK_LABELS: Record<string, { label: string; icon: string; color: string }> = {
   TRON:     { label: "TRON (TRC20)",      icon: "/uploads/icons/cryptocurrency/tron.svg",     color: "#ff4c3b" },
-  TRON_GF:  { label: "TRON (Gasfree)",    icon: "/uploads/icons/cryptocurrency/tron.svg",     color: "#ff4c3b" },
+  TRON_GF:  { label: "TRON (TRC20)",     icon: "/uploads/icons/cryptocurrency/tron.svg",     color: "#ff4c3b" },
   BSC:      { label: "BNB Chain (BEP20)", icon: "/uploads/icons/cryptocurrency/bnb.svg",      color: "#f0b90b" },
   TON:      { label: "TON",              icon: "/uploads/icons/cryptocurrency/ton.svg",      color: "#0088cc" },
   POLYGON:  { label: "Polygon",           icon: "/uploads/icons/cryptocurrency/polygon.svg",  color: "#8247e5" },

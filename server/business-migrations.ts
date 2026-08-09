@@ -250,6 +250,36 @@ export async function runBusinessMigrations() {
       await db.execute(sql`ALTER TABLE merchant_payment_txs ADD INDEX idx_mpt_invoice (invoice_id)`);
     }
 
+    // Add tron_gasfree_mode toggle to merchant_shops
+    if (!await columnExists("merchant_shops", "tron_gasfree_mode")) {
+      await db.execute(sql`ALTER TABLE merchant_shops ADD COLUMN tron_gasfree_mode TINYINT(1) NOT NULL DEFAULT 0 AFTER enabled_networks`);
+    }
+
+    // Backfill: shops that had TRON_GF enabled get tron_gasfree_mode = 1
+    await db.execute(sql`
+      UPDATE merchant_shops
+      SET tron_gasfree_mode = 1
+      WHERE enabled_networks LIKE '%TRON_GF%' AND tron_gasfree_mode = 0
+    `);
+
+    // Backfill: shops with TRON_GF but no TRON — replace TRON_GF with TRON in enabled_networks
+    {
+      const [shopRows] = await db.execute(sql`
+        SELECT id, enabled_networks FROM merchant_shops
+        WHERE enabled_networks LIKE '%TRON_GF%'
+      `);
+      for (const row of shopRows as any[]) {
+        try {
+          const nets: string[] = JSON.parse(row.enabled_networks);
+          const migrated = [...new Set(nets.map((n: string) => n === "TRON_GF" ? "TRON" : n))];
+          await db.execute(sql`UPDATE merchant_shops SET enabled_networks = ${JSON.stringify(migrated)} WHERE id = ${row.id}`);
+        } catch { /* skip malformed */ }
+      }
+    }
+
+    // Backfill: all existing standard TRON wallets — register GasFree address if missing
+    // (done lazily at generation time; no batch migration needed)
+
     await runScannerProviderMigrations();
 
     console.log("[Business] Migrations completed");
