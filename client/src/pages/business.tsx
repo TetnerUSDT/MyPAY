@@ -3077,25 +3077,26 @@ function SettingsTab({ shop }: { shop: Shop }) {
                     }`}
                   >
                     <NetworkIcon iconFile={n.icon} size={28} />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-semibold text-white leading-tight">{n.label}</div>
+                    <div className="min-w-0 flex-1 pr-5">
+                      <div className="flex items-center gap-2 leading-tight">
+                        <span className="text-xs font-semibold text-white">{n.label}</span>
+                        {/* GasFree inline toggle — right of label, stopPropagation isolates it */}
+                        {showToggle && (
+                          <div
+                            className="flex items-center gap-1 flex-shrink-0"
+                            onClick={e => { e.stopPropagation(); setTronGasfreeMode(v => !v); }}
+                          >
+                            <div className={`relative w-7 h-4 rounded-full transition-colors ${tronGasfreeMode ? "bg-[#3ab368]" : "bg-white/15"}`}>
+                              <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all ${tronGasfreeMode ? "left-3.5" : "left-0.5"}`} />
+                            </div>
+                            <span className={`text-[9px] font-semibold leading-none ${tronGasfreeMode ? "text-[#3ab368]" : "text-white/50"}`}>
+                              {tronGasfreeMode ? "GasFree" : "TRX"}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                       <div className="text-[9px] text-white/35 mt-0.5 leading-tight">{n.sub}</div>
                     </div>
-
-                    {/* GasFree inline toggle — stopPropagation keeps card click separate */}
-                    {showToggle && (
-                      <div
-                        className="flex items-center gap-1.5 flex-shrink-0 mr-5"
-                        onClick={e => { e.stopPropagation(); setTronGasfreeMode(v => !v); }}
-                      >
-                        <div className={`relative w-7 h-4 rounded-full transition-colors ${tronGasfreeMode ? "bg-[#3ab368]" : "bg-white/15"}`}>
-                          <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all ${tronGasfreeMode ? "left-3.5" : "left-0.5"}`} />
-                        </div>
-                        <span className={`text-[9px] font-semibold leading-none ${tronGasfreeMode ? "text-[#3ab368]" : "text-white/50"}`}>
-                          {tronGasfreeMode ? "GasFree" : "TRX"}
-                        </span>
-                      </div>
-                    )}
 
                     {/* Check indicator */}
                     <div className={`absolute top-2 right-2 w-4 h-4 rounded-full border flex items-center justify-center transition-all ${
