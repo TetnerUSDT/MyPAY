@@ -18,6 +18,10 @@ export async function apiRequest(method: string, url: string, data?: unknown) {
   });
 
   if (!res.ok) {
+    if (res.status === 401) {
+      localStorage.removeItem("userApiKey");
+      window.dispatchEvent(new Event("userApiKeyChanged"));
+    }
     const text = await res.text().catch(() => res.statusText);
     let message = text;
     try {
