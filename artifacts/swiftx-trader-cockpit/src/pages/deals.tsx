@@ -31,7 +31,7 @@ function StatusIcon({ status }: { status: string }) {
   return <Clock className="w-4 h-4 text-[#e9b44c]" />;
 }
 
-export default function Deals() {
+export default function Deals({ onClose }: { onClose?: () => void } = {}) {
   const [, setLocation] = useLocation();
   const { data: orders = [], isLoading, isError, error, refetch } = useOrders();
 
@@ -81,7 +81,10 @@ export default function Deals() {
               return (
                 <div
                   key={order.id}
-                  onClick={() => setLocation(`/order/${order.id}`)}
+                   onClick={() => {
+                     onClose?.();
+                     setLocation(`/order/${order.id}`);
+                   }}
                   className="bg-[#111419] border border-white/[.06] rounded-2xl p-5 cursor-pointer hover:border-[#3ab368]/30 hover:bg-[#14181d] transition-all group relative overflow-hidden"
                 >
                   <div className="flex items-center justify-between mb-3">

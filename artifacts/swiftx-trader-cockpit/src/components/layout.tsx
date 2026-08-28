@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { createContext, type ReactNode, useContext, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { 
   LayoutDashboard, 
@@ -10,6 +10,19 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentUser } from "@/hooks/use-p2p";
+import { P2PWorkspaceModal } from "@/components/p2p-modal";
+import Deals from "@/pages/deals";
+import Ads from "@/pages/ads";
+import PaymentDetails from "@/pages/payment-details";
+
+type P2PModal = "deals" | "ads" | "payment-details" | null;
+const P2PModalContext = createContext<{ openP2PModal: (modal: Exclude<P2PModal, null>) => void }>({
+  openP2PModal: () => {},
+});
+
+export function useP2PModal() {
+  return useContext(P2PModalContext);
+}
 
 function MiniIcon({ children, active = false }: { children: ReactNode; active?: boolean }) {
   return (
@@ -27,6 +40,7 @@ function MiniIcon({ children, active = false }: { children: ReactNode; active?: 
 
 export function Layout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
+  const [modal, setModal] = useState<P2PModal>(null);
   const { toast } = useToast();
   const { data: user } = useCurrentUser();
   const displayName = user?.name || user?.username || "Трейдер";
@@ -40,7 +54,8 @@ export function Layout({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground font-sans selection:bg-primary/30">
+    <P2PModalContext.Provider value={{ openP2PModal: setModal }}>
+      <div className="flex min-h-screen bg-background text-foreground font-sans selection:bg-primary/30">
       {/* Sidebar */}
       <aside className="flex w-[76px] shrink-0 flex-col items-center border-r border-white/[.055] bg-sidebar py-5 z-10 relative">
         <Link href="/">
@@ -52,15 +67,15 @@ export function Layout({ children }: { children: ReactNode }) {
           <Link href="/">
             <MiniIcon active={location === "/"}><LayoutDashboard size={17} /></MiniIcon>
           </Link>
-          <Link href="/deals">
-            <MiniIcon active={location === "/deals" || location.startsWith("/order/")}><History size={17} /></MiniIcon>
-          </Link>
-          <Link href="/ads">
-            <MiniIcon active={location === "/ads" || location === "/create-ad"}><Megaphone size={17} /></MiniIcon>
-          </Link>
-          <Link href="/payment-details">
-            <MiniIcon active={location === "/payment-details"}><CreditCard size={17} /></MiniIcon>
-          </Link>
+          <button type="button" title="Сделки" data-testid="button-deals" onClick={() => setModal("deals")}>
+            <MiniIcon active={modal === "deals" || location.startsWith("/order/")}><History size={17} /></MiniIcon>
+          </button>
+          <button type="button" title="Объявления" data-testid="button-ads" onClick={() => setModal("ads")}>
+            <MiniIcon active={modal === "ads" || location === "/create-ad"}><Megaphone size={17} /></MiniIcon>
+          </button>
+          <button type="button" title="Реквизиты" data-testid="button-payment" onClick={() => setModal("payment-details")}>
+            <MiniIcon active={modal === "payment-details"}><CreditCard size={17} /></MiniIcon>
+          </button>
         </div>
         <button onClick={handleHelp} title="Справка" data-testid="button-help">
           <MiniIcon><Sparkles size={17} /></MiniIcon>
@@ -105,6 +120,22 @@ export function Layout({ children }: { children: ReactNode }) {
           {children}
         </main>
       </div>
-    </div>
+      </div>
+      {modal === "deals" && (
+        <P2PWorkspaceModal title="Сделки" kicker="История операций" onClose={() => setModal(null)}>
+          <Deals onClose={() => setModal(null)} />
+        </P2PWorkspaceModal>
+      )}
+      {modal === "ads" && (
+        <P2PWorkspaceModal title="Объявления" kicker="Ваши предложения" onClose={() => setModal(null)}>
+          <Ads onClose={() => setModal(null)} />
+        </P2PWorkspaceModal>
+      )}
+      {modal === "payment-details" && (
+        <P2PWorkspaceModal title="Реквизиты" kicker="Способы оплаты" onClose={() => setModal(null)}>
+          <PaymentDetails />
+        </P2PWorkspaceModal>
+      )}
+    </P2PModalContext.Provider>
   );
 }

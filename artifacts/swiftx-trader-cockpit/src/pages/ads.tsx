@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
 import { useMyAds, useUpdateAd, useDeleteAd } from "@/hooks/use-p2p";
 import { Plus, Power, PowerOff, X, AlertTriangle, Megaphone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { CreateAdModal } from "@/components/create-ad-modal";
 
 const STATUS_LABEL: Record<string, string> = {
   active: "Активно",
@@ -18,8 +18,7 @@ const STATUS_COLOR: Record<string, string> = {
   completed: "text-white/40",
 };
 
-export default function Ads() {
-  const [, setLocation] = useLocation();
+export default function Ads({ onClose }: { onClose?: () => void } = {}) {
   const { data: ads = [], isLoading, isError, error, refetch } = useMyAds();
   const updateAd = useUpdateAd();
   const deleteAd = useDeleteAd();
@@ -27,6 +26,7 @@ export default function Ads() {
   const showError = (error: Error) => toast({ title: "Операция не выполнена", description: error.message, variant: "destructive" });
   
   const [cancelTarget, setCancelTarget] = useState<any | null>(null);
+  const [showCreateAd, setShowCreateAd] = useState(false);
   
   const adsList = Array.isArray(ads) ? ads : [];
 
@@ -38,7 +38,7 @@ export default function Ads() {
           <p className="mt-1 text-sm text-white/40">Управляйте вашими предложениями на рынке.</p>
         </div>
         <button 
-          onClick={() => setLocation("/create-ad")} 
+          onClick={() => setShowCreateAd(true)}
           className="flex items-center gap-2 rounded-xl border border-[#3ab368]/30 bg-[#3ab368]/10 px-4 py-2.5 text-xs font-bold text-[#59d17e] transition hover:bg-[#3ab368]/20"
         >
           <Plus size={15} />Создать объявление
@@ -69,7 +69,7 @@ export default function Ads() {
             <p className="text-white/60 text-sm font-medium">Нет активных объявлений</p>
             <p className="text-white/30 text-xs mt-1 mb-6">Создайте предложение, чтобы начать торговать</p>
             <button 
-              onClick={() => setLocation("/create-ad")} 
+              onClick={() => setShowCreateAd(true)}
               className="rounded-xl px-7 py-2.5 text-sm font-bold bg-[#3ab368] text-[#07100a] shadow-lg shadow-[#3ab368]/10 transition hover:bg-[#59d17e]"
             >
               Разместить объявление
@@ -195,6 +195,7 @@ export default function Ads() {
           </div>
         </div>
       )}
+      {showCreateAd && <CreateAdModal onClose={() => setShowCreateAd(false)} />}
     </div>
   );
 }

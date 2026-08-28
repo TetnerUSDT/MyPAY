@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { useAds, useOrders, useCreateOrder, usePaymentMethods, useUserPaymentMethods } from "@/hooks/use-p2p";
 import { useToast } from "@/hooks/use-toast";
+import { CreateAdModal } from "@/components/create-ad-modal";
+import { useP2PModal } from "@/components/layout";
 
 const AVATAR_COLORS = ["#2f8d69", "#4267a7", "#9a6b43", "#7b558b", "#e63946", "#e9c46a"];
 const getAvatarColor = (id: number) => AVATAR_COLORS[id % AVATAR_COLORS.length];
@@ -150,6 +152,7 @@ function OrderSheet({ ad, side, onClose }: { ad: any; side: "buy" | "sell"; onCl
 
 function RightSidebar() {
   const [, setLocation] = useLocation();
+  const { openP2PModal } = useP2PModal();
   const { data: orders = [] } = useOrders();
   const activeOrders = (orders as any[]).filter(o => !["released", "cancelled", "refunded", "expired"].includes(o.status));
   const recentOrders = (orders as any[]).slice(0, 5);
@@ -166,14 +169,14 @@ function RightSidebar() {
       </div>
       
       <div className="mb-5 grid grid-cols-3 gap-1 rounded-xl border border-white/[.06] bg-[#13161b] p-1">
-        <button onClick={() => setLocation("/deals")} className="relative rounded-lg px-1 py-2 text-[10px] font-medium text-white/35 hover:text-white transition">
+        <button onClick={() => openP2PModal("deals")} className="relative rounded-lg px-1 py-2 text-[10px] font-medium text-white/35 hover:text-white transition">
           <History size={14} className="mx-auto mb-1" />Сделки
           {activeOrders.length > 0 && <span className="absolute right-1 top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-[#f97316] px-1 text-[8px] text-white">{activeOrders.length}</span>}
         </button>
-        <button onClick={() => setLocation("/ads")} className="relative rounded-lg px-1 py-2 text-[10px] font-medium text-white/35 hover:text-white transition">
+        <button onClick={() => openP2PModal("ads")} className="relative rounded-lg px-1 py-2 text-[10px] font-medium text-white/35 hover:text-white transition">
           <Megaphone size={14} className="mx-auto mb-1" />Объявления
         </button>
-        <button onClick={() => setLocation("/payment-details")} className="relative rounded-lg px-1 py-2 text-[10px] font-medium text-white/35 hover:text-white transition">
+        <button onClick={() => openP2PModal("payment-details")} className="relative rounded-lg px-1 py-2 text-[10px] font-medium text-white/35 hover:text-white transition">
           <WalletCards size={14} className="mx-auto mb-1" />Реквизиты
         </button>
       </div>
@@ -198,7 +201,7 @@ function RightSidebar() {
 
       <div className="mb-2 flex items-center justify-between">
         <h3 className="text-xs font-semibold text-white">Последняя активность</h3>
-        <button onClick={() => setLocation("/deals")} className="text-[10px] text-[#59d17e] hover:underline">Вся история</button>
+        <button onClick={() => openP2PModal("deals")} className="text-[10px] text-[#59d17e] hover:underline">Вся история</button>
       </div>
       <div className="space-y-2">
         {recentOrders.length === 0 && (
@@ -243,6 +246,7 @@ export default function Market() {
   const [amount, setAmount] = useState("all");
   const [payment, setPayment] = useState("all");
   const [selectedAd, setSelectedAd] = useState<any | null>(null);
+  const [showCreateAd, setShowCreateAd] = useState(false);
   const { data: paymentMethods = [] } = usePaymentMethods();
   const adSide = side === "buy" ? "sell" : "buy";
   
@@ -268,7 +272,7 @@ export default function Market() {
             <p className="mt-1 text-sm text-white/40">Откликайтесь на сделки быстро — лучшие цены уже в ленте.</p>
           </div>
           <button 
-            onClick={() => setLocation("/create-ad")} 
+            onClick={() => setShowCreateAd(true)}
             className="flex items-center gap-2 rounded-xl border border-[#3ab368]/30 bg-[#3ab368]/10 px-4 py-2.5 text-xs font-bold text-[#59d17e] transition hover:bg-[#3ab368]/20"
           >
             <Plus size={15} />Создать объявление
@@ -433,6 +437,7 @@ export default function Market() {
       </div>
       <RightSidebar />
       {selectedAd && <OrderSheet ad={selectedAd} side={side} onClose={() => setSelectedAd(null)} />}
+      {showCreateAd && <CreateAdModal onClose={() => setShowCreateAd(false)} />}
     </div>
   );
 }

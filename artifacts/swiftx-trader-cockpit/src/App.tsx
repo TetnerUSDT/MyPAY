@@ -22,16 +22,28 @@ function Router() {
       <Layout>
         <Switch>
           <Route path="/" component={Market} />
-          <Route path="/deals" component={Deals} />
-          <Route path="/ads" component={Ads} />
+          <Route path="/deals" component={DealsRoute} />
+          <Route path="/ads" component={AdsRoute} />
           <Route path="/payment-details" component={PaymentDetails} />
-          <Route path="/create-ad" component={CreateAd} />
+          <Route path="/create-ad" component={CreateAdRoute} />
           <Route path="/order/:id" component={OrderDetail} />
           <Route component={NotFound} />
         </Switch>
       </Layout>
     </RoutedErrorBoundary>
   );
+}
+
+function CreateAdRoute() {
+  return <CreateAd />;
+}
+
+function DealsRoute() {
+  return <Deals />;
+}
+
+function AdsRoute() {
+  return <Ads />;
 }
 
 function AuthGate({ children }: { children: ReactNode }) {

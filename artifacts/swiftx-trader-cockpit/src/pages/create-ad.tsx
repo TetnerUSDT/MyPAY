@@ -10,7 +10,7 @@ const CRYPTO_BALANCES = [
   { id: 6, label: "USDT TON",   currency: "USDT", network: "TON" },
 ];
 
-export default function CreateAd() {
+export default function CreateAd({ onClose }: { onClose?: () => void }) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   
@@ -75,20 +75,21 @@ export default function CreateAd() {
     }, {
       onSuccess: () => {
         toast({ title: "Объявление опубликовано" });
-        setLocation("/ads");
+        if (onClose) onClose();
+        else setLocation("/ads");
       },
       onError: (error) => toast({ title: "Не удалось опубликовать объявление", description: error.message, variant: "destructive" }),
     });
   };
 
   return (
-    <div className="flex-1 overflow-y-auto px-8 py-7 bg-[#0b0d11]">
+    <div className={onClose ? "px-6 py-6" : "flex-1 overflow-y-auto px-8 py-7 bg-[#0b0d11]"}>
       <div className="max-w-4xl mx-auto">
-        <div className="mb-8">
+        {!onClose && <div className="mb-8">
           <div className="text-[11px] font-bold uppercase tracking-[.18em] text-[#59d17e] mb-2">Новый оффер</div>
           <h2 className="text-[27px] font-semibold tracking-tight text-white">Создать объявление</h2>
           <p className="mt-1 text-sm text-white/40">Разместите свое предложение на P2P рынке.</p>
-        </div>
+        </div>}
 
         <div className="grid grid-cols-[1fr_350px] gap-8">
           <div className="space-y-6">
