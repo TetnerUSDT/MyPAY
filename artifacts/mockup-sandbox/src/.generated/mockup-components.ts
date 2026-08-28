@@ -7,5 +7,6 @@ export const modules: ModuleMap = {
   "./components/mockups/p2p-redesign/CompactMarketplace.tsx": () => import("../components/mockups/p2p-redesign/CompactMarketplace.tsx"),
   "./components/mockups/p2p-redesign/Current.tsx": () => import("../components/mockups/p2p-redesign/Current.tsx"),
   "./components/mockups/p2p-redesign/LiveDesk.tsx": () => import("../components/mockups/p2p-redesign/LiveDesk.tsx"),
+  "./components/mockups/p2p-redesign/SellerCommand.tsx": () => import("../components/mockups/p2p-redesign/SellerCommand.tsx"),
   "./components/mockups/p2p-redesign/TraderCockpit.tsx": () => import("../components/mockups/p2p-redesign/TraderCockpit.tsx")
 };
