@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiQuery, apiRequest } from "@/lib/api";
@@ -78,6 +78,12 @@ export function MerchantCockpit({ onOpenModal }: { onOpenModal?: (modal: Workspa
   const [cancelTarget, setCancelTarget] = useState<any | null>(null);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [promotingId, setPromotingId] = useState<number | null>(null);
+  const cancelTriggerRef = useRef<HTMLButtonElement | null>(null);
+
+  const closeCancelDialog = () => {
+    setCancelTarget(null);
+    window.requestAnimationFrame(() => cancelTriggerRef.current?.focus());
+  };
 
   // Data hooks
   const {
@@ -457,6 +463,7 @@ export function MerchantCockpit({ onOpenModal }: { onOpenModal?: (modal: Workspa
                   return (
                     <div 
                       key={ad.id} 
+                      data-testid={`merchant-ad-${ad.id}`}
                       className={`p-4 md:p-5 rounded-2xl border transition-all ${
                         isActive 
                           ? 'bg-[#111419] border-white/[.08] hover:border-white/15' 
@@ -511,6 +518,7 @@ export function MerchantCockpit({ onOpenModal }: { onOpenModal?: (modal: Workspa
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  cancelTriggerRef.current = e.currentTarget;
                                   setCancelTarget(ad);
                                 }}
                                 className="p-1.5 rounded-lg bg-transparent text-white/30 hover:bg-red-500/10 hover:text-red-400 transition ml-1"
@@ -562,7 +570,7 @@ export function MerchantCockpit({ onOpenModal }: { onOpenModal?: (modal: Workspa
       <AlertDialog
         open={!!cancelTarget}
         onOpenChange={(open) => {
-          if (!open && !deleteAd.isPending) setCancelTarget(null);
+          if (!open && !deleteAd.isPending) closeCancelDialog();
         }}
       >
         <AlertDialogContent className="w-full max-w-sm rounded-[26px] border-white/10 bg-[#101318] p-6 text-white shadow-2xl">
@@ -595,7 +603,7 @@ export function MerchantCockpit({ onOpenModal }: { onOpenModal?: (modal: Workspa
                 if (!cancelTarget) return;
                 deleteAd.mutate(cancelTarget.id, {
                   onSuccess: () => {
-                    setCancelTarget(null);
+                    closeCancelDialog();
                     toast({ title: "Объявление закрыто", className: "bg-[#111419] border-white/10 text-white" });
                   },
                   onError: (err) => toast({ title: "Ошибка", description: err.message, variant: "destructive" }),

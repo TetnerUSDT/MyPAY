@@ -68,6 +68,7 @@ export function Layout({ children }: { children: ReactNode }) {
     const closeOnOutsidePress = (event: PointerEvent) => {
       if (!modeControlRef.current?.contains(event.target as Node)) {
         setIsModeMenuOpen(false);
+        window.requestAnimationFrame(() => modeTriggerRef.current?.focus());
       }
     };
     const closeOnEscape = (event: KeyboardEvent) => {

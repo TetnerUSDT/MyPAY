@@ -21,3 +21,4 @@ timeoutMs = 180000
 
 [nix]
 channel = "stable-25_05"
+packages = ["glib", "nss", "nspr", "atk", "cups", "dbus", "expat", "libdrm", "mesa", "libxkbcommon", "xorg.libXcomposite", "xorg.libXdamage", "xorg.libXfixes", "xorg.libXrandr", "xorg.libxcb", "xorg.libXext", "xorg.libXi", "xorg.libX11", "xorg.libXtst", "xorg.libXrender", "xorg.libXinerama", "xorg.libXcursor", "libgbm", "alsa-lib"]

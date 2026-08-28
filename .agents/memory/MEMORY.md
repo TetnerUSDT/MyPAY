@@ -1,2 +1,3 @@
 - [Legacy balance-row uniqueness](legacy-balance-row-uniqueness.md) — Some existing databases may lack the expected user/balance uniqueness index; verify totals across rows.
+- [Playwright on Replit Nix](playwright-replit-nix.md) — Local Playwright Chromium may need explicit Nix runtime libraries; diagnose missing shared objects with ldd.
 - [Safe post-merge schema setup](safe-post-merge-schema-setup.md) — Never auto-force Drizzle schema diffs on an existing database; reconcile legacy drift explicitly.
