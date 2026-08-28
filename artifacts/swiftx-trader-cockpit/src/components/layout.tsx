@@ -1,4 +1,4 @@
-import { createContext, type ReactNode, useContext, useState } from "react";
+import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { 
   LayoutDashboard, 
@@ -14,8 +14,10 @@ import { P2PWorkspaceModal } from "@/components/p2p-modal";
 import Deals from "@/pages/deals";
 import Ads from "@/pages/ads";
 import PaymentDetails from "@/pages/payment-details";
+import { MerchantCockpit } from "@/components/merchant-cockpit";
 
 type P2PModal = "deals" | "ads" | "payment-details" | null;
+type WorkspaceMode = "user" | "merchant";
 const P2PModalContext = createContext<{ openP2PModal: (modal: Exclude<P2PModal, null>) => void }>({
   openP2PModal: () => {},
 });
@@ -41,10 +43,53 @@ function MiniIcon({ children, active = false }: { children: ReactNode; active?: 
 export function Layout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const [modal, setModal] = useState<P2PModal>(null);
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(() => {
+    return sessionStorage.getItem("swiftxCockpitMode") === "merchant" ? "merchant" : "user";
+  });
+  const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
+  const modeControlRef = useRef<HTMLDivElement>(null);
+  const modeTriggerRef = useRef<HTMLButtonElement>(null);
   const { toast } = useToast();
   const { data: user } = useCurrentUser();
   const displayName = user?.name || user?.username || "Трейдер";
   const initials = displayName.slice(0, 2).toUpperCase();
+  const isMarketRoute = location === "/";
+
+  const selectWorkspaceMode = (mode: WorkspaceMode) => {
+    setWorkspaceMode(mode);
+    sessionStorage.setItem("swiftxCockpitMode", mode);
+    setIsModeMenuOpen(false);
+    modeTriggerRef.current?.focus();
+  };
+
+  useEffect(() => {
+    if (!isModeMenuOpen) return;
+
+    const closeOnOutsidePress = (event: PointerEvent) => {
+      if (!modeControlRef.current?.contains(event.target as Node)) {
+        setIsModeMenuOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsModeMenuOpen(false);
+        modeTriggerRef.current?.focus();
+      }
+    };
+    const focusActiveOption = window.requestAnimationFrame(() => {
+      modeControlRef.current
+        ?.querySelector<HTMLButtonElement>('button[aria-pressed="true"]')
+        ?.focus();
+    });
+
+    window.addEventListener("pointerdown", closeOnOutsidePress);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.cancelAnimationFrame(focusActiveOption);
+      window.removeEventListener("pointerdown", closeOnOutsidePress);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [isModeMenuOpen]);
 
   const handleHelp = () => {
     toast({
@@ -102,22 +147,69 @@ export function Layout({ children }: { children: ReactNode }) {
               <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
               Сеть стабильна
             </div>
-            <button className="flex items-center gap-2 rounded-xl border border-white/[.07] bg-[#13161b] px-3 py-2 text-left transition hover:border-white/15">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#73548c] text-[10px] font-bold text-white">
-                {initials}
-              </span>
-              <span>
-                <b className="block max-w-28 truncate text-xs text-white">{displayName}</b>
-                <small className="block text-[10px] text-white/35">SwiftX</small>
-              </span>
-              <ChevronDown size={14} className="text-white/30" />
-            </button>
+            <div ref={modeControlRef} className="relative">
+              <button
+                ref={modeTriggerRef}
+                type="button"
+                data-testid="workspace-mode-trigger"
+                aria-haspopup="menu"
+                aria-expanded={isModeMenuOpen}
+                onClick={() => setIsModeMenuOpen((open) => !open)}
+                className="flex min-w-[164px] items-center gap-2 rounded-xl border border-white/[.07] bg-[#13161b] px-3 py-2 text-left transition hover:border-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3ab368]/60"
+              >
+                <span className={`flex h-7 w-7 items-center justify-center rounded-lg text-[10px] font-bold text-white ${
+                  workspaceMode === "merchant" ? "bg-[#3ab368]" : "bg-[#73548c]"
+                }`}>
+                  {initials}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <b className="block max-w-28 truncate text-xs text-white">{displayName}</b>
+                  <small className="block text-[10px] text-white/35">
+                    {workspaceMode === "merchant" ? "Мерчант" : "Пользователь"}
+                  </small>
+                </span>
+                <ChevronDown size={14} className={`text-white/30 transition-transform ${isModeMenuOpen ? "rotate-180" : ""}`} />
+              </button>
+              {isModeMenuOpen && (
+                <div
+                  role="group"
+                  aria-label="Режим рабочего пространства"
+                  className="absolute right-0 top-[calc(100%+8px)] z-30 w-[220px] overflow-hidden rounded-2xl border border-white/10 bg-[#13161b] p-1.5 shadow-2xl shadow-black/60"
+                >
+                  {([
+                    { value: "user" as const, label: "Пользователь", description: "Рынок и личные сделки" },
+                    { value: "merchant" as const, label: "Мерчант", description: "Объявления и входящие заявки" },
+                  ]).map((option) => {
+                    const isActive = workspaceMode === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        aria-pressed={isActive}
+                        data-testid={`workspace-mode-${option.value}`}
+                        onClick={() => selectWorkspaceMode(option.value)}
+                        className={`w-full rounded-xl px-3 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#3ab368]/60 ${
+                          isActive ? "bg-[#3ab368]/12" : "hover:bg-white/[.05]"
+                        }`}
+                      >
+                        <span className={`block text-xs font-semibold ${isActive ? "text-[#59d17e]" : "text-white/75"}`}>
+                          {option.label}
+                        </span>
+                        <span className="mt-0.5 block text-[10px] text-white/35">{option.description}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
         {/* Page Content */}
         <main className="flex-1 overflow-hidden flex flex-col relative">
-          {children}
+          {isMarketRoute && workspaceMode === "merchant" ? (
+            <MerchantCockpit onOpenModal={(target) => setModal(target)} />
+          ) : children}
         </main>
       </div>
       </div>
