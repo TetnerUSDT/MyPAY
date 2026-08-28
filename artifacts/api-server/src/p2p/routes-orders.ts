@@ -10,21 +10,23 @@ export function registerOrdersRoutes(app: Express, requireApiKey: any) {
   // ── Orders ───────────────────────────────────────────────────────────────────
 
   app.post("/api/p2p/orders", requireApiKey, async (req: any, res) => {
-    const buyerId = req.user.id;
+    const takerId = req.user.id;
     const { adId, assetAmount, paymentMethodId } = req.body;
     if (!adId || !assetAmount) return res.status(400).json({ message: "adId and assetAmount are required" });
 
     try {
-      await checkP2PBlock(buyerId);
+      await checkP2PBlock(takerId);
       const order = await db.transaction(async (tx) => {
         const adRows = await tx.execute(sql`SELECT * FROM p2p_ads WHERE id = ${parseInt(adId)} AND status = 'active' FOR UPDATE`);
         const ad: any = (adRows[0] as any[])[0];
         if (!ad) throw new Error("Объявление не найдено или не активно");
 
-        const sellerId: number = ad.user_id;
-        if (sellerId === buyerId) throw new Error("Нельзя торговать с самим собой");
+        const adOwnerId: number = ad.user_id;
+        if (adOwnerId === takerId) throw new Error("Нельзя торговать с самим собой");
+        const buyerId = ad.side === "sell" ? takerId : adOwnerId;
+        const sellerId = ad.side === "sell" ? adOwnerId : takerId;
 
-        const rStatsRows = await tx.execute(sql`SELECT disputes_total, total_orders FROM p2p_user_stats WHERE user_id = ${buyerId}`);
+        const rStatsRows = await tx.execute(sql`SELECT disputes_total, total_orders FROM p2p_user_stats WHERE user_id = ${takerId}`);
         const rStats: any = (rStatsRows[0] as any[])[0];
         if (rStats && (rStats.disputes_total || 0) >= 5) {
           throw new Error("Ваш аккаунт временно ограничен из-за большого количества споров");
@@ -42,7 +44,26 @@ export function registerOrdersRoutes(app: Express, requireApiKey: any) {
         const deadline = new Date(Date.now() + minutes * 60 * 1000);
         const deadlineStr = deadline.toISOString().slice(0, 19).replace("T", " ");
 
-        const lockerUserId = ad.side === "sell" ? sellerId : buyerId;
+        const pmId = paymentMethodId ? parseInt(paymentMethodId) : null;
+        const adMethodRows = await tx.execute(sql`
+          SELECT method_id FROM p2p_ad_payment_methods WHERE ad_id = ${ad.id}
+        `);
+        const adMethodIds = (adMethodRows[0] as any[]).map((row: any) => row.method_id);
+        if (adMethodIds.length > 0 && (!pmId || !adMethodIds.includes(pmId))) {
+          throw new Error("Выберите доступный для объявления способ оплаты");
+        }
+        if (pmId) {
+          const sellerMethodRows = await tx.execute(sql`
+            SELECT id FROM p2p_user_payment_methods
+            WHERE user_id = ${sellerId} AND method_id = ${pmId} AND status = 'active'
+            LIMIT 1
+          `);
+          if ((sellerMethodRows[0] as any[]).length === 0) {
+            throw new Error("У продавца нет активных реквизитов для выбранного способа оплаты");
+          }
+        }
+
+        const lockerUserId = sellerId;
         const lockerBalId  = ad.asset_balance_id;
 
         // Для sell-объявлений с заморозкой баланс уже списан при создании объявления.
@@ -69,7 +90,6 @@ export function registerOrdersRoutes(app: Express, requireApiKey: any) {
           await tx.execute(sql`UPDATE users_balances SET sum = sum - ${assetAmt} WHERE id = ${ubId}`);
         }
 
-        const pmId = paymentMethodId ? parseInt(paymentMethodId) : null;
         await tx.execute(sql`
           INSERT INTO p2p_orders
             (ad_id, buyer_id, seller_id, asset_balance_id, fiat_balance_id, asset_amount,
@@ -88,20 +108,21 @@ export function registerOrdersRoutes(app: Express, requireApiKey: any) {
           VALUES (${newOrder.id}, ${lockerUserId}, ${ubId}, ${lockerBalId}, ${assetAmt}, 'locked', NOW())
         `);
         await tx.execute(sql`UPDATE p2p_ads SET available_amount = available_amount - ${assetAmt}, updated_at = NOW() WHERE id = ${ad.id}`);
-        await tx.execute(sql`INSERT INTO p2p_order_messages (order_id, sender_id, message, type, created_at) VALUES (${newOrder.id}, ${buyerId}, 'Сделка открыта. Ожидается оплата.', 'system', NOW())`);
+        await tx.execute(sql`INSERT INTO p2p_order_messages (order_id, sender_id, message, type, created_at) VALUES (${newOrder.id}, ${takerId}, 'Сделка открыта. Ожидается оплата.', 'system', NOW())`);
         await tx.execute(sql`INSERT INTO p2p_user_stats (user_id, total_orders) VALUES (${buyerId}, 1) ON DUPLICATE KEY UPDATE total_orders = total_orders + 1`);
         await tx.execute(sql`INSERT INTO p2p_user_stats (user_id, total_orders) VALUES (${sellerId}, 1) ON DUPLICATE KEY UPDATE total_orders = total_orders + 1`);
 
         return newOrder;
       });
 
-      await logP2P(buyerId, order.id, "create_order", { adId, assetAmount });
-      await updateLastSeen(buyerId);
+      await logP2P(takerId, order.id, "create_order", { adId, assetAmount });
+      await updateLastSeen(takerId);
       try {
-        const sTgRows = await db.execute(sql`SELECT tg_id FROM users WHERE id = ${order.seller_id}`);
+        const counterpartyId = order.buyer_id === takerId ? order.seller_id : order.buyer_id;
+        const sTgRows = await db.execute(sql`SELECT tg_id FROM users WHERE id = ${counterpartyId}`);
         const sTg: any = (sTgRows[0] as any[])[0];
         if (sTg?.tg_id) {
-          await sendP2PNotification(sTg.tg_id, `🔔 <b>Новая сделка #${order.id}</b>\nПокупают у вас: <b>${parseFloat(order.asset_amount)} USDT</b> за <b>${parseFloat(order.fiat_amount).toFixed(2)} ₽</b>`);
+          await sendP2PNotification(sTg.tg_id, `🔔 <b>Новая сделка #${order.id}</b>\nОбъём: <b>${parseFloat(order.asset_amount)} USDT</b> за <b>${parseFloat(order.fiat_amount).toFixed(2)} ₽</b>`);
         }
       } catch { /* non-critical */ }
       res.json(snakeToCamel(order));
@@ -164,8 +185,10 @@ export function registerOrdersRoutes(app: Express, requireApiKey: any) {
         SELECT upm.*, pm.title AS method_title, pm.code AS method_code
         FROM p2p_user_payment_methods upm
         LEFT JOIN p2p_payment_methods pm ON pm.id = upm.method_id
-        WHERE upm.user_id = ${order.seller_id} AND upm.status = 'active'
-        LIMIT 5
+         WHERE upm.user_id = ${order.seller_id}
+           AND upm.method_id = ${order.payment_method_id}
+           AND upm.status = 'active'
+         LIMIT 1
       `);
 
       const result = snakeToCamel(order);

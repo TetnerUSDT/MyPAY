@@ -375,27 +375,33 @@ export function registerAdsRoutes(app: Express, requireApiKey: any) {
     try {
       const userId = req.user.id;
       const id = parseInt(req.params.id);
+      const outcome = await db.transaction(async (tx) => {
+        const adRows = await tx.execute(sql`
+          SELECT side, status, balance_locked, available_amount, asset_balance_id
+          FROM p2p_ads WHERE id = ${id} AND user_id = ${userId} FOR UPDATE
+        `);
+        const ad: any = (adRows[0] as any[])[0];
+        if (!ad) return "missing";
+        if (ad.status === "cancelled") return "cancelled";
 
-      // Если это sell-объявление с заморозкой — вернуть остаток на баланс
-      const adRows = await db.execute(sql`
-        SELECT side, balance_locked, available_amount, asset_balance_id
-        FROM p2p_ads WHERE id = ${id} AND user_id = ${userId}
-      `);
-      const ad: any = (adRows[0] as any[])[0];
-      if (!ad) return res.status(404).json({ message: "Объявление не найдено" });
-
-      if (ad.side === "sell" && ad.balance_locked) {
-        const remaining = parseFloat(ad.available_amount);
-        if (remaining > 0) {
-          await db.execute(sql`
-            INSERT INTO users_balances (id_user, id_balance, sum)
-            VALUES (${userId}, ${ad.asset_balance_id}, ${remaining})
-            ON DUPLICATE KEY UPDATE sum = sum + ${remaining}
-          `);
+        if (ad.side === "sell" && ad.balance_locked) {
+          const remaining = parseFloat(ad.available_amount);
+          if (remaining > 0) {
+            await tx.execute(sql`
+              INSERT INTO users_balances (id_user, id_balance, sum)
+              VALUES (${userId}, ${ad.asset_balance_id}, ${remaining})
+              ON DUPLICATE KEY UPDATE sum = sum + ${remaining}
+            `);
+          }
         }
-      }
-
-      await db.execute(sql`UPDATE p2p_ads SET status = 'cancelled', updated_at = NOW() WHERE id = ${id} AND user_id = ${userId}`);
+        await tx.execute(sql`
+          UPDATE p2p_ads
+          SET status = 'cancelled', balance_locked = 0, available_amount = 0, updated_at = NOW()
+          WHERE id = ${id} AND user_id = ${userId}
+        `);
+        return "cancelled";
+      });
+      if (outcome === "missing") return res.status(404).json({ message: "Объявление не найдено" });
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ message: "Server error" });
