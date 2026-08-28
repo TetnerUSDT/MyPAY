@@ -457,6 +457,7 @@ export const p2pDisputes = mysqlTable("p2p_disputes", {
   resolutionComment: text("resolution_comment"),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
   resolvedAt: timestamp("resolved_at"),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).onUpdateNow(),
 });
 
 export const p2pReviews = mysqlTable("p2p_reviews", {
@@ -470,17 +471,24 @@ export const p2pReviews = mysqlTable("p2p_reviews", {
 });
 
 export const p2pUserStats = mysqlTable("p2p_user_stats", {
-  userId: int("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  id: int("id").primaryKey().autoincrement(),
+  userId: int("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
   totalOrders: int("total_orders").default(0),
   completedOrders: int("completed_orders").default(0),
   cancelledOrders: int("cancelled_orders").default(0),
   disputesTotal: int("disputes_total").default(0),
+  disputesWon: int("disputes_won").default(0),
   successfulPercent: decimal("successful_percent", { precision: 5, scale: 2 }).default("0"),
   rating: decimal("rating", { precision: 3, scale: 2 }).default("0"),
   avgReleaseTimeSeconds: int("avg_release_time_seconds").default(0),
   isMerchant: int("is_merchant").default(0),
   merchantLevel: varchar("merchant_level", { length: 20 }).default("none"),
-  updatedAt: timestamp("updated_at"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).onUpdateNow(),
+  lastSeen: timestamp("last_seen"),
+  followersCount: int("followers_count").default(0),
+  p2pBlocked: int("p2p_blocked").default(0),
+  blockReason: varchar("block_reason", { length: 500 }),
 });
 
 export const p2pLogs = mysqlTable("p2p_logs", {
