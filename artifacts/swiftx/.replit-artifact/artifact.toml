@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "SwiftX"
+description = "The existing SwiftX exchange application for Telegram users, supporting crypto and fiat exchanges, wallets, vouchers, notifications, support, P2P trading, and merchant payments."
+version = "1.0.0"
+id = "artifacts/swiftx"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18943
+
+[services.development]
+run = "pnpm --filter @workspace/swiftx run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/swiftx", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/swiftx/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18943"
+BASE_PATH = "/"

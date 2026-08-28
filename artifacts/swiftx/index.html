@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <!-- Preconnect to Telegram CDN to speed up the (async) WebApp script load -->
+    <link rel="preconnect" href="https://telegram.org" crossorigin>
+    <!-- async = non-blocking. Splash polls window.Telegram?.WebApp so it tolerates late load. -->
+    <script async src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="preload" href="/uploads/assets/start-bg.webp" as="image" type="image/webp">
+    <style>
+      /* Static preloader — shown immediately before React mounts */
+      #static-preloader {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: hsl(224, 24%, 8%);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: opacity 0.15s ease-out, visibility 0.15s ease-out;
+      }
+      #static-preloader.hiding {
+        opacity: 0;
+        visibility: hidden;
+      }
+      /* Minimal arc spinner matching the app accent color */
+      .static-arc {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        border: 3px solid hsl(224, 17%, 22%);
+        border-top-color: hsl(145, 60%, 42%);
+        animation: arc-spin 0.8s linear infinite;
+      }
+      @keyframes arc-spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Static preloader: dark bg + minimal spinner visible before React mounts -->
+    <div id="static-preloader">
+      <div class="static-arc"></div>
+    </div>
+
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

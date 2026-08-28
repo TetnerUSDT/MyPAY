@@ -1,0 +1,1872 @@
+import { type User, type InsertUser, type Wallet, type InsertWallet, type Transaction, type InsertTransaction, type ExchangeRate, type InsertExchangeRate, type SupportChat, type InsertSupportChat, type SupportTicket, type InsertSupportTicket, type SupportMessage, type InsertSupportMessage, type Card, type Bank, type InsertBank, type Voucher, type InsertVoucher, users, wallets, transactions, exchangeRates, supportChats, supportTickets, supportMessages, cards, banks, balances, userCards, exchanges, usersBalances, vouchers } from "@workspace/db/schema";
+import { randomUUID } from "crypto";
+import { db } from "./db";
+import { eq, and, or, isNull, sql, inArray } from "drizzle-orm";
+import { insertAndReturn, updateAndReturn, insertAndReturnTx } from "./mysql-helpers";
+
+export interface IStorage {
+  // User methods
+  getUser(id: number): Promise<User | undefined>;
+  getUserByTgId(tgId: string): Promise<User | undefined>;
+  getUserByApiKey(apiKey: string): Promise<User | undefined>;
+  getUserByReferralCode(code: string): Promise<User | undefined>;
+  getUserReferrals(userId: number): Promise<User[]>;
+  createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, data: Partial<InsertUser>): Promise<User | undefined>;
+  updateUserAgreement(id: number, agreement: number): Promise<User | undefined>;
+  generateApiKey(userId: number): Promise<string | undefined>;
+
+  // Wallet methods
+  getWallet(id: number): Promise<Wallet | undefined>;
+  getWalletsByUserId(userId: number): Promise<Wallet[]>;
+  createWallet(wallet: InsertWallet): Promise<Wallet>;
+  findAvailableWallet(network: string): Promise<Wallet | undefined>;
+  reserveWallet(walletId: number, hours: number, reservationType?: string, userId?: number): Promise<Wallet | undefined>;
+  releaseExpiredWallets(): Promise<number>;
+  findOrReserveWalletForOperation(userId: number, network: string, operation: string): Promise<Wallet | undefined>;
+
+  // Transaction methods
+  getTransaction(id: string): Promise<Transaction | undefined>;
+  getTransactionByOrderId(orderId: string): Promise<Transaction | undefined>;
+  getTransactionsByUserId(userId: number): Promise<Transaction[]>;
+  createTransaction(transaction: InsertTransaction): Promise<Transaction>;
+  updateTransactionStatus(id: string, status: string, txHash?: string): Promise<Transaction | undefined>;
+
+  // Exchange rate methods
+  getExchangeRate(fromCurrency: string, toCurrency: string): Promise<ExchangeRate | undefined>;
+  createOrUpdateExchangeRate(rate: InsertExchangeRate): Promise<ExchangeRate>;
+
+  // Support chat methods
+  getSupportChat(id: string): Promise<SupportChat | undefined>;
+  getSupportChatsByUserId(userId: number): Promise<SupportChat[]>;
+  createSupportChat(chat: InsertSupportChat): Promise<SupportChat>;
+  addMessageToChat(chatId: string, sender: string, message: string): Promise<SupportChat | undefined>;
+
+  // Card methods
+  getActiveCards(): Promise<Card[]>;
+  getActiveCardsByCategory(category: string): Promise<Card[]>;
+  getCard(id: number): Promise<Card | undefined>;
+
+  // Bank methods
+  getBanksByCardId(cardId: number): Promise<Bank[]>;
+  getBank(id: number): Promise<Bank | undefined>;
+  createBank(bank: InsertBank): Promise<Bank>;
+
+  // Balance methods
+  getBalance(id: number): Promise<any | undefined>;
+  getBalanceById(id: number): Promise<any | undefined>;
+  getBalancesByIds(ids: string): Promise<any[]>;
+  getPaymentBalance(): Promise<any | undefined>; // USDT.BEP20
+  getAvailablePaymentBalances(toBalanceId: number): Promise<any[]>;
+
+  // Exchange rate methods by balance IDs
+  getExchangeRateByBalances(fromBalanceId: number, toBalanceId: number): Promise<any | undefined>;
+  getExchangeRatesByCategory(category: string): Promise<any[]>;
+
+  // User cards methods
+  getUserCardsByUserId(userId: number): Promise<any[]>;
+  createUserCard(card: any): Promise<any>;
+  deleteUserCard(id: string): Promise<void>;
+
+  // Fiat balance methods
+  getFiatBalances(): Promise<any[]>;
+  getCryptoBalances(): Promise<any[]>;
+  getVoucherBalances(): Promise<any[]>;
+  getUserCryptoBalances(userId: number): Promise<any[]>;
+  getUserFiatBalances(userId: number): Promise<any[]>;
+  getAllUserBalances(userId: number): Promise<any[]>;
+  getUserBalance(userId: number, balanceId: number): Promise<any>;
+  updateUserDefaultBalance(userId: number, balanceId: number): Promise<User | undefined>;
+  updateUserPhone(userId: number, phone: string): Promise<User | undefined>;
+  getAvailableNetworks(userId: number): Promise<any[]>;
+  addUserNetwork(userId: number, balanceId: number): Promise<any>;
+
+  // Exchange methods
+  createExchange(exchange: any): Promise<any>;
+  getExchange(id: number): Promise<any | undefined>;
+  getExchangeByOrderNumber(orderNumber: string): Promise<any | undefined>;
+  updateExchangeStatus(id: number, status: string): Promise<any | undefined>;
+  getExchangeHistory(userId: number, limit: number, offset: number): Promise<any[]>;
+
+  // Support ticket methods
+  createSupportTicket(ticket: InsertSupportTicket, initialMessage: string): Promise<SupportTicket>;
+  getUserOpenTicket(userId: number): Promise<any | undefined>;
+  getTicketMessages(ticketId: number): Promise<SupportMessage[]>;
+  addTicketMessage(message: InsertSupportMessage): Promise<SupportMessage>;
+  updateTicketStatus(ticketId: number, status: 'wait-user' | 'wait-support' | 'closed'): Promise<SupportTicket | undefined>;
+
+  // Notification methods
+  getUserNotifications(userId: number): Promise<any[]>;
+  getUnreadNotificationsCount(userId: number): Promise<number>;
+  createNotification(notification: any): Promise<any>;
+  markNotificationAsRead(notificationId: number, userId: number): Promise<any | undefined>;
+  markAllNotificationsAsRead(userId: number): Promise<void>;
+  deleteNotification(id: number): Promise<void>;
+
+  // Invoice methods
+  getInvoice(id: number): Promise<any | undefined>;
+  getInvoiceByOrderNumber(orderNumber: string): Promise<any | undefined>;
+  getUserInvoices(userId: number): Promise<any[]>;
+  getAllInvoices(): Promise<any[]>;
+  createInvoice(invoice: any): Promise<any>;
+  updateInvoiceStatus(id: number, status: string, paidAt?: Date, paymentHash?: string): Promise<any | undefined>;
+  getExpiredInvoices(): Promise<any[]>;
+
+  // Voucher methods
+  createVoucher(voucher: any): Promise<any>;
+  getVoucherByCode(code: string): Promise<any | undefined>;
+  getUserVouchers(userId: number, status?: 'active' | 'activated' | 'expired'): Promise<any[]>;
+  activateVoucher(voucherCode: string, userId: number): Promise<any>;
+  updateVoucherBalance(voucherId: number, newAmount: string): Promise<any | undefined>;
+}
+
+export class DatabaseStorage implements IStorage {
+  private static initialized = false;
+
+  constructor() {
+    // Initialization happens via static initialize() method
+  }
+
+  static async initialize() {
+    if (this.initialized) return;
+    
+    const instance = storage;
+    await instance.initializeBalances();
+    await instance.initializeExchangeRates();
+    // NOTE: fixExistingUserBalances() removed from startup — it is an O(N*M) operation
+    // that iterates ALL users * all crypto balances. It is now run lazily on user login
+    // via ensureUserCryptoBalances() when needed.
+    await instance.initializeDemoChat();
+    await instance.initializeCards();
+    await instance.initializeBanks();
+    
+    this.initialized = true;
+  }
+
+  private async initializeBalances() {
+    try {
+      const defaultBalances = [
+        { id: 1, title: "Российский рубль", network: null, currency: "RUB", balanceType: "fiat", status: "active" },
+        { id: 2, title: "Турецкая лира", network: null, currency: "TRY", balanceType: "fiat", status: "active" },
+        { id: 3, title: "USDT TRC20", network: "TRC20", currency: "USDT", balanceType: "crypto", status: "active", pattern: "^T[A-Za-z0-9]{33}$" },
+        { id: 4, title: "USDT BEP20", network: "BEP20", currency: "USDT", balanceType: "crypto", status: "active", pattern: "^0x[a-fA-F0-9]{40}$" },
+        { id: 5, title: "American Dollar", network: null, currency: "USD", balanceType: "fiat", status: "active" },
+        { id: 6, title: "Ton Network", network: "TON", currency: "USDT", balanceType: "crypto", status: "active" },
+        { id: 9, title: "DAI", network: "Polygon", currency: "DAI", balanceType: "crypto", status: "active", pattern: "^0x[a-fA-F0-9]{40}$", qrColor: { type: "single", color: "#f5ac37" }, qrStyle: "rounded" },
+        { id: 10, title: "POL", network: "Polygon", currency: "POL", balanceType: "crypto", status: "active", pattern: "^0x[a-fA-F0-9]{40}$", qrColor: { type: "single", color: "#7b3fe4" }, qrStyle: "rounded" },
+      ];
+
+      for (const balance of defaultBalances) {
+        try {
+          const existing = await db.select().from(balances).where(eq(balances.id, balance.id)).limit(1);
+          if (existing.length === 0) {
+            await db.insert(balances).values(balance as any);
+            console.log(`Added missing balance: ${balance.title} (ID: ${balance.id})`);
+          } else {
+            const existingBalance = existing[0];
+            if (balance.id === 9 || balance.id === 10) {
+              if (existingBalance.currency !== balance.currency || existingBalance.balanceType !== 'crypto') {
+                await db.update(balances)
+                  .set({
+                    title: balance.title,
+                    network: balance.network,
+                    currency: balance.currency,
+                    balanceType: 'crypto',
+                    status: balance.status,
+                    pattern: balance.pattern
+                  })
+                  .where(eq(balances.id, balance.id));
+                console.log(`Updated balance to crypto: ${balance.title} (ID: ${balance.id})`);
+              }
+            }
+          }
+        } catch (insertError) {
+          console.error(`Error inserting balance ${balance.title}:`, insertError);
+        }
+      }
+      
+      await this.fixCryptoBalanceTypes();
+      
+      console.log('Balances initialization completed');
+    } catch (error) {
+      console.error('Balances initialization failed:', error);
+    }
+  }
+  
+  private async fixCryptoBalanceTypes() {
+    try {
+      // All actual crypto balances: TRC20(3), BEP20(4), TON(6), DAI(9), POL(10)
+      const cryptoBalanceIds = [3, 4, 6, 9, 10];
+      for (const id of cryptoBalanceIds) {
+        await db.update(balances)
+          .set({ balanceType: 'crypto' })
+          .where(and(
+            eq(balances.id, id),
+            sql`${balances.balanceType} != 'crypto'`
+          ));
+      }
+      
+      // Fix USD (id=5) to be fiat, not crypto
+      await db.update(balances)
+        .set({ 
+          balanceType: 'fiat',
+          title: 'American Dollar',
+          currency: 'USD',
+          network: null
+        })
+        .where(eq(balances.id, 5));
+      console.log('Fixed USD (id=5) to fiat type');
+      
+      // Fix TON (id=6) to be crypto with correct values
+      await db.update(balances)
+        .set({ 
+          balanceType: 'crypto',
+          title: 'Ton Network',
+          currency: 'USDT',
+          network: 'TON'
+        })
+        .where(eq(balances.id, 6));
+      console.log('Fixed TON (id=6) to crypto type');
+      
+      // Update QR colors for DAI and POL (as JSON objects, not strings)
+      await db.update(balances)
+        .set({ 
+          qrColor: { type: "single", color: "#f5ac37" } as any,
+          qrStyle: "rounded"
+        })
+        .where(eq(balances.id, 9));
+      
+      await db.update(balances)
+        .set({ 
+          qrColor: { type: "single", color: "#7b3fe4" } as any,
+          qrStyle: "rounded"
+        })
+        .where(eq(balances.id, 10));
+      
+      console.log('Updated QR colors for DAI and POL');
+    } catch (error) {
+      console.error('Fix crypto balance types failed:', error);
+    }
+  }
+
+  async initializeUserBalances(userId: number): Promise<void> {
+    try {
+      // All actual crypto balances: TRC20(3), BEP20(4), TON(6), DAI(9), POL(10)
+      const cryptoBalanceIds = [3, 4, 6, 9, 10];
+      
+      for (const balanceId of cryptoBalanceIds) {
+        try {
+          const existing = await db.select()
+            .from(usersBalances)
+            .where(and(
+              eq(usersBalances.idUser, userId),
+              eq(usersBalances.idBalance, balanceId)
+            ))
+            .limit(1);
+          
+          if (existing.length === 0) {
+            await db.insert(usersBalances).values({
+              idUser: userId,
+              idBalance: balanceId,
+              sum: "0.0",
+              status: "active"
+            });
+          }
+        } catch (insertError) {
+          console.error(`Error creating user balance for balance ${balanceId}:`, insertError);
+        }
+      }
+      
+      console.log(`User balances initialized for user ${userId}`);
+    } catch (error) {
+      console.error(`Failed to initialize user balances for user ${userId}:`, error);
+    }
+  }
+
+  private async initializeExchangeRates() {
+    try {
+      // Balance IDs: TRC20(3), BEP20(4), TON(6), DAI(9), POL(10)
+      // Note: id=5 is USD (fiat), NOT crypto!
+      const rates = [
+        // USDT -> DAI (сеть Polygon) - DAI balance ID = 9
+        { fromBalanceId: 4, toBalanceId: 9, fromCurrency: "BEP20.USDT", toCurrency: "DAI", rate: "0.9980", category: "crypto" },
+        { fromBalanceId: 3, toBalanceId: 9, fromCurrency: "TRC20.USDT", toCurrency: "DAI", rate: "0.9980", category: "crypto" },
+        { fromBalanceId: 6, toBalanceId: 9, fromCurrency: "TON.USDT", toCurrency: "DAI", rate: "0.9980", category: "crypto" },
+        // DAI -> USDT - DAI balance ID = 9
+        { fromBalanceId: 9, toBalanceId: 4, fromCurrency: "DAI", toCurrency: "BEP20.USDT", rate: "0.9980", category: "crypto" },
+        { fromBalanceId: 9, toBalanceId: 3, fromCurrency: "DAI", toCurrency: "TRC20.USDT", rate: "0.9980", category: "crypto" },
+        { fromBalanceId: 9, toBalanceId: 6, fromCurrency: "DAI", toCurrency: "TON.USDT", rate: "0.9980", category: "crypto" },
+        // USDT -> POL (сеть Polygon) - POL balance ID = 10
+        { fromBalanceId: 4, toBalanceId: 10, fromCurrency: "BEP20.USDT", toCurrency: "POL", rate: "2.0500", category: "crypto" },
+        { fromBalanceId: 3, toBalanceId: 10, fromCurrency: "TRC20.USDT", toCurrency: "POL", rate: "2.0500", category: "crypto" },
+        { fromBalanceId: 6, toBalanceId: 10, fromCurrency: "TON.USDT", toCurrency: "POL", rate: "2.0500", category: "crypto" },
+        // POL -> USDT - POL balance ID = 10
+        { fromBalanceId: 10, toBalanceId: 4, fromCurrency: "POL", toCurrency: "BEP20.USDT", rate: "0.4878", category: "crypto" },
+        { fromBalanceId: 10, toBalanceId: 3, fromCurrency: "POL", toCurrency: "TRC20.USDT", rate: "0.4878", category: "crypto" },
+        { fromBalanceId: 10, toBalanceId: 6, fromCurrency: "POL", toCurrency: "TON.USDT", rate: "0.4878", category: "crypto" },
+      ];
+
+      for (const rate of rates) {
+        try {
+          const existing = await db.select().from(exchangeRates)
+            .where(and(
+              eq(exchangeRates.fromBalanceId, rate.fromBalanceId),
+              eq(exchangeRates.toBalanceId, rate.toBalanceId)
+            ))
+            .limit(1);
+          
+          if (existing.length === 0) {
+            const existingByCurrency = await db.select().from(exchangeRates)
+              .where(and(
+                eq(exchangeRates.fromCurrency, rate.fromCurrency),
+                eq(exchangeRates.toCurrency, rate.toCurrency)
+              ))
+              .limit(1);
+            
+            if (existingByCurrency.length > 0) {
+              await db.update(exchangeRates)
+                .set({
+                  fromBalanceId: rate.fromBalanceId,
+                  toBalanceId: rate.toBalanceId,
+                  updatedAt: new Date()
+                })
+                .where(eq(exchangeRates.id, existingByCurrency[0].id));
+              console.log(`Fixed exchange rate balance IDs: ${rate.fromCurrency} -> ${rate.toCurrency}`);
+            } else {
+              await db.insert(exchangeRates).values({
+                id: randomUUID(),
+                ...rate,
+                updatedAt: new Date(),
+              } as any);
+              console.log(`Added missing exchange rate: ${rate.fromCurrency} -> ${rate.toCurrency}`);
+            }
+          }
+        } catch (insertError) {
+          console.error(`Error with exchange rate ${rate.fromCurrency}->${rate.toCurrency}:`, insertError);
+        }
+      }
+      
+      // Force fix any wrong balance IDs in existing rates
+      await this.fixWrongBalanceIds();
+      
+      console.log('Exchange rates initialization completed');
+    } catch (error) {
+      console.error('Exchange rates initialization failed:', error);
+    }
+  }
+
+  private async fixWrongBalanceIds() {
+    try {
+      // Fix exchange rates with wrong TON balance ID (5 -> 6)
+      // id=5 is USD (fiat), id=6 is TON (crypto)
+      const wrongIdMappings = [
+        { wrong: 5, correct: 6, currency: 'TON.USDT' },
+        { wrong: 7, correct: 9, currency: 'DAI' },
+        { wrong: 8, correct: 10, currency: 'POL' },
+      ];
+      
+      for (const mapping of wrongIdMappings) {
+        // Fix fromBalanceId
+        const fromFixed = await db.update(exchangeRates)
+          .set({ fromBalanceId: mapping.correct, updatedAt: new Date() })
+          .where(and(
+            eq(exchangeRates.fromBalanceId, mapping.wrong),
+            eq(exchangeRates.fromCurrency, mapping.currency)
+          ));
+        
+        // Fix toBalanceId  
+        const toFixed = await db.update(exchangeRates)
+          .set({ toBalanceId: mapping.correct, updatedAt: new Date() })
+          .where(and(
+            eq(exchangeRates.toBalanceId, mapping.wrong),
+            eq(exchangeRates.toCurrency, mapping.currency)
+          ));
+          
+        console.log(`Fixed balance ID ${mapping.wrong} -> ${mapping.correct} for ${mapping.currency}`);
+      }
+    } catch (error) {
+      console.error('Fix wrong balance IDs failed:', error);
+    }
+  }
+
+  // Lazy per-user version of the old fixExistingUserBalances() — called once on
+  // login instead of iterating ALL users on every server start.
+  async ensureUserCryptoBalances(userId: number): Promise<void> {
+    try {
+      const cryptoBalanceIds = [3, 4, 6, 9, 10];
+
+      // Fetch existing balances in ONE query
+      const existing = await db.select({ idBalance: usersBalances.idBalance })
+        .from(usersBalances)
+        .where(eq(usersBalances.idUser, userId));
+
+      const existingIds = new Set(existing.map((b) => b.idBalance));
+      const missing = cryptoBalanceIds.filter((id) => !existingIds.has(id));
+
+      if (missing.length === 0) return;
+
+      // Bulk insert all missing balances in one statement
+      await db.insert(usersBalances).values(
+        missing.map((balanceId) => ({
+          idUser: userId,
+          idBalance: balanceId,
+          sum: "0.0",
+          status: "active",
+        }))
+      );
+    } catch (error) {
+      // Ignore duplicate key errors / non-blocking
+    }
+  }
+
+  private async initializeDemoChat() {
+    try {
+      // Check if demo chat already exists
+      const existingChat = await db.select().from(supportChats).where(eq(supportChats.id, "demo-chat-1")).limit(1);
+      if (existingChat.length > 0) return;
+
+      await db.insert(supportChats).values({
+        id: "demo-chat-1",
+        userId: null,
+        transactionId: null,
+        status: "open",
+        messages: [
+          {
+            sender: "Elena from support",
+            message: "Hi there! How can I help?",
+            timestamp: new Date(),
+          },
+        ] as any,
+        createdAt: new Date(),
+      }).onConflictDoNothing();
+    } catch (error) {
+      console.log('Demo chat initialization skipped (table may not exist yet)');
+    }
+  }
+
+  private async initializeCards() {
+    try {
+      // Check if cards already exist
+      const existingCards = await db.select().from(cards).limit(1);
+      if (existingCards.length > 0) return;
+
+      const defaultCards = [
+        {
+          title: "Россия (RU)",
+          country: "Любой банк в России",
+          lang: "ru",
+          timeExchange: 15,
+          commission: "1.5",
+          idBalance: "1",
+          status: "1",
+        },
+        {
+          title: "Турция (TR)",
+          country: "Любой банк в Турции",
+          lang: "tr",
+          timeExchange: 15,
+          commission: "4.5",
+          idBalance: "1",
+          status: "1",
+        },
+      ];
+
+      for (const card of defaultCards) {
+        await db.insert(cards).values(card).onConflictDoNothing();
+      }
+    } catch (error) {
+      console.log('Cards initialization skipped (table may not exist yet)');
+    }
+  }
+
+  private async initializeBanks() {
+    try {
+      // Check if banks already exist
+      const existingBanks = await db.select().from(banks).limit(1);
+      if (existingBanks.length > 0) return;
+
+      // 12 Russian banks for cards.id=1 (Россия)
+      const russianBanks = [
+        { cardId: 1, bankName: "Ozon Банк", timeExchange: null, commission: null, status: "1" },
+        { cardId: 1, bankName: "ПАО Сбербанк", timeExchange: null, commission: null, status: "1" },
+        { cardId: 1, bankName: "ПАО «Совкомбанк»", timeExchange: null, commission: null, status: "1" },
+        { cardId: 1, bankName: "АО «Газпромбанк»", timeExchange: null, commission: null, status: "1" },
+        { cardId: 1, bankName: "АО «ОТП Банк»", timeExchange: null, commission: null, status: "1" },
+        { cardId: 1, bankName: "АО «Альфа-Банк»", timeExchange: null, commission: null, status: "1" },
+        { cardId: 1, bankName: "АО «Банк Уралсиб»", timeExchange: null, commission: null, status: "1" },
+        { cardId: 1, bankName: "ПАО «Промсвязьбанк»", timeExchange: null, commission: null, status: "1" },
+        { cardId: 1, bankName: "АО «Яндекс Банк»", timeExchange: null, commission: null, status: "1" },
+        { cardId: 1, bankName: "АО «Коммерческий банк Юнистрим»", timeExchange: null, commission: null, status: "1" },
+        { cardId: 1, bankName: "АО «Т-Банк»", timeExchange: null, commission: null, status: "1" },
+        { cardId: 1, bankName: "АО «Акционерный банк «Россия»", timeExchange: null, commission: null, status: "1" },
+      ];
+
+      for (const bank of russianBanks) {
+        await db.insert(banks).values(bank).onConflictDoNothing();
+      }
+    } catch (error) {
+      console.log('Banks initialization skipped (table may not exist yet)');
+    }
+  }
+
+  // User methods
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByTgId(tgId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.tgId, tgId));
+    return user || undefined;
+  }
+
+  async getUserByApiKey(apiKey: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.apiKey, apiKey));
+    return user || undefined;
+  }
+
+  async getUserByReferralCode(code: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.codeRef, code));
+    return user || undefined;
+  }
+
+  async getUserReferrals(userId: number): Promise<User[]> {
+    const referrals = await db.select().from(users).where(eq(users.idRef, userId));
+    return referrals;
+  }
+
+  private generateReferralCode(): string {
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const randomLetter = letters.charAt(Math.floor(Math.random() * letters.length));
+    const randomDigits = Math.floor(100000000 + Math.random() * 900000000).toString();
+    return randomLetter + randomDigits;
+  }
+
+  private async generateUniqueReferralCode(): Promise<string> {
+    let code = this.generateReferralCode();
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    while (attempts < maxAttempts) {
+      const [existing] = await db.select().from(users).where(eq(users.codeRef, code)).limit(1);
+      if (!existing) {
+        return code;
+      }
+      code = this.generateReferralCode();
+      attempts++;
+    }
+
+    throw new Error('Failed to generate unique referral code after maximum attempts');
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const codeRef = await this.generateUniqueReferralCode();
+    
+    const user = await insertAndReturn<User>(
+      db.insert(users).values({
+        ...insertUser,
+        agreement: insertUser.agreement ?? 0,
+        blocked: insertUser.blocked ?? false,
+        apiKey: insertUser.apiKey ?? null,
+        codeRef,
+      }),
+      'users'
+    );
+    
+    await this.initializeUserBalances(user.id);
+    
+    return user;
+  }
+
+  async updateUser(id: number, data: Partial<InsertUser>): Promise<User | undefined> {
+    const user = await updateAndReturn<User>(
+      db.update(users).set(data).where(eq(users.id, id)),
+      'users',
+      'id = ?',
+      [id]
+    );
+    return user || undefined;
+  }
+
+  async updateUserAgreement(id: number, agreement: number): Promise<User | undefined> {
+    const user = await updateAndReturn<User>(
+      db.update(users).set({ agreement }).where(eq(users.id, id)),
+      'users',
+      'id = ?',
+      [id]
+    );
+    return user || undefined;
+  }
+
+  async generateApiKey(userId: number): Promise<string | undefined> {
+    const apiKey = randomUUID();
+    
+    const user = await updateAndReturn<any>(
+      db.update(users).set({ apiKey }).where(eq(users.id, userId)),
+      'users',
+      'id = ?',
+      [userId]
+    );
+    
+    if (!user) {
+      return undefined;
+    }
+    
+    // MySQL returns snake_case, so check both formats
+    return user.apiKey || user.api_key || undefined;
+  }
+
+  // Wallet methods
+  async getWallet(id: number): Promise<Wallet | undefined> {
+    const [wallet] = await db.select().from(wallets).where(eq(wallets.id, id));
+    return wallet || undefined;
+  }
+
+  async getWalletsByUserId(userId: number): Promise<Wallet[]> {
+    return await db.select().from(wallets).where(eq(wallets.idUser, userId));
+  }
+
+  async createWallet(insertWallet: InsertWallet): Promise<Wallet> {
+    const wallet = await insertAndReturn<Wallet>(
+      db.insert(wallets).values(insertWallet),
+      'wallets'
+    );
+    return wallet;
+  }
+
+  async findAvailableWallet(network: string): Promise<Wallet | undefined> {
+    // First, release any expired wallets (except 'personal' ones)
+    await this.releaseExpiredWallets();
+    
+    const now = new Date();
+    const [wallet] = await db
+      .select()
+      .from(wallets)
+      .where(
+        and(
+          eq(wallets.network, network),
+          sql`(${wallets.reservationTime} IS NULL OR ${wallets.reservationTime} < ${now})`
+        )
+      )
+      .limit(1);
+    return wallet || undefined;
+  }
+
+  async reserveWallet(walletId: number, hours: number, reservationType?: string, userId?: number): Promise<Wallet | undefined> {
+    const reservationTime = new Date(Date.now() + hours * 60 * 60 * 1000);
+    
+    const updateData: any = { reservationTime };
+    if (reservationType) {
+      updateData.reserved = reservationType;
+    }
+    if (userId !== undefined) {
+      updateData.idUser = userId;
+    }
+    
+    const wallet = await updateAndReturn<Wallet>(
+      db.update(wallets).set(updateData).where(eq(wallets.id, walletId)),
+      'wallets',
+      'id = ?',
+      [walletId]
+    );
+    return wallet || undefined;
+  }
+
+  async releaseExpiredWallets(): Promise<number> {
+    const now = new Date();
+    
+    // Release wallets where reservation time has expired
+    // But exclude wallets with reserved='personal' (those are permanently assigned)
+    const result = await db
+      .update(wallets)
+      .set({
+        idUser: null,
+        reservationTime: null,
+        reserved: null,
+      })
+      .where(
+        and(
+          sql`${wallets.reservationTime} < ${now}`,
+          sql`(${wallets.reserved} != 'personal' OR ${wallets.reserved} IS NULL)`
+        )
+      );
+    
+    return result.rowCount || 0;
+  }
+
+  async createWalletViaAPI(network: string, userId: number): Promise<{ address: string; privateKey: string } | null> {
+    try {
+      const apiKey = process.env.WALLET_API_KEY;
+      if (!apiKey) {
+        console.error("WALLET_API_KEY not found in environment variables");
+        return null;
+      }
+
+      const nodeMap: Record<string, string> = {
+        "TRC20": "TRON",
+        "BEP20": "BSC",
+        "TON": "TON",
+        "Polygon": "POLYGON"
+      };
+
+      const node = nodeMap[network];
+      if (!node) {
+        console.error(`Unknown network: ${network}`);
+        return null;
+      }
+
+      const response = await fetch("https://pay.swiftx.online/api/wallet/create", {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ node })
+      });
+
+      if (!response.ok) {
+        console.error(`Failed to create wallet via API: ${response.status} ${response.statusText}`);
+        return null;
+      }
+
+      const data = await response.json();
+      return {
+        address: data.address,
+        privateKey: data.private_key
+      };
+    } catch (error) {
+      console.error("Error creating wallet via API:", error);
+      return null;
+    }
+  }
+
+  async findOrReserveWalletForOperation(userId: number, network: string, operation: string): Promise<Wallet | undefined> {
+    const now = new Date();
+    const sixHoursFromNow = new Date(now.getTime() + 6 * 60 * 60 * 1000);
+    
+    // Find existing wallet reserved for this operation by this user
+    // that has more than 6 hours left
+    const existingWallets = await db
+      .select()
+      .from(wallets)
+      .where(
+        and(
+          eq(wallets.idUser, userId),
+          eq(wallets.network, network),
+          eq(wallets.reserved, operation),
+          sql`${wallets.reservationTime} > ${sixHoursFromNow}`
+        )
+      )
+      .orderBy(sql`${wallets.reservationTime} DESC`)
+      .limit(1);
+    
+    if (existingWallets.length > 0) {
+      return existingWallets[0];
+    }
+    
+    // Find an available wallet (not reserved or expired)
+    const availableWallet = await this.findAvailableWallet(network);
+    
+    if (availableWallet) {
+      // Reserve it for 24 hours and assign to user
+      return await this.reserveWallet(availableWallet.id, 24, operation, userId);
+    }
+    
+    // Create a new wallet via API
+    const walletData = await this.createWalletViaAPI(network, userId);
+    if (!walletData) {
+      throw new Error("Failed to create wallet via API");
+    }
+
+    const newWallet = await this.createWallet({
+      idUser: userId,
+      network,
+      address: walletData.address,
+      privateKey: walletData.privateKey,
+      reservationTime: new Date(now.getTime() + 24 * 60 * 60 * 1000),
+      reserved: operation,
+      status: "active",
+    });
+    
+    return newWallet;
+  }
+
+  // Transaction methods
+  async getTransaction(id: string): Promise<Transaction | undefined> {
+    const [transaction] = await db.select().from(transactions).where(eq(transactions.id, id));
+    return transaction || undefined;
+  }
+
+  async getTransactionByOrderId(orderId: string): Promise<Transaction | undefined> {
+    const [transaction] = await db.select().from(transactions).where(eq(transactions.orderId, orderId));
+    return transaction || undefined;
+  }
+
+  async getTransactionsByUserId(userId: number): Promise<Transaction[]> {
+    return await db.select().from(transactions).where(eq(transactions.userId, userId));
+  }
+
+  async createTransaction(insertTransaction: InsertTransaction): Promise<Transaction> {
+    const transaction = await insertAndReturn<Transaction>(
+      db.insert(transactions).values({
+        ...insertTransaction,
+        orderId: `order_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`,
+      }),
+      'transactions'
+    );
+    return transaction;
+  }
+
+  async updateTransactionStatus(id: string, status: string, txHash?: string): Promise<Transaction | undefined> {
+    const updateData: any = { status };
+    if (txHash) updateData.txHash = txHash;
+
+    const transaction = await updateAndReturn<Transaction>(
+      db.update(transactions).set(updateData).where(eq(transactions.id, id)),
+      'transactions',
+      'id = ?',
+      [id]
+    );
+    return transaction || undefined;
+  }
+
+  // Exchange rate methods
+  async getExchangeRate(fromCurrency: string, toCurrency: string): Promise<ExchangeRate | undefined> {
+    const [rate] = await db
+      .select()
+      .from(exchangeRates)
+      .where(and(
+        eq(exchangeRates.fromCurrency, fromCurrency),
+        eq(exchangeRates.toCurrency, toCurrency)
+      ));
+    return rate || undefined;
+  }
+
+  async createOrUpdateExchangeRate(insertRate: InsertExchangeRate): Promise<ExchangeRate> {
+    const rate = await insertAndReturn<ExchangeRate>(
+      db.insert(exchangeRates)
+        .values({
+          ...insertRate,
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: [exchangeRates.fromCurrency, exchangeRates.toCurrency],
+          set: {
+            rate: insertRate.rate,
+            updatedAt: new Date(),
+          },
+        }),
+      'exchange_rates'
+    );
+    return rate;
+  }
+
+  // Support chat methods
+  async getSupportChat(id: string): Promise<SupportChat | undefined> {
+    const [chat] = await db.select().from(supportChats).where(eq(supportChats.id, id));
+    return chat || undefined;
+  }
+
+  async getSupportChatsByUserId(userId: number): Promise<SupportChat[]> {
+    return await db.select().from(supportChats).where(eq(supportChats.userId, userId));
+  }
+
+  async createSupportChat(insertChat: InsertSupportChat): Promise<SupportChat> {
+    const chat = await insertAndReturn<SupportChat>(
+      db.insert(supportChats).values(insertChat),
+      'support_chats'
+    );
+    return chat;
+  }
+
+  async addMessageToChat(chatId: string, sender: string, message: string): Promise<SupportChat | undefined> {
+    const chat = await this.getSupportChat(chatId);
+    if (!chat) return undefined;
+
+    const messages: { sender: string; message: string; timestamp: Date }[] = Array.isArray(chat.messages) ? [...chat.messages] : [];
+    messages.push({ sender, message, timestamp: new Date() });
+
+    const updatedChat = await updateAndReturn<SupportChat>(
+      db.update(supportChats).set({ messages }).where(eq(supportChats.id, chatId)),
+      'support_chats',
+      'id = ?',
+      [chatId]
+    );
+    return updatedChat || undefined;
+  }
+
+  // Card methods
+  async getActiveCards(): Promise<Card[]> {
+    return await db.select().from(cards).where(eq(cards.status, "1"));
+  }
+
+  async getActiveCardsByCategory(category: string): Promise<Card[]> {
+    return await db.select().from(cards).where(
+      and(
+        eq(cards.status, "1"),
+        eq(cards.category, category as any)
+      )
+    );
+  }
+
+  async getCard(id: number): Promise<Card | undefined> {
+    const [card] = await db.select().from(cards).where(eq(cards.id, id));
+    return card || undefined;
+  }
+
+  // Bank methods
+  async getBanksByCardId(cardId: number): Promise<Bank[]> {
+    return await db.select().from(banks).where(
+      and(
+        eq(banks.cardId, cardId),
+        eq(banks.status, "1")
+      )
+    );
+  }
+
+  async getBank(id: number): Promise<Bank | undefined> {
+    const [bank] = await db.select().from(banks).where(eq(banks.id, id));
+    return bank || undefined;
+  }
+
+  async createBank(insertBank: InsertBank): Promise<Bank> {
+    const bank = await insertAndReturn<Bank>(
+      db.insert(banks).values(insertBank),
+      'banks'
+    );
+    return bank;
+  }
+
+  // Balance methods
+  async getBalance(id: number): Promise<any | undefined> {
+    const [balance] = await db.select().from(balances).where(eq(balances.id, id));
+    return balance || undefined;
+  }
+
+  async getBalanceById(id: number): Promise<any | undefined> {
+    const [balance] = await db.select().from(balances).where(eq(balances.id, id));
+    return balance || undefined;
+  }
+
+  async getBalancesByIds(ids: string): Promise<any[]> {
+    if (!ids) return [];
+    const idArray = ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+    if (idArray.length === 0) return [];
+    return await db.select().from(balances).where(inArray(balances.id, idArray));
+  }
+
+  async getPaymentBalance(): Promise<any | undefined> {
+    // USDT.BEP20 is id=4
+    const [balance] = await db.select().from(balances).where(eq(balances.id, 4));
+    return balance || undefined;
+  }
+
+  async getAvailablePaymentBalances(toBalanceId: number): Promise<any[]> {
+    // Получаем все активные курсы обмена для данного целевого баланса
+    const rates = await db
+      .select({
+        fromBalanceId: exchangeRates.fromBalanceId,
+      })
+      .from(exchangeRates)
+      .where(eq(exchangeRates.toBalanceId, toBalanceId));
+    
+    if (rates.length === 0) {
+      // Если нет курсов обмена, вернуть дефолтный баланс для обратной совместимости
+      const [defaultBalance] = await db.select().from(balances).where(eq(balances.id, 4));
+      return defaultBalance ? [defaultBalance] : [];
+    }
+    
+    const balanceIds = rates.map((r: { fromBalanceId: number }) => r.fromBalanceId);
+    
+    // Получаем все балансы, которые есть в списке - только криптовалюты
+    const paymentBalances = await db
+      .select()
+      .from(balances)
+      .where(and(
+        inArray(balances.id, balanceIds),
+        eq(balances.balanceType, 'crypto')
+      ));
+    
+    return paymentBalances;
+  }
+
+  // Exchange rate methods by balance IDs
+  async getExchangeRateByBalances(fromBalanceId: number, toBalanceId: number): Promise<any | undefined> {
+    const [rate] = await db.select().from(exchangeRates).where(
+      and(
+        eq(exchangeRates.fromBalanceId, fromBalanceId),
+        eq(exchangeRates.toBalanceId, toBalanceId)
+      )
+    );
+    return rate || undefined;
+  }
+
+  async getExchangeRatesByCategory(category: string): Promise<any[]> {
+    const rates = await db
+      .select()
+      .from(exchangeRates)
+      .where(eq(exchangeRates.category, category as any));
+    return rates;
+  }
+
+  // User cards methods
+  async getUserCardsByUserId(userId: number): Promise<any[]> {
+    const result = await db
+      .select({
+        id: userCards.id,
+        idCard: userCards.idCard,
+        idUser: userCards.idUser,
+        idBank: userCards.idBank,
+        name: userCards.name,
+        firstName: userCards.firstName,
+        lastName: userCards.lastName,
+        phone: userCards.phone,
+        country: userCards.country,
+        numberCard: userCards.numberCard,
+        accountNumber: userCards.accountNumber,
+        status: userCards.status,
+        bankName: banks.bankName
+      })
+      .from(userCards)
+      .leftJoin(banks, eq(userCards.idBank, banks.id))
+      .where(eq(userCards.idUser, userId));
+    
+    return result;
+  }
+
+  async createUserCard(card: any): Promise<any> {
+    const newCard = await insertAndReturn<any>(
+      db.insert(userCards).values(card),
+      'user_cards'
+    );
+    return newCard;
+  }
+
+  async deleteUserCard(id: string): Promise<void> {
+    await db.delete(userCards).where(eq(userCards.id, parseInt(id)));
+  }
+
+  // Fiat balance methods
+  async getFiatBalances(): Promise<any[]> {
+    return await db.select().from(balances).where(eq(balances.balanceType, "fiat"));
+  }
+
+  async getCryptoBalances(): Promise<any[]> {
+    return await db.select().from(balances).where(eq(balances.balanceType, "crypto"));
+  }
+
+  async getUserCryptoBalances(userId: number): Promise<any[]> {
+    const cryptoBalances = await this.getCryptoBalances();
+    
+    const visibleBalances = cryptoBalances.filter(balance => balance.status !== 'hidden');
+    
+    const result = await Promise.all(
+      visibleBalances.map(async (balance) => {
+        const [userBalance] = await db
+          .select()
+          .from(usersBalances)
+          .where(
+            and(
+              eq(usersBalances.idUser, userId),
+              eq(usersBalances.idBalance, balance.id)
+            )
+          );
+
+        return {
+          id: balance.id,
+          title: balance.title,
+          network: balance.network,
+          currency: balance.currency,
+          sum: userBalance?.sum || "0.00",
+          status: userBalance?.status || "inactive",
+          balanceStatus: balance.status || "active",
+          qrColor: balance.qrColor,
+          qrStyle: balance.qrStyle,
+        };
+      })
+    );
+
+    return result;
+  }
+
+  async getAvailableNetworks(userId: number): Promise<any[]> {
+    const allCryptoBalances = await this.getCryptoBalances();
+    
+    const hiddenNetworks = allCryptoBalances.filter(balance => 
+      balance.status === 'hidden'
+    );
+    
+    return hiddenNetworks.map(balance => ({
+      id: balance.id,
+      title: balance.title,
+      network: balance.network,
+      currency: balance.currency,
+      status: 'coming_soon',
+    }));
+  }
+
+  async addUserNetwork(userId: number, balanceId: number): Promise<any> {
+    const [existingBalance] = await db
+      .select()
+      .from(usersBalances)
+      .where(
+        and(
+          eq(usersBalances.idUser, userId),
+          eq(usersBalances.idBalance, balanceId)
+        )
+      );
+
+    if (existingBalance) {
+      return existingBalance;
+    }
+
+    const newBalance = await insertAndReturn<any>(
+      db.insert(usersBalances).values({
+        idUser: userId,
+        idBalance: balanceId,
+        sum: "0.0",
+        status: "active"
+      }),
+      'users_balances'
+    );
+
+    return newBalance;
+  }
+
+  async getUserFiatBalances(userId: number): Promise<any[]> {
+    const fiatBalances = await this.getFiatBalances();
+    
+    // Filter out hidden balances
+    const visibleBalances = fiatBalances.filter(balance => balance.status !== 'hidden');
+    
+    const result = await Promise.all(
+      visibleBalances.map(async (balance) => {
+        // Get or create user balance (this will auto-generate accountNumber if needed)
+        const userBalance = await this.getUserBalance(userId, balance.id);
+
+        return {
+          id: balance.id, // Use 'id' to match crypto balances structure
+          title: balance.title, // Use 'title' to match crypto balances structure
+          network: balance.network,
+          currency: balance.currency,
+          sum: userBalance?.sum || "0.00",
+          status: userBalance?.status || "inactive",
+          balanceStatus: balance.status || "active",
+          accountNumber: userBalance?.accountNumber, // Include account number for fiat balances
+          qrColor: balance.qrColor,
+          qrStyle: balance.qrStyle,
+        };
+      })
+    );
+
+    return result;
+  }
+
+  // Get voucher balances (only type='voucher' and status='active')
+  async getVoucherBalances(): Promise<any[]> {
+    return await db.select().from(balances).where(
+      and(
+        eq(balances.balanceType, 'voucher'),
+        eq(balances.status, 'active')
+      )
+    );
+  }
+
+  // Get all user balances for voucher creation (balances with targetBalanceId)
+  async getAllUserBalances(userId: number): Promise<any[]> {
+    // Get all balances with targetBalanceId (configured for voucher creation)
+    const voucherEnabledBalances = await db.select()
+      .from(balances)
+      .where(
+        and(
+          sql`${balances.targetBalanceId} IS NOT NULL`,
+          eq(balances.status, 'active')
+        )
+      );
+    
+    console.log('🔍 Found voucher-enabled balances:', voucherEnabledBalances.map(b => ({
+      id: b.id,
+      title: b.title,
+      currency: b.currency,
+      targetBalanceId: b.targetBalanceId,
+      status: b.status
+    })));
+    
+    const result = await Promise.all(
+      voucherEnabledBalances.map(async (balance) => {
+        // Get user balance from TARGET balance (where the money is), not voucher balance
+        const targetBalanceId = balance.targetBalanceId!;
+        const userBalance = await this.getUserBalance(userId, targetBalanceId);
+        
+        console.log(`💰 User ${userId} balance for ${balance.title} (target ID ${targetBalanceId}):`, {
+          voucherBalanceId: balance.id,
+          targetBalanceId,
+          sum: userBalance?.sum,
+          status: userBalance?.status
+        });
+
+        return {
+          balanceId: balance.id,  // Return voucher balance ID for creating voucher
+          balanceName: balance.title,
+          sum: userBalance?.sum || "0.00",  // But show target balance amount
+          currency: balance.currency,
+          network: balance.network,
+          balanceStatus: balance.status,
+          balanceType: balance.balanceType,
+          targetBalanceId: balance.targetBalanceId
+        };
+      })
+    );
+
+    console.log('✅ Final result for user balances:', result);
+    return result;
+  }
+
+  async getUserBalance(userId: number, balanceId: number): Promise<any> {
+    const { usersBalances, balances } = await import("@workspace/db/schema");
+    
+    // Try to find existing user balance
+    const [existingBalance] = await db
+      .select()
+      .from(usersBalances)
+      .where(
+        and(
+          eq(usersBalances.idUser, userId),
+          eq(usersBalances.idBalance, balanceId)
+        )
+      );
+
+    if (existingBalance) {
+      return existingBalance;
+    }
+
+    // Get balance info to check if it's fiat
+    const [balanceInfo] = await db
+      .select()
+      .from(balances)
+      .where(eq(balances.id, balanceId));
+
+    // Generate account number for fiat balances
+    let accountNumber: string | undefined;
+    if (balanceInfo?.balanceType === 'fiat') {
+      accountNumber = await this.generateUniqueAccountNumber();
+    }
+
+    // Create new user balance if not exists
+    const newBalance = await insertAndReturn<any>(
+      db.insert(usersBalances).values({
+        idUser: userId,
+        idBalance: balanceId,
+        sum: "0.0",
+        status: "active",
+        accountNumber
+      }),
+      'users_balances'
+    );
+
+    return newBalance;
+  }
+
+  async generateUniqueAccountNumber(): Promise<string> {
+    const { usersBalances } = await import("@workspace/db/schema");
+    
+    while (true) {
+      // Generate 10-digit number (9000000000 to 9999999999)
+      const accountNumber = (9000000000 + Math.floor(Math.random() * 1000000000)).toString();
+      
+      // Check if it's unique
+      const [existing] = await db
+        .select()
+        .from(usersBalances)
+        .where(eq(usersBalances.accountNumber, accountNumber));
+      
+      if (!existing) {
+        return accountNumber;
+      }
+      // If exists, loop will generate a new number
+    }
+  }
+
+  async updateUserBalance(userId: number, balanceId: number, amount: number): Promise<any> {
+    const { usersBalances } = await import("@workspace/db/schema");
+    const { sql } = await import("drizzle-orm");
+    
+    // Get current balance
+    const currentBalance = await this.getUserBalance(userId, balanceId);
+    const newSum = (parseFloat(currentBalance.sum) + amount).toFixed(8);
+    
+    // Update balance
+    const updatedBalance = await updateAndReturn<any>(
+      db.update(usersBalances)
+        .set({ sum: newSum })
+        .where(
+          and(
+            eq(usersBalances.idUser, userId),
+            eq(usersBalances.idBalance, balanceId)
+          )
+        ),
+      'users_balances',
+      'id_user = ? AND id_balance = ?',
+      [userId, balanceId]
+    );
+    
+    return updatedBalance;
+  }
+
+  async updateUserDefaultBalance(userId: number, balanceId: number): Promise<User | undefined> {
+    const updatedUser = await updateAndReturn<User>(
+      db.update(users).set({ defaultFiatBalanceId: balanceId }).where(eq(users.id, userId)),
+      'users',
+      'id = ?',
+      [userId]
+    );
+
+    return updatedUser || undefined;
+  }
+
+  async updateUserPhone(userId: number, phone: string): Promise<User | undefined> {
+    const updatedUser = await updateAndReturn<User>(
+      db.update(users).set({ phone }).where(eq(users.id, userId)),
+      'users',
+      'id = ?',
+      [userId]
+    );
+
+    return updatedUser || undefined;
+  }
+
+  // Exchange methods
+  async createExchange(exchange: any): Promise<any> {
+    const newExchange = await insertAndReturn<any>(
+      db.insert(exchanges).values(exchange),
+      'exchanges'
+    );
+    // Add camelCase alias for compatibility
+    return {
+      ...newExchange,
+      numberOrder: newExchange.number_order || newExchange.numberOrder
+    };
+  }
+
+  async getExchange(id: number): Promise<any | undefined> {
+    const [exchange] = await db
+      .select()
+      .from(exchanges)
+      .where(eq(exchanges.id, id));
+    
+    if (!exchange) return undefined;
+    
+    // Add camelCase alias for compatibility
+    return {
+      ...exchange,
+      numberOrder: exchange.number_order || exchange.numberOrder
+    };
+  }
+
+  async getExchangeByOrderNumber(orderNumber: string): Promise<any | undefined> {
+    const [result] = await db
+      .select({
+        exchange: exchanges,
+        savedCardNumber: userCards.numberCard,
+        cardId: userCards.idCard,
+        bankId: userCards.idBank,
+      })
+      .from(exchanges)
+      .leftJoin(userCards, eq(exchanges.idCard, userCards.id))
+      .where(eq(exchanges.numberOrder, orderNumber));
+    
+    if (!result) return undefined;
+    
+    // Get time exchange from bank or card
+    let timeExchange = 60; // Default 60 minutes
+    
+    if (result.bankId) {
+      // Try to get time from bank first
+      const [bank] = await db
+        .select()
+        .from(banks)
+        .where(eq(banks.id, result.bankId));
+      
+      if (bank?.timeExchange) {
+        timeExchange = bank.timeExchange;
+      } else if (result.cardId) {
+        // Fallback to card time
+        const [card] = await db
+          .select()
+          .from(cards)
+          .where(eq(cards.id, result.cardId));
+        
+        if (card?.timeExchange) {
+          timeExchange = card.timeExchange;
+        }
+      }
+    } else if (result.cardId) {
+      // No bank, get time from card
+      const [card] = await db
+        .select()
+        .from(cards)
+        .where(eq(cards.id, result.cardId));
+      
+      if (card?.timeExchange) {
+        timeExchange = card.timeExchange;
+      }
+    }
+    
+    // Use saved card number if available, otherwise use manual card number
+    return {
+      ...result.exchange,
+      numberOrder: result.exchange.number_order || result.exchange.numberOrder,
+      cardNumber: result.savedCardNumber || result.exchange.manualCardNumber,
+      timeExchange
+    };
+  }
+
+  async updateExchangeStatus(id: number, status: string): Promise<any | undefined> {
+    const updatedExchange = await updateAndReturn<any>(
+      db.update(exchanges)
+        .set({ status: status as 'wait' | 'wait-paid' | 'paid' | 'complete' | 'canceled' | 'dispute' })
+        .where(eq(exchanges.id, id)),
+      'exchanges',
+      'id = ?',
+      [id]
+    );
+    
+    if (!updatedExchange) return undefined;
+    
+    // Add camelCase alias for compatibility
+    return {
+      ...updatedExchange,
+      numberOrder: updatedExchange.number_order || updatedExchange.numberOrder
+    };
+  }
+
+  async getExchangeHistory(userId: number, limit: number, offset: number): Promise<any[]> {
+    const { desc } = await import("drizzle-orm");
+    
+    const results = await db
+      .select({
+        exchange: exchanges,
+        savedCardNumber: userCards.numberCard,
+        cardId: userCards.idCard,
+        bankId: userCards.idBank,
+        walletAddress: wallets.address,
+      })
+      .from(exchanges)
+      .leftJoin(userCards, eq(exchanges.idCard, userCards.id))
+      .leftJoin(wallets, eq(exchanges.walletId, wallets.id))
+      .where(eq(exchanges.idUser, userId))
+      .orderBy(desc(exchanges.timestamp))
+      .limit(limit)
+      .offset(offset);
+    
+    // Enrich each result with timeExchange
+    const enrichedResults = await Promise.all(results.map(async (result: any) => {
+      let timeExchange = 60; // Default 60 minutes
+      
+      if (result.bankId) {
+        const [bank] = await db
+          .select()
+          .from(banks)
+          .where(eq(banks.id, result.bankId));
+        
+        if (bank?.timeExchange) {
+          timeExchange = bank.timeExchange;
+        } else if (result.cardId) {
+          const [card] = await db
+            .select()
+            .from(cards)
+            .where(eq(cards.id, result.cardId));
+          
+          if (card?.timeExchange) {
+            timeExchange = card.timeExchange;
+          }
+        }
+      } else if (result.cardId) {
+        const [card] = await db
+          .select()
+          .from(cards)
+          .where(eq(cards.id, result.cardId));
+        
+        if (card?.timeExchange) {
+          timeExchange = card.timeExchange;
+        }
+      }
+      
+      return {
+        ...result.exchange,
+        numberOrder: result.exchange.number_order || result.exchange.numberOrder,
+        cardNumber: result.savedCardNumber || result.exchange.manualCardNumber,
+        walletAddress: result.walletAddress,
+        timeExchange
+      };
+    }));
+    
+    return enrichedResults;
+  }
+
+  // Support ticket methods
+  async createSupportTicket(ticket: InsertSupportTicket, initialMessage: string): Promise<SupportTicket> {
+    return await db.transaction(async (tx: any) => {
+      const newTicket = await insertAndReturnTx<SupportTicket>(
+        tx.insert(supportTickets).values(ticket),
+        tx,
+        'support_tickets'
+      );
+      
+      await tx.insert(supportMessages).values({
+        ticketId: newTicket.id,
+        sender: "user",
+        message: initialMessage,
+      });
+      
+      return newTicket;
+    });
+  }
+
+  async getUserOpenTicket(userId: number): Promise<any | undefined> {
+    const { not } = await import("drizzle-orm");
+    
+    const [ticket] = await db
+      .select({
+        ticket: supportTickets,
+        exchangeNumber: exchanges.numberOrder,
+      })
+      .from(supportTickets)
+      .leftJoin(exchanges, eq(supportTickets.exchangeId, exchanges.id))
+      .where(
+        and(
+          eq(supportTickets.userId, userId),
+          not(eq(supportTickets.status, "closed"))
+        )
+      )
+      .limit(1);
+    
+    if (!ticket) return undefined;
+    
+    return {
+      ...ticket.ticket,
+      exchangeNumber: ticket.exchangeNumber,
+    };
+  }
+
+  async getTicketMessages(ticketId: number): Promise<SupportMessage[]> {
+    return await db
+      .select()
+      .from(supportMessages)
+      .where(eq(supportMessages.ticketId, ticketId))
+      .orderBy(supportMessages.createdAt);
+  }
+
+  async addTicketMessage(message: InsertSupportMessage): Promise<SupportMessage> {
+    const newMessage = await insertAndReturn<SupportMessage>(
+      db.insert(supportMessages).values(message),
+      'support_messages'
+    );
+    
+    await db
+      .update(supportTickets)
+      .set({ updatedAt: new Date() })
+      .where(eq(supportTickets.id, message.ticketId));
+    
+    return newMessage;
+  }
+
+  async updateTicketStatus(ticketId: number, status: 'wait-user' | 'wait-support' | 'closed'): Promise<SupportTicket | undefined> {
+    const updatedTicket = await updateAndReturn<SupportTicket>(
+      db.update(supportTickets).set({ status, updatedAt: new Date() }).where(eq(supportTickets.id, ticketId)),
+      'support_tickets',
+      'id = ?',
+      [ticketId]
+    );
+    return updatedTicket || undefined;
+  }
+
+  // Notification methods implementation
+  async getUserNotifications(userId: number): Promise<any[]> {
+    const { notifications, notificationReads } = await import("@workspace/db/schema");
+    
+    // Get all notifications (personal + broadcast)
+    const allNotifications = await db
+      .select({
+        id: notifications.id,
+        userId: notifications.userId,
+        type: notifications.type,
+        title: notifications.title,
+        message: notifications.message,
+        imageUrl: notifications.imageUrl,
+        videoUrl: notifications.videoUrl,
+        linkUrl: notifications.linkUrl,
+        linkText: notifications.linkText,
+        redirectTo: notifications.redirectTo,
+        invoiceId: notifications.invoiceId,
+        exchangeId: notifications.exchangeId,
+        isRead: notifications.isRead,
+        createdAt: notifications.createdAt,
+        readByUser: notificationReads.id,
+      })
+      .from(notifications)
+      .leftJoin(
+        notificationReads,
+        and(
+          eq(notificationReads.notificationId, notifications.id),
+          eq(notificationReads.userId, userId)
+        )
+      )
+      .where(
+        or(
+          eq(notifications.userId, userId),
+          isNull(notifications.userId)
+        )
+      )
+      .orderBy(sql`${notifications.createdAt} DESC`);
+    
+    // Calculate final isRead status:
+    // - For personal notifications (userId != null): use notifications.isRead
+    // - For broadcast notifications (userId = null): check if readByUser exists
+    return allNotifications.map((n: any) => ({
+      ...n,
+      isRead: n.userId !== null ? n.isRead : n.readByUser !== null,
+      readByUser: undefined, // Remove helper field
+    }));
+  }
+
+  async getUnreadNotificationsCount(userId: number): Promise<number> {
+    const { notifications, notificationReads } = await import("@workspace/db/schema");
+    
+    // Count personal unread notifications
+    const personalUnread = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(notifications)
+      .where(
+        and(
+          eq(notifications.userId, userId),
+          eq(notifications.isRead, false)
+        )
+      );
+    
+    // Count broadcast notifications not marked as read by this user
+    const broadcastUnread = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(notifications)
+      .leftJoin(
+        notificationReads,
+        and(
+          eq(notificationReads.notificationId, notifications.id),
+          eq(notificationReads.userId, userId)
+        )
+      )
+      .where(
+        and(
+          isNull(notifications.userId),
+          isNull(notificationReads.id)
+        )
+      );
+    
+    const personalCount = personalUnread[0]?.count || 0;
+    const broadcastCount = broadcastUnread[0]?.count || 0;
+    
+    return personalCount + broadcastCount;
+  }
+
+  async createNotification(notification: any): Promise<any> {
+    const { notifications } = await import("@workspace/db/schema");
+    const newNotification = await insertAndReturn<any>(
+      db.insert(notifications).values(notification),
+      'notifications'
+    );
+    return newNotification;
+  }
+
+  async markNotificationAsRead(notificationId: number, userId: number): Promise<any | undefined> {
+    const { notifications, notificationReads } = await import("@workspace/db/schema");
+    
+    // First, get the notification to check if it's broadcast or personal
+    const [notification] = await db.select().from(notifications).where(eq(notifications.id, notificationId));
+    
+    if (!notification) return undefined;
+    
+    // If personal notification (userId != null), update isRead in notifications table
+    if (notification.userId !== null) {
+      const updatedNotification = await updateAndReturn<any>(
+        db.update(notifications).set({ isRead: true }).where(eq(notifications.id, notificationId)),
+        'notifications',
+        'id = ?',
+        [notificationId]
+      );
+      return updatedNotification || undefined;
+    }
+    
+    // If broadcast notification (userId = null), add entry to notification_reads table
+    // Check if already marked as read by this user
+    const [existing] = await db
+      .select()
+      .from(notificationReads)
+      .where(
+        and(
+          eq(notificationReads.notificationId, notificationId),
+          eq(notificationReads.userId, userId)
+        )
+      );
+    
+    if (!existing) {
+      await db.insert(notificationReads).values({
+        notificationId,
+        userId,
+      });
+    }
+    
+    return notification;
+  }
+
+  async markAllNotificationsAsRead(userId: number): Promise<void> {
+    const { notifications, notificationReads } = await import("@workspace/db/schema");
+    
+    // Mark all personal notifications as read
+    await db.update(notifications).set({ isRead: true }).where(eq(notifications.userId, userId));
+    
+    // Get all broadcast notifications
+    const broadcastNotifications = await db
+      .select({ id: notifications.id })
+      .from(notifications)
+      .where(isNull(notifications.userId));
+    
+    // Mark all broadcast notifications as read for this user
+    if (broadcastNotifications.length > 0) {
+      const values = broadcastNotifications.map((n: any) => ({
+        notificationId: n.id,
+        userId,
+      }));
+      
+      // Use INSERT IGNORE pattern to avoid duplicates
+      for (const value of values) {
+        const [existing] = await db
+          .select()
+          .from(notificationReads)
+          .where(
+            and(
+              eq(notificationReads.notificationId, value.notificationId),
+              eq(notificationReads.userId, userId)
+            )
+          );
+        
+        if (!existing) {
+          await db.insert(notificationReads).values(value);
+        }
+      }
+    }
+  }
+
+  async deleteNotification(id: number): Promise<void> {
+    const { notifications } = await import("@workspace/db/schema");
+    await db.delete(notifications).where(eq(notifications.id, id));
+  }
+
+  // Invoice methods implementation
+  async getInvoice(id: number): Promise<any | undefined> {
+    const { invoices } = await import("@workspace/db/schema");
+    const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
+    return invoice || undefined;
+  }
+
+  async getInvoiceByOrderNumber(orderNumber: string): Promise<any | undefined> {
+    const { invoices } = await import("@workspace/db/schema");
+    const [invoice] = await db.select().from(invoices).where(eq(invoices.orderNumber, orderNumber));
+    return invoice || undefined;
+  }
+
+  async getUserInvoices(userId: number): Promise<any[]> {
+    const { invoices } = await import("@workspace/db/schema");
+    return await db.select().from(invoices).where(eq(invoices.userId, userId)).orderBy(sql`${invoices.createdAt} DESC`);
+  }
+
+  async getAllInvoices(): Promise<any[]> {
+    const { invoices } = await import("@workspace/db/schema");
+    return await db.select().from(invoices).orderBy(sql`${invoices.createdAt} DESC`);
+  }
+
+  async createInvoice(invoice: any): Promise<any> {
+    const { invoices } = await import("@workspace/db/schema");
+    const newInvoice = await insertAndReturn<any>(
+      db.insert(invoices).values(invoice),
+      'invoices'
+    );
+    return newInvoice;
+  }
+
+  async updateInvoiceStatus(id: number, status: string, paidAt?: Date, paymentHash?: string): Promise<any | undefined> {
+    const { invoices } = await import("@workspace/db/schema");
+    const updateData: any = { status };
+    if (paidAt) updateData.paidAt = paidAt;
+    if (paymentHash) updateData.paymentHash = paymentHash;
+    
+    const updatedInvoice = await updateAndReturn<any>(
+      db.update(invoices).set(updateData).where(eq(invoices.id, id)),
+      'invoices',
+      'id = ?',
+      [id]
+    );
+    return updatedInvoice || undefined;
+  }
+
+  async getExpiredInvoices(): Promise<any[]> {
+    const { invoices } = await import("@workspace/db/schema");
+    return await db.select().from(invoices).where(
+      and(
+        eq(invoices.status, 'pending'),
+        sql`${invoices.expiresAt} < NOW()`
+      )
+    );
+  }
+
+  // Voucher methods implementation
+  async createVoucher(voucher: any): Promise<any> {
+    const newVoucher = await insertAndReturn<any>(
+      db.insert(vouchers).values(voucher),
+      'vouchers'
+    );
+    return newVoucher;
+  }
+
+  async getVoucherByCode(code: string): Promise<any | undefined> {
+    const [voucher] = await db.select().from(vouchers).where(eq(vouchers.code, code));
+    return voucher || undefined;
+  }
+
+  async getUserVouchers(userId: number, status?: 'active' | 'activated' | 'expired'): Promise<any[]> {
+    if (status) {
+      return await db.select().from(vouchers)
+        .where(and(eq(vouchers.userId, userId), eq(vouchers.status, status)))
+        .orderBy(sql`${vouchers.createdAt} DESC`);
+    }
+    return await db.select().from(vouchers)
+      .where(eq(vouchers.userId, userId))
+      .orderBy(sql`${vouchers.createdAt} DESC`);
+  }
+
+  async activateVoucher(voucherCode: string, userId: number): Promise<any> {
+    const updatedVoucher = await updateAndReturn<any>(
+      db.update(vouchers).set({
+        status: 'activated',
+        activatedBy: userId,
+        activatedAt: new Date()
+      }).where(eq(vouchers.code, voucherCode)),
+      'vouchers',
+      'code = ?',
+      [voucherCode]
+    );
+    return updatedVoucher;
+  }
+
+  async updateVoucherBalance(voucherId: number, newAmount: string): Promise<any | undefined> {
+    const updatedVoucher = await updateAndReturn<any>(
+      db.update(vouchers).set({ amount: newAmount }).where(eq(vouchers.id, voucherId)),
+      'vouchers',
+      'id = ?',
+      [voucherId]
+    );
+    return updatedVoucher || undefined;
+  }
+}
+
+export const storage = new DatabaseStorage();
