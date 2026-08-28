@@ -1,0 +1,43 @@
+:root {
+  --p2p-bg: #0B0C10;
+  --p2p-panel: #13151A;
+  --p2p-panel-raised: #1A1D24;
+  --p2p-text: #E2E8F0;
+  --p2p-green: #3ab368;
+  --p2p-orange: #f97316;
+}
+
+.p2p-current {
+  min-height: 100vh;
+  background: var(--p2p-bg);
+  color: var(--p2p-text);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.p2p-current button, .p2p-current select, .p2p-current input {
+  font: inherit;
+}
+
+.p2p-current button {
+  cursor: pointer;
+}
+
+.p2p-current button:focus-visible, .p2p-current select:focus-visible, .p2p-current input:focus-visible {
+  outline: 2px solid rgba(58, 179, 104, .75);
+  outline-offset: 2px;
+}
+
+.p2p-current .p2p-phone-frame {
+  width: min(100%, 460px);
+  min-height: 100vh;
+  margin: 0 auto;
+  background: #0B0C10;
+  box-shadow: 0 0 80px rgba(0,0,0,.32);
+}
+
+.p2p-current .p2p-scroll-row::-webkit-scrollbar { display: none; }
+.p2p-current .p2p-scroll-row { -ms-overflow-style: none; scrollbar-width: none; }
+
+@media (max-width: 520px) {
+  .p2p-current .p2p-phone-frame { width: 100%; }
+}
