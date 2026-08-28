@@ -10,6 +10,7 @@ import { notificationService } from "./notification-service";
 import { formatBalance } from "./utils";
 import { systemUpload } from "./upload-config";
 import { invalidateSettingsCache } from "./p2p-migrations";
+import { adjustUserBalance } from "./balance-helpers";
 import { registerGasFreeWallet } from "./blockchain-transfer";
 
 // Helper functions for MySQL compatibility
@@ -1586,10 +1587,10 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
           if (winner === "buyer") {
             // Balance was already deducted from locker at lock creation (escrow).
             // Just credit the buyer; no deduction from seller needed.
-            await tx.execute(sql`INSERT INTO users_balances (id_user, id_balance, sum) VALUES (${order.buyer_id}, ${balanceId}, ${amount}) ON DUPLICATE KEY UPDATE sum = sum + ${amount}`);
+            await adjustUserBalance(tx, order.buyer_id, balanceId, amount);
           } else {
             // Seller wins: restore the locker's balance (deducted at lock time)
-            await tx.execute(sql`UPDATE users_balances SET sum = sum + ${amount} WHERE id_user = ${lock.user_id} AND id_balance = ${balanceId}`);
+            await adjustUserBalance(tx, lock.user_id, balanceId, amount);
           }
           await tx.execute(sql`UPDATE p2p_balance_locks SET status = 'released', updated_at = NOW() WHERE id = ${lock.id}`);
         }

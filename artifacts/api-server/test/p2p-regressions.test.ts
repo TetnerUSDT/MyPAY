@@ -29,6 +29,8 @@ globalThis.fetch = async (input, init) => {
 const { db, pool }: Db = await import("../src/db");
 const { registerP2PRoutes } = await import("../src/p2p/index");
 const { runP2PMigrations } = await import("../src/p2p-migrations");
+const { adjustUserBalance } = await import("../src/balance-helpers");
+const { storage } = await import("../src/storage");
 const express = (await import("express")).default;
 
 let server: Server;
@@ -126,7 +128,7 @@ async function createFixture(side: "buy" | "sell") {
        available_amount, payment_time_minutes, status, balance_locked, created_at, updated_at)
     VALUES
       (${adOwnerId}, ${side}, ${assetBalanceId}, 2, 1, 20,
-       20, 15, 'active', ${side === "sell" ? 1 : 0}, NOW(), NOW())
+       20, 1440, 'active', ${side === "sell" ? 1 : 0}, NOW(), NOW())
   `);
   adIds.push(adId);
   await db.execute(sql`
@@ -230,6 +232,121 @@ after(async () => {
     server.close((error) => error ? reject(error) : resolve());
   });
   await pool.end();
+});
+
+test("consolidates legacy duplicate balances without losing credits", async () => {
+  const tag = randomUUID().replaceAll("-", "");
+  const userKey = `test-balance-merge-${tag}`;
+  let userId: number | null = null;
+  let balanceId: number | null = null;
+  let adId: number | null = null;
+  let orderId: number | null = null;
+
+  try {
+    userId = await insertId(sql`
+      INSERT INTO users (tg_id, api_key, name, status, blocked)
+      VALUES (${userKey}, ${userKey}, 'Balance merge test', 'active', 0)
+    `);
+    balanceId = await insertId(sql`
+      INSERT INTO balances (title, currency, network, type, status)
+      VALUES (${`Balance merge ${tag}`}, 'USDT', 'TRC20', 'crypto', 'active')
+    `);
+
+    await db.execute(sql`ALTER TABLE users_balances DROP INDEX user_balance_unique`);
+    const canonicalBalanceId = await insertId(sql`
+      INSERT INTO users_balances (id_user, id_balance, sum, status)
+      VALUES (${userId}, ${balanceId}, 1.25, 'active')
+    `);
+    const retainedAccountNumber = `9${userId.toString().padStart(9, "0").slice(-9)}`;
+    const duplicateBalanceId = await insertId(sql`
+      INSERT INTO users_balances (id_user, id_balance, sum, status, account_number)
+      VALUES (${userId}, ${balanceId}, 2.75, 'active', ${retainedAccountNumber})
+    `);
+    adId = await insertId(sql`
+      INSERT INTO p2p_ads
+        (user_id, side, asset_balance_id, price, min_amount, max_amount,
+         available_amount, payment_time_minutes, status, balance_locked, created_at, updated_at)
+      VALUES
+        (${userId}, 'sell', ${balanceId}, 1, 1, 1, 0, 1440, 'completed', 0, NOW(), NOW())
+    `);
+    orderId = await insertId(sql`
+      INSERT INTO p2p_orders
+        (ad_id, buyer_id, seller_id, asset_balance_id, asset_amount,
+         fiat_amount, price, status, created_at, updated_at)
+      VALUES
+        (${adId}, ${userId}, ${userId}, ${balanceId}, 1, 1, 1, 'released', NOW(), NOW())
+    `);
+    await db.execute(sql`
+      INSERT INTO p2p_balance_locks
+        (order_id, user_id, user_balance_id, balance_id, amount, status, created_at, updated_at)
+      VALUES
+        (${orderId}, ${userId}, ${duplicateBalanceId}, ${balanceId}, 1, 'released', NOW(), NOW())
+    `);
+
+    await db.transaction(async (tx) => {
+      await adjustUserBalance(tx, userId!, balanceId!, 1.5);
+    });
+    assert.equal(Number((await storage.getUserBalance(userId, balanceId)).sum), 5.5);
+    await db.transaction(async (tx) => {
+      await adjustUserBalance(tx, userId!, balanceId!, -1);
+    });
+    assert.equal(Number((await storage.getUserBalance(userId, balanceId)).sum), 4.5);
+    await db.transaction(async (tx) => {
+      await adjustUserBalance(tx, userId!, balanceId!, 1);
+    });
+    assert.equal(Number((await storage.getUserBalance(userId, balanceId)).sum), 5.5);
+
+    await runP2PMigrations();
+
+    const consolidated = await query<{ sum: string; account_number: string | null }>(sql`
+      SELECT sum, account_number
+      FROM users_balances
+      WHERE id_user = ${userId} AND id_balance = ${balanceId}
+    `);
+    assert.deepEqual(consolidated, [{
+      sum: "5.50000000",
+      account_number: retainedAccountNumber,
+    }]);
+    const migratedLock = await query<{ user_balance_id: number; status: string }>(sql`
+      SELECT user_balance_id, status
+      FROM p2p_balance_locks
+      WHERE order_id = ${orderId}
+    `);
+    assert.deepEqual(migratedLock, [{
+      user_balance_id: canonicalBalanceId,
+      status: "released",
+    }]);
+
+    await db.transaction(async (tx) => {
+      await adjustUserBalance(tx, userId!, balanceId!, 0.5);
+    });
+    assert.equal(Number((await storage.getUserBalance(userId, balanceId)).sum), 6);
+
+    await assert.rejects(
+      db.execute(sql`
+        INSERT INTO users_balances (id_user, id_balance, sum)
+        VALUES (${userId}, ${balanceId}, 1)
+      `),
+      (error: any) => /duplicate/i.test(error?.cause?.message ?? error?.message ?? ""),
+    );
+  } finally {
+    if (orderId !== null) {
+      await db.execute(sql`DELETE FROM p2p_balance_locks WHERE order_id = ${orderId}`);
+      await db.execute(sql`DELETE FROM p2p_orders WHERE id = ${orderId}`);
+    }
+    if (adId !== null) {
+      await db.execute(sql`DELETE FROM p2p_ads WHERE id = ${adId}`);
+    }
+    // Restore the invariant after dependent test records have been removed.
+    await runP2PMigrations();
+    if (userId !== null) {
+      await db.execute(sql`DELETE FROM users_balances WHERE id_user = ${userId}`);
+      await db.execute(sql`DELETE FROM users WHERE id = ${userId}`);
+    }
+    if (balanceId !== null) {
+      await db.execute(sql`DELETE FROM balances WHERE id = ${balanceId}`);
+    }
+  }
 });
 
 test("takes a sell ad, locks only the seller, and releases the seller's escrow", async () => {

@@ -6,13 +6,14 @@ import bcrypt from "bcryptjs";
 import { validate as validateInitData, parse as parseInitData } from "@telegram-apps/init-data-node";
 import { storage } from "../storage";
 import { db } from "../db";
-import { insertTransactionSchema, insertSupportChatSchema, insertUserSchema, insertSupportTicketSchema, insertSupportMessageSchema, usersBalances, balances } from "@workspace/db/schema";
+import { insertTransactionSchema, insertSupportChatSchema, insertUserSchema, insertSupportTicketSchema, insertSupportMessageSchema, usersBalances, balances, vouchers } from "@workspace/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { config, isTestMode, isTelegramMode, isDevelopment } from "../config";
 import { createWalletViaAPI } from "../wallet-api";
 import { registerAdminRoutes } from "../admin-routes";
 import { registerP2PRoutes, initP2PPaymentMethods } from "../p2p-routes";
 import { runP2PMigrations } from "../p2p-migrations";
+import { adjustUserBalance } from "../balance-helpers";
 import { runBusinessMigrations } from "../business-migrations";
 import { registerBusinessRoutes } from "../business-routes";
 import { telegramService } from "../telegram-service";
@@ -1865,27 +1866,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
         existingVoucher = await storage.getVoucherByCode(voucherCode);
       }
 
-      // Create voucher
-      const voucher = await storage.createVoucher({
-        code: voucherCode,
-        userId,
-        balanceId,
-        amount: requestedAmount.toFixed(8),
-        currency: balance.currency,
-        network: balance.network,
-        securityType: securityType || 'none',
-        securityValue: hashedSecurityValue,
-        status: 'active'
-      });
+      const { voucher, newBalance } = await db.transaction(async (tx) => {
+        const balanceRows = await tx.execute(sql`
+          SELECT id
+          FROM users_balances
+          WHERE id_user = ${userId} AND id_balance = ${targetBalanceId}
+          ORDER BY id ASC
+          FOR UPDATE
+        `);
+        if ((balanceRows[0] as any[]).length === 0) {
+          throw new Error("Balance not found");
+        }
+        const totalRows = await tx.execute(sql`
+          SELECT COALESCE(SUM(COALESCE(sum, 0)), 0) AS total_sum
+          FROM users_balances
+          WHERE id_user = ${userId} AND id_balance = ${targetBalanceId}
+        `);
+        const lockedTotal = parseFloat((totalRows[0] as any[])[0]?.total_sum ?? "0");
+        if (lockedTotal < requestedAmount) {
+          throw new Error("Insufficient balance");
+        }
 
-      // Deduct amount from TARGET balance (where the money is)
-      const newBalance = (currentBalance - requestedAmount).toFixed(8);
-      await db.update(usersBalances)
-        .set({ sum: newBalance })
-        .where(and(
-          eq(usersBalances.idUser, userId),
-          eq(usersBalances.idBalance, targetBalanceId)  // Deduct from target, not voucher balance
-        ));
+        const insertResult = await tx.insert(vouchers).values({
+          code: voucherCode,
+          userId,
+          balanceId,
+          amount: requestedAmount.toFixed(8),
+          currency: balance.currency,
+          network: balance.network,
+          securityType: securityType || 'none',
+          securityValue: hashedSecurityValue,
+          status: 'active'
+        });
+        await adjustUserBalance(tx, userId, targetBalanceId, -requestedAmount);
+
+        const voucherId = Number((insertResult[0] as any).insertId);
+        const [createdVoucher] = await tx.select()
+          .from(vouchers)
+          .where(eq(vouchers.id, voucherId));
+        return {
+          voucher: createdVoucher,
+          newBalance: (lockedTotal - requestedAmount).toFixed(8),
+        };
+      });
 
       console.log(`✅ Voucher created successfully. Deducted ${requestedAmount} from balance ${targetBalanceId}. New balance: ${newBalance}`);
 
@@ -2020,30 +2043,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         type: targetBalance.balanceType 
       });
 
-      // Check if user has this target balance
-      let userBalance = await storage.getUserBalance(userId, targetBalanceId);
-      
-      if (!userBalance) {
-        console.log('❌ User does not have target balance:', targetBalanceId);
-        return res.status(400).json({ message: "Упс. Ваучер существует но сеть не найдена" });
-      }
-
-      // Add voucher amount to user balance
-      const currentBalance = parseFloat(userBalance.sum);
       const voucherAmount = parseFloat(voucher.amount);
-      const newBalance = (currentBalance + voucherAmount).toFixed(8);
+      const newBalance = await db.transaction(async (tx) => {
+        const lockedVoucherRows = await tx.execute(sql`
+          SELECT id, status
+          FROM vouchers
+          WHERE code = ${code}
+          FOR UPDATE
+        `);
+        const lockedVoucher = (lockedVoucherRows[0] as any[])[0];
+        if (!lockedVoucher || lockedVoucher.status !== "active") {
+          throw new Error("Voucher is not active");
+        }
 
-      console.log('💰 Crediting amount:', { voucherAmount, currentBalance, newBalance, targetBalanceId });
+        await adjustUserBalance(tx, userId, targetBalanceId, voucherAmount);
+        await tx.update(vouchers)
+          .set({
+            status: 'activated',
+            activatedBy: userId,
+            activatedAt: new Date(),
+          })
+          .where(and(
+            eq(vouchers.id, lockedVoucher.id),
+            eq(vouchers.status, 'active'),
+          ));
 
-      await db.update(usersBalances)
-        .set({ sum: newBalance })
-        .where(and(
-          eq(usersBalances.idUser, userId),
-          eq(usersBalances.idBalance, targetBalanceId)
-        ));
-
-      // Mark voucher as activated
-      const activatedVoucher = await storage.activateVoucher(code, userId);
+        const totalRows = await tx.execute(sql`
+          SELECT COALESCE(SUM(COALESCE(sum, 0)), 0) AS total_sum
+          FROM users_balances
+          WHERE id_user = ${userId} AND id_balance = ${targetBalanceId}
+        `);
+        return String((totalRows[0] as any[])[0]?.total_sum ?? "0");
+      });
 
       // Create notification
       await storage.createNotification({
@@ -2101,7 +2132,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if ((affected[0] as any).affectedRows === 0) return;
             if (order.lock_id) {
               await tx.execute(sql`UPDATE p2p_balance_locks SET status = 'expired', updated_at = NOW() WHERE id = ${order.lock_id}`);
-              await tx.execute(sql`UPDATE users_balances SET sum = sum + ${parseFloat(order.lock_amount)} WHERE id_user = ${order.lock_user_id} AND id_balance = ${order.lock_balance_id}`);
+              await adjustUserBalance(tx, order.lock_user_id, order.lock_balance_id, parseFloat(order.lock_amount));
             }
             await tx.execute(sql`UPDATE p2p_ads SET available_amount = available_amount + ${parseFloat(order.asset_amount)}, updated_at = NOW() WHERE id = ${order.ad_id}`);
             await tx.execute(sql`INSERT INTO p2p_order_messages (order_id, sender_id, message, type, created_at) VALUES (${order.id}, ${order.seller_id}, 'Сделка отменена автоматически: истёк лимит времени оплаты.', 'system', NOW())`);

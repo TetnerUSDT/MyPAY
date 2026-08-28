@@ -24,8 +24,89 @@ async function tableExists(table: string): Promise<boolean> {
   } catch { return false; }
 }
 
+async function indexExists(table: string, indexName: string): Promise<boolean> {
+  try {
+    const rows = await db.execute(sql`
+      SELECT COUNT(*) AS cnt
+      FROM INFORMATION_SCHEMA.STATISTICS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = ${table}
+        AND INDEX_NAME = ${indexName}
+        AND NON_UNIQUE = 0
+    `);
+    return parseInt((rows[0] as any[])[0]?.cnt ?? "0") > 0;
+  } catch { return false; }
+}
+
+async function consolidateDuplicateUserBalances(): Promise<void> {
+  const duplicateRows = await db.execute(sql`
+    SELECT id_user, id_balance
+    FROM users_balances
+    GROUP BY id_user, id_balance
+    HAVING COUNT(*) > 1
+  `);
+
+  for (const duplicate of duplicateRows[0] as any[]) {
+    await db.transaction(async (tx) => {
+      // Lock every row before calculating the total. This keeps the merge
+      // atomic and ensures a concurrent adjustment cannot be discarded.
+      const balanceRows = await tx.execute(sql`
+        SELECT id, account_number
+        FROM users_balances
+        WHERE id_user = ${duplicate.id_user} AND id_balance = ${duplicate.id_balance}
+        ORDER BY id ASC
+        FOR UPDATE
+      `);
+      const rows = balanceRows[0] as any[];
+      if (rows.length < 2) return;
+
+      const canonical = rows[0];
+      const totalRows = await tx.execute(sql`
+        SELECT COALESCE(SUM(COALESCE(sum, 0)), 0) AS total_sum
+        FROM users_balances
+        WHERE id_user = ${duplicate.id_user} AND id_balance = ${duplicate.id_balance}
+      `);
+      const total = (totalRows[0] as any[])[0]?.total_sum ?? "0";
+      const accountNumber = canonical.account_number
+        ?? rows.find((row) => row.account_number)?.account_number
+        ?? null;
+
+      const duplicateIds = rows.slice(1).map((row) => row.id);
+      if (await tableExists("p2p_balance_locks")) {
+        await tx.execute(sql`
+          UPDATE p2p_balance_locks
+          SET user_balance_id = ${canonical.id}
+          WHERE user_balance_id IN (${sql.join(duplicateIds.map((id: number) => sql`${id}`), sql`, `)})
+        `);
+      }
+      await tx.execute(sql`
+        DELETE FROM users_balances
+        WHERE id IN (${sql.join(duplicateIds.map((id: number) => sql`${id}`), sql`, `)})
+      `);
+
+      await tx.execute(sql`
+        UPDATE users_balances
+        SET sum = ${total}, account_number = ${accountNumber}
+        WHERE id = ${canonical.id}
+      `);
+    });
+  }
+}
+
 export async function runP2PMigrations() {
   try {
+    // Legacy databases may contain multiple rows for a user/asset because
+    // their schema predates the ORM's unique index. Merge before adding it.
+    if (await tableExists("users_balances")) {
+      await consolidateDuplicateUserBalances();
+      if (!await indexExists("users_balances", "user_balance_unique")) {
+        await db.execute(sql`
+          ALTER TABLE users_balances
+          ADD UNIQUE INDEX user_balance_unique (id_user, id_balance)
+        `);
+      }
+    }
+
     // ── p2p_settings ────────────────────────────────────────────────────────────
     if (!await tableExists("p2p_settings")) {
       await db.execute(sql`

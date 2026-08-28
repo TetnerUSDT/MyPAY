@@ -7,6 +7,7 @@ import {
 import { insertAndReturn } from "../mysql-helpers";
 import { checkP2PBlock, snakeToCamel, logP2P, updateLastSeen, recalculateSortPriority } from "./helpers";
 import { getP2PSetting } from "../p2p-migrations";
+import { adjustUserBalance } from "../balance-helpers";
 
 export function registerAdsRoutes(app: Express, requireApiKey: any) {
 
@@ -267,7 +268,9 @@ export function registerAdsRoutes(app: Express, requireApiKey: any) {
 
       if (side === "sell") {
         const ubCheck = await db.execute(sql`
-          SELECT id, sum FROM users_balances WHERE id_user = ${userId} AND id_balance = ${balId}
+          SELECT COALESCE(SUM(COALESCE(sum, 0)), 0) AS sum
+          FROM users_balances
+          WHERE id_user = ${userId} AND id_balance = ${balId}
         `);
         const ub: any = (ubCheck[0] as any[])[0];
         if (!ub || parseFloat(ub.sum) < avail) {
@@ -289,10 +292,9 @@ export function registerAdsRoutes(app: Express, requireApiKey: any) {
 
       // ── Заморозить баланс продавца сразу при создании объявления ──────────────
       if (side === "sell") {
-        await db.execute(sql`
-          UPDATE users_balances SET sum = sum - ${avail}
-          WHERE id_user = ${userId} AND id_balance = ${balId}
-        `);
+        await db.transaction(async (tx) => {
+          await adjustUserBalance(tx, userId, balId, -avail);
+        });
         await db.execute(sql`UPDATE p2p_ads SET balance_locked = 1 WHERE id = ${adId}`);
       }
 
@@ -387,11 +389,7 @@ export function registerAdsRoutes(app: Express, requireApiKey: any) {
         if (ad.side === "sell" && ad.balance_locked) {
           const remaining = parseFloat(ad.available_amount);
           if (remaining > 0) {
-            await tx.execute(sql`
-              INSERT INTO users_balances (id_user, id_balance, sum)
-              VALUES (${userId}, ${ad.asset_balance_id}, ${remaining})
-              ON DUPLICATE KEY UPDATE sum = sum + ${remaining}
-            `);
+            await adjustUserBalance(tx, userId, ad.asset_balance_id, remaining);
           }
         }
         await tx.execute(sql`

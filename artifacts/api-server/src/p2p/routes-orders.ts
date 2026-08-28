@@ -3,6 +3,7 @@ import { db } from "../db";
 import { sql } from "drizzle-orm";
 import { p2pDisputes, p2pOrderMessages } from "@workspace/db/schema";
 import { getP2PSetting } from "../p2p-migrations";
+import { adjustUserBalance } from "../balance-helpers";
 import { checkP2PBlock, snakeToCamel, logP2P, sendP2PNotification, updateLastSeen, recalculateSortPriority } from "./helpers";
 
 export function registerOrdersRoutes(app: Express, requireApiKey: any) {
@@ -74,20 +75,34 @@ export function registerOrdersRoutes(app: Express, requireApiKey: any) {
         if (balancePreLocked) {
           // Находим строку баланса без списания
           const ubRows = await tx.execute(sql`
-            SELECT id FROM users_balances WHERE id_user = ${lockerUserId} AND id_balance = ${lockerBalId}
+            SELECT id
+            FROM users_balances
+            WHERE id_user = ${lockerUserId} AND id_balance = ${lockerBalId}
+            ORDER BY id ASC
+            LIMIT 1
           `);
           const ub: any = (ubRows[0] as any[])[0];
           if (!ub) throw new Error("Баланс продавца не найден");
           ubId = ub.id;
         } else {
           const ubRows = await tx.execute(sql`
-            SELECT * FROM users_balances WHERE id_user = ${lockerUserId} AND id_balance = ${lockerBalId} FOR UPDATE
+            SELECT id
+            FROM users_balances
+            WHERE id_user = ${lockerUserId} AND id_balance = ${lockerBalId}
+            ORDER BY id ASC
+            FOR UPDATE
           `);
           const ub: any = (ubRows[0] as any[])[0];
-          if (!ub || parseFloat(ub.sum) < assetAmt) throw new Error("Недостаточно средств на балансе");
+          const totalRows = await tx.execute(sql`
+            SELECT COALESCE(SUM(COALESCE(sum, 0)), 0) AS total_sum
+            FROM users_balances
+            WHERE id_user = ${lockerUserId} AND id_balance = ${lockerBalId}
+          `);
+          const total = (totalRows[0] as any[])[0]?.total_sum ?? "0";
+          if (!ub || parseFloat(total) < assetAmt) throw new Error("Недостаточно средств на балансе");
           ubId = ub.id;
           // Списываем только если баланс не был предзаморожен
-          await tx.execute(sql`UPDATE users_balances SET sum = sum - ${assetAmt} WHERE id = ${ubId}`);
+          await adjustUserBalance(tx, lockerUserId, lockerBalId, -assetAmt);
         }
 
         await tx.execute(sql`
@@ -255,9 +270,9 @@ export function registerOrdersRoutes(app: Express, requireApiKey: any) {
         const commission = parseFloat((amount * commissionPct).toFixed(8));
         const buyerAmount = parseFloat((amount - commission).toFixed(8));
 
-        await tx.execute(sql`INSERT INTO users_balances (id_user, id_balance, sum) VALUES (${buyerId}, ${balanceId}, ${buyerAmount}) ON DUPLICATE KEY UPDATE sum = sum + ${buyerAmount}`);
+        await adjustUserBalance(tx, buyerId, balanceId, buyerAmount);
         if (platformUserId && commission > 0) {
-          await tx.execute(sql`INSERT INTO users_balances (id_user, id_balance, sum) VALUES (${platformUserId}, ${balanceId}, ${commission}) ON DUPLICATE KEY UPDATE sum = sum + ${commission}`);
+          await adjustUserBalance(tx, platformUserId, balanceId, commission);
         }
         await tx.execute(sql`UPDATE p2p_balance_locks SET status = 'released', updated_at = NOW() WHERE id = ${lock.id}`);
         await tx.execute(sql`UPDATE p2p_orders SET status = 'released', released_at = NOW(), updated_at = NOW() WHERE id = ${id}`);
@@ -315,7 +330,7 @@ export function registerOrdersRoutes(app: Express, requireApiKey: any) {
           // средства остаются в пуле объявления (available_amount восстанавливается ниже).
           // Если freeze на уровне ордера — возвращаем на баланс.
           if (!adBalanceLocked) {
-            await tx.execute(sql`UPDATE users_balances SET sum = sum + ${parseFloat(lock.amount)} WHERE id_user = ${lock.user_id} AND id_balance = ${lock.balance_id}`);
+            await adjustUserBalance(tx, lock.user_id, lock.balance_id, parseFloat(lock.amount));
           }
         }
         await tx.execute(sql`UPDATE p2p_ads SET available_amount = available_amount + ${parseFloat(order.asset_amount)}, updated_at = NOW() WHERE id = ${order.ad_id}`);

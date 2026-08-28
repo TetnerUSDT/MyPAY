@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, and, or, isNull, sql, inArray } from "drizzle-orm";
 import { insertAndReturn, updateAndReturn, insertAndReturnTx } from "./mysql-helpers";
+import { adjustUserBalance } from "./balance-helpers";
 
 export interface IStorage {
   // User methods
@@ -1072,13 +1073,22 @@ export class DatabaseStorage implements IStorage {
               eq(usersBalances.idBalance, balance.id)
             )
           );
+        const [totalBalance] = await db
+          .select({ sum: sql<string>`COALESCE(SUM(${usersBalances.sum}), 0)` })
+          .from(usersBalances)
+          .where(
+            and(
+              eq(usersBalances.idUser, userId),
+              eq(usersBalances.idBalance, balance.id)
+            )
+          );
 
         return {
           id: balance.id,
           title: balance.title,
           network: balance.network,
           currency: balance.currency,
-          sum: userBalance?.sum || "0.00",
+          sum: totalBalance?.sum || "0.00",
           status: userBalance?.status || "inactive",
           balanceStatus: balance.status || "active",
           qrColor: balance.qrColor,
@@ -1118,7 +1128,13 @@ export class DatabaseStorage implements IStorage {
       );
 
     if (existingBalance) {
-      return existingBalance;
+      const totalRows = await db.execute(sql`
+        SELECT COALESCE(SUM(COALESCE(sum, 0)), 0) AS total_sum
+        FROM users_balances
+        WHERE id_user = ${userId} AND id_balance = ${balanceId}
+      `);
+      const total = (totalRows[0] as any[])[0]?.total_sum ?? "0";
+      return { ...existingBalance, sum: total };
     }
 
     const newBalance = await insertAndReturn<any>(
@@ -1238,7 +1254,13 @@ export class DatabaseStorage implements IStorage {
       );
 
     if (existingBalance) {
-      return existingBalance;
+      const totalRows = await db.execute(sql`
+        SELECT COALESCE(SUM(COALESCE(sum, 0)), 0) AS total_sum
+        FROM users_balances
+        WHERE id_user = ${userId} AND id_balance = ${balanceId}
+      `);
+      const total = (totalRows[0] as any[])[0]?.total_sum ?? "0";
+      return { ...existingBalance, sum: total };
     }
 
     // Get balance info to check if it's fiat
@@ -1289,29 +1311,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUserBalance(userId: number, balanceId: number, amount: number): Promise<any> {
-    const { usersBalances } = await import("@workspace/db/schema");
-    const { sql } = await import("drizzle-orm");
-    
-    // Get current balance
-    const currentBalance = await this.getUserBalance(userId, balanceId);
-    const newSum = (parseFloat(currentBalance.sum) + amount).toFixed(8);
-    
-    // Update balance
-    const updatedBalance = await updateAndReturn<any>(
-      db.update(usersBalances)
-        .set({ sum: newSum })
-        .where(
-          and(
-            eq(usersBalances.idUser, userId),
-            eq(usersBalances.idBalance, balanceId)
-          )
-        ),
-      'users_balances',
-      'id_user = ? AND id_balance = ?',
-      [userId, balanceId]
-    );
-    
-    return updatedBalance;
+    await db.transaction(async (tx) => {
+      await adjustUserBalance(tx, userId, balanceId, amount);
+    });
+    return this.getUserBalance(userId, balanceId);
   }
 
   async updateUserDefaultBalance(userId: number, balanceId: number): Promise<User | undefined> {
