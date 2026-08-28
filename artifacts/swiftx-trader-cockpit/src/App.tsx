@@ -26,7 +26,9 @@ function Router() {
           <Route path="/ads" component={AdsRoute} />
           <Route path="/payment-details" component={PaymentDetails} />
           <Route path="/create-ad" component={CreateAdRoute} />
-          <Route path="/order/:id" component={OrderDetail} />
+          <Route path="/order/:id">
+            <OrderDetail />
+          </Route>
           <Route component={NotFound} />
         </Switch>
       </Layout>

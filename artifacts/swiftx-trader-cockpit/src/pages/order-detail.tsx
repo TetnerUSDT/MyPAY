@@ -42,7 +42,7 @@ const STATUS_LABEL: Record<string, string> = {
   expired: "Истекла",
 };
 
-export default function OrderDetail() {
+export default function OrderDetail({ backPath = "/deals" }: { backPath?: string }) {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -70,7 +70,7 @@ export default function OrderDetail() {
         onSuccess: () => {
           if (action === "cancel") {
             toast({ title: "Сделка отменена" });
-            setLocation("/deals");
+            setLocation(backPath);
           } else {
             setShowDispute(false);
           }
@@ -107,7 +107,7 @@ export default function OrderDetail() {
     return (
       <div className="flex-1 bg-[#0b0d11] flex flex-col items-center justify-center text-white/50">
         <p>Сделка не найдена</p>
-        <button onClick={() => setLocation("/deals")} className="mt-4 text-[#59d17e] hover:underline">Вернуться к сделкам</button>
+        <button onClick={() => setLocation(backPath)} className="mt-4 text-[#59d17e] hover:underline">Вернуться к сделкам</button>
       </div>
     );
   }

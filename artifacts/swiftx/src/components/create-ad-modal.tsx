@@ -1,0 +1,1 @@
+export { CreateAdModal } from "../../../swiftx-trader-cockpit/src/components/create-ad-modal";

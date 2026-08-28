@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, Router as WouterRouter, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeft, HelpCircle, CheckCircle2, Star, SlidersHorizontal,
@@ -8,6 +8,9 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { Layout as P2PDesktopLayout } from "@/components/layout";
+import { useP2PDesktop } from "@/hooks/use-p2p-desktop";
+import DesktopP2PMarket from "@/pages/market";
 
 const AVATAR_COLORS = ["#e63946","#2a9d8f","#e9c46a","#f4a261","#3ab368","#4361ee","#7209b7","#e76f51"];
 const avatarColor = (id: number) => AVATAR_COLORS[id % AVATAR_COLORS.length];
@@ -181,7 +184,7 @@ function AdCardSkeleton() {
   );
 }
 
-export default function P2PScreen() {
+function MobileP2PScreen() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [tab, setTab] = useState<"buy" | "sell">("buy");
@@ -496,5 +499,21 @@ export default function P2PScreen() {
         <CreateOrderSheet ad={selectedAd} onClose={() => setSelectedAd(null)} />
       )}
     </div>
+  );
+}
+
+export default function P2PScreen() {
+  const isDesktop = useP2PDesktop();
+
+  if (!isDesktop) {
+    return <MobileP2PScreen />;
+  }
+
+  return (
+    <WouterRouter base="/p2p">
+      <P2PDesktopLayout>
+        <DesktopP2PMarket />
+      </P2PDesktopLayout>
+    </WouterRouter>
   );
 }

@@ -5,6 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthGuard } from "@/components";
+import { useP2PDesktop } from "@/hooks/use-p2p-desktop";
 import { useLocation } from "wouter";
 
 // Splash loads immediately — critical path
@@ -35,7 +36,7 @@ const DevicesScreen = lazy(() => import("@/pages/devices"));
 const VouchersScreen = lazy(() => import("@/pages/vouchers"));
 const WalletScreen = lazy(() => import("@/pages/wallet"));
 const P2PScreen = lazy(() => import("@/pages/p2p"));
-const P2POrderScreen = lazy(() => import("@/pages/p2p-order"));
+const P2POrderScreen = lazy(() => import("@/pages/p2p-order-responsive"));
 const P2PCreateAdScreen = lazy(() => import("@/pages/p2p-create-ad"));
 const P2PMyAdsScreen = lazy(() => import("@/pages/p2p-my-ads"));
 const P2PPaymentMethodsScreen = lazy(() => import("@/pages/p2p-payment-methods"));
@@ -78,7 +79,9 @@ function Protected({ children }: { children: React.ReactNode }) {
 
 function Router() {
   const [location] = useLocation();
-  const showBottomNav = ["/home", "/wallet", "/vouchers", "/cards", "/loyalty", "/p2p"].includes(location);
+  const isP2PDesktop = useP2PDesktop();
+  const showBottomNav = ["/home", "/wallet", "/vouchers", "/cards", "/loyalty", "/p2p"].includes(location)
+    && !(location === "/p2p" && isP2PDesktop);
 
   return (
     <div className="min-h-screen gradient-bg relative z-10">

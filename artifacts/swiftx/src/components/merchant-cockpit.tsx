@@ -1,0 +1,1 @@
+export { MerchantCockpit } from "../../../swiftx-trader-cockpit/src/components/merchant-cockpit";

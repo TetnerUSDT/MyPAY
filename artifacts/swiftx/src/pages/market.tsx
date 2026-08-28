@@ -1,0 +1,1 @@
+export { default } from "../../../swiftx-trader-cockpit/src/pages/market";

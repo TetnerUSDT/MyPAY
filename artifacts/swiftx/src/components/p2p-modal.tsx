@@ -1,0 +1,1 @@
+export { P2PWorkspaceModal } from "../../../swiftx-trader-cockpit/src/components/p2p-modal";
