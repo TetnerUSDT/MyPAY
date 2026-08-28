@@ -63,6 +63,9 @@ export async function runP2PMigrations() {
     if (!await columnExists("p2p_user_stats", "block_reason")) {
       await db.execute(sql`ALTER TABLE p2p_user_stats ADD COLUMN block_reason VARCHAR(500) NULL`);
     }
+    if (!await columnExists("p2p_user_stats", "avg_release_time_seconds")) {
+      await db.execute(sql`ALTER TABLE p2p_user_stats ADD COLUMN avg_release_time_seconds INT NOT NULL DEFAULT 0`);
+    }
 
     // ── p2p_verification_requests — KYC-документы ──────────────────────────────
     if (!await columnExists("p2p_verification_requests", "doc_front_url")) {

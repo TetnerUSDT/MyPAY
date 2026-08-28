@@ -263,7 +263,7 @@ export function registerOrdersRoutes(app: Express, requireApiKey: any) {
         await tx.execute(sql`UPDATE p2p_orders SET status = 'released', released_at = NOW(), updated_at = NOW() WHERE id = ${id}`);
         await tx.execute(sql`INSERT INTO p2p_order_messages (order_id, sender_id, message, type, created_at) VALUES (${id}, ${userId}, 'Продавец подтвердил оплату. Криптовалюта переведена покупателю.', 'system', NOW())`);
 
-        const releaseSeconds = Math.floor((Date.now() - new Date(order.created_at).getTime()) / 1000);
+        const releaseSeconds = Math.max(0, Math.floor((Date.now() - new Date(order.created_at).getTime()) / 1000));
         await tx.execute(sql`
           UPDATE p2p_user_stats
           SET completed_orders = completed_orders + 1,

@@ -1,0 +1,1 @@
+- [Legacy balance-row uniqueness](legacy-balance-row-uniqueness.md) — Some existing databases may lack the expected user/balance uniqueness index; verify totals across rows.
