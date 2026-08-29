@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "SwiftX"
+title = "MyPay"
 description = "The existing SwiftX exchange application for Telegram users, supporting crypto and fiat exchanges, wallets, vouchers, notifications, support, P2P trading, and merchant payments."
 version = "1.0.0"
 id = "artifacts/swiftx"
