@@ -5,6 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthGuard } from "@/components";
+import { UnifiedPreloader } from "@/components/UnifiedPreloader";
 import { useP2PDesktop } from "@/hooks/use-p2p-desktop";
 import { useLocation } from "wouter";
 
@@ -58,11 +59,7 @@ const InvoiceNotificationProvider = lazy(() =>
 );
 
 function PageLoader() {
-  return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="w-8 h-8 rounded-full border-2 border-white/20 border-t-green-400 animate-spin" />
-    </div>
-  );
+  return <UnifiedPreloader label="Загрузка..." />;
 }
 
 // Wraps protected pages with auth check + invoice notifications (SSE).
@@ -70,7 +67,7 @@ function PageLoader() {
 function Protected({ children }: { children: React.ReactNode }) {
   return (
     <AuthGuard requireAgreement={true}>
-      <Suspense fallback={null}>
+      <Suspense fallback={<UnifiedPreloader label="Загрузка..." />}>
         <InvoiceNotificationProvider>{children}</InvoiceNotificationProvider>
       </Suspense>
     </AuthGuard>

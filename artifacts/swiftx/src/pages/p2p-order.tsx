@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, Clock, AlertTriangle, CheckCircle2, Send, Shield, Copy, XCircle, Star } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { UnifiedPreloader } from "@/components/UnifiedPreloader";
 
 function ReviewForm({ orderId, onDone }: { orderId: string; onDone: () => void }) {
   const { toast } = useToast();
@@ -197,11 +198,7 @@ export default function P2POrderScreen() {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#0B0C10] flex items-center justify-center">
-        <div className="w-8 h-8 rounded-full border-2 border-white/10 border-t-[#3ab368] animate-spin" />
-      </div>
-    );
+    return <UnifiedPreloader label="Загрузка сделки..." />;
   }
 
   if (!order || order.message) {

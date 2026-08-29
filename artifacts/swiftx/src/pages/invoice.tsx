@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import { ru, enUS } from "date-fns/locale";
 import { formatBalance } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
+import { UnifiedPreloader } from "@/components/UnifiedPreloader";
 
 interface Invoice {
   id: number;
@@ -203,11 +204,7 @@ export default function InvoicePage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="mobile-screen gradient-bg flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
-      </div>
-    );
+    return <UnifiedPreloader label={t('common.loading')} />;
   }
 
   if (!invoice) {

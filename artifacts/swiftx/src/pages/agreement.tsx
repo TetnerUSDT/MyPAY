@@ -1,5 +1,6 @@
 import { useLocation } from "wouter";
 import { Check, Loader2 } from "lucide-react";
+import { UnifiedPreloader } from "@/components/UnifiedPreloader";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -92,14 +93,7 @@ export default function AgreementScreen() {
   
   // Show loading state if fetching user data
   if (hasApiKey && userLoading) {
-    return (
-      <div className="mobile-screen gradient-bg text-white flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin" />
-          <p>{t('agreement.loading')}</p>
-        </div>
-      </div>
-    );
+    return <UnifiedPreloader label={t('agreement.loading')} />;
   }
   
   return (

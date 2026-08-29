@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { Clock, ArrowDown, Copy, Check, Loader2, CheckCircle2, XCircle, X } from "lucide-react";
+import { UnifiedPreloader } from "@/components/UnifiedPreloader";
 import { formatCountdown, copyToClipboard, formatOrderAmount, formatRecipientAddress, getRecipientLabelKey } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
@@ -189,13 +190,7 @@ export default function TrackingScreen() {
 
   // Show loading state
   if (isLoading || !orderData) {
-    return (
-      <div className="mobile-screen text-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-lg">{t('common.loading')}</div>
-        </div>
-      </div>
-    );
+    return <UnifiedPreloader label={t('common.loading')} />;
   }
 
   // State 1: Waiting for payment (wait)

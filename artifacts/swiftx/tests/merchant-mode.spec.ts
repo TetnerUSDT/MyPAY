@@ -238,6 +238,9 @@ test.describe("merchant workspace", () => {
     await page.getByRole("button", { name: /#103/ }).click();
     await expect(page).toHaveURL(/\/p2p\/order\/103$/);
     await expect(page.getByText("Ордер #103")).toBeVisible();
+    await page.getByRole("button", { name: "Назад к P2P" }).click();
+    await expect(page).toHaveURL(/\/p2p\/?$/);
+    await expect(page.getByRole("heading", { name: "Кабинет мерчанта" })).toBeVisible();
   });
 
   test("covers ad mutations, creation, and accessible close confirmation", async ({ page }) => {

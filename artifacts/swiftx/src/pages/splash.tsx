@@ -2,10 +2,7 @@ import { useLocation } from "wouter";
 import { useEffect, useState, lazy, Suspense } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-
-const logo1 = "/uploads/assets/logo-1.webp";
-const logo2 = "/uploads/assets/logo-2.webp";
-const logo3 = "/uploads/assets/logo-3.webp";
+import { UnifiedPreloader } from "@/components/UnifiedPreloader";
 
 // Telegram widget is heavy (loads external script). Only needed in browser mode,
 // AFTER we know the bot username — lazy-load to keep splash bundle minimal.
@@ -108,36 +105,17 @@ export default function SplashScreen() {
       <div className="splash-grid" />
       <div className="flex flex-col items-center justify-center min-h-screen text-center px-6 relative">
 
-        {/* Logo / branding — 3 layered images with rotation animations */}
-        <div className="relative z-10 w-56 mb-8" style={{ aspectRatio: "1 / 1" }}>
-          <img
-            src={logo1}
-            alt="SwiftX"
-            className="absolute inset-0 w-full h-full object-contain animate-glitch-logo1"
-          />
-          <img
-            src={logo2}
-            alt=""
-            className="absolute inset-0 w-full h-full object-contain animate-spin-cw-85"
-          />
-          <img
-            src={logo3}
-            alt=""
-            className="absolute inset-0 w-full h-full object-contain animate-spin-ccw"
-          />
-        </div>
+        {/* Shared auth/loading visual — only one instance is mounted at a time. */}
+        <UnifiedPreloader
+          fullscreen={false}
+          size="lg"
+          label={loginMutation.isPending ? TXT.loggingIn : undefined}
+          className="mb-8"
+        />
 
         {authError && (
           <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-200 text-sm">
             {authError}
-          </div>
-        )}
-
-        {/* While authenticating in Telegram — show a subtle inline spinner */}
-        {loginMutation.isPending && (
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 rounded-full border-2 border-white/20 border-t-green-400 animate-spin" />
-            <p className="text-sm text-white/50">{TXT.loggingIn}</p>
           </div>
         )}
 

@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { Loader2, Coins } from "lucide-react";
+import { UnifiedPreloader } from "@/components/UnifiedPreloader";
 import { useQuery } from "@tanstack/react-query";
 import { getBalanceIcon } from "@/lib/balanceIcons";
 import { useTranslation } from "react-i18next";
@@ -32,10 +33,12 @@ export default function SelectCountryScreen() {
         
         {/* Content */}
         {isLoadingCrypto ? (
-          <div className="flex flex-col items-center justify-center flex-1">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <p className="mt-4 text-muted-foreground">{t('common.loading')}</p>
-          </div>
+          <UnifiedPreloader
+            fullscreen={false}
+            size="sm"
+            label={t('common.loading')}
+            className="flex-1"
+          />
         ) : (
           <div className="px-6 pb-24">
             {cryptoRates.length === 0 ? (

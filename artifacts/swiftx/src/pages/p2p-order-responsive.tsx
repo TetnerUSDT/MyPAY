@@ -14,7 +14,7 @@ export default function P2POrderResponsive() {
   return (
     <WouterRouter base="/p2p">
       <P2PDesktopLayout>
-        <DesktopOrderDetail />
+        <DesktopOrderDetail backPath="/" />
       </P2PDesktopLayout>
     </WouterRouter>
   );

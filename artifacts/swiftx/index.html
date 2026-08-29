@@ -9,11 +9,11 @@
     <script async src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="preload" href="/uploads/assets/start-bg.webp" as="image" type="image/webp">
     <style>
-      /* Static preloader — shown immediately before React mounts */
+      /* The same layered logo visual used by React preloaders, shown before React mounts. */
       #static-preloader {
         position: fixed;
         top: 0; left: 0; right: 0; bottom: 0;
-        background: hsl(224, 24%, 8%);
+        background: linear-gradient(180deg, hsl(224, 24%, 8%) 0%, hsl(224, 22%, 10%) 100%);
         z-index: 9999;
         display: flex;
         align-items: center;
@@ -24,24 +24,69 @@
         opacity: 0;
         visibility: hidden;
       }
-      /* Minimal arc spinner matching the app accent color */
-      .static-arc {
-        width: 48px;
-        height: 48px;
-        border-radius: 50%;
-        border: 3px solid hsl(224, 17%, 22%);
-        border-top-color: hsl(145, 60%, 42%);
-        animation: arc-spin 0.8s linear infinite;
+      #static-preloader .swiftx-preloader {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
       }
-      @keyframes arc-spin {
-        to { transform: rotate(360deg); }
+      #static-preloader .swiftx-preloader-mark {
+        position: relative;
+        width: min(56vw, 224px);
+        aspect-ratio: 1 / 1;
+      }
+      #static-preloader .swiftx-preloader-layer {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+      #static-preloader .animate-spin-cw-85 {
+        transform: scale(0.85);
+        transform-origin: center;
+        animation: static-spin-cw-scaled 10s linear infinite;
+      }
+      #static-preloader .animate-spin-ccw {
+        transform-origin: center;
+        animation: static-spin-ccw 14s linear infinite;
+      }
+      #static-preloader .animate-glitch-logo1 {
+        transform-origin: center;
+        animation: static-glitch-logo 4s steps(1) infinite;
+      }
+      @keyframes static-spin-cw-scaled {
+        from { transform: scale(0.85) rotate(0deg); }
+        to { transform: scale(0.85) rotate(360deg); }
+      }
+      @keyframes static-spin-ccw {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(-360deg); }
+      }
+      @keyframes static-glitch-logo {
+        0%, 80% { transform: scale(0.49) translate(0, 0) skewX(0deg); filter: none; opacity: 1; }
+        81% { transform: scale(0.49) translate(-5px, 1px) skewX(4deg); filter: hue-rotate(90deg) saturate(5) brightness(1.3); opacity: 0.85; }
+        82% { transform: scale(0.49) translate(5px, -2px) skewX(-4deg); filter: hue-rotate(-90deg) saturate(5) brightness(1.5); opacity: 1; }
+        83% { transform: scale(0.49) translate(-3px, 2px) skewX(2deg); filter: hue-rotate(180deg) saturate(8); opacity: 0.7; }
+        84% { transform: scale(0.49) translate(4px, 0) skewX(-2deg); filter: hue-rotate(270deg) saturate(6) brightness(1.4); opacity: 0.9; }
+        85% { transform: scale(0.49) translate(0, 0) skewX(0deg); filter: none; opacity: 1; }
+        87% { transform: scale(0.49) translate(3px, -1px); filter: hue-rotate(45deg) saturate(4); opacity: 0.8; }
+        88% { transform: scale(0.49) translate(-4px, 1px) skewX(3deg); filter: hue-rotate(-45deg) saturate(4) brightness(1.2); opacity: 0.95; }
+        89%, 100% { transform: scale(0.49) translate(0, 0) skewX(0deg); filter: none; opacity: 1; }
       }
     </style>
   </head>
   <body>
-    <!-- Static preloader: dark bg + minimal spinner visible before React mounts -->
+    <!-- Static preloader: the shared layered SwiftX mark visible before React mounts -->
     <div id="static-preloader">
-      <div class="static-arc"></div>
+      <div class="swiftx-preloader">
+        <div class="swiftx-preloader-mark" aria-hidden="true">
+          <img class="swiftx-preloader-layer animate-glitch-logo1" src="/uploads/assets/logo-1.webp" alt="SwiftX">
+          <img class="swiftx-preloader-layer animate-spin-cw-85" src="/uploads/assets/logo-2.webp" alt="">
+          <img class="swiftx-preloader-layer animate-spin-ccw" src="/uploads/assets/logo-3.webp" alt="">
+        </div>
+      </div>
     </div>
 
     <div id="root"></div>

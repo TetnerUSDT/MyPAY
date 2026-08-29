@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useTranslation } from "react-i18next";
+import { UnifiedPreloader } from "@/components/UnifiedPreloader";
 
 interface ExchangeOrder {
   id: number;
@@ -117,13 +118,7 @@ export default function PaymentScreen() {
 
   // Show loading state
   if (isLoading) {
-    return (
-      <div className="mobile-screen text-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-lg">{t('common.loading')}</div>
-        </div>
-      </div>
-    );
+    return <UnifiedPreloader label={t('common.loading')} />;
   }
 
   // Show error state

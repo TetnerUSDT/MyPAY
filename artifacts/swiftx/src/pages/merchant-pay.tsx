@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "wouter";
 import { Loader2, CheckCircle2, XCircle, Copy, Check, Clock, RefreshCw, ShieldCheck, Info } from "lucide-react";
+import { UnifiedPreloader } from "@/components/UnifiedPreloader";
 
 interface InvoiceData {
   invoice_number: string;
@@ -100,11 +101,7 @@ function CountdownTimer({ expiresAt, onExpire }: { expiresAt: string; onExpire?:
 function MyPayLogo() {
   return (
     <div className="flex flex-col items-center animate-fadeIn">
-      <div className="relative w-24 h-24 mb-3" style={{ aspectRatio: "1 / 1" }}>
-        <img src="/uploads/assets/logo-1.webp" alt="MyPay" className="absolute inset-0 w-full h-full object-contain animate-glitch-logo1" />
-        <img src="/uploads/assets/logo-2.webp" alt="" className="absolute inset-0 w-full h-full object-contain animate-spin-cw-85" />
-        <img src="/uploads/assets/logo-3.webp" alt="" className="absolute inset-0 w-full h-full object-contain animate-spin-ccw" />
-      </div>
+      <UnifiedPreloader fullscreen={false} size="sm" className="mb-3" />
     </div>
   );
 }
@@ -194,12 +191,7 @@ export default function MerchantPayPage() {
 
   if (loading) return (
     <PageLayout>
-      <div className="flex flex-col items-center justify-center py-20 animate-pulse">
-        <div className="relative w-16 h-16">
-          <div className="absolute inset-0 bg-[#2EEA7F] rounded-full blur-xl opacity-20"></div>
-          <Loader2 className="w-16 h-16 text-[#2EEA7F] animate-spin relative z-10" />
-        </div>
-      </div>
+      <UnifiedPreloader fullscreen={false} size="md" label="Загрузка..." className="py-20" />
     </PageLayout>
   );
 

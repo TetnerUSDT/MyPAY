@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { UnifiedPreloader } from "@/components/UnifiedPreloader";
 
 const COLORS = ["#e63946","#2a9d8f","#e9c46a","#f4a261","#3ab368","#4361ee","#7209b7"];
 
@@ -125,11 +126,7 @@ export default function P2PMerchantScreen() {
   });
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#0B0C10] flex items-center justify-center">
-        <div className="w-8 h-8 rounded-full border-2 border-white/10 border-t-[#3ab368] animate-spin" />
-      </div>
-    );
+    return <UnifiedPreloader label="Загрузка профиля..." />;
   }
 
   if (!merchant || merchant.message) {

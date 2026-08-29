@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useEffect } from "react";
 import type { User } from "@/lib/schema";
-import { Loader2 } from "lucide-react";
+import { UnifiedPreloader } from "@/components/UnifiedPreloader";
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -50,14 +50,7 @@ export default function AuthGuard({ children, requireAgreement = false }: AuthGu
 
   // Show loading while checking authentication or loading user data
   if (hasApiKey && (isLoading || (requireAgreement && !user))) {
-    return (
-      <div className="mobile-screen gradient-bg text-white flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin" />
-          <p>Проверка доступа...</p>
-        </div>
-      </div>
-    );
+    return <UnifiedPreloader label="Проверка доступа..." />;
   }
 
   // If no API key, show nothing (will redirect)
