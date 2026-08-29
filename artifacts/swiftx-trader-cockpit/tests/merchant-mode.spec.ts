@@ -190,7 +190,7 @@ async function mockMerchantApi(page: Page): Promise<MutationLog> {
 }
 
 async function openMerchantMode(page: Page) {
-  await page.goto("/trader-cockpit/");
+  await page.goto("/p2p/");
   await expect(page.getByTestId("workspace-mode-trigger")).toContainText("Пользователь");
   await page.getByTestId("workspace-mode-trigger").click();
   await page.getByTestId("workspace-mode-merchant").click();
@@ -202,7 +202,7 @@ test.describe("merchant workspace", () => {
     await mockMerchantApi(page);
     await openMerchantMode(page);
 
-    expect(new URL(page.url()).pathname).toBe("/trader-cockpit/");
+    expect(new URL(page.url()).pathname).toBe("/p2p/");
     await expect(page.getByTestId("workspace-mode-trigger")).toContainText("Мерчант");
     await expect(page.getByTestId("workspace-mode-trigger")).toBeFocused();
 
@@ -225,7 +225,7 @@ test.describe("merchant workspace", () => {
     await page.reload();
     await expect(page.getByTestId("workspace-mode-trigger")).toContainText("Мерчант");
     await expect(page.getByRole("heading", { name: "Кабинет мерчанта" })).toBeVisible();
-    expect(new URL(page.url()).pathname).toBe("/trader-cockpit/");
+    expect(new URL(page.url()).pathname).toBe("/p2p/");
   });
 
   test("keeps incoming and other active orders visible and opens their detail route", async ({ page }) => {
@@ -236,7 +236,7 @@ test.describe("merchant workspace", () => {
       await expect(page.getByRole("button", { name: new RegExp(`#${order.id}`) })).toBeVisible();
     }
     await page.getByRole("button", { name: /#103/ }).click();
-    await expect(page).toHaveURL(/\/trader-cockpit\/order\/103$/);
+    await expect(page).toHaveURL(/\/p2p\/order\/103$/);
     await expect(page.getByText("Ордер #103")).toBeVisible();
   });
 

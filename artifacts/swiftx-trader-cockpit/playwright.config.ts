@@ -13,8 +13,8 @@ export default defineConfig({
   },
   webServer: {
     command:
-      "PORT=4173 BASE_PATH=/trader-cockpit/ pnpm --filter @workspace/swiftx-trader-cockpit run dev",
-    url: "http://127.0.0.1:4173/trader-cockpit/",
+      "PORT=4173 BASE_PATH=/ pnpm --filter @workspace/swiftx run dev",
+    url: "http://127.0.0.1:4173/p2p/",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
