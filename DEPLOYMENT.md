@@ -164,9 +164,53 @@ pass `--url`, `--client-route`, or `--upload-path` explicitly. For example:
 Check the isolated API process with:
 
 ```bash
-pm2 status swiftx-api
-pm2 logs swiftx-api
+./pm2-start.sh --status --env-file .env --name swiftx-api
+pm2 logs swiftx-api --lines 100 --nostream
 ```
 
-Do not use a global `pm2 restart all`; `deploy.sh` and `pm2-start.sh` refuse
-to overwrite a process owned by another project.
+`--status` only describes the configured, project-owned process. It does not
+reload, stop, delete, or save any PM2 process state. A failed release prints
+the checkout, source revision, API entrypoint, PM2 ownership/state, and upload
+directory so the operator can distinguish a failed check from a stopped API.
+
+## Recover a failed release
+
+If the public-routing check fails after PM2 reload, do not immediately reload
+again or delete the process. First inspect exactly what is active:
+
+```bash
+cd /srv/swiftx
+./pm2-start.sh --status --env-file .env --name swiftx-api
+pm2 logs swiftx-api --lines 100 --nostream
+git status --short
+git log --oneline --decorate -n 10
+./scripts/smoke-public-routing.sh --env-file .env
+```
+
+If the API process is healthy and the failed route was caused by a transient
+proxy or external check, keep the active checkout and rerun the smoke check
+after correcting that cause. If the active release must be restored, choose
+the last Git revision that passed the public-routing check. Do not guess if
+the release output or deployment records identify a different revision:
+
+```bash
+cd /srv/swiftx
+GOOD_REVISION=<last-known-good-git-revision>
+
+# Stop here and preserve any intentional tracked work before switching.
+git status --short
+git switch --detach "$GOOD_REVISION"
+
+# Rebuild both served parts from the known-good revision, then run the normal
+# isolated deploy path. It validates Nginx and reruns the public check.
+./deploy.sh --env-file .env
+./pm2-start.sh --status --env-file .env --name swiftx-api
+./scripts/smoke-public-routing.sh --env-file .env
+```
+
+This recovery path changes only the release checkout and the named SwiftX
+process. `SWIFTX_UPLOADS_DIR` remains outside the checkout and is not deleted,
+copied over, or recreated. Do not use `pm2 restart all`, `pm2 delete`, or
+`rm -rf` against the persistent uploads directory. If the known-good revision
+cannot be selected safely because the worktree has tracked changes, preserve
+those changes first and perform the recovery from a clean checkout.

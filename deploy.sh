@@ -58,6 +58,51 @@ fi
 
 cd "$SCRIPT_DIR"
 
+RELEASE_REVISION="$(git rev-parse --verify HEAD 2>/dev/null || printf 'unknown')"
+RELEASE_TREE_STATE="clean"
+if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then
+  RELEASE_TREE_STATE="dirty"
+fi
+
+report_failed_release() {
+  local exit_status="$?"
+  trap - EXIT
+
+  if [[ "$exit_status" -eq 0 ]]; then
+    exit 0
+  fi
+
+  echo >&2
+  echo "ERROR: release failed (exit status ${exit_status})." >&2
+  echo "Active release and process state:" >&2
+  echo "  checkout:       ${SCRIPT_DIR}" >&2
+  echo "  source revision: ${RELEASE_REVISION} (${RELEASE_TREE_STATE} worktree)" >&2
+  echo "  API entrypoint:  ${SCRIPT_DIR}/artifacts/api-server/dist/index.mjs" >&2
+  echo "  PM2 process:     ${PM2_NAME:-unknown}" >&2
+  echo "  API port:        ${PORT:-unknown}" >&2
+  echo "  uploads:         ${SWIFTX_UPLOADS_DIR:-unknown} (not modified by recovery reporting)" >&2
+
+  if [[ "$DRY_RUN" -eq 0 && -f "$ENV_FILE" && -x "$SCRIPT_DIR/pm2-start.sh" ]] &&
+    command -v pm2 >/dev/null 2>&1; then
+    echo "  scoped PM2 inspection:" >&2
+    bash "$SCRIPT_DIR/pm2-start.sh" \
+      --status \
+      --env-file "$ENV_FILE" \
+      --name "${PM2_NAME:-swiftx-api}" >&2 || {
+      echo "  PM2 status inspection could not complete; inspect it manually with the commands in DEPLOYMENT.md." >&2
+    }
+  else
+    echo "  PM2 status inspection was unavailable during this failure." >&2
+  fi
+
+  echo "The checkout may already be serving this release if PM2 was reloaded." >&2
+  echo "Inspect the scoped process before deciding whether to keep it or recover a known-good revision." >&2
+  echo "Recovery guide: ${SCRIPT_DIR}/DEPLOYMENT.md (Recover a failed release)." >&2
+  exit "$exit_status"
+}
+
+trap report_failed_release EXIT
+
 [[ -f "$ENV_FILE" ]] || {
   echo "ERROR: production environment file not found: ${ENV_FILE}" >&2
   echo "       Copy .env.example to .env and fill it on the server." >&2
@@ -258,6 +303,7 @@ run_step bash "$SCRIPT_DIR/scripts/smoke-public-routing.sh" \
 
 echo
 echo "Deploy complete."
+echo "  Active release: ${RELEASE_REVISION} (${RELEASE_TREE_STATE} worktree)"
 echo "  Frontend files: ${SCRIPT_DIR}/artifacts/swiftx/dist/public"
 echo "  API logs:       pm2 logs ${PM2_NAME}"
 echo "  API endpoint:   127.0.0.1:${PORT}"

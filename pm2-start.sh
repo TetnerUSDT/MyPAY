@@ -5,6 +5,7 @@
 # Usage:
 #   ./pm2-start.sh
 #   ./pm2-start.sh --reload
+#   ./pm2-start.sh --status
 #   ./pm2-start.sh --dry-run
 #
 # The default action is safe auto mode: start on the first deploy, reload on
@@ -22,11 +23,12 @@ DRY_RUN=0
 
 usage() {
   cat <<'USAGE'
-Usage: ./pm2-start.sh [--reload|--start|--dry-run] [--env-file PATH] [--name NAME]
+Usage: ./pm2-start.sh [--reload|--start|--status|--dry-run] [--env-file PATH] [--name NAME]
 
 Options:
   --reload       Reload the existing SwiftX process; fail if it is not running.
   --start        Start SwiftX; fail if the configured name is already running.
+  --status       Show the scoped PM2 process state without changing PM2.
   --dry-run      Validate and print the PM2 action without changing PM2 state.
   --env-file     Use a different environment file instead of ./.env.
   --name         Override the PM2 process name (default: swiftx-api).
@@ -41,6 +43,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --start)
       ACTION="start"
+      shift
+      ;;
+    --status)
+      ACTION="status"
       shift
       ;;
     --dry-run)
@@ -81,7 +87,7 @@ fi
   echo "ERROR: ecosystem.config.cjs not found in ${SCRIPT_DIR}" >&2
   exit 1
 }
-if [[ "$DRY_RUN" -eq 0 ]]; then
+if [[ "$DRY_RUN" -eq 0 && "$ACTION" != "status" ]]; then
   [[ -f "$API_ENTRYPOINT" ]] || {
     echo "ERROR: API build not found: ${API_ENTRYPOINT}" >&2
     echo "       Run ./deploy.sh first." >&2
@@ -105,7 +111,11 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   echo "DRY RUN: expected cwd '${API_DIR}'."
   echo "DRY RUN: expected entrypoint '${API_ENTRYPOINT}'."
   echo "DRY RUN: persistent uploads directory '${SWIFTX_UPLOADS_DIR}' is present and writable."
-  echo "DRY RUN: would reload an owned process or start it if absent."
+  if [[ "$ACTION" == "status" ]]; then
+    echo "DRY RUN: would show the scoped PM2 process state."
+  else
+    echo "DRY RUN: would reload an owned process or start it if absent."
+  fi
   echo "DRY RUN: no PM2 process, saved process list, or files were changed."
   exit 0
 fi
@@ -142,12 +152,16 @@ process.stdout.write("owned");
 ' "$PM2_NAME" "$API_DIR" "$API_ENTRYPOINT"
 )"
 
+if [[ "$ACTION" == "status" ]]; then
+  echo "PM2 process '${PM2_NAME}' ownership state: ${PROCESS_STATE}"
+  if [[ "$PROCESS_STATE" != "missing" ]]; then
+    pm2 describe "$PM2_NAME" 2>&1 || true
+  fi
+  echo "No PM2 process, saved process list, or files were changed."
+  exit 0
+fi
+
 case "$PROCESS_STATE" in
-  conflict)
-    echo "ERROR: PM2 process '${PM2_NAME}' already exists but is not SwiftX." >&2
-    echo "       Refusing to reload or overwrite another project." >&2
-    exit 1
-    ;;
   owned)
     [[ "$ACTION" != "start" ]] || {
       echo "ERROR: PM2 process '${PM2_NAME}' is already running." >&2
@@ -156,6 +170,11 @@ case "$PROCESS_STATE" in
     }
     echo "Reloading owned PM2 process '${PM2_NAME}'..."
     pm2 reload "$PM2_NAME" --update-env
+    ;;
+  conflict)
+    echo "ERROR: PM2 process '${PM2_NAME}' already exists but is not SwiftX." >&2
+    echo "       Refusing to reload or overwrite another project." >&2
+    exit 1
     ;;
   missing)
     [[ "$ACTION" != "reload" ]] || {
