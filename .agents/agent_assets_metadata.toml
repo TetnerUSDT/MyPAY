@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "exxvRayuQbvVa-Od5nqrK"
+uri = "file://attached_assets/swiftx-project-current.zip"
+type = "unspecified"
+title = "SwiftX current project archive"
+description = "Актуальный архив исходников проекта без node_modules, сборок, кэшей, служебных папок, backup и screenshots."
+logical_id = "72f4105d-b18e-4d0d-927a-97ddcdc66933"
+content_hash = "sha256:c589c6724023e2d5e78c6ed6c70ef79ac143fd4fedf4acff9ae3f251197017f6"
+size = 4727208
+mtime_ms = 1789278385971
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:ba5915a9-22bb-4fcf-b022-718890a6d1c7/72f4105d-b18e-4d0d-927a-97ddcdc66933/f23295f0-78ca-4802-a0be-9166155c4c8b"
+storage_version_token = "1789278397196042"
+content_type = "application/octet-stream"
