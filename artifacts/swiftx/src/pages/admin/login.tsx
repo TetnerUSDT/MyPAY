@@ -40,9 +40,15 @@ export default function AdminLogin() {
       setLocation(`/${adminPath}/dashboard`);
     } catch (error) {
       console.error('Login error:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : '';
+      const description =
+        errorMessage === 'Admin credentials not configured'
+          ? 'На сервере не настроены ADMIN_LOGIN и ADMIN_PASSWORD'
+          : 'Неверный логин или пароль';
       toast({
         title: "Ошибка входа",
-        description: "Неверный логин или пароль",
+        description,
         variant: "destructive",
       });
     } finally {

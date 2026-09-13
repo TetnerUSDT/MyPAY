@@ -363,6 +363,9 @@ cat >"$explicit_env" <<ENV
 DATABASE_URL=mysql://upload-path-test.invalid/swiftx
 PORT=${API_PORT}
 AUTH_MODE=test
+ADMIN_LOGIN=upload-path-test-admin
+ADMIN_PASSWORD=upload-path-test-password
+ADMIN_URL=/upload-path-test-admin
 PROJECT_URL=https://upload-path-test.invalid
 SWIFTX_UPLOADS_DIR=${explicit_uploads}
 ENV

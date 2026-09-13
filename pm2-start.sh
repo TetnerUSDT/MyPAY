@@ -99,6 +99,7 @@ fi
 source "$SCRIPT_DIR/scripts/load-production-env.sh"
 load_env_file "$ENV_FILE"
 validate_production_env
+validate_admin_credentials
 validate_persistent_uploads_dir "$API_DIR"
 
 PM2_NAME="${SWIFTX_PM2_NAME:-swiftx-api}"

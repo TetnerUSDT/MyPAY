@@ -64,6 +64,14 @@ export const validateConfig = () => {
   if (isProduction() && isTestMode()) {
     console.warn('WARNING: Test mode is enabled in production environment');
   }
+
+  if (isProduction()) {
+    for (const key of ['ADMIN_LOGIN', 'ADMIN_PASSWORD', 'ADMIN_URL']) {
+      if (!process.env[key]) {
+        throw new Error(`${key} is required in production`);
+      }
+    }
+  }
   
   if (!config.database.url) {
     throw new Error('DATABASE_URL is required');

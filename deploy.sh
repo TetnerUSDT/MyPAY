@@ -130,6 +130,7 @@ NGINX_TEMPLATE="$SCRIPT_DIR/deploy/nginx/swiftx.conf.template"
 source "$SCRIPT_DIR/scripts/load-production-env.sh"
 load_env_file "$ENV_FILE"
 validate_production_env
+validate_admin_credentials
 validate_persistent_uploads_dir "$SCRIPT_DIR/artifacts/api-server"
 
 derive_nginx_domain() {

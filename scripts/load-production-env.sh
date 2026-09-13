@@ -70,6 +70,12 @@ validate_production_env() {
   fi
 }
 
+validate_admin_credentials() {
+  require_env_value "ADMIN_LOGIN" || return 1
+  require_env_value "ADMIN_PASSWORD" || return 1
+  require_env_value "ADMIN_URL" || return 1
+}
+
 validate_persistent_uploads_dir() {
   local api_dir="$1"
   local uploads_dir="${SWIFTX_UPLOADS_DIR:-/var/lib/swiftx/uploads}"
