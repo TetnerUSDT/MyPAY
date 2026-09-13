@@ -13,6 +13,7 @@ import { toPublicUploadPath } from "./paths";
 import { invalidateSettingsCache } from "./p2p-migrations";
 import { adjustUserBalance } from "./balance-helpers";
 import { registerGasFreeWallet } from "./blockchain-transfer";
+import { normalizeAdminPath } from "./admin-path";
 
 // Helper functions for MySQL compatibility
 function generateUUID(): string {
@@ -45,7 +46,7 @@ async function updateAndReturn<T extends any, R>(table: T, updateData: any, cond
 }
 
 export function registerAdminRoutes(app: Express, storage: IStorage) {
-  const adminPath = process.env.ADMIN_URL || 'admin';
+  const adminPath = normalizeAdminPath(process.env.ADMIN_URL);
 
   // Admin login check
   app.get(`/${adminPath}/api/auth/check`, requireAdmin, async (req: AdminRequest, res) => {

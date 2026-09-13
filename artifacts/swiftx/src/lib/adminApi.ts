@@ -1,6 +1,14 @@
 // Get admin URL from server
 let cachedAdminUrl: string | null = null;
 
+const normalizeAdminPath = (rawPath: unknown): string => {
+  const normalizedPath = String(rawPath ?? '')
+    .trim()
+    .replace(/^\/+|\/+$/g, '');
+
+  return normalizedPath || 'admin';
+};
+
 export const getAdminPath = async (): Promise<string> => {
   if (cachedAdminUrl) {
     return cachedAdminUrl;
@@ -9,7 +17,7 @@ export const getAdminPath = async (): Promise<string> => {
   try {
     const response = await fetch('/api/config/admin-url');
     const data = await response.json();
-    cachedAdminUrl = data.adminUrl;
+    cachedAdminUrl = normalizeAdminPath(data.adminUrl);
     return cachedAdminUrl;
   } catch (error) {
     return 'admin'; // fallback

@@ -21,6 +21,7 @@ import { notificationService } from "../notification-service";
 import { requireSuperAdmin, type AdminRequest } from "../admin-middleware";
 import express from "express";
 import path from "path";
+import { normalizeAdminPath } from "../admin-path";
 
 // Unified login schema that supports both modes
 const loginSchema = z.discriminatedUnion("mode", [
@@ -153,7 +154,7 @@ const requireApiKey = async (req: AuthenticatedRequest, res: Response, next: Nex
 export async function registerRoutes(app: Express): Promise<Server> {
   // Public endpoint to get admin URL
   app.get("/api/config/admin-url", async (req, res) => {
-    res.json({ adminUrl: process.env.ADMIN_URL || 'admin' });
+    res.json({ adminUrl: normalizeAdminPath(process.env.ADMIN_URL) });
   });
 
   // Public endpoint to get Telegram bot username for widget

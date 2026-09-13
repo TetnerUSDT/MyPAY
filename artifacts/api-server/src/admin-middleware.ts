@@ -12,18 +12,39 @@ export interface AdminRequest extends Request {
   };
 }
 
+function parseBasicCredentials(
+  authorizationHeader: string | undefined,
+): { username: string; password: string } | null {
+  if (!authorizationHeader?.startsWith("Basic ")) {
+    return null;
+  }
+
+  const encodedCredentials = authorizationHeader.slice("Basic ".length).trim();
+  if (!encodedCredentials) {
+    return null;
+  }
+
+  const credentials = Buffer.from(encodedCredentials, "base64").toString("utf-8");
+  const separatorIndex = credentials.indexOf(":");
+
+  if (separatorIndex <= 0) {
+    return null;
+  }
+
+  return {
+    username: credentials.slice(0, separatorIndex),
+    password: credentials.slice(separatorIndex + 1),
+  };
+}
+
 // Middleware to check if user is super admin (from env)
 export const requireSuperAdmin = async (req: AdminRequest, res: Response, next: NextFunction) => {
   try {
-    const authHeader = req.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith('Basic ')) {
+    const credentials = parseBasicCredentials(req.headers.authorization);
+
+    if (!credentials) {
       return res.status(401).json({ message: "Unauthorized" });
     }
-
-    const base64Credentials = authHeader.split(' ')[1];
-    const credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8');
-    const [username, password] = credentials.split(':');
 
     const superAdminLogin = process.env.ADMIN_LOGIN;
     const superAdminPassword = process.env.ADMIN_PASSWORD;
@@ -51,15 +72,11 @@ export const requireSuperAdmin = async (req: AdminRequest, res: Response, next: 
 // Middleware to check if user is admin (super admin or regular admin from DB)
 export const requireAdmin = async (req: AdminRequest, res: Response, next: NextFunction) => {
   try {
-    const authHeader = req.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith('Basic ')) {
+    const credentials = parseBasicCredentials(req.headers.authorization);
+
+    if (!credentials) {
       return res.status(401).json({ message: "Unauthorized" });
     }
-
-    const base64Credentials = authHeader.split(' ')[1];
-    const credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8');
-    const [username, password] = credentials.split(':');
 
     // Check super admin first
     const superAdminLogin = process.env.ADMIN_LOGIN;
