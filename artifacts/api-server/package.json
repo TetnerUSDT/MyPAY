@@ -8,7 +8,7 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node ../../node_modules/.pnpm/tsx@*/node_modules/tsx/dist/cli.mjs --test test/p2p-regressions.test.ts"
+    "test": "node ../../node_modules/.pnpm/tsx@*/node_modules/tsx/dist/cli.mjs --test test/*.test.ts"
   },
   "dependencies": {
     "@gasfree/gasfree-sdk": "^1.1.2",
