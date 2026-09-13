@@ -53,7 +53,10 @@ export const requireSuperAdmin = async (req: AdminRequest, res: Response, next: 
       return res.status(500).json({ message: "Admin credentials not configured" });
     }
 
-    if (username === superAdminLogin && password === superAdminPassword) {
+    if (
+      credentials.username === superAdminLogin &&
+      credentials.password === superAdminPassword
+    ) {
       req.admin = {
         username: superAdminLogin,
         isSuperAdmin: true,
@@ -83,7 +86,10 @@ export const requireAdmin = async (req: AdminRequest, res: Response, next: NextF
     const superAdminPassword = process.env.ADMIN_PASSWORD;
 
     if (superAdminLogin && superAdminPassword) {
-      if (username === superAdminLogin && password === superAdminPassword) {
+      if (
+        credentials.username === superAdminLogin &&
+        credentials.password === superAdminPassword
+      ) {
         req.admin = {
           username: superAdminLogin,
           isSuperAdmin: true,
@@ -94,14 +100,17 @@ export const requireAdmin = async (req: AdminRequest, res: Response, next: NextF
     }
 
     // Check regular admins from database
-    const [admin] = await db.select().from(admins).where(eq(admins.username, username));
+    const [admin] = await db
+      .select()
+      .from(admins)
+      .where(eq(admins.username, credentials.username));
 
     if (!admin || admin.status !== 'active') {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
     // Simple password check (in production, use bcrypt)
-    if (admin.passwordHash !== password) {
+    if (admin.passwordHash !== credentials.password) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 

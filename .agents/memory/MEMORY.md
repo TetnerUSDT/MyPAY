@@ -5,3 +5,4 @@
 - [PM2 deploy isolation](pm2-deploy-isolation.md) — A shared PM2 name is safe to reload only after verifying its cwd and entrypoint belong to this project.
 - [Admin path normalization](admin-path-normalization.md) — Admin URLs may be configured with surrounding slashes, but routes and client requests must use one normalized path segment.
 - [Deployment secret propagation](deployment-secret-propagation.md) — A saved secret is not proof that the running API process received it; verify runtime configuration before debugging credentials.
+- [Admin API proxy routing](admin-api-proxy-routing.md) — Secret admin pages must send API calls through the shared /api proxy; direct secret-path API URLs can fall into the SPA.

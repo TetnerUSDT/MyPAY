@@ -48,6 +48,20 @@ async function updateAndReturn<T extends any, R>(table: T, updateData: any, cond
 export function registerAdminRoutes(app: Express, storage: IStorage) {
   const adminPath = normalizeAdminPath(process.env.ADMIN_URL);
 
+  // Artifact routing and the production reverse proxy forward /api/* to the
+  // API service. Rewrite the proxy-safe alias back to the existing private
+  // admin route namespace before Express matches the handlers below.
+  const adminApiProxyPrefix = `/api/${adminPath}`;
+  app.use((req, _res, next) => {
+    if (
+      req.url === adminApiProxyPrefix ||
+      req.url.startsWith(`${adminApiProxyPrefix}/`)
+    ) {
+      req.url = req.url.slice("/api".length);
+    }
+    next();
+  });
+
   // Admin login check
   app.get(`/${adminPath}/api/auth/check`, requireAdmin, async (req: AdminRequest, res) => {
     res.json({

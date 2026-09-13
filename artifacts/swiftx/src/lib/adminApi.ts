@@ -73,8 +73,14 @@ export const getAdminCredentials = () => {
   if (stored) {
     try {
       const decoded = atob(stored);
-      const [username, password] = decoded.split(':');
-      adminCredentials = { username, password };
+        const separatorIndex = decoded.indexOf(':');
+        if (separatorIndex <= 0) {
+          throw new Error('Invalid stored admin credentials');
+        }
+        adminCredentials = {
+          username: decoded.slice(0, separatorIndex),
+          password: decoded.slice(separatorIndex + 1),
+        };
       return adminCredentials;
     } catch (e) {
       console.warn('Failed to decode credentials:', e);
@@ -99,7 +105,9 @@ export const adminRequest = async (endpoint: string, options: RequestInit = {}) 
   }
 
   const adminPath = await getAdminPath();
-  const url = `/${adminPath}/api${endpoint}`;
+  // Keep admin API traffic under the shared /api proxy. The admin page itself
+  // stays at /<adminPath>, while the proxy-safe API path is /api/<adminPath>.
+  const url = `/api/${adminPath}/api${endpoint}`;
   
   const headers = new Headers(options.headers);
   headers.set('Authorization', `Basic ${btoa(`${creds.username}:${creds.password}`)}`);
