@@ -161,8 +161,8 @@ pass `--url`, `--client-route`, or `--upload-path` explicitly. For example:
   --upload-path /uploads/icons/cat-logo.png
 ```
 
-To verify that PM2 keeps the validated upload directory after an API reload,
-run the isolated release regression check:
+For development and CI, the upload-path regression check uses a PM2-compatible
+fixture and does not require a PM2 daemon:
 
 ```bash
 ./scripts/test-pm2-upload-path.sh
@@ -175,6 +175,28 @@ It also simulates a replacement process that cannot start. The wrapper must
 leave the previous owned API serving, preserve the same upload directory, and
 identify the failed replacement and recovery state without using a global PM2
 operation.
+
+To run the same assertions against the real PM2 daemon, run this only on the
+release server. The release checkout path, production environment file,
+isolated SwiftX process name, production API port, and both persistent upload
+directories must be available before starting the check:
+
+```bash
+cd /srv/swiftx
+./scripts/test-pm2-upload-path.sh \
+  --real-pm2 \
+  --project-root /srv/swiftx \
+  --env-file /srv/swiftx/.env \
+  --name swiftx-upload-path-check
+```
+
+Real PM2 mode refuses to run without the real `pm2` command, a matching
+release checkout, a configured `PORT`, `SWIFTX_UPLOADS_DIR`, and writable
+persistent storage. It uses a temporary `PM2_HOME` and an isolated
+`swiftx-*` process name, so unrelated PM2 applications and the saved process
+list are not touched. It also refuses to compete with an API already serving
+the production port. Run it during release validation before SwiftX is
+started, not from a development checkout or against a live process.
 
 Check the isolated API process with:
 
