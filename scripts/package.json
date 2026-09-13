@@ -6,6 +6,7 @@
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "test:routing": "bash ./test-public-routing.sh",
+    "test:uploads": "bash ./test-upload-preflight.sh",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
