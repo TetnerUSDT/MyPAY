@@ -47,6 +47,27 @@ function assertProductionUploadsDirIsPersistent(publicUploadsDir: string): void 
 export const publicUploadsDir = resolvePublicUploadsDir();
 
 export function toPublicUploadPath(uploadedFilePath: string): string {
-  const relativeUploadPath = path.relative(publicUploadsDir, uploadedFilePath);
+  if (!path.isAbsolute(uploadedFilePath)) {
+    throw new Error(
+      "Uploaded file path must be absolute and inside the public uploads directory.",
+    );
+  }
+
+  const relativeUploadPath = path.relative(
+    publicUploadsDir,
+    path.resolve(uploadedFilePath),
+  );
+  const isInsideUploadsDirectory =
+    relativeUploadPath !== "" &&
+    relativeUploadPath !== ".." &&
+    !relativeUploadPath.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relativeUploadPath);
+
+  if (!isInsideUploadsDirectory) {
+    throw new Error(
+      `Uploaded file path must be inside the public uploads directory: ${uploadedFilePath}`,
+    );
+  }
+
   return `/uploads/${relativeUploadPath.split(path.sep).join("/")}`;
 }
