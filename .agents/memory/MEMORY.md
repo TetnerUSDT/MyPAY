@@ -2,3 +2,4 @@
 - [Playwright on Replit Nix](playwright-replit-nix.md) — Local Playwright Chromium may need explicit Nix runtime libraries; diagnose missing shared objects with ldd.
 - [Safe post-merge schema setup](safe-post-merge-schema-setup.md) — Never auto-force Drizzle schema diffs on an existing database; reconcile legacy drift explicitly.
 - [Removing managed artifacts](removing-managed-artifacts.md) — Removing an artifact directory unregisters its card and managed workflow; workflow removal alone is blocked.
+- [PM2 deploy isolation](pm2-deploy-isolation.md) — A shared PM2 name is safe to reload only after verifying its cwd and entrypoint belong to this project.

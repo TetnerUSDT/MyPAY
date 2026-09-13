@@ -11,6 +11,12 @@ out-tsc
 # dependencies
 node_modules
 
+# production environment files
+.env
+.env.*
+!.env.example
+artifacts/api-server/logs/
+
 # IDEs and editors
 /.idea
 .project
