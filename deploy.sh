@@ -136,6 +136,11 @@ else
     --name "$PM2_NAME"
 fi
 
+# Verify the public proxy only after the API is ready. Keep this behind
+# run_step so --dry-run prints the release plan without making network calls.
+run_step bash "$SCRIPT_DIR/scripts/smoke-public-routing.sh" \
+  --env-file "$ENV_FILE"
+
 echo
 echo "Deploy complete."
 echo "  Frontend files: ${SCRIPT_DIR}/artifacts/swiftx/dist/public"
@@ -143,5 +148,5 @@ echo "  API logs:       pm2 logs ${PM2_NAME}"
 echo "  API endpoint:   127.0.0.1:${PORT}"
 echo "  Configure nginx to serve the frontend directory and proxy /api and /uploads to this port."
 echo "  Reverse proxy:  ${SCRIPT_DIR}/deploy/nginx/swiftx.conf.template"
-echo "  Public routing check: ${SCRIPT_DIR}/scripts/smoke-public-routing.sh --env-file ${ENV_FILE}"
+echo "  Public routing check (manual): ${SCRIPT_DIR}/scripts/smoke-public-routing.sh --env-file ${ENV_FILE}"
 echo "  Setup guide:    ${SCRIPT_DIR}/DEPLOYMENT.md"

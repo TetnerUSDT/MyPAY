@@ -106,9 +106,11 @@ The template provides these public routes:
 
 ## Verify the deployment
 
-After the API is running and Nginx has been reloaded, run the repeatable
-public-routing smoke check. It reads the public origin from `PROJECT_URL` in
-the selected environment file:
+After the API is running and Nginx has been reloaded, `deploy.sh` automatically
+runs the repeatable public-routing smoke check. It reads the public origin from
+`PROJECT_URL` in the selected environment file. A failed route stops the
+release before it prints `Deploy complete.` The check is also available for
+recovery and verification without rebuilding or restarting the API:
 
 ```bash
 ./scripts/smoke-public-routing.sh --env-file .env

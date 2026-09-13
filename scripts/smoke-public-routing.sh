@@ -150,6 +150,7 @@ request() {
 
   REQUEST_BODY_FILE="$body_file"
   REQUEST_HEADERS_FILE="$headers_file"
+  REQUEST_URL="$url"
   echo "PASS: ${label} ${url} (HTTP ${status})"
 }
 
@@ -159,7 +160,7 @@ check_health() {
 
   request "$label" "$path"
   if ! grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"' "$REQUEST_BODY_FILE"; then
-    echo "FAIL: ${label} returned 2xx but did not contain JSON status=ok." >&2
+    echo "FAIL: ${label} at ${REQUEST_URL} returned 2xx but did not contain JSON status=ok." >&2
     head -c 240 "$REQUEST_BODY_FILE" | tr '\n' ' ' | sed 's/^/      response: /' >&2
     echo >&2
     return 1
@@ -171,14 +172,14 @@ check_health "API health" "/api/healthz"
 
 request "SPA client route" "$CLIENT_ROUTE"
 if ! grep -Fq '<div id="root">' "$REQUEST_BODY_FILE"; then
-  echo "FAIL: SPA client route ${CLIENT_ROUTE} did not return the frontend HTML root." >&2
+  echo "FAIL: SPA client route ${REQUEST_URL} did not return the frontend HTML root." >&2
   echo "      The SPA fallback may be missing or the route may be handled by the wrong upstream." >&2
   exit 1
 fi
 
 request "upload asset" "$UPLOAD_PATH"
 if ! grep -Eiq '^content-type:[[:space:]]*image/' "$REQUEST_HEADERS_FILE"; then
-  echo "FAIL: upload asset ${UPLOAD_PATH} was not served as an image response." >&2
+  echo "FAIL: upload asset ${REQUEST_URL} was not served as an image response." >&2
   echo "      An HTML response usually means /uploads was routed to the frontend instead of the API." >&2
   grep -i '^content-type:' "$REQUEST_HEADERS_FILE" | sed 's/^/      /' >&2 || true
   exit 1
