@@ -61,20 +61,31 @@ The template provides these public routes:
 
 ## Verify the deployment
 
-Run these checks after the API and Nginx are active:
+After the API is running and Nginx has been reloaded, run the repeatable
+public-routing smoke check. It reads the public origin from `PROJECT_URL` in
+the selected environment file:
 
 ```bash
-curl --fail --silent --show-error https://pay.example.com/healthz
-curl --fail --silent --show-error https://pay.example.com/api/healthz
-curl --fail --silent --show-error --head https://pay.example.com/
+./scripts/smoke-public-routing.sh --env-file .env
 ```
 
-The first two requests should return JSON with `"status":"ok"`. A direct
-client-side route should return the frontend HTML rather than a 404:
+The check fails with a clear error and a non-zero exit status if any of these
+routes is unreachable or handled by the wrong upstream:
+
+- `/healthz` returns JSON with `"status":"ok"`.
+- `/api/healthz` returns the API's native health JSON.
+- `/wallet` returns the frontend HTML, including the SPA root element.
+- `/uploads/assets/start-bg.webp` returns an image response rather than
+  the frontend's HTML fallback.
+
+To check a different origin or representative asset without changing `.env`,
+pass `--url`, `--client-route`, or `--upload-path` explicitly. For example:
 
 ```bash
-curl --fail --silent --show-error https://pay.example.com/wallet \
-  | grep -q '<div id="root">'
+./scripts/smoke-public-routing.sh \
+  --url https://pay.example.com \
+  --client-route / \
+  --upload-path /uploads/icons/cat-logo.png
 ```
 
 Check the isolated API process with:
