@@ -1,11 +1,14 @@
 # SwiftX production deployment
 
-The production process is split into two parts:
+The production process has two coordinated parts:
 
-1. `deploy.sh` installs dependencies, builds the API and frontend, and starts
-   the API with the isolated PM2 process name from `SWIFTX_PM2_NAME`.
+1. `deploy.sh` installs dependencies, builds the API and frontend, applies the
+   rendered Nginx site, and starts the API with the isolated PM2 process name
+   from `SWIFTX_PM2_NAME`.
 2. Nginx serves `artifacts/swiftx/dist/public` and forwards `/api` and
-   `/uploads` to the API's loopback port.
+   `/uploads` to the API's loopback port. Each release validates the rendered
+   site with `nginx -t`, reloads Nginx only after that succeeds, and then runs
+   the public-routing smoke check.
 
 Production uploads are stored in `/var/lib/swiftx/uploads` by default. This is
 outside the release checkout, so replacing the checkout cannot remove uploaded
@@ -21,7 +24,11 @@ the exact upload directory without creating or changing it.
 
 The repository cannot know the production hostname or the absolute checkout
 path, so the Nginx configuration is a template. Render it on the server after
-the checkout path and public hostname are known.
+the checkout path and public hostname are known. During a normal release,
+`deploy.sh` uses the checkout path automatically and derives the Nginx
+`server_name` from `PROJECT_URL`. Set `SWIFTX_DOMAIN` in `.env` when the site
+needs multiple hostnames. `SWIFTX_NGINX_CONFIG` and
+`SWIFTX_NGINX_ENABLED_CONFIG` can override the default Nginx site paths.
 
 ## First deployment
 
@@ -81,9 +88,10 @@ persistent directory without deleting the old checkout. Keep the old
 
 ## Configure Nginx
 
-Install Nginx using the server's package manager, then render and enable the
-provided site template. Replace the example values with the actual checkout
-path, public hostname, and the same port used in `.env`:
+Install Nginx using the server's package manager before the first release.
+`deploy.sh` renders and enables the provided site template on every release,
+then validates and reloads it. The following commands remain available for
+initial setup or manual recovery when a release cannot complete:
 
 ```bash
 export SWIFTX_ROOT=/srv/swiftx
@@ -101,6 +109,12 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
+The manual sequence must keep the same order: render/install the site, run
+`sudo nginx -t`, and reload only after the validation succeeds. If a release
+stops at the proxy validation step, the currently running Nginx master is not
+reloaded with the invalid configuration; correct the rendered site and rerun
+the validation and reload commands above.
+
 If the server already terminates TLS in Nginx, add the certificate-managed
 `listen 443 ssl` server settings to the rendered site. If TLS is terminated by
 another load balancer, keep Nginx on its configured internal listener and
@@ -117,11 +131,12 @@ The template provides these public routes:
 
 ## Verify the deployment
 
-After the API is running and Nginx has been reloaded, `deploy.sh` automatically
-runs the repeatable public-routing smoke check. It reads the public origin from
-`PROJECT_URL` in the selected environment file. A failed route stops the
-release before it prints `Deploy complete.` The check is also available for
-recovery and verification without rebuilding or restarting the API:
+After the API is running and the newly rendered Nginx site has passed
+validation and reload, `deploy.sh` automatically runs the repeatable
+public-routing smoke check. It reads the public origin from `PROJECT_URL` in
+the selected environment file. A failed route stops the release before it
+prints `Deploy complete.` The check is also available for recovery and
+verification without rebuilding or restarting the API:
 
 ```bash
 ./scripts/smoke-public-routing.sh --env-file .env

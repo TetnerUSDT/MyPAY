@@ -2,6 +2,8 @@
 #
 # SWIFTX_ROOT must be the absolute path to the project checkout.
 # SWIFTX_DOMAIN may contain more than one hostname separated by spaces.
+# deploy.sh substitutes the SWIFTX_* placeholders explicitly; Nginx variables
+# such as $host and $scheme must remain untouched.
 #
 # The API must use SWIFTX_UPLOADS_DIR=${SWIFTX_UPLOADS_DIR} (or another
 # persistent path outside the checkout). Nginx deliberately proxies /uploads

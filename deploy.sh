@@ -7,9 +7,10 @@
 #   ./deploy.sh --dry-run
 #   ./deploy.sh --env-file /srv/swiftx/.env
 #
-# This script builds both workspace packages and then delegates the only PM2
-# operation to pm2-start.sh. It never uses global PM2 commands such as
-# "restart all" and refuses a name collision with another project.
+# This script builds both workspace packages, applies the reverse-proxy
+# configuration, and then delegates the only PM2 operation to pm2-start.sh.
+# It never uses global PM2 commands such as "restart all" and refuses a name
+# collision with another project.
 
 set -euo pipefail
 
@@ -74,6 +75,11 @@ cd "$SCRIPT_DIR"
   echo "ERROR: frontend package is missing." >&2
   exit 1
 }
+NGINX_TEMPLATE="$SCRIPT_DIR/deploy/nginx/swiftx.conf.template"
+[[ -f "$NGINX_TEMPLATE" ]] || {
+  echo "ERROR: Nginx configuration template is missing: ${NGINX_TEMPLATE}" >&2
+  exit 1
+}
 
 # shellcheck source=scripts/load-production-env.sh
 source "$SCRIPT_DIR/scripts/load-production-env.sh"
@@ -81,8 +87,69 @@ load_env_file "$ENV_FILE"
 validate_production_env
 validate_persistent_uploads_dir "$SCRIPT_DIR/artifacts/api-server"
 
+derive_nginx_domain() {
+  if [[ -n "${SWIFTX_DOMAIN:-}" ]]; then
+    printf '%s' "$SWIFTX_DOMAIN"
+    return 0
+  fi
+
+  [[ -n "${PROJECT_URL:-}" ]] || {
+    echo "ERROR: PROJECT_URL or SWIFTX_DOMAIN is required to configure Nginx." >&2
+    return 1
+  }
+
+  node -e '
+    const rawUrl = process.argv[1];
+    try {
+      const url = new URL(rawUrl);
+      if (!["http:", "https:"].includes(url.protocol) || !url.hostname) {
+        process.exit(1);
+      }
+      process.stdout.write(url.hostname);
+    } catch {
+      process.exit(1);
+    }
+  ' "$PROJECT_URL" || {
+    echo "ERROR: PROJECT_URL must be a valid http:// or https:// URL." >&2
+    return 1
+  }
+}
+
+validate_nginx_domain() {
+  local domain="$1"
+
+  [[ -n "$domain" ]] || {
+    echo "ERROR: Nginx server name cannot be empty." >&2
+    return 1
+  }
+  [[ "$domain" =~ ^[A-Za-z0-9.*_-]+([[:space:]]+[A-Za-z0-9.*_-]+)*$ ]] || {
+    echo "ERROR: SWIFTX_DOMAIN contains unsupported Nginx server-name characters." >&2
+    echo "       Use one or more hostnames separated by spaces." >&2
+    return 1
+  }
+}
+
 PM2_NAME="${SWIFTX_PM2_NAME:-swiftx-api}"
 validate_pm2_name "$PM2_NAME"
+
+SWIFTX_ROOT="$SCRIPT_DIR"
+SWIFTX_API_PORT="$PORT"
+SWIFTX_DOMAIN="$(derive_nginx_domain)"
+validate_nginx_domain "$SWIFTX_DOMAIN"
+export SWIFTX_ROOT SWIFTX_API_PORT SWIFTX_DOMAIN
+
+NGINX_CONFIG="${SWIFTX_NGINX_CONFIG:-/etc/nginx/sites-available/swiftx.conf}"
+NGINX_ENABLED_CONFIG="${SWIFTX_NGINX_ENABLED_CONFIG:-/etc/nginx/sites-enabled/swiftx.conf}"
+for nginx_path in "$NGINX_CONFIG" "$NGINX_ENABLED_CONFIG"; do
+  [[ "$nginx_path" == /* ]] || {
+    echo "ERROR: Nginx paths must be absolute: ${nginx_path}" >&2
+    exit 1
+  }
+done
+[[ "$NGINX_CONFIG" != "$NGINX_ENABLED_CONFIG" ]] || {
+  echo "ERROR: Nginx config and enabled-link paths must be different." >&2
+  exit 1
+}
 
 for command_name in node pnpm; do
   command -v "$command_name" >/dev/null 2>&1 || {
@@ -90,6 +157,14 @@ for command_name in node pnpm; do
     exit 1
   }
 done
+if [[ "$DRY_RUN" -eq 0 ]]; then
+  for command_name in envsubst sudo nginx systemctl; do
+    command -v "$command_name" >/dev/null 2>&1 || {
+      echo "ERROR: ${command_name} is not installed or not available in PATH." >&2
+      exit 1
+    }
+  done
+fi
 
 export NODE_ENV="production"
 export SWIFTX_PM2_NAME="$PM2_NAME"
@@ -105,11 +180,43 @@ run_step() {
   "$@"
 }
 
+render_nginx_config() {
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    echo "DRY RUN: would render ${NGINX_TEMPLATE} to ${NGINX_CONFIG}."
+    echo "DRY RUN: would enable ${NGINX_ENABLED_CONFIG}."
+    return 0
+  fi
+
+  local rendered_file
+  rendered_file="$(mktemp "${TMPDIR:-/tmp}/swiftx-nginx.XXXXXX")"
+
+  if ! envsubst \
+    '${SWIFTX_DOMAIN} ${SWIFTX_ROOT} ${SWIFTX_API_PORT} ${SWIFTX_UPLOADS_DIR}' \
+    < "$NGINX_TEMPLATE" \
+    > "$rendered_file"; then
+    rm -f "$rendered_file"
+    echo "ERROR: failed to render the Nginx configuration template." >&2
+    return 1
+  fi
+
+  if ! sudo install -D -m 0644 "$rendered_file" "$NGINX_CONFIG"; then
+    rm -f "$rendered_file"
+    echo "ERROR: failed to install the rendered Nginx configuration." >&2
+    return 1
+  fi
+  rm -f "$rendered_file"
+
+  sudo install -d -m 0755 "$(dirname "$NGINX_ENABLED_CONFIG")"
+  sudo ln -sfn "$NGINX_CONFIG" "$NGINX_ENABLED_CONFIG"
+}
+
 echo "SwiftX production deploy"
 echo "  environment: ${ENV_FILE}"
 echo "  PM2 process: ${PM2_NAME}"
 echo "  API port: ${PORT}"
 echo "  Uploads:     ${SWIFTX_UPLOADS_DIR}"
+echo "  Nginx site:  ${NGINX_CONFIG}"
+echo "  Nginx domain: ${SWIFTX_DOMAIN}"
 echo
 
 run_step pnpm install --frozen-lockfile
@@ -137,8 +244,15 @@ else
     --name "$PM2_NAME"
 fi
 
-# Verify the public proxy only after the API is ready. Keep this behind
-# run_step so --dry-run prints the release plan without making network calls.
+# Render and validate the proxy before reloading it. With set -e, a failed
+# nginx -t stops the release before systemctl can reload the invalid config.
+render_nginx_config
+run_step sudo nginx -t
+run_step sudo systemctl reload nginx
+
+# Verify public routing only after both the API and the newly reloaded proxy
+# are ready. Keep this behind run_step so --dry-run prints the release plan
+# without making network calls.
 run_step bash "$SCRIPT_DIR/scripts/smoke-public-routing.sh" \
   --env-file "$ENV_FILE"
 
@@ -147,7 +261,7 @@ echo "Deploy complete."
 echo "  Frontend files: ${SCRIPT_DIR}/artifacts/swiftx/dist/public"
 echo "  API logs:       pm2 logs ${PM2_NAME}"
 echo "  API endpoint:   127.0.0.1:${PORT}"
-echo "  Configure nginx to serve the frontend directory and proxy /api and /uploads to this port."
-echo "  Reverse proxy:  ${SCRIPT_DIR}/deploy/nginx/swiftx.conf.template"
+echo "  Nginx config:   ${NGINX_CONFIG}"
+echo "  Nginx recovery: sudo nginx -t && sudo systemctl reload nginx"
 echo "  Public routing check (manual): ${SCRIPT_DIR}/scripts/smoke-public-routing.sh --env-file ${ENV_FILE}"
 echo "  Setup guide:    ${SCRIPT_DIR}/DEPLOYMENT.md"
