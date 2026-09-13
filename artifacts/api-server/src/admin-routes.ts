@@ -9,9 +9,11 @@ import { telegramService } from "./telegram-service";
 import { notificationService } from "./notification-service";
 import { formatBalance } from "./utils";
 import { systemUpload } from "./upload-config";
+import { publicUploadsDir } from "./paths";
 import { invalidateSettingsCache } from "./p2p-migrations";
 import { adjustUserBalance } from "./balance-helpers";
 import { registerGasFreeWallet } from "./blockchain-transfer";
+import path from "node:path";
 
 // Helper functions for MySQL compatibility
 function generateUUID(): string {
@@ -1232,11 +1234,11 @@ export function registerAdminRoutes(app: Express, storage: IStorage) {
       }
       
       // Build full URL for Telegram API
-      // req.file.path is "public/uploads/system/image-xxx.png"
-      // We need URL like "https://domain.com/uploads/system/image-xxx.png"
+      // Keep the public URL independent of the on-disk upload directory.
       const protocol = req.protocol;
       const host = req.get('host');
-      const publicPath = req.file.path.replace('public/', '');
+      const relativeUploadPath = path.relative(publicUploadsDir, req.file.path);
+      const publicPath = `uploads/${relativeUploadPath.split(path.sep).join("/")}`;
       const imageUrl = `${protocol}://${host}/${publicPath}`;
       
       res.json({ imageUrl });

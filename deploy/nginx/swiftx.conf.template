@@ -2,6 +2,10 @@
 #
 # SWIFTX_ROOT must be the absolute path to the project checkout.
 # SWIFTX_DOMAIN may contain more than one hostname separated by spaces.
+#
+# The API must use SWIFTX_UPLOADS_DIR=${SWIFTX_UPLOADS_DIR} (or another
+# persistent path outside the checkout). Nginx deliberately proxies /uploads
+# to the API, so this location remains consistent across release checkouts.
 
 upstream swiftx_api {
     server 127.0.0.1:${SWIFTX_API_PORT};
@@ -57,8 +61,8 @@ server {
         proxy_read_timeout 60s;
     }
 
-    # Uploads are served by the API because user-uploaded files live in
-    # artifacts/api-server/public/uploads, not in the frontend build.
+    # Uploads are served by the API from SWIFTX_UPLOADS_DIR, not from the
+    # frontend build or the disposable release checkout.
     location = /uploads {
         proxy_pass http://swiftx_api;
         proxy_http_version 1.1;

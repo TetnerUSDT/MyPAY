@@ -7,6 +7,11 @@ The production process is split into two parts:
 2. Nginx serves `artifacts/swiftx/dist/public` and forwards `/api` and
    `/uploads` to the API's loopback port.
 
+Production uploads are stored in `/var/lib/swiftx/uploads` by default. This is
+outside the release checkout, so replacing the checkout cannot remove uploaded
+assets or KYC documents. Set `SWIFTX_UPLOADS_DIR` to a different absolute,
+persistent directory if the server uses another storage mount.
+
 The repository cannot know the production hostname or the absolute checkout
 path, so the Nginx configuration is a template. Render it on the server after
 the checkout path and public hostname are known.
@@ -24,6 +29,45 @@ cp .env.example .env
 `PORT` (or `SWIFTX_API_PORT`) is the API port. The API binds to that port on
 loopback and is not intended to be exposed directly to the internet.
 
+Create the persistent directory before the first API start and give it to the
+same OS user that runs PM2:
+
+```bash
+export SWIFTX_UPLOADS_DIR=/var/lib/swiftx/uploads
+sudo install -d -m 0750 "$SWIFTX_UPLOADS_DIR"
+sudo chown "$(id -un):$(id -gn)" "$SWIFTX_UPLOADS_DIR"
+```
+
+If PM2 runs under a different user, replace the `chown` arguments with that
+user and group. Put the same `SWIFTX_UPLOADS_DIR` assignment in the
+production `.env` file used by `deploy.sh`.
+
+### Migrate existing uploads
+
+For an existing installation, copy the current checkout's uploads while the
+old API remains online. The copy is additive and does not delete files from
+either location:
+
+```bash
+export SWIFTX_ROOT=/srv/swiftx
+export SWIFTX_UPLOADS_DIR=/var/lib/swiftx/uploads
+
+sudo install -d -m 0750 "$SWIFTX_UPLOADS_DIR"
+sudo chown "$(id -un):$(id -gn)" "$SWIFTX_UPLOADS_DIR"
+
+# Initial copy; the old API can continue serving uploads during this step.
+rsync -a --ignore-existing \
+  "$SWIFTX_ROOT/artifacts/api-server/public/uploads/" \
+  "$SWIFTX_UPLOADS_DIR/"
+```
+
+Add `SWIFTX_UPLOADS_DIR=/var/lib/swiftx/uploads` to the production `.env`,
+then run the same `rsync` command one more time immediately before deploying.
+The second pass captures files uploaded during the first pass. Finally run
+`./deploy.sh --env-file .env`; the PM2 reload switches the API to the
+persistent directory without deleting the old checkout. Keep the old
+`public/uploads` directory until the new deployment has been verified.
+
 ## Configure Nginx
 
 Install Nginx using the server's package manager, then render and enable the
@@ -34,8 +78,9 @@ path, public hostname, and the same port used in `.env`:
 export SWIFTX_ROOT=/srv/swiftx
 export SWIFTX_DOMAIN=pay.example.com
 export SWIFTX_API_PORT=10014
+export SWIFTX_UPLOADS_DIR=/var/lib/swiftx/uploads
 
-envsubst '${SWIFTX_DOMAIN} ${SWIFTX_ROOT} ${SWIFTX_API_PORT}' \
+envsubst '${SWIFTX_DOMAIN} ${SWIFTX_ROOT} ${SWIFTX_API_PORT} ${SWIFTX_UPLOADS_DIR}' \
   < deploy/nginx/swiftx.conf.template \
   | sudo tee /etc/nginx/sites-available/swiftx.conf >/dev/null
 

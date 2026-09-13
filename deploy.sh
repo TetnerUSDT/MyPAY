@@ -108,6 +108,7 @@ echo "SwiftX production deploy"
 echo "  environment: ${ENV_FILE}"
 echo "  PM2 process: ${PM2_NAME}"
 echo "  API port: ${PORT}"
+echo "  Uploads:     ${SWIFTX_UPLOADS_DIR:-/var/lib/swiftx/uploads}"
 echo
 
 run_step pnpm install --frozen-lockfile
