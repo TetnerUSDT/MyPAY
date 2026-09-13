@@ -4,6 +4,7 @@ const mode = process.argv[2] ?? "pass";
 const supportedModes = new Set([
   "pass",
   "api-unreachable",
+  "api-hanging",
   "spa-fallback",
   "upload-content-type",
 ]);
@@ -27,6 +28,11 @@ const server = http.createServer((request, response) => {
   if (path === "/healthz" || path === "/api/healthz") {
     if (mode === "api-unreachable" && path === "/api/healthz") {
       request.socket.destroy();
+      return;
+    }
+
+    if (mode === "api-hanging" && path === "/api/healthz") {
+      // Keep the request open so the routing checker must enforce its timeout.
       return;
     }
 

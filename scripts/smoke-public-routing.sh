@@ -122,8 +122,9 @@ request() {
   local error_file="$TMP_DIR/${label}.error"
   local url="${PUBLIC_URL}${path}"
   local status
+  local curl_exit
 
-  if ! status="$(
+  if status="$(
     curl \
       --silent \
       --show-error \
@@ -134,7 +135,14 @@ request() {
       --write-out '%{http_code}' \
       "$url" 2>"$error_file"
   )"; then
-    echo "FAIL: ${label} could not reach ${url}." >&2
+    curl_exit=0
+  else
+    curl_exit=$?
+    if [[ "$curl_exit" == "28" ]]; then
+      echo "FAIL: ${label} timed out after ${TIMEOUT_SECONDS}s while reaching ${url}." >&2
+    else
+      echo "FAIL: ${label} could not reach ${url}." >&2
+    fi
     sed 's/^/      /' "$error_file" >&2
     return 1
   fi

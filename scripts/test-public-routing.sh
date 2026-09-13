@@ -109,6 +109,10 @@ assert_fails \
   "api-unreachable" \
   "FAIL: API health could not reach"
 assert_fails \
+  "API timeout" \
+  "api-hanging" \
+  "FAIL: API health timed out after 2s"
+assert_fails \
   "SPA fallback" \
   "spa-fallback" \
   "did not return the frontend HTML root"
