@@ -7,6 +7,7 @@
     "hello": "tsx ./src/hello.ts",
     "test:routing": "bash ./test-public-routing.sh",
     "test:uploads": "bash ./test-upload-preflight.sh",
+    "test:pm2-uploads": "bash ./test-pm2-upload-path.sh",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

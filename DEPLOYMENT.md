@@ -161,6 +161,17 @@ pass `--url`, `--client-route`, or `--upload-path` explicitly. For example:
   --upload-path /uploads/icons/cat-logo.png
 ```
 
+To verify that PM2 keeps the validated upload directory after an API reload,
+run the isolated release regression check:
+
+```bash
+./scripts/test-pm2-upload-path.sh
+```
+
+It starts the built API with a temporary persistent directory, reloads the
+same owned process, serves a marker file from that directory, and checks that
+the documented `/var/lib/swiftx/uploads` default is also passed to the process.
+
 Check the isolated API process with:
 
 ```bash
