@@ -79,6 +79,7 @@ cd "$SCRIPT_DIR"
 source "$SCRIPT_DIR/scripts/load-production-env.sh"
 load_env_file "$ENV_FILE"
 validate_production_env
+validate_persistent_uploads_dir "$SCRIPT_DIR/artifacts/api-server"
 
 PM2_NAME="${SWIFTX_PM2_NAME:-swiftx-api}"
 validate_pm2_name "$PM2_NAME"
@@ -108,7 +109,7 @@ echo "SwiftX production deploy"
 echo "  environment: ${ENV_FILE}"
 echo "  PM2 process: ${PM2_NAME}"
 echo "  API port: ${PORT}"
-echo "  Uploads:     ${SWIFTX_UPLOADS_DIR:-/var/lib/swiftx/uploads}"
+echo "  Uploads:     ${SWIFTX_UPLOADS_DIR}"
 echo
 
 run_step pnpm install --frozen-lockfile

@@ -12,6 +12,13 @@ outside the release checkout, so replacing the checkout cannot remove uploaded
 assets or KYC documents. Set `SWIFTX_UPLOADS_DIR` to a different absolute,
 persistent directory if the server uses another storage mount.
 
+Every deployment preflight checks that this directory is absolute, outside
+`artifacts/api-server`, already exists, and is writable by the deploy user.
+The check runs before dependency installation, builds, or PM2 changes. A
+failure stops the release while the current API remains running. Use
+`./deploy.sh --dry-run --env-file .env` to validate the environment and print
+the exact upload directory without creating or changing it.
+
 The repository cannot know the production hostname or the absolute checkout
 path, so the Nginx configuration is a template. Render it on the server after
 the checkout path and public hostname are known.
@@ -41,6 +48,10 @@ sudo chown "$(id -un):$(id -gn)" "$SWIFTX_UPLOADS_DIR"
 If PM2 runs under a different user, replace the `chown` arguments with that
 user and group. Put the same `SWIFTX_UPLOADS_DIR` assignment in the
 production `.env` file used by `deploy.sh`.
+
+The directory must be created before running `deploy.sh`; the deploy scripts
+do not create it as a fallback. This prevents a release from going live with
+an upload path that only fails when the first file is written.
 
 ### Migrate existing uploads
 

@@ -93,6 +93,7 @@ fi
 source "$SCRIPT_DIR/scripts/load-production-env.sh"
 load_env_file "$ENV_FILE"
 validate_production_env
+validate_persistent_uploads_dir "$API_DIR"
 
 PM2_NAME="${SWIFTX_PM2_NAME:-swiftx-api}"
 validate_pm2_name "$PM2_NAME"
@@ -103,6 +104,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   echo "DRY RUN: would manage PM2 process '${PM2_NAME}'."
   echo "DRY RUN: expected cwd '${API_DIR}'."
   echo "DRY RUN: expected entrypoint '${API_ENTRYPOINT}'."
+  echo "DRY RUN: persistent uploads directory '${SWIFTX_UPLOADS_DIR}' is present and writable."
   echo "DRY RUN: would reload an owned process or start it if absent."
   echo "DRY RUN: no PM2 process, saved process list, or files were changed."
   exit 0

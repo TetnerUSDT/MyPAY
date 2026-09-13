@@ -70,6 +70,61 @@ validate_production_env() {
   fi
 }
 
+validate_persistent_uploads_dir() {
+  local api_dir="$1"
+  local uploads_dir="${SWIFTX_UPLOADS_DIR:-/var/lib/swiftx/uploads}"
+  local api_real uploads_candidate uploads_real
+
+  if [[ "$uploads_dir" != /* ]]; then
+    echo "ERROR: SWIFTX_UPLOADS_DIR must be an absolute path." >&2
+    echo "       Received: ${uploads_dir}" >&2
+    return 1
+  fi
+
+  api_real="$(readlink -f -- "$api_dir")" || {
+    echo "ERROR: could not resolve the API checkout: ${api_dir}" >&2
+    return 1
+  }
+  uploads_candidate="$(readlink -m -- "$uploads_dir")" || {
+    echo "ERROR: could not resolve SWIFTX_UPLOADS_DIR: ${uploads_dir}" >&2
+    return 1
+  }
+
+  if [[ "$uploads_candidate" == "$api_real" || "$uploads_candidate" == "$api_real/"* ]]; then
+    echo "ERROR: SWIFTX_UPLOADS_DIR must be outside the disposable API checkout." >&2
+    echo "       API checkout: ${api_real}" >&2
+    echo "       Uploads path:  ${uploads_dir}" >&2
+    return 1
+  fi
+
+  [[ -d "$uploads_dir" ]] || {
+    echo "ERROR: SWIFTX_UPLOADS_DIR does not exist as a directory: ${uploads_dir}" >&2
+    echo "       Create it and grant the PM2 user write access before deploying." >&2
+    return 1
+  }
+
+  [[ -w "$uploads_dir" ]] || {
+    echo "ERROR: SWIFTX_UPLOADS_DIR is not writable by the deploy user: ${uploads_dir}" >&2
+    echo "       Grant the PM2 user write access before deploying." >&2
+    return 1
+  }
+
+  uploads_real="$(readlink -f -- "$uploads_dir")" || {
+    echo "ERROR: could not resolve SWIFTX_UPLOADS_DIR: ${uploads_dir}" >&2
+    return 1
+  }
+  if [[ "$uploads_real" == "$api_real" || "$uploads_real" == "$api_real/"* ]]; then
+    echo "ERROR: SWIFTX_UPLOADS_DIR resolves inside the disposable API checkout." >&2
+    echo "       API checkout: ${api_real}" >&2
+    echo "       Resolved path: ${uploads_real}" >&2
+    return 1
+  fi
+
+  # Keep the default explicit so PM2 and the API receive the same path that
+  # the preflight checked.
+  export SWIFTX_UPLOADS_DIR="$uploads_dir"
+}
+
 validate_pm2_name() {
   local name="$1"
 
