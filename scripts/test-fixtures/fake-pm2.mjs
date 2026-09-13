@@ -94,6 +94,7 @@ if (action === "jlist") {
         pm2_env: {
           pm_cwd: state.cwd,
           pm_exec_path: state.entrypoint,
+          pid: state.pid,
           status: "online",
           env: state.env,
         },
@@ -106,6 +107,10 @@ if (action === "jlist") {
 
 if (action === "start" || action === "reload") {
   const previous = readState();
+  if (action === "reload" && process.env.SWIFTX_TEST_PM2_FAIL_RELOAD === "1") {
+    process.stderr.write("simulated replacement process failed to start\n");
+    process.exit(23);
+  }
   if (action === "reload") stopProcess(previous);
   startProcess(getApp());
   process.exit(0);

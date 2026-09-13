@@ -171,6 +171,10 @@ run the isolated release regression check:
 It starts the built API with a temporary persistent directory, reloads the
 same owned process, serves a marker file from that directory, and checks that
 the documented `/var/lib/swiftx/uploads` default is also passed to the process.
+It also simulates a replacement process that cannot start. The wrapper must
+leave the previous owned API serving, preserve the same upload directory, and
+identify the failed replacement and recovery state without using a global PM2
+operation.
 
 Check the isolated API process with:
 
@@ -186,8 +190,9 @@ directory so the operator can distinguish a failed check from a stopped API.
 
 ## Recover a failed release
 
-If the public-routing check fails after PM2 reload, do not immediately reload
-again or delete the process. First inspect exactly what is active:
+If a PM2 replacement process fails during reload, the wrapper reports whether
+the previous owned API remains active. Do not immediately reload again or
+delete the process. Confirm the recovery state and upload path first:
 
 ```bash
 cd /srv/swiftx
@@ -197,6 +202,14 @@ git status --short
 git log --oneline --decorate -n 10
 ./scripts/smoke-public-routing.sh --env-file .env
 ```
+
+When the reload output says that the previous owned process remains active,
+the API and persistent uploads should continue serving while the failed
+release is investigated. The wrapper returns the replacement's failure status
+so `deploy.sh` still stops the release. If it reports that the named process
+is not active, do not use `pm2 restart all`, `pm2 delete`, or a global reload;
+inspect the named process and recover from a known-good revision as described
+below.
 
 If the API process is healthy and the failed route was caused by a transient
 proxy or external check, keep the active checkout and rerun the smoke check

@@ -169,7 +169,60 @@ case "$PROCESS_STATE" in
       exit 1
     }
     echo "Reloading owned PM2 process '${PM2_NAME}'..."
-    pm2 reload "$PM2_NAME" --update-env
+    if pm2 reload "$PM2_NAME" --update-env; then
+      :
+    else
+      reload_status="$?"
+      post_reload_state="$(
+        pm2 jlist | node -e '
+const fs = require("node:fs");
+
+const [name, expectedCwd, expectedEntrypoint] = process.argv.slice(1);
+const input = fs.readFileSync(0, "utf8").trim();
+const processes = input ? JSON.parse(input) : [];
+const processInfo = processes.find((item) => item.name === name);
+
+if (!processInfo) {
+  process.stdout.write("missing");
+  process.exit(0);
+}
+
+const env = processInfo.pm2_env || {};
+const actualCwd = env.pm_cwd || "";
+const actualEntrypoint = env.pm_exec_path || processInfo.pm_exec_path || "";
+const status = env.status || "";
+
+if (
+  actualCwd !== expectedCwd ||
+  actualEntrypoint !== expectedEntrypoint ||
+  status !== "online"
+) {
+  process.stdout.write("not-active");
+  process.exit(0);
+}
+
+process.stdout.write("owned");
+' "$PM2_NAME" "$API_DIR" "$API_ENTRYPOINT"
+      )" || post_reload_state="unknown"
+
+      echo "ERROR: PM2 reload for '${PM2_NAME}' failed; the replacement process did not start (exit status ${reload_status})." >&2
+      case "$post_reload_state" in
+        owned)
+          echo "RECOVERY: previous owned PM2 process '${PM2_NAME}' remains active." >&2
+          echo "RECOVERY: persistent uploads directory remains '${SWIFTX_UPLOADS_DIR}'." >&2
+          echo "RECOVERY: no unrelated PM2 processes were changed." >&2
+          ;;
+        missing|not-active)
+          echo "RECOVERY: previous owned PM2 process '${PM2_NAME}' is not active." >&2
+          echo "RECOVERY: no unrelated PM2 processes were changed; inspect the named process before retrying." >&2
+          ;;
+        *)
+          echo "RECOVERY: could not confirm the named PM2 process state." >&2
+          echo "RECOVERY: no unrelated PM2 processes were changed; inspect '${PM2_NAME}' before retrying." >&2
+          ;;
+      esac
+      exit "$reload_status"
+    fi
     ;;
   conflict)
     echo "ERROR: PM2 process '${PM2_NAME}' already exists but is not SwiftX." >&2

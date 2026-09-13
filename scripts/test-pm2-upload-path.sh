@@ -69,6 +69,15 @@ assert_process_upload_dir() {
   assert_contains "PM2 process state" "\"SWIFTX_UPLOADS_DIR\":\"${expected}\"" "$state"
 }
 
+read_process_pid() {
+  read_process_state | node -e '
+const fs = require("node:fs");
+const processes = JSON.parse(fs.readFileSync(0, "utf8"));
+if (!processes[0]?.pm2_env?.pid) process.exit(1);
+process.stdout.write(String(processes[0].pm2_env.pid));
+'
+}
+
 mkdir -p "$FAKE_BIN"
 cat >"$FAKE_BIN/pm2" <<'PM2'
 #!/usr/bin/env bash
@@ -131,6 +140,49 @@ assert_contains \
   "explicit upload path" \
   "$(curl --silent --show-error --fail "http://127.0.0.1:${API_PORT}/uploads/reload-marker.txt")"
 echo "PASS: reload keeps the explicit upload directory"
+
+previous_pid="$(read_process_pid)"
+if failed_reload_output="$(
+  SWIFTX_TEST_PM2_FAIL_RELOAD=1 \
+    "$ROOT_DIR/pm2-start.sh" \
+    --reload \
+    --env-file "$explicit_env" \
+    --name "$PROCESS_NAME" 2>&1
+)"; then
+  printf '%s\n' "$failed_reload_output" >&2
+  fail "PM2 wrapper unexpectedly accepted the failed replacement process."
+fi
+assert_contains \
+  "failed reload" \
+  "ERROR: PM2 reload for '${PROCESS_NAME}' failed; the replacement process did not start (exit status 23)." \
+  "$failed_reload_output"
+assert_contains \
+  "failed reload recovery" \
+  "RECOVERY: previous owned PM2 process '${PROCESS_NAME}' remains active." \
+  "$failed_reload_output"
+assert_contains \
+  "failed reload upload recovery" \
+  "RECOVERY: persistent uploads directory remains '${explicit_uploads}'." \
+  "$failed_reload_output"
+assert_contains \
+  "failed reload PM2 scope" \
+  "RECOVERY: no unrelated PM2 processes were changed." \
+  "$failed_reload_output"
+assert_contains \
+  "failed replacement process" \
+  "simulated replacement process failed to start" \
+  "$failed_reload_output"
+recovered_pid="$(read_process_pid)"
+[[ "$recovered_pid" == "$previous_pid" ]] || {
+  fail "failed reload replaced the previous process (before=${previous_pid}, after=${recovered_pid})."
+}
+wait_for_health
+assert_process_upload_dir "$explicit_uploads"
+assert_contains \
+  "failed reload upload response" \
+  "explicit upload path" \
+  "$(curl --silent --show-error --fail "http://127.0.0.1:${API_PORT}/uploads/reload-marker.txt")"
+echo "PASS: failed replacement keeps the previous API and upload directory"
 
 "$FAKE_BIN/pm2" delete "$PROCESS_NAME"
 rm -f "$STATE_FILE"
