@@ -3,6 +3,8 @@ const path = require("node:path");
 const processName = process.env.SWIFTX_PM2_NAME || "swiftx-api";
 const apiPort = process.env.PORT || process.env.SWIFTX_API_PORT;
 
+// Nginx forwards the public /api, /uploads, and /healthz routes to this
+// loopback port. Keep it aligned with PORT in the production environment.
 if (!apiPort) {
   throw new Error(
     "PORT or SWIFTX_API_PORT must be set before starting SwiftX with PM2.",

@@ -1,0 +1,87 @@
+# SwiftX production reverse proxy.
+#
+# SWIFTX_ROOT must be the absolute path to the project checkout.
+# SWIFTX_DOMAIN may contain more than one hostname separated by spaces.
+
+upstream swiftx_api {
+    server 127.0.0.1:${SWIFTX_API_PORT};
+    keepalive 16;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${SWIFTX_DOMAIN};
+
+    root ${SWIFTX_ROOT}/artifacts/swiftx/dist/public;
+    index index.html;
+
+    # Bound request size at the proxy; adjust this to the server's policy if
+    # larger user-uploaded documents are required.
+    client_max_body_size 25m;
+
+    # Expose a stable proxy-level health URL for load balancers and monitors.
+    # The API's native endpoint is /api/healthz.
+    location = /healthz {
+        proxy_pass http://swiftx_api/api/healthz;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Cache-Control "no-store" always;
+    }
+
+    # Keep API paths intact when forwarding them to Express.
+    location = /api {
+        proxy_pass http://swiftx_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $http_connection;
+        proxy_read_timeout 60s;
+    }
+
+    location ^~ /api/ {
+        proxy_pass http://swiftx_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $http_connection;
+        proxy_read_timeout 60s;
+    }
+
+    # Uploads are served by the API because user-uploaded files live in
+    # artifacts/api-server/public/uploads, not in the frontend build.
+    location = /uploads {
+        proxy_pass http://swiftx_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location ^~ /uploads/ {
+        proxy_pass http://swiftx_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+
+    # Vite emits assets into this directory. try_files keeps direct visits to
+    # client-side routes working without sending API or upload requests to the
+    # SPA entrypoint.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
