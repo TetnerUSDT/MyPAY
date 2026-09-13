@@ -18,6 +18,8 @@ if (!supportedModes.has(mode)) {
 }
 
 const frontendHtml = "<!doctype html><html><body><div id=\"root\"></div></body></html>";
+const clientRoute = "/dashboard";
+const uploadPath = "/media/custom-start-bg.webp";
 
 const server = http.createServer((request, response) => {
   const path = new URL(request.url ?? "/", "http://127.0.0.1").pathname;
@@ -33,7 +35,7 @@ const server = http.createServer((request, response) => {
     return;
   }
 
-  if (path.startsWith("/uploads/")) {
+  if (path === uploadPath) {
     if (mode === "upload-content-type") {
       response.writeHead(200, { "content-type": "text/html" });
       response.end(frontendHtml);
@@ -45,7 +47,7 @@ const server = http.createServer((request, response) => {
     return;
   }
 
-  if (path === "/wallet") {
+  if (path === clientRoute) {
     if (mode === "spa-fallback") {
       response.writeHead(200, { "content-type": "text/html" });
       response.end("<!doctype html><html><body>wrong upstream</body></html>");

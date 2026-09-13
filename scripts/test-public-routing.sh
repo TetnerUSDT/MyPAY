@@ -8,6 +8,8 @@ FIXTURE_SERVER="$SCRIPT_DIR/test-fixtures/public-routing-server.mjs"
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/swiftx-routing-test.XXXXXX")"
 FIXTURE_PID=""
 FIXTURE_URL=""
+CLIENT_ROUTE="/dashboard"
+UPLOAD_PATH="/media/custom-start-bg.webp"
 
 cleanup() {
   if [[ -n "$FIXTURE_PID" ]] && kill -0 "$FIXTURE_PID" 2>/dev/null; then
@@ -60,7 +62,11 @@ stop_fixture() {
 
 assert_passes() {
   local output
-  if ! output="$("$ROUTING_CHECK" --url "$FIXTURE_URL" --timeout 2 2>&1)"; then
+  if ! output="$("$ROUTING_CHECK" \
+    --url "$FIXTURE_URL" \
+    --client-route "$CLIENT_ROUTE" \
+    --upload-path "$UPLOAD_PATH" \
+    --timeout 2 2>&1)"; then
     printf '%s\n' "$output" >&2
     fail "all-routes-pass fixture was rejected."
   fi
@@ -80,7 +86,11 @@ assert_fails() {
 
   stop_fixture
   start_fixture "$mode"
-  if output="$("$ROUTING_CHECK" --url "$FIXTURE_URL" --timeout 2 2>&1)"; then
+  if output="$("$ROUTING_CHECK" \
+    --url "$FIXTURE_URL" \
+    --client-route "$CLIENT_ROUTE" \
+    --upload-path "$UPLOAD_PATH" \
+    --timeout 2 2>&1)"; then
     printf '%s\n' "$output" >&2
     fail "$label fixture unexpectedly passed."
   fi
